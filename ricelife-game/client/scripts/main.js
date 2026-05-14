@@ -32,7 +32,7 @@ function animate (canvas, ctx) {
         last = current - (elapsed % fpsInterval);
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 10, 10);
-        drawRotate(ctx, img, [400, 300 - z], i % 360);
+        drawRotate(ctx, img, [400 + z, 300], i % 360);
     }
     activeKeys.ArrowUp ? z++ : null;
     activeKeys.ArrowDown ? z-- : null;
