@@ -1,0 +1,11 @@
+#app {
+    position: fixed;
+    width: auto;
+    height: 100dvh;
+    margin: 0;
+
+}
+body {
+    margin: 0;
+    padding: 0;
+}
