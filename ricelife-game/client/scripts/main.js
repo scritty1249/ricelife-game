@@ -73,8 +73,8 @@ function animate (canvas, ctx) {
                 new Vector(currentPos.x, currentPos.barrelY),
                 Direction(currentPos.rotation)
                     .mul(1000),
-                new Vector(0, 150),
-                0.01
+                new Vector(0, 500),
+                0.001
             ));
         }
         
