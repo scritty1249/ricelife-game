@@ -54,11 +54,24 @@ export class Vector {
             ? (this.x = newX, this.y = newY, this)
             : new Vector(newX, newY);
     }
+    abs (mutate = false) {
+        if (mutate) {
+            this.x = Math.abs(this.x);
+            this.y = Math.abs(this.y);
+            return this;
+        } else {
+            return new Vector(
+                Math.abs(this.x),
+                Math.abs(this.y)
+            );
+        }
+    }
     transpose (mutate = false) {
         if (mutate) {
             const x = this.x;
             this.x = this.y;
             this.y = x;
+            return this;
         } else {
             return new Vector(this.y, this.x);
         }
