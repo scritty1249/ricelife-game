@@ -17,7 +17,7 @@ export class Path extends TrackableObject { // points should be ordered clockwis
             for (const point of tweenPoints(this.#points[i], this.#points[i + 1], resolution))
                 newPoints.push(point);
         }
-        this.#points = newPoints;
+        this.apply(...newPoints);
     }
 
     draw (ctx) { // only draw the path
@@ -31,6 +31,7 @@ export class Path extends TrackableObject { // points should be ordered clockwis
 
     get isPath () { return true }
     get points () { return this.#points }
+    get length () { return this.#points.length }
     apply (...values) {
         this.#points.splice(0, this.#points.length);
         this.#points.push(...(values.length === 1 && values[0]?.isPath ? values[0] : values));

@@ -28,7 +28,11 @@ function animate (state, config) {
             tank.draw(ctx);
         for (const projectile of Object.values(state.projectiles)) {
             // [!] placeholder
-            drawCircle(ctx, 10, projectile.position);
+            drawCircle(ctx, 10, projectile.position,
+                state.terrain.isIntersecting(projectile.position)
+                    ? "green"
+                    : "red"
+            );
             projectile.update(1 / config.fps);
         }
     }
