@@ -7,6 +7,8 @@ export function drawTerrain (ctx, polygon, fillColor, edgeColor, gradientWidth =
     ctx.save();
     polygon.draw(ctx);
     ctx.clip(); 
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
     const topEdge = polygon.path.clone();
     topEdge.splice(-2); // trim off the bottom (opening the path)
     for (let i = 0; i <= gradientWidth; i+=resolution) {
