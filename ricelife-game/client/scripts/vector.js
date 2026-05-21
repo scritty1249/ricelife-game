@@ -105,6 +105,10 @@ export class Vector {
     }
 
     // overload / basic operations
+    *[Symbol.iterator]() {
+        yield this.x;
+        yield this.y;
+    }
     clone() {
         return new Vector(this.x, this.y);
     }

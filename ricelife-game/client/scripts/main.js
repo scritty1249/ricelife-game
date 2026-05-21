@@ -1,5 +1,6 @@
 import { Projectile } from "./physics.js";
 import { Vector, Direction } from "./vector.js";
+import { Polygon } from "./polygon.js";
 
 function drawRotate (ctx, img, dx, dy, degrees) {
     const rads = degrees * Math.PI / 180;
@@ -54,7 +55,7 @@ let last = performance.now();
 const tankImg = new Image()
 const barrelImg = new Image()
 let projectiles = [];
-
+const polys = [];
 function animate (canvas, ctx) {
     const current = performance.now();
     const elapsed = current - last;
@@ -66,6 +67,16 @@ function animate (canvas, ctx) {
         projectiles.forEach((proj) => {
             drawCircle(ctx, 10, proj.position);
             proj.update(1 / fps);
+        });
+        polys.forEach((poly) => {
+            poly.draw(ctx);
+            // ctx.strokeStyle = 'orange';
+            // ctx.lineWidth = 3;
+            // ctx.lineCap = 'round';
+            // ctx.lineJoin = 'round';
+            // ctx.stroke();
+            ctx.fillStyle = 'orange';
+            ctx.fill();
         });
         if (activeKeys.Space) {
             activeKeys.Space = false;
@@ -84,6 +95,23 @@ function animate (canvas, ctx) {
     activeKeys.ArrowLeft ? currentPos.rotation-- : null;
     activeKeys.ArrowRight ? currentPos.rotation++ : null;
     requestAnimationFrame(() => animate(canvas, ctx));
+}
+
+function generateWave(length, resolution = 1, modifier = (vector) => {}, freq = 0.03, amplitude = 60) {
+    const points = [];
+    const phases = [Math.random() * Math.PI, Math.random() * Math.PI];
+    const randAmp = 30 + Math.random() * 30; // this second amplitude determines variation amount
+
+    for (let x = 0; x < length; x+=resolution) {
+        const vector = new Vector(x,
+            Math.sin(x * freq + phases[0]) * amplitude
+            + Math.sin(x * freq * 2.3 + phases[1]) * randAmp
+        );
+        modifier(vector);
+        points.push(vector);
+
+    }
+    return points;
 }
 
 function main() {
@@ -106,7 +134,13 @@ function main() {
     Promise.all([
         tankImg.onload,
         barrelImg.onload
-    ]).then(() => animate(canvas, ctx));
+    ]).then(() => {
+        // setup
+        const wave = generateWave(canvas.width, 1, (vector) => (vector.y = ground + vector.y));
+        const terrain = new Polygon(...wave, new Vector(canvas.width, canvas.height), new Vector(0, canvas.height));
+        console.log(terrain);
+        polys.push(terrain);
+    }).then(() => animate(canvas, ctx));
 }
 
 window.onload = main;
