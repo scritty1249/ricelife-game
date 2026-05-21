@@ -1,8 +1,13 @@
-export class Polygon {
+import { TrackableObject } from "../utils.js";
+
+export class Polygon extends TrackableObject {
+    #points;
     constructor (...points) {
-        this._points = points;
-        this.points = new Proxy(this._points, {
+        super();
+        this.#points = points;
+        this.points = new Proxy(this.#points, {
             set(target, prop, val) {
+                console.log(target, prop);
                 if (Array.isArray(val)) {
                     target.splice(0, target.length);
                     target.push(...val);
@@ -23,13 +28,16 @@ export class Polygon {
         this.points = newPoints;
     }
 
-    draw (ctx) { // only draw the path
+    draw (ctx, closed = true) { // only draw the path
         if (!this.points.length) return;
         ctx.beginPath();
         ctx.moveTo(...this.points[0]);
         for (const point of this.points.slice(1))
             ctx.lineTo(...point);
-        ctx.closePath();
+        if (closed)
+            ctx.closePath();
+        else
+            ctx.stroke();
     }
 
     *#tweenPoints (previous, current, resolution) {
@@ -41,9 +49,12 @@ export class Polygon {
         }
     }
     
-    toString() {
+    toString () {
         return `[Polygon] {${
             Array.from(this.points, ([x, y]) => `(${x}, ${y})`).join(", ")
         }}`;
+    }
+    clone () {
+        return new Polygon(...this.points);
     }
 }

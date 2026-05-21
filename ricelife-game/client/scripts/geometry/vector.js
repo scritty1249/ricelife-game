@@ -1,10 +1,9 @@
-import { deg2rad } from "./utils.js";
+import { deg2rad } from "../utils.js";
 
 export class Vector {
     constructor(x = 0, y = null) {
         this.apply(x, y);
     }
-
     // arithmetic operations
     add (value, mutate = false) {
         const [newX, newY] = Number.isFinite(value)
@@ -76,6 +75,16 @@ export class Vector {
             return new Vector(this.y, this.x);
         }
     }
+    project (radians, magnitude, mutate = false) {
+        const [dx, dy] = [magnitude * Math.cos(radians), magnitude * Math.sin(radians)];
+        if (mutate) {
+            this.x += dx;
+            this.y += dy;
+            return this;
+        } else {
+            return new Vector(this.x + dx, this.y + dy);
+        }
+    }
     sum () {
         return this.x + this.y;
     }
@@ -88,7 +97,18 @@ export class Vector {
     magnitude () {
         return Math.sqrt(this.pow(2).sum());
     }
-
+    angle (...vectors) {
+        let sumCos = 0, sumSin = 0;
+        for (const vector of vectors) {
+            const angle = Math.atan2(...vector.sub(this));
+            sumCos += Math.cos(angle);
+            sumSin += Math.sin(angle);
+        }
+        return Math.atan2(sumSin, sumCos);
+    }
+    eq (vector) {
+        return this.x == vector.x && this.y == vector.y;
+    }
     apply (x, y = null) {
         if (Number.isFinite(x)) {
             if (y === null) {
@@ -103,13 +123,12 @@ export class Vector {
             this.y = x.y;
         }
     }
-
     // overload / basic operations
     *[Symbol.iterator]() {
         yield this.x;
         yield this.y;
     }
-    clone() {
+    clone () {
         return new Vector(this.x, this.y);
     }
     toString () {
@@ -120,7 +139,35 @@ export class Vector {
     }
 }
 
+export class Color {
+    #hexPattern = /^#([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})?$/;
+    constructor (value, g = undefined, b = undefined, a = 255) {
+        let matches, _;
+        if (typeof value === "string"
+            && (matches = value.match(this.#hexPattern)))
+            [_, this.r, this.g, this.b, this.a] = Array.from(matches, (match) => parseInt(match, 16));
+        else if (Object.hasOwn(value, "r")
+            && Object.hasOwn(value, "g")
+            && Object.hasOwn(value, "b"))
+            ({r: this.r, g: this.g, b: this.b, a: this.a} = value);
+        else if (b !== undefined)
+            [this.r, this.g, this.b, this.a] = value, g, b, a;
+        else
+            throw new Error("[Color] Error: Invalid argument at declaration");
+        if (!Number.isFinite(this.a))
+            this.a = 255
+    }
+    toJSON () { return {r: this.r, g: this.g, b: this.b, a: this.a} }
+    toString () { return "#"
+        + this.r.toString(16).padStart(2, "0")
+        + this.g.toString(16).padStart(2, "0")
+        + this.b.toString(16).padStart(2, "0")
+        + (this.a < 255 ? this.a.toString(16).padStart(2, "0") : "");
+    }
+}
+
 export function Direction (degrees) {
     const rad = deg2rad(degrees);
     return new Vector(Math.cos(rad), Math.sin(rad));
 }
+

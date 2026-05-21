@@ -1,9 +1,11 @@
-#app {
+canvas {
     position: fixed;
     width: auto;
     height: 100dvh;
     margin: 0;
-
+}
+canvas.cache {
+    display: none;
 }
 body {
     margin: 0;
