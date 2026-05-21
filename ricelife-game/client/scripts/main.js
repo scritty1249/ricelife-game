@@ -1,11 +1,7 @@
-import { Projectile } from "./controller/physics.js";
-import { Vector, Direction, Color } from "./geometry/vector.js";
-import { Polygon } from "./geometry/polygon.js";
-import { InputListener, MovementController } from "./controller/movement.js";
-import { TankController } from "./controller/tank.js";
+import { Projectile, InputListener, MovementController, TankController, AppCanvas } from "./controller/controller.js";
+import { Vector, Direction, Color, Polygon } from "./geometry/geometry.js";
 import { ResizedImage } from "./utils.js";
 import { drawTerrain, generateTerrain } from "./terrain/terrain.js";
-import AppCanvas from "./controller/display.js";
 
 function drawCircle (ctx, radius, origin, color = "red") {
     ctx.fillStyle = color;
