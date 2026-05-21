@@ -4,44 +4,14 @@ import { Polygon } from "./geometry/polygon.js";
 import { InputListener, MovementController } from "./controller/movement.js";
 import { TankController } from "./controller/tank.js";
 import { ResizedImage } from "./utils.js";
-import { drawTerrain } from "./terrain/terrain.js";
+import { drawTerrain, generateTerrain } from "./terrain/terrain.js";
 import AppCanvas from "./controller/display.js";
 
-function drawRotate (ctx, img, dx, dy, degrees, width, height) {
-    const rads = degrees * Math.PI / 180;
-
-    ctx.save();
-    ctx.translate(dx, dy);
-    ctx.rotate(rads);
-
-    ctx.drawImage(img, -width / 2, -height, width, height); // rotated around bottom, center of image
-    ctx.restore();
-}
-
 function drawCircle (ctx, radius, origin, color = "red") {
-    // 2. Set dot properties (color and position/size)
-    ctx.fillStyle = color; // Set the dot color
-
-    // 3. Draw the dot
+    ctx.fillStyle = color;
     ctx.beginPath();
-    ctx.arc(origin.x, origin.y, radius, 0, 2 * Math.PI); // Create circle
-    ctx.fill(); // Fill the circle
-}
-
-function generateWave(length, resolution = 1, modifier = (vector) => {}, freq = 0.03, amplitude = 40, smoothness = 1.3, randomness = 15) {
-    const points = [];
-    const phases = [Math.random() * Math.PI, Math.random() * Math.PI];
-    const randAmp = randomness + Math.random() * randomness; // this second amplitude determines variation amount
-
-    for (let x = 0; x < length; x+=resolution) {
-        const vector = new Vector(x,
-            Math.sin(x * freq + phases[0]) * amplitude
-            + Math.sin(x * freq * smoothness + phases[1]) * randAmp
-        );
-        modifier(vector);
-        points.push(vector);
-    }
-    return points;
+    ctx.arc(origin.x, origin.y, radius, 0, 2 * Math.PI);
+    ctx.fill();
 }
 
 function animate (state, config) {
@@ -118,12 +88,8 @@ function main(...loaded) {
     const Display = new AppCanvas(document.getElementById("app"), new Vector(1920, 1080));
     const Inputs = new InputListener(window, INPUT_MAP);
     const Tank = new TankController(loaded[0], loaded[1], new Vector(), -15);
-    const terrain = new Polygon(
-        ...generateWave(Display.size.x, 1, (vec) => (vec.y = GROUND + vec.y)),
-        new Vector(Display.size.x, Display.size.y),
-        new Vector(0, Display.size.y)
-    );
-    const Mover = new MovementController(terrain, Tank, -(loaded[0].height / 5));
+    const Terrain = generateTerrain(Display.size, GROUND);
+    const Mover = new MovementController(Terrain, Tank, -(loaded[0].height / 5));
 
     const config = {
         fps: FPS,
@@ -141,7 +107,7 @@ function main(...loaded) {
         polygons: {},
         projectiles: {},
         tanks: {[Tank.id]: Tank},
-        terrain: terrain,
+        terrain: Terrain,
         cacheUpdate: {"background": false},
         lastStamp: performance.now(),
         // [!] temporary
@@ -150,8 +116,8 @@ function main(...loaded) {
     };
 
     Display.createCache("background");
-    drawTerrain(Display.cache.background.ctx, terrain, config.terrain.fill, config.terrain.edge);
-    Mover.set(Math.floor(Display.size.x / 2));
+    drawTerrain(Display.cache.background.ctx, Terrain, config.terrain.fill, config.terrain.edge);
+    Mover.set(Math.floor(Display.size.x / 4));
     // [!] TODO: configure tank body rotation
 
     animate(state, config);

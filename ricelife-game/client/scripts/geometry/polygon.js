@@ -1,60 +1,52 @@
+import { Path, tweenPoints } from "./path.js";
 import { TrackableObject } from "../utils.js";
 
-export class Polygon extends TrackableObject {
-    #points;
+export class Polygon extends TrackableObject { // points should be ordered clockwise (in positioning)
+    #path;
     constructor (...points) {
         super();
-        this.#points = points;
-        this.points = new Proxy(this.#points, {
-            set(target, prop, val) {
-                console.log(target, prop);
-                if (Array.isArray(val)) {
-                    target.splice(0, target.length);
-                    target.push(...val);
-                    return true;
-                } else
-                    throw new TypeError("[Polygon] Error: points must be assigned to an Array, not " + (typeof val) + ".");
-            }
-        });
+        this.#path = (points.length == 1 && points[0]?.isPath)
+            ? points[0]
+            : new Path(...points);
     }
 
     smooth (resolution = 1) {
-        if (this.points.length == 1) return;
-        const newPoints = [];
-        for (let i = 0; i < this.points.length - 1; i++)
-            newPoints.push(current, ...this.#tweenPoints(this.points[i], this.points[i + 1], resolution));
+        if (this.#path.points.length == 1) return;
+        this.#path.smooth(resolution);
         // smooth connection between first and last points
-        newPoints.push(...this.#tweenPoints(this.points.at(-1), this.points[0], resolution));
-        this.points = newPoints;
+        for (const point of tweenPoints(this.#path.points.at(-1), this.#path.points[0], resolution))
+            this.#path.points.push(point);
+        this.#path.points = newPoints;
     }
 
-    draw (ctx, closed = true) { // only draw the path
-        if (!this.points.length) return;
+    merge (poly, mutate = false) {
+        const polygon = mutate ? this : this.clone();
+
+    }
+
+    cut (poly, mutate = false) {
+        const polygon = mutate ? this : this.clone();
+
+    }
+
+    draw (ctx) { // only draw the path
+        if (!this.#path.points.length) return;
         ctx.beginPath();
-        ctx.moveTo(...this.points[0]);
-        for (const point of this.points.slice(1))
+        ctx.moveTo(...this.#path.points[0]);
+        for (const point of this.#path.points.slice(1))
             ctx.lineTo(...point);
-        if (closed)
-            ctx.closePath();
-        else
-            ctx.stroke();
+        ctx.closePath();
     }
 
-    *#tweenPoints (previous, current, resolution) {
-        const diff = current.abs().sub(previous.abs())
-        const dist = Math.sqrt((diff.x**2) + (diff.y**2));
-        const step = diff.div(dist);
-        for (let inc = 1; inc < Math.floor(dist) / resolution; inc += resolution) {
-            yield previous.add(step.mul(inc));
-        }
-    }
+    get isPolygon () { return true }
+    get path () { return this.#path }
     
     toString () {
         return `[Polygon] {${
-            Array.from(this.points, ([x, y]) => `(${x}, ${y})`).join(", ")
+            Array.from(...this.#path, ([x, y]) => `(${x}, ${y})`).join(", ")
         }}`;
     }
     clone () {
-        return new Polygon(...this.points);
+        return new Polygon(this.#path);
     }
 }

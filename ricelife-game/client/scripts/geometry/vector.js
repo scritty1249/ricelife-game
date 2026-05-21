@@ -100,6 +100,8 @@ export class Vector {
     angle (...vectors) {
         let sumCos = 0, sumSin = 0;
         for (const vector of vectors) {
+            if (!vector?.isVector)
+                throw new Error("[Vector] Error: Cannot calculate angle from non-Vector type " + (typeof vector));
             const angle = Math.atan2(...vector.sub(this));
             sumCos += Math.cos(angle);
             sumSin += Math.sin(angle);
@@ -107,7 +109,7 @@ export class Vector {
         return Math.atan2(sumSin, sumCos);
     }
     eq (vector) {
-        return this.x == vector.x && this.y == vector.y;
+        return vector.isVector && this.x == vector.x && this.y == vector.y;
     }
     apply (x, y = null) {
         if (Number.isFinite(x)) {
@@ -128,15 +130,10 @@ export class Vector {
         yield this.x;
         yield this.y;
     }
-    clone () {
-        return new Vector(this.x, this.y);
-    }
-    toString () {
-        return `(${this.x}, ${this.y})`;
-    }
-    toJSON () {
-        return {x: this.x, y: this.y};
-    }
+    get isVector () { return true }
+    clone () { return new Vector(this.x, this.y) }
+    toString () { return `(${this.x}, ${this.y})` }
+    toJSON () { return {x: this.x, y: this.y} }
 }
 
 export class Color {

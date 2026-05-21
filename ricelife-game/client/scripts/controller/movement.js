@@ -29,7 +29,7 @@ export class InputListener {
 }
 
 export class MovementController { // only moves along X axis
-    #terrain;
+    #ground;
     #position;
     #rotation;
     #range;
@@ -37,8 +37,8 @@ export class MovementController { // only moves along X axis
     constructor (terrain, tank, offsetY = 0) {
         this.#position = tank.position;
         this.#rotation = tank.rotation;
-        this.#terrain = terrain;
-        this.#range = terrain.points.map((pt) => pt.x).toSorted((a, b) => b - a).at(0); // [!] unsafe math\
+        this.#ground = terrain.path;
+        this.#range = this.#ground.slice(0, -2).map((pt) => pt.x).toSorted((a, b) => b - a).at(0); // [!] unsafe math
         this.#tankRadius = Math.floor(tank.width / 2);
         this.offsetY = offsetY;
     }
@@ -50,9 +50,9 @@ export class MovementController { // only moves along X axis
     set (amount) {
         if (amount < 1 || amount >= this.#range) return;
         this.#position.x = amount;
-        this.#position.y =  this.#terrain.points.filter((pt) => pt.x == this.#position.x).toSorted((a, b) => b - a).at(0).y + this.offsetY; // [!] unsafe math
-        const terrainIdx = this.#terrain.points.findIndex((pt) => pt.eq(this.#position));
-        const points = this.#terrain.points.filter((pt) => pt.x <= this.#position.x + this.#tankRadius && pt.x >= this.#position.x - this.#tankRadius).toSorted((a, b) => b - a);
+        this.#position.y =  this.#ground.points.filter((pt) => pt.x == this.#position.x).toSorted((a, b) => b - a).at(0).y + this.offsetY; // [!] unsafe math
+        const terrainIdx = this.#ground.points.findIndex((pt) => pt.eq(this.#position));
+        const points = this.#ground.points.filter((pt) => pt.x <= this.#position.x + this.#tankRadius && pt.x >= this.#position.x - this.#tankRadius).toSorted((a, b) => b - a);
         this.#rotation.body = points.at(0).angle(...points.slice(1));
     }
 
