@@ -1,6 +1,6 @@
 import { Vector } from "../geometry/vector.js";
 
-export default class AppCanvas {
+export class AppCanvas {
     #cache;
     constructor (canvas, size = new Vector(1920, 1080)) {
         this.size = size;
