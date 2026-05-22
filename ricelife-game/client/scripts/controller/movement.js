@@ -29,38 +29,38 @@ export class InputListener {
 }
 
 export class MovementController { // only moves along X axis
-    #ground;
-    #position;
-    #rotation;
+    #terrain;
     #range;
-    #tankRadius;
+    #player;
+    #playerWidthRadius;
     constructor (terrain, tank, offsetY = 0) {
-        this.#position = tank.position;
-        this.#rotation = tank.rotation;
-        this.#ground = terrain.path;
-        this.#range = this.#ground.slice(0, -2).map((pt) => pt.x).toSorted((a, b) => b - a).at(0); // [!] unsafe math
-        this.#tankRadius = Math.floor(tank.width / 2);
+        this.#player = tank;
+        this.#terrain = terrain;
+        this.#range = this.#terrain.path.points.slice(0, -2).map((pt) => pt.x).toSorted((a, b) => b - a).at(0); // [!] unsafe math
+        this.#playerWidthRadius = Math.floor(this.#player.width / 2);
         this.offsetY = offsetY;
     }
 
     move (amount) {
-        this.set(this.#position.x + amount);
+        this.set(this.#player.position.x + amount);
     }
 
     set (amount) {
         if (amount < 1 || amount >= this.#range) return;
-        this.#position.x = amount;
-        this.#position.y =  this.#ground.points.filter((pt) => pt.x == this.#position.x).toSorted((a, b) => b - a).at(0).y + this.offsetY; // [!] unsafe math
-        const terrainIdx = this.#ground.points.findIndex((pt) => pt.eq(this.#position));
-        const points = this.#ground.points.filter((pt) => pt.x <= this.#position.x + this.#tankRadius && pt.x >= this.#position.x - this.#tankRadius).toSorted((a, b) => b - a);
-        this.#rotation.body = points.at(0).angle(...points.slice(1));
+        const position = this.#player.position;
+        const ground = this.#terrain.path.points;
+        position.x = amount;
+        position.y =  ground.filter((pt) => pt.x == position.x).toSorted((a, b) => b - a).at(0).y + this.offsetY; // [!] unsafe math
+        const terrainIdx = ground.findIndex((pt) => pt.eq(position));
+        const points = ground.filter((pt) => pt.x <= position.x + this.#playerWidthRadius && pt.x >= position.x - this.#playerWidthRadius).toSorted((a, b) => b - a);
+        this.#player.rotation.body = points.at(0).angle(...points.slice(1));
     }
 
     get rotation () {
-        return this.#rotation.barrel;
+        return this.#player.rotation.barrel;
     }
     
     get position () {
-        return this.#position;
+        return this.#player.position;
     }
 }

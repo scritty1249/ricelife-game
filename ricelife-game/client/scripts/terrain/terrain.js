@@ -1,21 +1,61 @@
 import { Vector, Path, Polygon } from "../geometry/geometry.js";
 
 export function drawTerrain (ctx, polygon, fillColor, edgeColor, gradientWidth = 150, resolution = 1) { // fill and edge colors are expected to be Color objects
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+
     polygon.draw(ctx);
     ctx.fillStyle = fillColor.toString();
     ctx.fill();
+
+    if (polygon.holes) {
+        ctx.globalCompositeOperation = "destination-out";
+        ctx.fillStyle = "black"; // mask color, abitrary
+        
+        for (const hole of polygon.holes) {
+            hole.draw(ctx);
+            ctx.fill();
+        }        
+        ctx.globalCompositeOperation = "source-over";
+    }
+
+    const topEdge = polygon.path.clone();
+    {
+        // trim off the bottom (opening the path)
+        const yMax = Math.max(...topEdge.points.map((pt) => pt.y));
+        const pt1 = topEdge.points.findIndex((pt) => pt.y == yMax);
+        const pt2 = topEdge.points.findLastIndex((pt) => pt.y == yMax);
+        topEdge.splice(pt1, 1);
+        topEdge.splice(pt2 - 1, 1);
+        topEdge.apply(
+            ...topEdge.points.toSorted((a, b) => a.x - b.x)
+        );
+    }
+
+    const holeTopEdges = [];
+    if (polygon.holes) {
+        for (const hole of polygon.holes) {
+            const holeEdge = hole.path.clone();
+            const yMax = Math.max(...holeEdge.points.map((pt) => pt.y));
+            holeEdge.apply(...holeEdge.points.filter(pt => pt.y < yMax - 5)); 
+            if (holeEdge.points.length > 1) {
+                holeEdge.points.sort((a, b) => a.x - b.x);
+                holeTopEdges.push(holeEdge);
+            }
+        }
+    }
+
     ctx.save();
     polygon.draw(ctx);
-    ctx.clip(); 
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    const topEdge = polygon.path.clone();
-    topEdge.splice(-2); // trim off the bottom (opening the path)
-    for (let i = 0; i <= gradientWidth; i+=resolution) {
+    ctx.clip();
+    ctx.globalCompositeOperation = "source-atop";
+    for (let i = 0; i <= gradientWidth; i += resolution) {
         const alpha = (1 - (i / gradientWidth)).toFixed(2)**10;
-        ctx.lineWidth = i*2;
+        ctx.lineWidth = i * 2;
         ctx.strokeStyle = `rgba(${edgeColor.r}, ${edgeColor.g}, ${edgeColor.b}, ${alpha})`;
         topEdge.draw(ctx);
+        for (const openHoleEdge of holeTopEdges)
+            openHoleEdge.draw(ctx);
     }
     ctx.restore();
 }

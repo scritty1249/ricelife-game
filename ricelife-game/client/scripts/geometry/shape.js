@@ -23,4 +23,5 @@ export class Circle extends Polygon {
     }
 
     get isCircle () { return true }
+    clone () { return new Circle(this.position.clone(), this.radius, this.resolution) }
 }

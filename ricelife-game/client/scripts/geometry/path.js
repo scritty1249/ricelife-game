@@ -20,13 +20,13 @@ export class Path extends TrackableObject { // points should be ordered clockwis
         this.apply(...newPoints);
     }
 
-    draw (ctx) { // only draw the path
+    draw (ctx, close = true) { // only draw the path
         if (!this.#points.length) return;
-        ctx.beginPath();
+        if (close) ctx.beginPath();
         ctx.moveTo(...this.#points[0]);
         for (const point of this.#points.slice(1))
             ctx.lineTo(...point);
-        ctx.stroke();
+        if (close) ctx.stroke();
     }
 
     get isPath () { return true }
@@ -34,7 +34,7 @@ export class Path extends TrackableObject { // points should be ordered clockwis
     get length () { return this.#points.length }
     apply (...values) {
         this.#points.splice(0, this.#points.length);
-        this.#points.push(...(values.length === 1 && values[0]?.isPath ? values[0] : values));
+        this.#points.push(...values);
     }
     push (...points) {
         if (points.some((point) => !point.isVector))
@@ -46,9 +46,7 @@ export class Path extends TrackableObject { // points should be ordered clockwis
     splice (...args) { return this.#points.splice(...args) }
 
     *[Symbol.iterator]() {
-        for (const point in this.#points) {
-            yield point;
-        }
+        yield* this.#points;
     }
     toString () {
         return `[Path] {${

@@ -4,51 +4,26 @@ import { ResizedImage } from "./utils.js";
 import { drawTerrain, generateTerrain } from "./terrain/terrain.js";
 import * as Projectiles from "./projectile/projectile.js";
 
-function drawCircle (ctx, radius, origin, color = "red") {
+function drawCircle (ctx, radius, origin, color = "red") { // [!] debugging function
     ctx.fillStyle = color;
     ctx.beginPath();
     ctx.arc(origin.x, origin.y, radius, 0, 2 * Math.PI);
     ctx.fill();
 }
 
-function animate (state, config) {
-    const nowStamp = performance.now();
-    const elapsed = nowStamp - state.lastStamp;
-    const { canvas, ctx } = config.display;
-    const player = state.tanks[config.playerTank];
+async function queueTerrainRedraw (projectile, terrain, terrainColor, displayCache, fps, resolution = .01) {
+    const blastAt = projectile.intersectAt(terrain, 1 / fps, resolution);
+    const blast = projectile.blast.shapeAt(blastAt);
+    displayCache.clear();
+    drawTerrain(displayCache.ctx, terrain.clone().cut(blast), terrainColor.fill, terrainColor.edge);
+    return;
+}
 
-    // draw cache updates
-    // ...
-
-    if (elapsed < config.frameInterval) { // run any between-frame logic
-    } else { // redraw frame
-        state.lastStamp = nowStamp - (elapsed % config.frameInterval);
-        config.display.clear();
-        ctx.drawImage(config.display.cache.background.canvas, 0, 0);
-        for (const tank of Object.values(state.tanks))
-            tank.draw(ctx);
-        const projectileIds = Object.keys(state.projectiles);
-        for (const id of projectileIds) {
-            const projectile = state.projectiles[id];
-            if (state.terrain.isIntersecting(projectile.position)) {
-                delete state.projectiles[id];
-            } else {
-                // [!] placeholder
-                // drawCircle(ctx, 10, projectile.position, "red");
-                projectile.draw(ctx);
-                projectile.update(1 / config.fps);
-            }
-        }
-    }
-
-    drawCircle(ctx, 4, player.barrelPos);
-    drawCircle(ctx, 4, new Vector(player.position.x, player.position.y)), "green";
-
+function handleInput (state, config) {
     // handle input jobs
-    if (state.input.activeKeys.shoot && nowStamp - state.lastShot > state.shotCd ) {
-        state.lastShot = nowStamp;
-        const proj = new Projectiles.BasicShot(player.barrelPos, state.move.rotation + 270);
-        state.projectiles[proj.id] = proj;
+    if (state.input.activeKeys.shoot && state.projectile === undefined ) {
+        state.projectile = new Projectiles.BasicShot(state.tanks[config.playerTank].barrelPos, state.move.rotation + 270);
+        state.redrawJob = queueTerrainRedraw(state.projectile, state.terrain, config.terrain, config.display.cache.blastBackground, config.fps);
     }
     if (state.input.activeKeys.mvfwd) {
         state.move.move(1);
@@ -62,7 +37,54 @@ function animate (state, config) {
     if (state.input.activeKeys.aimcw) {
         state.tanks[config.playerTank].rotation.barrel++;
     }
-    requestAnimationFrame(() => animate(state, config));
+}
+
+function animate (state, config) {
+    const nowStamp = performance.now();
+    const elapsed = nowStamp - state.lastStamp;
+    const { canvas, ctx } = config.display;
+    const player = state.tanks[config.playerTank];
+    let waitPromise = Promise.resolve();
+    // draw cache updates
+    // ...
+
+    if (elapsed < config.frameInterval) { // run any between-frame logic
+    } else { // redraw frame
+        state.lastStamp = nowStamp - (elapsed % config.frameInterval);
+        config.display.clear();
+        // check if background needs to be updated
+        if (state.projectile) {
+            if (state.terrain.isIntersecting(state.projectile.shape)) {
+                state.terrain.cut(state.projectile.blast.shape);
+                state.projectile.blast.draw(ctx);
+                state.projectile = false; // set to false to flag background cache for redraw
+            }
+        }
+        if (state.projectile === false) {
+            state.projectile = undefined
+            const bgCache = config.display.cache.background;
+            const blastCache = config.display.cache.blastBackground;
+            bgCache.clear();
+            waitPromise = state.redrawJob.then(() => {
+                bgCache.ctx.drawImage(blastCache.canvas, 0, 0);
+                drawCircle(ctx, 4, player.barrelPos);
+                drawCircle(ctx, 4, new Vector(player.position.x, player.position.y)), "green";
+            });
+        }
+        waitPromise = waitPromise.then(() => {
+            ctx.drawImage(config.display.cache.background.canvas, 0, 0);
+            for (const tank of Object.values(state.tanks))
+                tank.draw(ctx);
+            if (state.projectile) {
+                state.projectile.draw(ctx);
+                state.projectile.update(1 / config.fps);
+            }
+        });
+    }
+    waitPromise.then(() => {
+        handleInput(state, config);
+        requestAnimationFrame(() => animate(state, config));
+    });
 }
 
 async function load() {
@@ -73,7 +95,6 @@ async function load() {
 
 const FPS = 60;
 const GROUND = 700;
-const SHOOT_COOLDOWN_MS = 1000 * .8;
 const INPUT_MAP = {
     ArrowUp: "mvfwd",
     ArrowDown: "mvbck",
@@ -87,7 +108,7 @@ function main(...loaded) {
     const Inputs = new InputListener(window, INPUT_MAP);
     const Tank = new TankController(loaded[0], loaded[1], new Vector(), -15);
     const Terrain = generateTerrain(Display.size, GROUND);
-    const Mover = new MovementController(Terrain, Tank, -(loaded[0].height / 5));
+    const Mover = new MovementController(Terrain, Tank, (loaded[0].height / 5));
 
     const config = {
         fps: FPS,
@@ -103,16 +124,14 @@ function main(...loaded) {
         input: Inputs,
         move: Mover,
         polygons: {},
-        projectiles: {},
+        projectile: undefined,
         tanks: {[Tank.id]: Tank},
         terrain: Terrain,
         cacheUpdate: {"background": false},
         lastStamp: performance.now(),
-        // [!] temporary
-        lastShot: 0,
-        shotCd: SHOOT_COOLDOWN_MS
+        redrawJob: Promise.resolve()
     };
-
+    Display.createCache("blastBackground");
     Display.createCache("background");
     drawTerrain(Display.cache.background.ctx, Terrain, config.terrain.fill, config.terrain.edge);
     Mover.set(Math.floor(Display.size.x / 4));

@@ -41,10 +41,8 @@ export class TankController extends TrackableObject {
         this.#drawBody(ctx);
     }
 
-    get width () {
-        return this.#source.body.width;
-    }
-
+    get width () { return this.#source.body.width }
+    get height () { return this.#source.body.height }
     get barrelPos () { // gets coord at tip of barrel
         const origin = new Vector(this.position.x, this.position.y + this.barrelOffset);
         const angle = deg2rad(this.rotation.barrel + 270);
