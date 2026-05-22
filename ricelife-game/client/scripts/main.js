@@ -1,7 +1,8 @@
-import { Projectile, InputListener, MovementController, TankController, AppCanvas } from "./controller/controller.js";
+import { InputListener, MovementController, TankController, AppCanvas } from "./controller/controller.js";
 import { Vector, Direction, Color, Polygon } from "./geometry/geometry.js";
 import { ResizedImage } from "./utils.js";
 import { drawTerrain, generateTerrain } from "./terrain/terrain.js";
+import * as Projectiles from "./projectile/projectile.js";
 
 function drawCircle (ctx, radius, origin, color = "red") {
     ctx.fillStyle = color;
@@ -26,14 +27,17 @@ function animate (state, config) {
         ctx.drawImage(config.display.cache.background.canvas, 0, 0);
         for (const tank of Object.values(state.tanks))
             tank.draw(ctx);
-        for (const projectile of Object.values(state.projectiles)) {
-            // [!] placeholder
-            drawCircle(ctx, 10, projectile.position,
-                state.terrain.isIntersecting(projectile.position)
-                    ? "green"
-                    : "red"
-            );
-            projectile.update(1 / config.fps);
+        const projectileIds = Object.keys(state.projectiles);
+        for (const id of projectileIds) {
+            const projectile = state.projectiles[id];
+            if (state.terrain.isIntersecting(projectile.position)) {
+                delete state.projectiles[id];
+            } else {
+                // [!] placeholder
+                // drawCircle(ctx, 10, projectile.position, "red");
+                projectile.draw(ctx);
+                projectile.update(1 / config.fps);
+            }
         }
     }
 
@@ -43,13 +47,7 @@ function animate (state, config) {
     // handle input jobs
     if (state.input.activeKeys.shoot && nowStamp - state.lastShot > state.shotCd ) {
         state.lastShot = nowStamp;
-        const proj = new Projectile(
-            player.barrelPos,
-            Direction(state.move.rotation + 270)
-                .mul(400),
-            new Vector(20, 200),
-            0.001
-        );
+        const proj = new Projectiles.BasicShot(player.barrelPos, state.move.rotation + 270);
         state.projectiles[proj.id] = proj;
     }
     if (state.input.activeKeys.mvfwd) {
