@@ -11,7 +11,7 @@ export class AppCanvas {
         this.clear = wipeCanvas;
     }
 
-    createCache (id) {
+    createCache (id) { // [!] TODO: Implement usage for OffscreenCanvas and web workers
         if (Object.hasOwn(this.#cache, id))
             throw new Error(`[AppCanvas] Error: Cannot create cache with id "${id}" - one already exists`);
         this.#cache[id] = this.#initCanvas(id, true);

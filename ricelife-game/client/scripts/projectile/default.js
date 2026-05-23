@@ -21,6 +21,9 @@ export class Projectile extends TrackableObject {
     get position () {
         return this.current.position;
     }
+    get isProjectile () {
+        return true
+    }
 
     update (seconds = 1) {
         const position = this.current.position;

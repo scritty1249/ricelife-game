@@ -16,7 +16,6 @@ export class BasicShot extends Projectile {
         this.#blast = {
             color: new Color("#FFD300"),
             get shape () {
-                this._shape.updatePath();
                 return this.shapeAt(currentPosition);
             },
             shapeAt: function (position) {

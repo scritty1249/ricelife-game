@@ -4,16 +4,20 @@ export class Path extends TrackableObject { // points should be ordered clockwis
     #points;
     constructor (...points) {
         super();
-        this.#points = (points.length == 1 && points[0]?.isPath)
-            ? points[0].points
-            : points;
+        this.#points = (points.length == 1)
+            ? points[0]?.isPath
+                ? points[0].points
+                : Array.isArray(points[0])
+                    ? [...points[0]]
+                    : [points[0]]
+            :   [...points];
     }
 
     smooth (resolution = 1) {
-        if (this.#points.length == 1) return;
+        if (this.length == 1) return;
         const newPoints = [];
-        for (let i = 0; i < this.#points.length - 1; i++) {
-            newPoints.push(current);
+        for (let i = 0; i < this.length - 1; i++) {
+            newPoints.push(this.#points[i]);
             for (const point of tweenPoints(this.#points[i], this.#points[i + 1], resolution))
                 newPoints.push(point);
         }
@@ -29,21 +33,85 @@ export class Path extends TrackableObject { // points should be ordered clockwis
         if (close) ctx.stroke();
     }
 
+    *lines () { // returns pairs of Vectors as Paths
+        if (this.length <= 1) return;
+        for (let i = 1; i < this.length; i++)
+            yield new Path(this.slice(i-1, i+1));
+    }
+
+    intersect (path) { // returns the CLOCKWISE details of all intersections from this Path to the given Path ("this" points into "that"). !! This can return points that are not inside of the Path, if the resolution is large enough!
+        if (!path?.isPath) throw new Error("[Path] Error: Cannot find intersection with non-Path object " + (typeof path));
+        const intersections = [],
+            thisPts = this.points,
+            thatPts = path.points;
+
+        // this segements
+        for (let i = 0; i < thisPts.length; i++) {
+            const direction = thisPts[(i + 1) % thisPts.length].sub(thisPts[i]);
+            // that segments
+            for (let j = 0; j < thatPts.length; j++) {
+                const dir = thatPts[(j + 1) % thatPts.length].sub(thatPts[j]),
+                    cross = direction.cross(dir),
+                    gap = thatPts[j].sub(thisPts[i]);
+
+                // skip segment if lines are parallel (cross product zero)
+                if (Math.abs(cross) < Number.EPSILON) continue;
+                const thisDistCoefficient = gap.cross(dir) / cross,
+                    thatDistCoefficient = gap.cross(direction) / cross;
+                // sanity check: are we still within the segment's range?
+                if (thisDistCoefficient >= 0
+                    && thisDistCoefficient <= 1
+                    && thatDistCoefficient >= 0
+                    && thatDistCoefficient <= 1
+                ) {
+                    intersections.push({
+                        point: thisPts[i].add(gap.mul(thisDistCoefficient)),
+                        entering: direction.cross(dir) > 0,
+                        index: {
+                            self: i,
+                            other: j
+                        },
+                        distance: { // percentages
+                            self: thisDistCoefficient,
+                            other: thatDistCoefficient
+                        }
+                    });
+                }
+            }
+        }
+        if (intersections.length === 0) return [];
+        intersections.sort((a, b) => (a.index.self !== b.index.self) ? a.index.self - b.index.self : a.distance.self - b.distance.self);         // sort intersections along "this" path
+        for (let i = 0; !intersections[0].entering && i < intersections.length; i++) // first intersection returned should be an entry point
+            intersections.push(intersections.shift());
+        return intersections;
+    }
+
     get isPath () { return true }
     get points () { return this.#points }
     get length () { return this.#points.length }
+    get direction () { return this.#points.slice().reverse().reduce((acc, curr) => acc.sub(curr)) }
+    get angle () { return (this.length > 1) ? this.#points[0].angle(...this.slice(1)) : undefined }
+    get isClockwise () { // "Shoelace formula"
+        if (this.length < 3) return true;
+        return this.points.reduce((acc, p1, i) => {
+            const p2 = this.points[(i + 1) % this.length];
+            return acc + (p2.x - p1.x) * (p2.y + p1.y);
+        }, 0) > 0;
+    }
+
     apply (...values) {
         this.#points.splice(0, this.#points.length);
-        this.#points.push(...values);
+        this.#points.push(...(values.length == 1 && values[0]?.isPath ? values[0] : values));
     }
     push (...points) {
-        if (points.some((point) => !point.isVector))
-            throw new Error("[Path] Error: Points pushed must be of type Vector");
+        for (const pt of points)
+            if (!pt?.isVector) throw new Error("[Path] Error: Points pushed must be of type Vector, not " + (typeof pt));
         this.#points.push(...points);
-        return this.#points.length;
+        return this.length;
     }
     slice (...args) { return this.#points.slice(...args) }
     splice (...args) { return this.#points.splice(...args) }
+    at (...args) { return this.#points.at(...args) }
 
     *[Symbol.iterator]() {
         yield* this.#points;
@@ -54,15 +122,16 @@ export class Path extends TrackableObject { // points should be ordered clockwis
         }}`;
     }
     clone () {
-        return new Path(...this.#points);
+        return new Path(this.#points);
     }
 }
 
 export function *tweenPoints (previous, current, resolution) {
-    const diff = current.abs().sub(previous.abs())
-    const dist = Math.sqrt((diff.x**2) + (diff.y**2));
+    const diff = current.sub(previous),
+        dist = Math.hypot(...diff);
+    if (dist === 0) return; 
     const step = diff.div(dist);
-    for (let inc = 1; inc < Math.floor(dist) / resolution; inc += resolution) {
+    for (let inc = resolution; inc < dist; inc += resolution) {
         yield previous.add(step.mul(inc));
     }
 }

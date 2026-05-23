@@ -65,6 +65,14 @@ export class Vector {
             );
         }
     }
+    normal (vector, clockwise = true) { // finds normalized point perpendicular to the line 
+        if (!vector.isVector) throw new Error("[Vector] Error: Cannot calculate normal from Vector to non-Vector type " + (typeof vector));
+        const diff = vector.sub(this);
+        diff.div(diff.magnitude(), true);
+        return clockwise
+            ? new Vector(diff.y, -diff.x)
+            : new Vector(-diff.y, diff.x);
+    }
     transpose (mutate = false) {
         if (mutate) {
             const x = this.x;
@@ -97,12 +105,21 @@ export class Vector {
     magnitude () {
         return Math.sqrt(this.pow(2).sum());
     }
+    dot (vector) { // dot product
+        if (!vector?.isVector) throw new Error("[Vector] Error: Cannot calculate dot product of Vector and non-Vector type " + (typeof vector));
+        return this.mul(vector).sum();
+    }
+    cross (vector) { // cross product
+        if (!vector?.isVector) throw new Error("[Vector] Error: Cannot calculate cross product of Vector and non-Vector type " + (typeof vector));
+        return (this.x * vector.y) - (vector.x * this.y);
+
+    }
     angle (...vectors) {
         let sumCos = 0, sumSin = 0;
         for (const vector of vectors) {
-            if (!vector?.isVector)
-                throw new Error("[Vector] Error: Cannot calculate angle from non-Vector type " + (typeof vector));
-            const angle = Math.atan2(...vector.sub(this));
+            if (!vector?.isVector) throw new Error("[Vector] Error: Cannot calculate angle from non-Vector type " + (typeof vector));
+            const diff = vector.sub(this);
+            const angle = Math.atan2(diff.y, diff.x);
             sumCos += Math.cos(angle);
             sumSin += Math.sin(angle);
         }
