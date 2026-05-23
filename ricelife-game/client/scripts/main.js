@@ -116,7 +116,7 @@ function animateSingleThread (state, config) { // [!] temporary for testing
                 state.projectile = false;
     }
 
-    if (!window.disableTest) {
+    if (window?.debugTools) {
         // testing
         drawCircle(ctx, player.barrelPos);
         drawCircle(ctx, new Vector(player.position.x, player.position.y), "green");
