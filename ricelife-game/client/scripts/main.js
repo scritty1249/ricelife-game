@@ -112,10 +112,15 @@ function animateSingleThread (state, config) { // [!] temporary for testing
             tank.draw(ctx);
         if (state.projectile)
             state.projectile.draw(ctx);
-            if (state.projectile?.isProjectile)
+            if (state.projectile?.isProjectile) {
                 state.projectile.update(1 / config.fps);
-            else
+            } else
                 state.projectile = false;
+        if (state.trace) {
+            ctx.setLineDash([10, 20]);
+            ctx.strokeStyle = "rgba(255, 255, 255, .35)";
+            state.trace.draw(ctx);
+        }
     }
 
     if (window?.debugTools) {
@@ -141,6 +146,7 @@ function animateSingleThread (state, config) { // [!] temporary for testing
     if (state.input.activeKeys.shoot && !state.projectile ) {
         state.lastShot = nowStamp;
         state.projectile = new Projectiles.Spreader(player.barrelPos, state.move.rotation + 270);
+        state.trace = state.projectile.tracer;
     }
     if (state.input.activeKeys.mvfwd) {
         state.move.move(1);
@@ -195,6 +201,7 @@ function main(...loaded) {
         move: Mover,
         polygons: {},
         projectile: undefined,
+        trace: undefined,
         tanks: {[Tank.id]: Tank},
         terrain: Terrain,
         cacheUpdate: {"background": false},

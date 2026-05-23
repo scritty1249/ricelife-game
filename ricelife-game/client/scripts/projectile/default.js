@@ -1,7 +1,8 @@
-import { TrackableObject } from "../utils.js";
-import { Circle, Vector, Direction, Color } from "../geometry/geometry.js";
+import { TrackableObject, floatEqual } from "../utils.js";
+import { Circle, Vector, Direction, Color, Path } from "../geometry/geometry.js";
 
 export class Projectile extends TrackableObject {
+    #tracer;
     constructor (origin, velocity, acceleration, drag) {
         super();
         this.origin = origin; // allow for references to be passed
@@ -12,6 +13,7 @@ export class Projectile extends TrackableObject {
             position: new Vector(origin),
             velocity: this.velocity.clone()
         };
+        this.#tracer = new Path();
     }
 
     get speed () {
@@ -29,11 +31,14 @@ export class Projectile extends TrackableObject {
         const position = this.current.position;
         const velocity = this.current.velocity;
         const acceleration = this.acceleration;
-
         const v = velocity.mul(-this.drag * Math.sqrt(velocity.pow(2).sum()));
-        velocity.add(this.acceleration.add(v).mul(seconds), true);
+        if (velocity.x < 0)
+            acceleration.x *= -1;
+        else if (floatEqual(velocity.x, 0))
+            acceleration.x *= 0;
+        velocity.add(acceleration.add(v).mul(seconds), true);
+        this.#tracer.push(position.clone());
         position.add(velocity.mul(seconds), true);
-
         return position;
     }
 
@@ -42,21 +47,33 @@ export class Projectile extends TrackableObject {
         this.current.velocity.apply(this.velocity);
     }
 
+    // [!] broken
     positionAt (seconds, resolution = 0.01) {
-        if (seconds <= 0) return new Vector(this.origin);
-        const position = new Vector(this.origin);
+        const position = this.origin.clone();
+        if (seconds <= 0) return position;
         const velocity = this.velocity.clone();
+        const acceleration = this.acceleration.clone();
         let t = 0;
         while (t < seconds) {
             const dt = Math.min(resolution, seconds - t);            
             const v = velocity.mul(-this.drag * Math.sqrt(velocity.pow(2).sum()));
-            
-            velocity.add(this.acceleration.add(v).mul(dt), true);
+            const acc = acceleration.clone();
+            if (v.x < 0)
+                acc.x *= -1;
+            else if (floatEqual(v.x, 0))
+                acc.x *= 0;
+            velocity.add(acc.add(v).mul(dt), true);
             position.add(velocity.mul(dt), true);
             t += dt;
         }
 
         return position;
+    }
+
+    get tracer () { return this.#tracer }
+
+    *tracerAt () {
+
     }
 }
 
@@ -109,6 +126,7 @@ export class BasicShot extends Projectile {
         ctx.fill();
     }
 
+    // [!] broken
     intersectAt (polygon, step = .01 , resolution = .01) { // the projectiles position when it's shape intersects with the given terrain
         if (!polygon.isPolygon) throw new Error("[BasicShot] Error: Cannot perform intersection operation with non-Polygon");
         const circle = new Circle(this.origin.clone(), this.#shape.radius, this.#shape.resolution);
