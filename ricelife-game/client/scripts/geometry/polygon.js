@@ -22,12 +22,14 @@ export class Polygon extends TrackableObject { // points should be ordered clock
             hole.smooth(resolution);
     }
 
-    merge (poly, mutate = false) {
-        const polygon = mutate ? this : this.clone();
-        const intersects = this.#getIntersections(poly);
-        if (!intersects.length) return;
-    }
+    // [!] do we even need this?
+    // merge (poly, mutate = false) {
+    //     const polygon = mutate ? this : this.clone();
+    //     const intersects = this.#getIntersections(poly);
+    //     if (!intersects.length) return;
+    // }
 
+    // [!] I have no idea what I'm doing!
     cut (poly, mutate = false) { // https://en.wikipedia.org/wiki/Greiner%E2%80%93Hormann_clipping_algorithm
         if (!poly?.isPolygon) {
             throw new Error("[Polygon] Error: Cannot cut with non-Polygon type " + (typeof poly));
@@ -51,7 +53,7 @@ export class Polygon extends TrackableObject { // points should be ordered clock
         _link(listThis);
         _link(listPoly);
 
-        const intersections = this.path.intersect(poly.path);
+        const intersections = this.#getIntersections(poly);
         if (intersections.length === 0) {
             if (this.isIntersecting(polyPts[0])) {
                 const hole = poly.clone();
@@ -163,7 +165,7 @@ export class Polygon extends TrackableObject { // points should be ordered clock
         // close the paths
         if (thisPath.length > 2) thisPath.push(thisPath.at(-1));
         if (thatPath.length > 2) thatPath.push(thatPath.at(-1));
-        return thatPath.intersect(thisPath);
+        return thisPath.intersect(thatPath);
     }
 
     get isPolygon () { return true }

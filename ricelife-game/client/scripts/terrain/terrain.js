@@ -14,6 +14,8 @@ export function drawTerrain (ctx, polygon, fillColor, edgeColor, gradientWidth =
         for (const hole of polygon.holes) {
             hole.draw(ctx);
             ctx.fill();
+            ctx.lineWidth = 1.5; // straight up mask a tiny extra bit around each hole lmao, we LOVE antialiasing!
+            ctx.stroke();
         }        
         ctx.globalCompositeOperation = "source-over";
     }

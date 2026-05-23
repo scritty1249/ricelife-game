@@ -125,13 +125,19 @@ function animateSingleThread (state, config) { // [!] temporary for testing
                 state.projectile = false;
     }
 
-    // testing
-    drawCircle(ctx, 4, player.barrelPos);
-    drawCircle(ctx, 4, new Vector(player.position.x, player.position.y)), "green";
-    state.terrain.draw(ctx);
-    ctx.strokeStyle = 'red';
-    ctx.lineWidth = 2;
-    ctx.stroke(); 
+    if (false) {
+        // testing
+        drawCircle(ctx, 4, player.barrelPos);
+        drawCircle(ctx, 4, new Vector(player.position.x, player.position.y), "green");
+        ctx.save();          // Save state to undo clipping later
+        state.terrain.draw(ctx);
+        ctx.clip("evenodd"); 
+        ctx.strokeStyle = 'red';
+        ctx.lineWidth = 4;
+        ctx.stroke(); 
+        
+        ctx.restore();
+    }
 
     // handle input jobs
     if (state.input.activeKeys.shoot && !state.projectile ) {
