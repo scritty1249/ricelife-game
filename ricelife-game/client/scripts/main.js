@@ -97,7 +97,9 @@ function animateSingleThread (state, config) { // [!] temporary for testing
         if (state.projectile)
             if (state.terrain.isIntersecting(state.projectile.position)) {
                 config.display.cache.background.clear();
-                state.terrain.cut(state.projectile.blast.shape, true)
+                for (const shape of state.projectile.blast.shapes) {
+                    state.terrain.cut(shape, true)
+                }
                 drawTerrain(config.display.cache.background.ctx, state.terrain, config.terrain.fill, config.terrain.edge);
                 state.projectile = state.projectile.blast;
             } else if (state.projectile.position.x < 0 // delete if out of bounds
@@ -138,7 +140,7 @@ function animateSingleThread (state, config) { // [!] temporary for testing
     // handle input jobs
     if (state.input.activeKeys.shoot && !state.projectile ) {
         state.lastShot = nowStamp;
-        state.projectile = new Projectiles.BasicShot(player.barrelPos, state.move.rotation + 270);
+        state.projectile = new Projectiles.Spreader(player.barrelPos, state.move.rotation + 270);
     }
     if (state.input.activeKeys.mvfwd) {
         state.move.move(1);

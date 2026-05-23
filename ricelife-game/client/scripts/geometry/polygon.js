@@ -22,12 +22,9 @@ export class Polygon extends TrackableObject { // points should be ordered clock
             hole.smooth(resolution);
     }
 
-    // [!] do we even need this?
-    // merge (poly, mutate = false) {
-    //     const polygon = mutate ? this : this.clone();
-    //     const intersects = this.#getIntersections(poly);
-    //     if (!intersects.length) return;
-    // }
+    merge (poly, mutate = false) {
+
+    }
 
     // [!] I have no idea what I'm doing!
     cut (poly, mutate = false) { // https://en.wikipedia.org/wiki/Greiner%E2%80%93Hormann_clipping_algorithm
@@ -37,7 +34,7 @@ export class Polygon extends TrackableObject { // points should be ordered clock
         const newPolygon = mutate ? this : this.clone();
 
         // FUCKIN LINKED LISTS?
-        const _nodeMap = (p) => ({ pt: p, isIntersect: false, alpha: 0, entry: false, visited: false, next: null, prev: null, neighbor: null });
+        const _nodeMap = (p) => ({ pt: p, isIntersect: false, distance: 0, entry: false, visited: false, next: null, prev: null, neighbor: null });
         const _link = (list) => {
             for (let i = 0; i < list.length; i++) {
                 list[i].next = list[(i + 1) % list.length];
@@ -73,13 +70,13 @@ export class Polygon extends TrackableObject { // points should be ordered clock
 
             let afterThis = listThis[inter.index.self];
             if (!afterThis) afterThis = listThis[0]; // fallback, close LL early
-            while (afterThis.next.distance !== 0 && afterThis.next.distance < inter.coeff.self) afterThis = afterThis.next;
+            while (afterThis.next.isIntersect && afterThis.next.distance < inter.coeff.self) afterThis = afterThis.next;
             thisNode.next = afterThis.next; thisNode.prev = afterThis;
             thisNode.next.prev = thisNode; afterThis.next = thisNode;
 
             let afterThat = listPoly[inter.index.other];
             if (!afterThat) afterThat = listPoly[0]; // fallback
-            while (afterThat.next.distance !== 0 && afterThat.next.distance < inter.coeff.other) afterThat = afterThat.next;
+            while (afterThat.next.isIntersect && afterThat.next.distance < inter.coeff.other) afterThat = afterThat.next;
             thatNode.next = afterThat.next; thatNode.prev = afterThat;
             thatNode.next.prev = thatNode; afterThat.next = thatNode;
         }
@@ -179,6 +176,13 @@ export class Polygon extends TrackableObject { // points should be ordered clock
         // else
         //     hits.sort((a, b) => b.d - a.d);
         return hits;
+    }
+
+    translate (translate, mutate = false) {
+        const poly = mutate ? this : this.clone();
+        for (const pt of this.#path.points)
+            pt.add(translate, true);
+        return poly;
     }
 
     #getIntersections (polygon) { // this will shift the starting point of the Path, but should preserve the order.

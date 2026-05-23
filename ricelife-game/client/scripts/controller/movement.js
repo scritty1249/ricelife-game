@@ -41,6 +41,7 @@ export class MovementController { // only moves along X axis
         this.#range = this.#terrain.path.points.slice(0, -2).map((pt) => pt.x).toSorted((a, b) => b - a).at(0); // [!] unsafe math
         this.#terrainHeight = Math.max(...this.#terrain.path.points.map(({y}) => y));
         this.offsetY = offsetY;
+        this.maxTilt = 130; // range of how much the player's body can tilt before movement is blocked (dont straight straight up walls)
     }
 
     move (amount) {
@@ -50,21 +51,26 @@ export class MovementController { // only moves along X axis
     set (amount) {
         if (amount < 1 || amount >= this.#range) return;
 
-        // setting position
         const position = this.#player.position;
         const ground = this.#terrain.path.points;
-        position.x = amount;
         const hits = this.#terrain.raycast(new Vector(amount, 0), Direction(90), this.#terrainHeight - 1)
         // remove duplicate/junk raycasting hits (i did some shit wrong)
         const hit = (hits.some(({entering}) => !entering) ? hits.filter(({entering}) => !entering) : hits)
             .toSorted((a, b) => b.point.y - a.point.y).at(0);
-        position.y = hit.point.y + this.offsetY;
+        let angle = rad2deg(hit.angle) + (hit.entering ? 270 : 90);
+        if (angle < 0) angle += 360;
+        angle = angle % 360;
 
+        // check if movement is valid, don't drive straight up walls
+        if (!(angle > 360 - (this.maxTilt / 2) || angle < this.maxTilt / 2))
+            return false;
+
+        // setting position
+        position.x = amount;
+        position.y = hit.point.y + this.offsetY;
         // setting rotation
-        this.#player.rotation.body = rad2deg(hit.angle) + (hit.entering ? 270 : 90);
-        // const terrainIdx = ground.findIndex((pt) => pt.eq(position));
-        // const points = ground.filter((pt) => pt.x <= position.x + this.#playerWidthRadius && pt.x >= position.x - this.#playerWidthRadius).toSorted((a, b) => b - a);
-        // this.#player.rotation.body = points.at(0).angle(...points.slice(1));
+        this.#player.rotation.body = angle;
+        return true;
     }
 
     get rotation () {

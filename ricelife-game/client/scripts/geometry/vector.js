@@ -126,7 +126,7 @@ export class Vector {
         return Math.atan2(sumSin, sumCos);
     }
     eq (vector) {
-        return vector.isVector && floatEqual(this.x, vector.x) && floatEqual(this.y, vector.y);
+        return vector?.isVector && floatEqual(this.x, vector.x) && floatEqual(this.y, vector.y);
     }
     apply (x, y = null) {
         if (Number.isFinite(x)) {
