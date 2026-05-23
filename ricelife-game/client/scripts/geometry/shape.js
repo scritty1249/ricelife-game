@@ -42,10 +42,10 @@ export class Circle extends Polygon {
 
 export class TrackingCircle extends TrackingShape {
     static shape = Circle;
-    constructor (position, radius, followShape) {
+    constructor (position, radius, followShape, resolution = 1) {
         super(position, followShape);
         this.radius = radius;
-        this.resolution = followShape.resolution;
+        this.resolution = resolution ? resolution : followShape.resolution;
         this.updatePath();
     }
 

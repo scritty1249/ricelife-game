@@ -117,9 +117,11 @@ function animateSingleThread (state, config) { // [!] temporary for testing
             } else
                 state.projectile = false;
         if (state.trace) {
+            ctx.save();
             ctx.setLineDash([10, 20]);
             ctx.strokeStyle = "rgba(255, 255, 255, .35)";
             state.trace.draw(ctx);
+            ctx.restore();
         }
     }
 
@@ -140,12 +142,16 @@ function animateSingleThread (state, config) { // [!] temporary for testing
         state.terrain.raycast(new Vector(player.position.x, 0), Direction(90), config.display.size.y - 1.1)
             .toSorted((a, b) => b.point.y - a.point.y)
             .forEach(({point, angle, entering}, i) => drawMarker(ctx, point, Direction((angle + Math.PI) % (2 * Math.PI), false), 4, 20, entering ? "purple" : "white"));
+        
+        if (state.projectile) {
+            state.projectile.blast.draw(ctx);
+        }
     }
 
     // handle input jobs
     if (state.input.activeKeys.shoot && !state.projectile ) {
         state.lastShot = nowStamp;
-        state.projectile = new Projectiles.Spreader(player.barrelPos, state.move.rotation + 270);
+        state.projectile = new Projectiles.Flower(player.barrelPos, state.move.rotation + 270);
         state.trace = state.projectile.tracer;
     }
     if (state.input.activeKeys.mvfwd) {
