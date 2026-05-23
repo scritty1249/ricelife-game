@@ -72,11 +72,13 @@ export class Polygon extends TrackableObject { // points should be ordered clock
             thatNode.neighbor = thisNode;
 
             let afterThis = listThis[inter.index.self];
+            if (!afterThis) afterThis = listThis[0]; // fallback, close LL early
             while (afterThis.next.distance !== 0 && afterThis.next.distance < inter.coeff.self) afterThis = afterThis.next;
             thisNode.next = afterThis.next; thisNode.prev = afterThis;
             thisNode.next.prev = thisNode; afterThis.next = thisNode;
 
             let afterThat = listPoly[inter.index.other];
+            if (!afterThat) afterThat = listPoly[0]; // fallback
             while (afterThat.next.distance !== 0 && afterThat.next.distance < inter.coeff.other) afterThat = afterThat.next;
             thatNode.next = afterThat.next; thatNode.prev = afterThat;
             thatNode.next.prev = thatNode; afterThat.next = thatNode;
