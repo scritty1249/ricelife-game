@@ -101,6 +101,7 @@ function animateSingleThread (state, config) { // [!] temporary for testing
                     state.terrain.cut(shape, true)
                 }
                 drawTerrain(config.display.cache.background.ctx, state.terrain, config.terrain.fill, config.terrain.edge);
+                state.move.set(player.position.x, true);
                 state.projectile = state.projectile.blast;
             } else if (state.projectile.position.x < 0 // delete if out of bounds
                 || state.projectile.position.x > config.display.size.x

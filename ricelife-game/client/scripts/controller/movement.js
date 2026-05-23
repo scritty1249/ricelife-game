@@ -48,7 +48,7 @@ export class MovementController { // only moves along X axis
         this.set(this.#player.position.x + amount);
     }
 
-    set (amount) {
+    set (amount, force = false) {
         if (amount < 1 || amount >= this.#range) return;
 
         const position = this.#player.position;
@@ -56,13 +56,19 @@ export class MovementController { // only moves along X axis
         const hits = this.#terrain.raycast(new Vector(amount, 0), Direction(90), this.#terrainHeight - 1)
         // remove duplicate/junk raycasting hits (i did some shit wrong)
         const hit = (hits.some(({entering}) => !entering) ? hits.filter(({entering}) => !entering) : hits)
-            .toSorted((a, b) => b.point.y - a.point.y).at(0);
+            ?.toSorted((a, b) => b.point.y - a.point.y)?.at(0);
+
+        if (!hit) {
+            console.warn("[MovementController] Warning: No valid terrain found for position");
+            return false;
+        }
+
         let angle = rad2deg(hit.angle) + (hit.entering ? 270 : 90);
         if (angle < 0) angle += 360;
         angle = angle % 360;
 
         // check if movement is valid, don't drive straight up walls
-        if (!(angle > 360 - (this.maxTilt / 2) || angle < this.maxTilt / 2))
+        if (force || !(angle > 360 - (this.maxTilt / 2) || angle < this.maxTilt / 2))
             return false;
 
         // setting position
