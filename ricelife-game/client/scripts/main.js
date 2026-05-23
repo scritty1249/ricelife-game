@@ -192,8 +192,8 @@ function main(...loaded) {
         display: Display,
         playerTank: Tank.id,
         terrain: {
-            edge: new Color("#03f5ff"),
-            fill: new Color("#00a5ff")
+            edge: new Color("#00e8f0"),
+            fill: new Color("#0098eb")
         }
     };
     const state = {
