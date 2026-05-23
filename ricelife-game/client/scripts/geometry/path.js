@@ -65,22 +65,23 @@ export class Path extends TrackableObject { // points should be ordered clockwis
                     && thatDistCoefficient <= 1
                 ) {
                     intersections.push({
-                        point: thisPts[i].add(gap.mul(thisDistCoefficient)),
-                        entering: direction.cross(dir) > 0,
+                        point: thisPts[i].add(direction.mul(thisDistCoefficient)),
+                        entering: cross > 0,
                         index: {
                             self: i,
                             other: j
                         },
-                        distance: { // percentages
+                        coeff: { // percentage of segment distance covered
                             self: thisDistCoefficient,
                             other: thatDistCoefficient
-                        }
+                        },
+                        angle: Math.atan2(cross, direction.dot(dir)) // radians
                     });
                 }
             }
         }
         if (intersections.length === 0) return [];
-        intersections.sort((a, b) => (a.index.self !== b.index.self) ? a.index.self - b.index.self : a.distance.self - b.distance.self);         // sort intersections along "this" path
+        intersections.sort((a, b) => (a.index.self !== b.index.self) ? a.index.self - b.index.self : a.coeff.self - b.coeff.self);         // sort intersections along "this" path
         for (let i = 0; !intersections[0].entering && i < intersections.length; i++) // first intersection returned should be an entry point
             intersections.push(intersections.shift());
         return intersections;

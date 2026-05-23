@@ -1,4 +1,4 @@
-import { deg2rad } from "../utils.js";
+import { deg2rad, floatEqual } from "../utils.js";
 
 export class Vector {
     constructor(x = 0, y = null) {
@@ -126,7 +126,7 @@ export class Vector {
         return Math.atan2(sumSin, sumCos);
     }
     eq (vector) {
-        return vector.isVector && this.x == vector.x && this.y == vector.y;
+        return vector.isVector && floatEqual(this.x, vector.x) && floatEqual(this.y, vector.y);
     }
     apply (x, y = null) {
         if (Number.isFinite(x)) {
@@ -180,8 +180,8 @@ export class Color {
     }
 }
 
-export function Direction (degrees) {
-    const rad = deg2rad(degrees);
+export function Direction (angle, degrees = true) {
+    const rad = degrees ? deg2rad(angle) : angle;
     return new Vector(Math.cos(rad), Math.sin(rad));
 }
 

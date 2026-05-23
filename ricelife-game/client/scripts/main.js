@@ -1,15 +1,8 @@
 import { InputListener, MovementController, TankController, AppCanvas } from "./controller/controller.js";
 import { Vector, Direction, Color, Polygon } from "./geometry/geometry.js";
-import { ResizedImage } from "./utils.js";
+import { ResizedImage, drawCircle, drawMarker, rad2deg } from "./utils.js";
 import { drawTerrain, generateTerrain } from "./terrain/terrain.js";
 import * as Projectiles from "./projectile/projectile.js";
-
-function drawCircle (ctx, radius, origin, color = "red") { // [!] debugging function
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.arc(origin.x, origin.y, radius, 0, 2 * Math.PI);
-    ctx.fill();
-}
 
 function queueTerrainRedraw (projectile, terrain, terrainColor, displayCache, fps, resolution = .01) {
     const blastAt = projectile.intersectAt(terrain, 1 / fps, resolution);
@@ -67,8 +60,8 @@ function animate (state, config) {
             bgCache.clear();
             waitPromise = state.redrawJob.then(() => {
                 bgCache.ctx.drawImage(blastCache.canvas, 0, 0);
-                drawCircle(ctx, 4, player.barrelPos);
-                drawCircle(ctx, 4, new Vector(player.position.x, player.position.y)), "green";
+                drawCircle(ctx, player.barrelPos);
+                drawCircle(ctx, new Vector(player.position.x, player.position.y)), "green";
             });
         }
         waitPromise = waitPromise.then(() => {
@@ -106,8 +99,6 @@ function animateSingleThread (state, config) { // [!] temporary for testing
                 config.display.cache.background.clear();
                 state.terrain.cut(state.projectile.blast.shape, true)
                 drawTerrain(config.display.cache.background.ctx, state.terrain, config.terrain.fill, config.terrain.edge);
-                console.log(state.projectile.blast.shape.position);
-                console.log(state.terrain.path);
                 state.projectile = state.projectile.blast;
             } else if (state.projectile.position.x < 0 // delete if out of bounds
                 || state.projectile.position.x > config.display.size.x
@@ -125,18 +116,23 @@ function animateSingleThread (state, config) { // [!] temporary for testing
                 state.projectile = false;
     }
 
-    if (false) {
+    if (true) {
         // testing
-        drawCircle(ctx, 4, player.barrelPos);
-        drawCircle(ctx, 4, new Vector(player.position.x, player.position.y), "green");
+        drawCircle(ctx, player.barrelPos);
+        drawCircle(ctx, new Vector(player.position.x, player.position.y), "green");
         ctx.save();          // Save state to undo clipping later
         state.terrain.draw(ctx);
         ctx.clip("evenodd"); 
         ctx.strokeStyle = 'red';
         ctx.lineWidth = 4;
         ctx.stroke(); 
-        
         ctx.restore();
+
+        drawCircle(ctx, new Vector(player.position.x, 20), 7, "purple")
+        drawCircle(ctx, new Vector(player.position.x, config.display.size.y - 20), 7, "white")
+        state.terrain.raycast(new Vector(player.position.x, 0), Direction(90), config.display.size.y - 1.1)
+            .toSorted((a, b) => b.point.y - a.point.y)
+            .forEach(({point, angle, entering}, i) => drawMarker(ctx, point, Direction((angle + Math.PI) % (2 * Math.PI), false), 4, 20, entering ? "purple" : "white"));
     }
 
     // handle input jobs

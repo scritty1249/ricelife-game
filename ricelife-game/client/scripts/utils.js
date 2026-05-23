@@ -1,11 +1,32 @@
 export function deg2rad (deg) { return deg * (Math.PI / 180) }
 
+export function rad2deg (rad) { return rad * (180 / Math.PI) }
+
 export function str2hex (str) {
   return str
     .split("")
     .map(char => char.charCodeAt(0).toString(16).padStart(2, "0"))
     .join("");
 }
+
+export function drawCircle (ctx, origin, radius = 4, color = "red") { // [!] debugging function
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(origin.x, origin.y, radius, 0, 2 * Math.PI);
+    ctx.fill();
+}
+
+export function drawMarker (ctx, origin, direction, radius = 4, length = 15, color = "red") { // [!] debugging function
+    drawCircle(ctx, origin, radius, color);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = radius / 2;
+    ctx.beginPath();
+    ctx.moveTo(...origin);
+    ctx.lineTo(...origin.add(direction.mul(length * 2)));
+    ctx.stroke();
+}
+
+export function floatEqual (a, b) { return Math.abs(a - b) < Number.EPSILON }
 
 export function uuid () { return crypto.randomUUID() }
 

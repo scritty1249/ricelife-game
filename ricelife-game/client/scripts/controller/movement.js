@@ -1,3 +1,4 @@
+import { Vector, Direction } from "../geometry/geometry.js";
 
 export class InputListener {
     #keyCodeMap;
@@ -31,6 +32,7 @@ export class InputListener {
 export class MovementController { // only moves along X axis
     #terrain;
     #range;
+    #terrainHeight;
     #player;
     #playerWidthRadius;
     constructor (terrain, tank, offsetY = 0) {
@@ -38,6 +40,7 @@ export class MovementController { // only moves along X axis
         this.#terrain = terrain;
         this.#range = this.#terrain.path.points.slice(0, -2).map((pt) => pt.x).toSorted((a, b) => b - a).at(0); // [!] unsafe math
         this.#playerWidthRadius = Math.floor(this.#player.width / 2);
+        this.#terrainHeight = Math.max(...this.#terrain.path.points.map(({y}) => y));
         this.offsetY = offsetY;
     }
 
@@ -50,10 +53,10 @@ export class MovementController { // only moves along X axis
         const position = this.#player.position;
         const ground = this.#terrain.path.points;
         position.x = amount;
-        position.y =  ground.filter((pt) =>
-                Math.abs(pt.x - position.x) < 1) // approximate closest point. Closest within 1 pixel is acceptable
-            .toSorted((a, b) => b - a)
-            .at(-1).y + this.offsetY;
+        const hits = this.#terrain.raycast(new Vector(amount, 0), Direction(90), this.#terrainHeight - 1)
+        // remove duplicates
+        const bestHits = hits.some(({entering}) => !entering) ? hits.filter(({entering}) => !entering) : hits;            
+        position.y = Math.max(...bestHits.map(({point}) => point.y)) + this.offsetY;
         const terrainIdx = ground.findIndex((pt) => pt.eq(position));
         const points = ground.filter((pt) => pt.x <= position.x + this.#playerWidthRadius && pt.x >= position.x - this.#playerWidthRadius).toSorted((a, b) => b - a);
         this.#player.rotation.body = points.at(0).angle(...points.slice(1));
