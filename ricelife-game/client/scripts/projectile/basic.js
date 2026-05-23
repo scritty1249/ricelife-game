@@ -26,7 +26,7 @@ export class Flower extends BasicShot {
         acceleration: new Vector(20, 200),
         drag: 0.001,
         radius:  7.5,
-        blastRadius: 25
+        blastRadius: 35
     };
     constructor (origin, angle, power = 1, resolution = 1) {
         super(origin, angle, power, resolution);
