@@ -3,7 +3,7 @@ import { deg2rad, TrackableObject } from "../utils.js";
 
 export class TankController extends TrackableObject {
     #source;
-    constructor (bodyImage, barrelImage, position = new Vector(), barrelOffset = new Vector()) {
+    constructor (bodyImage, barrelImage, position = new Vector()) {
         super();
         this.#source = {
             // expects LOADED ResizedImage objects
@@ -14,14 +14,17 @@ export class TankController extends TrackableObject {
             body: 0,
             barrel: 0,
         };
-        this.barrelOffset = barrelOffset;
+        this.offset = {
+            barrel: new Vector(),
+            body: new Vector()
+        }
         this.position = position;
     }
 
     #drawBarrel (ctx) { // barrel assumed to be pointed UP
         const barrel = this.#source.barrel;
         ctx.save();
-        ctx.translate(this.position.x, this.position.y + this.barrelOffset);
+        ctx.translate(...this.position.add(this.offset.barrel));
         ctx.rotate(deg2rad(this.rotation.barrel % 360));
         ctx.drawImage(barrel.img, -barrel.width / 2, -barrel.height, barrel.width, barrel.height); // pivot around bottom-center of image
         ctx.restore();
@@ -30,9 +33,9 @@ export class TankController extends TrackableObject {
     #drawBody (ctx) { // [!] repetitive?
         const body = this.#source.body;
         ctx.save();
-        ctx.translate(...this.position);
+        ctx.translate(...this.position.add(this.offset.body));
         ctx.rotate(deg2rad(this.rotation.body));
-        ctx.drawImage(body.img, -body.width / 2, -body.height, body.width, body.height); // pivot around bottom-center of image
+        ctx.drawImage(body.img, -body.width / 2, -body.height / 2, body.width, body.height); // pivot around center-center of image
         ctx.restore();
     }
 
@@ -44,7 +47,7 @@ export class TankController extends TrackableObject {
     get width () { return this.#source.body.width }
     get height () { return this.#source.body.height }
     get barrelPos () { // gets coord at tip of barrel
-        const origin = new Vector(this.position.x, this.position.y + this.barrelOffset);
+        const origin = this.position.add(this.offset.barrel);
         const angle = deg2rad(this.rotation.barrel + 270);
         return origin.project(angle, this.#source.barrel.height);
     }

@@ -116,7 +116,7 @@ function animateSingleThread (state, config) { // [!] temporary for testing
                 state.projectile = false;
     }
 
-    if (true) {
+    if (!window.disableTest) {
         // testing
         drawCircle(ctx, player.barrelPos);
         drawCircle(ctx, new Vector(player.position.x, player.position.y), "green");
@@ -174,7 +174,7 @@ const INPUT_MAP = {
 function main(...loaded) {
     const Display = new AppCanvas(document.getElementById("app"), new Vector(1920, 1080));
     const Inputs = new InputListener(window, INPUT_MAP);
-    const Tank = new TankController(loaded[0], loaded[1], new Vector(), -15);
+    const Tank = new TankController(loaded[0], loaded[1], new Vector());
     const Terrain = generateTerrain(Display.size, GROUND);
     const Mover = new MovementController(Terrain, Tank, (loaded[0].height / 5));
 
@@ -204,7 +204,8 @@ function main(...loaded) {
     Display.createCache("background");
     drawTerrain(Display.cache.background.ctx, Terrain, config.terrain.fill, config.terrain.edge);
     Mover.set(Math.floor(Display.size.x / 4));
-    // [!] TODO: configure tank body rotation
+    Tank.offset.barrel.y = -15;
+    Tank.offset.body.y = -(loaded[0].height / 2);
 
     animateSingleThread(state, config);
 }

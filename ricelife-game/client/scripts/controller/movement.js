@@ -1,4 +1,5 @@
 import { Vector, Direction } from "../geometry/geometry.js";
+import { rad2deg } from "../utils.js";
 
 export class InputListener {
     #keyCodeMap;
@@ -34,12 +35,10 @@ export class MovementController { // only moves along X axis
     #range;
     #terrainHeight;
     #player;
-    #playerWidthRadius;
     constructor (terrain, tank, offsetY = 0) {
         this.#player = tank;
         this.#terrain = terrain;
         this.#range = this.#terrain.path.points.slice(0, -2).map((pt) => pt.x).toSorted((a, b) => b - a).at(0); // [!] unsafe math
-        this.#playerWidthRadius = Math.floor(this.#player.width / 2);
         this.#terrainHeight = Math.max(...this.#terrain.path.points.map(({y}) => y));
         this.offsetY = offsetY;
     }
@@ -50,16 +49,22 @@ export class MovementController { // only moves along X axis
 
     set (amount) {
         if (amount < 1 || amount >= this.#range) return;
+
+        // setting position
         const position = this.#player.position;
         const ground = this.#terrain.path.points;
         position.x = amount;
         const hits = this.#terrain.raycast(new Vector(amount, 0), Direction(90), this.#terrainHeight - 1)
-        // remove duplicates
-        const bestHits = hits.some(({entering}) => !entering) ? hits.filter(({entering}) => !entering) : hits;            
-        position.y = Math.max(...bestHits.map(({point}) => point.y)) + this.offsetY;
-        const terrainIdx = ground.findIndex((pt) => pt.eq(position));
-        const points = ground.filter((pt) => pt.x <= position.x + this.#playerWidthRadius && pt.x >= position.x - this.#playerWidthRadius).toSorted((a, b) => b - a);
-        this.#player.rotation.body = points.at(0).angle(...points.slice(1));
+        // remove duplicate/junk raycasting hits (i did some shit wrong)
+        const hit = (hits.some(({entering}) => !entering) ? hits.filter(({entering}) => !entering) : hits)
+            .toSorted((a, b) => b.point.y - a.point.y).at(0);
+        position.y = hit.point.y + this.offsetY;
+
+        // setting rotation
+        this.#player.rotation.body = rad2deg(hit.angle) + (hit.entering ? 270 : 90);
+        // const terrainIdx = ground.findIndex((pt) => pt.eq(position));
+        // const points = ground.filter((pt) => pt.x <= position.x + this.#playerWidthRadius && pt.x >= position.x - this.#playerWidthRadius).toSorted((a, b) => b - a);
+        // this.#player.rotation.body = points.at(0).angle(...points.slice(1));
     }
 
     get rotation () {
