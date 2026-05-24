@@ -1,6 +1,6 @@
 import { Vector, Path, Polygon } from "../geometry/geometry.js";
 
-export function drawTerrain (ctx, polygon, fillColor, edgeColor, gradientWidth = 150, resolution = 1) { // fill and edge colors are expected to be Color objects
+export function drawTerrain (ctx, polygon, fillColor, edgeColor, gradientWidth, resolution) { // fill and edge colors are expected to be Color objects
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
     polygon.draw(ctx);

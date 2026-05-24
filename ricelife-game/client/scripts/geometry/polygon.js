@@ -3,21 +3,30 @@ import { TrackableObject } from "../utils.js";
 
 export class Polygon extends TrackableObject { // points should be ordered clockwise (in positioning)
     #path;
+    #holes
     constructor (...points) {
         super();
-        this.holes = []; // hole paths must be reordered to counter clockwise positioning
+        this.#holes = []; // hole paths must be reordered to counter clockwise positioning
+        this.#holes.apply = function (...holes) {
+            this.splice(0, this.length);
+            for (const hole of holes) {
+                if (!hole.isPolygon) throw new Error("[Polygon] Error: Holes must be Polygons, not " + (typeof hole));
+                this.push(hole);
+            }
+        }
         this.#path = (points.length == 1 && points[0]?.isPath)
             ? points[0]
             : new Path(...points);
     }
 
     smooth (resolution = 1) {
-        if (this.#path.points.length == 1) return;
-        const last = this.#path.at(-1);
-        this.#path.smooth(resolution);
+        const path = this.path;
+        if (path.points.length == 1) return;
+        const last = path.at(-1);
+        path.smooth(resolution);
         // smooth connection between first and last points
-        for (const point of tweenPoints(last, this.#path.at(0), resolution))
-            this.#path.push(point);
+        for (const point of tweenPoints(last, path.at(0), resolution))
+            path.push(point);
         for (const hole of this.holes)
             hole.smooth(resolution);
     }
@@ -50,9 +59,10 @@ export class Polygon extends TrackableObject { // points should be ordered clock
         _link(listThis);
         _link(listPoly);
 
-        const intersections = this.#getIntersections(poly);
+        // i dont even remember what the fuck this was for when i wrote it man...
+        const intersections = newPolygon.#getIntersections(poly);
         if (intersections.length === 0) {
-            if (this.isIntersecting(polyPts[0])) {
+            if (newPolygon.isIntersecting(polyPts[0])) {
                 const hole = poly.clone();
                 if (newPolygon.isClockwise) hole.path.points.reverse();
                 newPolygon.holes.push(hole);
@@ -121,7 +131,7 @@ export class Polygon extends TrackableObject { // points should be ordered clock
         if (polyPieces.length === 0) return newPolygon;
         if (polyPieces.length > 1) {
             const hole = poly.clone();
-            if (newPolygon.isClockwise) hole.path.points.reverse();
+            if (newPolygon.path.isClockwise) hole.path.points.reverse();
             newPolygon.holes.push(hole);
         } else
             newPolygon.path.apply(...polyPieces[0].path.points);
@@ -130,10 +140,11 @@ export class Polygon extends TrackableObject { // points should be ordered clock
 
     draw (ctx, close = true) { // only draw the path
         if (!this.#path.points.length) return;
+        const path = this.path;
         if (close) ctx.beginPath();
-        ctx.moveTo(...this.#path.points[0]);
-        for (let i = 1; i < this.#path.points.length; i++)
-            ctx.lineTo(...this.#path.points[i]);
+        ctx.moveTo(...path.points[0]);
+        for (let i = 1; i < path.points.length; i++)
+            ctx.lineTo(...path.points[i]);
         if (close) ctx.closePath();
     }
 
@@ -141,10 +152,11 @@ export class Polygon extends TrackableObject { // points should be ordered clock
         if (value?.isVector) {
             let inside = false;
             const { x, y } = value;
-            const len = this.#path.length;
+            const path = this.path;
+            const len = path.length;
             for (let i = 0, j = len - 1; i < len; j = i++) {
-                const pi = this.#path.points[i];
-                const pj = this.#path.points[j];
+                const pi = path.points[i];
+                const pj = path.points[j];
                 const intersect = ((pi.y > y) !== (pj.y > y))
                     && (x < (pj.x - pi.x) * (y - pi.y) / (pj.y - pi.y) + pi.x);
                 if (intersect) inside = !inside;
@@ -171,16 +183,12 @@ export class Polygon extends TrackableObject { // points should be ordered clock
                 if (this.isIntersecting(inter.point, true) && !hits.some(({point}) => point.eq(inter.point)))
                     hits.push({ point: inter.point, distance: inter.coeff.other * distance, angle: (inter.angle + Math.PI) % (2 * Math.PI), entering: !inter.entering});
         }
-        // if (ascending)
-        //     hits.sort((a, b) => a.d - b.d);
-        // else
-        //     hits.sort((a, b) => b.d - a.d);
         return hits;
     }
 
     translate (translate, mutate = false) {
         const poly = mutate ? this : this.clone();
-        for (const pt of this.#path.points)
+        for (const pt of poly.path.points)
             pt.add(translate, true);
         return poly;
     }
@@ -194,18 +202,35 @@ export class Polygon extends TrackableObject { // points should be ordered clock
         return thisPath.intersect(thatPath);
     }
 
+    get Float64 () {
+        const data = {};
+        data.path = this.path.Float64Array;
+        data.holes = this.holes.map((hole) => hole.Float64);
+        return data;
+    }
     get isPolygon () { return true }
     get path () { return this.#path }
-    
+    get holes () { return this.#holes }
+
+    apply (polygon) {
+        if (!polygon?.isPolygon) throw new Error("[Polygon] Error: Cannot apply non-Polygon type " + (typeof polygon));
+        this.#path.apply(polygon.path);
+        this.#holes.apply(...polygon.holes);
+    }
     toString () {
-        return `[Polygon] {${
-            Array.from([...this.#path], (pt) => pt.toString()).join(", ")
-        }}`;
+        return `[Polygon] <{ ${this.path.toString()}, Holes: [${ // [!] RECURSION RISK
+            Array.from(this.holes, (hole) => hole.toString()).join(", ")
+        }] }>`;
     }
     clone () {
-        const poly = new Polygon(this.#path.clone());
-        poly.holes = this.holes.map(hole => hole.clone());
+        const poly = new Polygon(this.path.clone());
+        poly.holes.apply(...this.holes.map(hole => hole.clone()));
         return poly;
+    }
+    static fromArray (path, ...holes) {
+        const polygon = new Polygon(Path.fromArray(path));
+        polygon.holes.apply(...(holes.map((hole) => new Polygon(Path.fromArray(hole)))));
+        return polygon;
     }
 }
 

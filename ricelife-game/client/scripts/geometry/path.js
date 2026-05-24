@@ -1,4 +1,5 @@
 import { TrackableObject } from "../utils.js";
+import { Vector } from "./vector.js";
 
 export class Path extends TrackableObject { // points should be ordered clockwise (in positioning)
     #points;
@@ -92,6 +93,12 @@ export class Path extends TrackableObject { // points should be ordered clockwis
     get length () { return this.#points.length }
     get direction () { return this.#points.slice().reverse().reduce((acc, curr) => acc.sub(curr)) }
     get angle () { return (this.length > 1) ? this.#points[0].angle(...this.slice(1)) : undefined }
+    get Float64Array () {
+        const arr = [];
+        for (let i = 0; i < this.length; i++)
+            arr.push(...this.at(i));
+        return new Float64Array(arr);
+    }
     get isClockwise () { // "Shoelace formula"
         if (this.length < 3) return true;
         return this.points.reduce((acc, p1, i) => {
@@ -103,6 +110,9 @@ export class Path extends TrackableObject { // points should be ordered clockwis
     apply (...values) {
         this.#points.splice(0, this.#points.length);
         this.#points.push(...(values.length == 1 && values[0]?.isPath ? values[0] : values));
+    }
+    map (...args) {
+        return this.#points.map(...args);
     }
     push (...points) {
         for (const pt of points)
@@ -118,12 +128,17 @@ export class Path extends TrackableObject { // points should be ordered clockwis
         yield* this.#points;
     }
     toString () {
-        return `[Path] {${
-            Array.from(this.points, ([x, y]) => `(${x}, ${y})`).join(", ")
-        }}`;
+        return `[Path] <${this.#points.map((pt) => pt.toString()).join(", ")}>`;
     }
     clone () {
-        return new Path(this.#points);
+        return new Path(...this.#points);
+    }
+    static fromArray (arr) {
+        if (arr.length % 2 === 1) throw new Error("[Path] Error: Cannot initalize new Path from uneven array of length " + arr.length.toString());
+        const path = new Path();
+        for (let i = 0; i < arr.length; i+=2)
+            path.push(new Vector(arr[i], arr[i+1]));
+        return path;
     }
 }
 

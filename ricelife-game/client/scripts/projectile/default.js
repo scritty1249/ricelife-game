@@ -5,7 +5,7 @@ export class Projectile extends TrackableObject {
     #tracer;
     constructor (origin, velocity, acceleration, drag) {
         super();
-        this.origin = origin; // allow for references to be passed
+        this.origin = origin.clone();
         this.drag = drag; // coefficient, values >1 will make projectiles move backwards infinitely
         this.acceleration = new Vector(acceleration);
         this.velocity = new Vector(velocity);
@@ -13,7 +13,18 @@ export class Projectile extends TrackableObject {
             position: new Vector(origin),
             velocity: this.velocity.clone()
         };
-        this.#tracer = new Path();
+        {
+            const tracer = new Path();
+            const _originalDraw = tracer.draw;
+            tracer.draw = function (ctx) {
+                ctx.save();
+                ctx.setLineDash([10, 20]);
+                ctx.strokeStyle = "rgba(255, 255, 255, .35)";
+                _originalDraw.call(this, ctx);
+                ctx.restore();
+            }
+            this.#tracer = tracer;
+        }
     }
 
     get speed () {
@@ -30,15 +41,15 @@ export class Projectile extends TrackableObject {
     update (seconds = 1) {
         const position = this.current.position;
         const velocity = this.current.velocity;
-        const acceleration = this.acceleration;
+        const acceleration = this.acceleration.clone();
         const v = velocity.mul(-this.drag * Math.sqrt(velocity.pow(2).sum()));
         if (velocity.x < 0)
             acceleration.x *= -1;
         else if (floatEqual(velocity.x, 0))
             acceleration.x *= 0;
-        velocity.add(acceleration.add(v).mul(seconds), true);
         this.#tracer.push(position.clone());
         position.add(velocity.mul(seconds), true);
+        velocity.add(acceleration.add(v).mul(seconds), true);
         return position;
     }
 
@@ -66,15 +77,12 @@ export class Projectile extends TrackableObject {
             position.add(velocity.mul(dt), true);
             t += dt;
         }
-
         return position;
     }
 
     get tracer () { return this.#tracer }
-
-    *tracerAt () {
-
-    }
+    *tracerAt () { }
+    clone () { return new Projectile(this.origin, this.velocity, this.acceleration, this.drag) }
 }
 
 export class BasicShot extends Projectile {
@@ -91,13 +99,15 @@ export class BasicShot extends Projectile {
                 radius: 5,
                 blastRadius: 30
             };
-        super(origin, Direction(angle).mul(config.initalSpeed * power), config.acceleration, config.drag);
+        const direction = Direction(angle).mul(config.initalSpeed * power);
+        super(origin, direction, config.acceleration, config.drag);
+        this.direction = direction; // make accessible for later calculations
         this.config = config;
         const currentPosition = this.current.position;
         this.#shape = new Circle(currentPosition, config.radius, resolution);
         this.#blast = {
             color: new Color("#FFD300"),
-            _shapes: [new Circle(currentPosition, config.blastRadius, resolution)],
+            _shapes: [new Circle(new Vector(), config.blastRadius, resolution)],
             get shapes () {
                 return this.shapesAt(currentPosition);
             },
@@ -106,9 +116,11 @@ export class BasicShot extends Projectile {
             },
             draw: function (ctx) {
                 for (const shape of this.shapes) {
+                    ctx.save();
                     ctx.fillStyle = this.color;
                     shape.draw(ctx);
                     ctx.fill();
+                    ctx.restore();
                 }
             }
         };
@@ -126,33 +138,21 @@ export class BasicShot extends Projectile {
         ctx.fill();
     }
 
-    // [!] broken
-    intersectAt (polygon, step = .01 , resolution = .01) { // the projectiles position when it's shape intersects with the given terrain
+    // expensive but accurate. we should only be calling this ONCE when a shot is fired anyways
+    // returns the projectiles position when it's shape intersects with the given terrain
+    intersectAt (polygon, increment = 1/60, limit = 1000) {
         if (!polygon.isPolygon) throw new Error("[BasicShot] Error: Cannot perform intersection operation with non-Polygon");
-        const circle = new Circle(this.origin.clone(), this.#shape.radius, this.#shape.resolution);
-        const points = [...polygon.path];
-        const bounds = new Vector(
-            Math.max(points.map(({x}) => x)),
-            Math.max(points.map(({y}) => y))
-        );
-        let seconds = 0;
-        while (!polygon.isIntersecting(circle)) {
-            if (circle.position.x > bounds.x
-                || circle.position.x < 0
-                || circle.position.y > bounds.y
-                || circle.position.y < 0
-            ) return undefined;
-            circle.position = this.positionAt(seconds, resolution);
-            seconds += step;
+        const hitbox = this.shape.clone();
+        const proj = this.clone();
+        hitbox._position = proj.position;
+        for (let t = 0; t < limit; t += increment) {
+            hitbox.updatePath();
+            if (polygon.isIntersecting(hitbox)) return { point: proj.position.clone(), at: t };
+            proj.update(increment);
         }
-        return circle.position.clone(); // return new instance of Vector, garbage collect everything else used here (hopefully)
+        return undefined;
     }
 
     get shape () { return this.#shape }
     get blast () { return this.#blast }
-}
-
-function drawFill (ctx) {
-    console.log(this);
-    
 }

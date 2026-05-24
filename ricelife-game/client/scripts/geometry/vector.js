@@ -93,6 +93,10 @@ export class Vector {
             return new Vector(this.x + dx, this.y + dy);
         }
     }
+    lerp (vector, factor) { // (Linear Interpolation) returns the point between this vector and given vector. distance from this vector determined by factor given
+        if (!vector?.isVector) throw new Error("[Vector] Error: Cannot linearly interpolate between Vector and non-Vector type " + (typeof vector));
+        return this.add(vector.sub(this).mul(factor));
+    }
     sum () {
         return this.x + this.y;
     }
@@ -104,6 +108,10 @@ export class Vector {
     }
     magnitude () {
         return Math.sqrt(this.pow(2).sum());
+    }
+    distance (vector) {
+        if (!vector?.isVector) throw new Error("[Vector] Error: Cannot calculate distance between Vector and non-Vector type " + (typeof vector));
+        return Math.hypot(vector.x - this.x, vector.y - this.y);
     }
     dot (vector) { // dot product
         if (!vector?.isVector) throw new Error("[Vector] Error: Cannot calculate dot product of Vector and non-Vector type " + (typeof vector));
@@ -149,7 +157,7 @@ export class Vector {
     }
     get isVector () { return true }
     clone () { return new Vector(this.x, this.y) }
-    toString () { return `(${this.x}, ${this.y})` }
+    toString () { return `(${this.x.toFixed(3)}, ${this.y.toFixed(3)})` }
     toJSON () { return {x: this.x, y: this.y} }
 }
 
