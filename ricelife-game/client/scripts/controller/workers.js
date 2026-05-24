@@ -43,30 +43,28 @@ export class WorkerManager extends TrackableObject {
                 return Reflect.set(target, prop, value, receiver);
             },
             deleteProperty(target, prop) {
-                delete this.cache[prop];
                 return Reflect.deleteProperty(target, prop);
             }
         });
     }
 
-    async post (type, payload, transfer = [], cache = []) { // cache here is a list of keys from the return payload to store. If nothing is cached the transaction will be deleted immedately after resolving
+    async post (type, payload, transfer = [], key = undefined, cache = []) { // cache here is a list of keys from the return payload to store at the specified key. If nothing is cached the transaction will be deleted immedately after resolving
         const transaction = Transaction();
         const id = transaction.id;
         this.#transaction[id] = transaction;
         this.#worker.postMessage({type, payload, id}, transfer);
         return transaction.promise
             .then((data) => {
-                if (cache.length) {
+                if (key && cache.length) {
                     const buf = {};
-                    for (const key of cache)
-                        buf[key] = data[key];
-                    this.cache[id] = buf;
+                    for (const k of cache)
+                        buf[k] = data[k];
+                    this.cache[key] = buf;
                 } else
-                    this.#deleteTransation(id); // [!] may be unsafe to free memory and then return that same value... need to decide on exact use case here
+                    delete this.transaction[id]; // [!] may be unsafe to free memory and then return that same value... need to decide on exact use case here
                 return data;
             });
     }
-    #deleteTransation (id) { delete this.transaction[id] }
     get transaction () { return this.#transactionProxy }
     get cache () { return this.#cacheProxy }
 }

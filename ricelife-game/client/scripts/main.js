@@ -39,7 +39,7 @@ function animate (state, config) {
     const elapsed = nowStamp - state.lastStamp;
     const { canvas, ctx } = config.display;
     const player = state.tanks[config.playerTank];
-    let waitPromise = config.display.cache.background ? Promise.resolve() : state.redrawJob;
+    let waitPromise = config.display.worker.cache.background ? Promise.resolve() : state.redrawJob;
     // draw cache updates
     // ...
 
@@ -57,12 +57,12 @@ function animate (state, config) {
         if (state.projectile === false) {
             state.projectile = undefined;
             waitPromise = state.redrawJob
-                .then(() => config.display.copyCanvas("background", config.display.cache.blastBackground));
+                .then(() => config.display.copyCanvas("background", config.display.worker.cache.blastBackground.image));
         }
         waitPromise = waitPromise.then(() => {
             // Draw the foreground (main game loop - related polygons and images)
             config.display.clear();
-            ctx.drawImage(config.display.cache.background, 0, 0);
+            ctx.drawImage(config.display.worker.cache.background.image, 0, 0);
             for (const tank of Object.values(state.tanks))
                 tank.draw(ctx);
             if (state.projectile) {
