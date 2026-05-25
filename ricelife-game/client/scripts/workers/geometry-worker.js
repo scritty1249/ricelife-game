@@ -14,18 +14,23 @@ self.onmessage = (e) => {
             /* Payload expected:
              * {
              *    subject: Polygon64,
-             *    cuts: [ ...Polygon64 ]
+             *    cuts: [ ...Polygon64 ],
+             *    depth: Number
              * }
              */
-            const { subject, cuts } = payload;
-            const polygon = Polygon.fromArray(subject.path, ...subject.holes.map((hole) => Polygon.fromArray(hole)));
-            for (const { path, holes } of cuts)
-                polygon.cut(
-                    Polygon.fromArray(path, ...holes.map((hole) => Polygon.fromArray(hole))),
-                    true
-                );
-            const { path, holes } = polygon.Float64; // [!] maximum depth of 2. We are not expecting our holes to have more goddamn holes
-            self.postMessage({ type: type, id: id, polygon: { path, holes } }, [path.buffer, ...holes.map((hole) => hole.buffer)]);
+            const { subject, cuts, depth } = payload;
+            const polygon = Polygon.fromObject(subject, depth);
+            //console.log(cuts.map(cut => cut));
+            for (const cut of cuts) {
+                polygon.cut(Polygon.fromObject(cut, depth), true);
+                //console.log(polygon.holes.map(hole => hole.id));
+            }
+            for (const cut of cuts) {
+                polygon.cut(Polygon.fromObject(cut, depth), true);
+                //console.log(polygon.holes.map(hole => hole.id));
+            }
+            const { path, holes, buffers } = polygon.Float64(depth); // [!] We are not expecting our holes to have more goddamn holes, but ffs JUST IN CASE...
+            self.postMessage({ type: type, id: id, polygon: { path, holes } }, buffers);
         }
     } catch (e) {
         self.postMessage({ type: type, id: id, error: {

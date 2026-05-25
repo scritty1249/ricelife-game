@@ -22,17 +22,16 @@ self.onmessage = (e) => {
             /* Payload expected:
              * {
              *    key: String,
-             *    path: Float64Array,
-             *    holes: [...Float64Array],
+             *    polygon: Polygon64,
              *    edgeColor: String,
              *    fillColor: String,
              *    gradientWidth: Number,
              *    resolution: Number
              * }
              */
-            const { key, path, holes, edgeColor, fillColor, gradientWidth, resolution } = payload;
+            const { key, polygon, edgeColor, fillColor, gradientWidth, resolution } = payload;
             const { canvas, ctx } = CANVAS[key];
-            const terrain = Polygon.fromArray(path, ...holes);
+            const terrain = Polygon.fromObject(polygon, 1);
             CANVAS[key].clear();
             drawTerrain(ctx, terrain, new Color(fillColor), new Color(edgeColor), gradientWidth, resolution);
             const bitmap = canvas.transferToImageBitmap();

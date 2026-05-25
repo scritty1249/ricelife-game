@@ -1,30 +1,39 @@
 import { InputListener, MovementController, TankController, AppCanvas } from "./controller/controller.js";
-import { Vector, Direction, Color, Polygon } from "./geometry/geometry.js";
+import { Vector, Direction, Color, Polygon, GeometryWorker } from "./geometry/geometry.js";
 import { ResizedImage, drawCircle, drawMarker, rad2deg } from "./utils.js";
 import { drawTerrain, generateTerrain } from "./terrain/terrain.js";
 import * as Projectiles from "./projectile/projectile.js";
 
-async function fireProjectile (state, config) { // [!} laziness
-    state.projectile = new state.projectileType(state.tanks[config.playerTank].barrelPos, state.move.rotation + 270);
-    state.blastedTerrain = state.terrain.clone();
-    state.landing = state.projectile.intersectAt(state.blastedTerrain, 1/config.fps, config.display.size.x); // [!] for testing
+async function fireProjectile (shot, state, config) { // [!} laziness
+    state.projectile = new shot(state.tanks[config.playerTank].barrelPos, state.move.rotation + 270);
+    state.blastTerrain = state.terrain.clone();
+    state.landing = state.projectile.intersectAt(state.blastTerrain, 1/config.fps, config.display.size.x); // [!] for testing
     if (state.landing) {
-        for (const shape of state.projectile.blast.shapesAt(state.landing.point))
-            state.blastedTerrain.cut(shape, true);
-        state.redrawJob = config.display.drawTerrain("blastBackground", state.blastedTerrain, config.terrain.fill, config.terrain.edge);
+        state.redrawJob = state.geometry.cut("blastTerrain", state.terrain, ...state.projectile.blast.shapesAt(state.landing.point))
+            .then((polygon) => state.blastTerrain.apply(polygon))
+            .then((polygon) => config.display.drawTerrain("blastBackground", state.blastTerrain, config.terrain.fill, config.terrain.edge));
     }
 }
 
 function handleInput (state, config) {
     // handle input jobs
-    if (state.input.activeKeys.shoot && state.projectile === undefined ) {
-        fireProjectile(state, config);
+    if (state.projectile === undefined) {
+        if (state.input.activeKeys.shoot1)
+            fireProjectile(state.projectileTypes.shoot1, state, config);
+        else if (state.input.activeKeys.shoot2)
+            fireProjectile(state.projectileTypes.shoot2, state, config);
+        else if (state.input.activeKeys.shoot3)
+            fireProjectile(state.projectileTypes.shoot3, state, config);
     }
     if (state.input.activeKeys.mvfwd) {
-        state.move.move(1);
+        state.move.move(1,
+            (window?.debugTools || (new URLSearchParams(window.location.search).get("debug") && window?.debugTools !== false))
+        );
     }
     if (state.input.activeKeys.mvbck) {
-        state.move.move(-1);
+        state.move.move(-1,
+            (window?.debugTools || (new URLSearchParams(window.location.search).get("debug") && window?.debugTools !== false))
+        );
     }
     if (state.input.activeKeys.aimcc) {
         state.tanks[config.playerTank].rotation.barrel--;
@@ -49,15 +58,15 @@ function animate (state, config) {
         // check if background needs to be updated
         if (state.projectile) {
             if (state.terrain.isIntersecting(state.projectile.shape)) {
-                state.terrain.apply(state.blastedTerrain);
-                state.move.set(player.position.x, true); // update positioning - account for "falling"
                 state.projectile = false; // set to false to flag background cache for redraw
             }
         }
         if (state.projectile === false) {
             state.projectile = undefined;
             waitPromise = state.redrawJob
-                .then(() => config.display.copyCanvas("background", config.display.worker.cache.blastBackground.image));
+                .then(() => config.display.copyCanvas("background", config.display.worker.cache.blastBackground.image))
+                .then(() => state.terrain.apply(state.blastTerrain))
+                .then(() => state.move.set(player.position.x, true)); // update positioning - account for "falling"
         }
         waitPromise = waitPromise.then(() => {
             // Draw the foreground (main game loop - related polygons and images)
@@ -138,7 +147,10 @@ const INPUT_MAP = {
     ArrowDown: "mvbck",
     ArrowLeft: "aimcc", // counterclockwise
     ArrowRight: "aimcw", // clockwise
-    Space: "shoot"
+    Space: "shoot1",
+    KeyF: "shoot2",
+    KeyG: "shoot3"
+
 }
 
 function main(...loaded) {
@@ -165,13 +177,18 @@ function main(...loaded) {
         input: Inputs,
         move: Mover,
         polygons: {},
+        geometry: new GeometryWorker(),
         
         // uncertain about these. will likely refactor out in near future don't implement too much that relies on these
         projectile: undefined,
         trace: undefined,
         landing: undefined,
-        blastedTerrain: undefined,
-        projectileType: Projectiles.Flower,
+        blastTerrain: undefined,
+        projectileTypes: {
+            shoot1: Projectiles.BasicShot,
+            shoot2: Projectiles.Spreader,
+            shoot3: Projectiles.Flower   
+        },
 
         tanks: {[Tank.id]: Tank},
         terrain: Terrain,

@@ -93,7 +93,7 @@ export class Path extends TrackableObject { // points should be ordered clockwis
     get length () { return this.#points.length }
     get direction () { return this.#points.slice().reverse().reduce((acc, curr) => acc.sub(curr)) }
     get angle () { return (this.length > 1) ? this.#points[0].angle(...this.slice(1)) : undefined }
-    get Float64Array () {
+    Float64 () {
         const arr = [];
         for (let i = 0; i < this.length; i++)
             arr.push(...this.at(i));

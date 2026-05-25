@@ -44,11 +44,11 @@ export class MovementController { // only moves along X axis
         this.maxTilt = 130; // range of how much the player's body can tilt before movement is blocked (dont straight straight up walls)
     }
 
-    move (amount) {
-        this.set(this.#player.position.x + amount);
+    move (amount, force = false) {
+        this.set(this.#player.position.x + amount, force);
     }
 
-    set (amount, force = false) {
+    set (amount, force) {
         if (amount < 1 || amount >= this.#range) return;
 
         const position = this.#player.position;
@@ -59,7 +59,7 @@ export class MovementController { // only moves along X axis
             ?.toSorted((a, b) => b.point.y - a.point.y)?.at(0);
 
         if (!hit) {
-            console.warn("[MovementController] Warning: No valid terrain found for position");
+            console.warn("[MovementController] Warning: No valid terrain found for Y position at X");
             return false;
         }
 
@@ -68,7 +68,7 @@ export class MovementController { // only moves along X axis
         angle = angle % 360;
 
         // check if movement is valid, don't drive straight up walls
-        if (force || !(angle > 360 - (this.maxTilt / 2) || angle < this.maxTilt / 2))
+        if (!force && !(angle > 360 - (this.maxTilt / 2) || angle < this.maxTilt / 2))
             return false;
 
         // setting position

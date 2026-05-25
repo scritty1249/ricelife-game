@@ -202,10 +202,15 @@ export class Polygon extends TrackableObject { // points should be ordered clock
         return thisPath.intersect(thatPath);
     }
 
-    get Float64 () {
+    Float64 (depth, buffer = true) {
         const data = {};
-        data.path = this.path.Float64Array;
-        data.holes = this.holes.map((hole) => hole.Float64);
+        data.path = this.path.Float64();
+        data.holes = depth > 0 ? this.holes.map((hole) => hole.Float64(depth-1, false)) : [];
+        if (buffer) {
+            data.buffers = [data.path.buffer];
+            for (const hole of data.holes.flat(depth))
+                data.buffers.push(hole.path.buffer);
+        }
         return data;
     }
     get isPolygon () { return true }
@@ -216,6 +221,7 @@ export class Polygon extends TrackableObject { // points should be ordered clock
         if (!polygon?.isPolygon) throw new Error("[Polygon] Error: Cannot apply non-Polygon type " + (typeof polygon));
         this.#path.apply(polygon.path);
         this.#holes.apply(...polygon.holes);
+        return this; // for chaining
     }
     toString () {
         return `[Polygon] <{ ${this.path.toString()}, Holes: [${ // [!] RECURSION RISK
@@ -227,9 +233,11 @@ export class Polygon extends TrackableObject { // points should be ordered clock
         poly.holes.apply(...this.holes.map(hole => hole.clone()));
         return poly;
     }
-    static fromArray (path, ...holes) {
-        const polygon = new Polygon(Path.fromArray(path));
-        polygon.holes.apply(...(holes.map((hole) => new Polygon(Path.fromArray(hole)))));
+    static fromObject (data, depth) {        
+        const polygon = new Polygon(Path.fromArray(data.path));
+        if (depth)
+            for (const hole of data.holes)
+                polygon.holes.push(this.fromObject(hole, depth-1));
         return polygon;
     }
 }
