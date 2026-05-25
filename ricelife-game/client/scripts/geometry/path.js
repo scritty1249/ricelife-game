@@ -1,4 +1,4 @@
-import { TrackableObject } from "../utils.js";
+import { TrackableObject, clamp } from "../utils.js";
 import { Vector } from "./vector.js";
 
 export class Path extends TrackableObject { // points should be ordered clockwise (in positioning)
@@ -23,6 +23,7 @@ export class Path extends TrackableObject { // points should be ordered clockwis
                 newPoints.push(point);
         }
         this.apply(...newPoints);
+        return this; // for chaining
     }
 
     draw (ctx, close = true) { // only draw the path
@@ -40,7 +41,7 @@ export class Path extends TrackableObject { // points should be ordered clockwis
             yield new Path(this.slice(i-1, i+1));
     }
 
-    intersect (path) { // returns the CLOCKWISE details of all intersections from this Path to the given Path ("this" points into "that"). !! This can return points that are not inside of the Path, if the resolution is large enough!
+    intersections (path) { // returns the CLOCKWISE details of all intersections from this Path to the given Path ("this" points into "that"). !! This can return points that are not inside of the Path, if the resolution is large enough!
         if (!path?.isPath) throw new Error("[Path] Error: Cannot find intersection with non-Path object " + (typeof path));
         const intersections = [],
             thisPts = this.points,
@@ -60,13 +61,13 @@ export class Path extends TrackableObject { // points should be ordered clockwis
                 const thisDistCoefficient = gap.cross(dir) / cross,
                     thatDistCoefficient = gap.cross(direction) / cross;
                 // sanity check: are we still within the segment's range?
-                if (thisDistCoefficient >= 0
-                    && thisDistCoefficient <= 1
-                    && thatDistCoefficient >= 0
-                    && thatDistCoefficient <= 1
+                if (thisDistCoefficient >= -Number.EPSILON
+                    && thisDistCoefficient <= 1 + Number.EPSILON
+                    && thatDistCoefficient >= -Number.EPSILON
+                    && thatDistCoefficient <= 1 + Number.EPSILON
                 ) {
                     intersections.push({
-                        point: thisPts[i].add(direction.mul(thisDistCoefficient)),
+                        point: thisPts[i].add(direction.mul(clamp(thisDistCoefficient, 0, 1))),
                         entering: cross > 0,
                         index: {
                             self: i,
@@ -83,8 +84,11 @@ export class Path extends TrackableObject { // points should be ordered clockwis
         }
         if (intersections.length === 0) return [];
         intersections.sort((a, b) => (a.index.self !== b.index.self) ? a.index.self - b.index.self : a.coeff.self - b.coeff.self);         // sort intersections along "this" path
-        for (let i = 0; !intersections[0].entering && i < intersections.length; i++) // first intersection returned should be an entry point
+        let i = 0;
+        while (intersections.length > 0 && !intersections[0].entering && i < intersections.length) {
             intersections.push(intersections.shift());
+            i++;
+        }
         return intersections;
     }
 
@@ -93,6 +97,13 @@ export class Path extends TrackableObject { // points should be ordered clockwis
     get length () { return this.#points.length }
     get direction () { return this.#points.slice().reverse().reduce((acc, curr) => acc.sub(curr)) }
     get angle () { return (this.length > 1) ? this.#points[0].angle(...this.slice(1)) : undefined }
+    get pointNodes () { // [!] probably should just be applying this as we push in new points... but not sure if that's what I want the Path class to do natively.
+        return this.map((pt, idx, arr) => ({
+            point: pt,
+            nextNode: arr.at((idx + 1) % arr.length),
+            prevNode: arr.at((idx - 1) % arr.length)
+        }));
+    }
     Float64 () {
         const arr = [];
         for (let i = 0; i < this.length; i++)
@@ -120,9 +131,15 @@ export class Path extends TrackableObject { // points should be ordered clockwis
         this.#points.push(...points);
         return this.length;
     }
-    slice (...args) { return this.#points.slice(...args) }
-    splice (...args) { return this.#points.splice(...args) }
-    at (...args) { return this.#points.at(...args) }
+    translate (vector, mutate = false) { const path = mutate ? this : this.clone(); path.points.forEach((point) => point.add(vector)); return path; }
+    slice (...args) { return this.points.slice(...args) }
+    splice (...args) { return this.points.splice(...args) }
+    at (...args) { return this.points.at(...args) }
+    nearestTo (point) {
+        if (!point?.isVector) throw new Error("[Path] Error: Point must Vector type, not " + (typeof point));
+        return this.points.reduce((acc, curr) => curr.distance(point) < acc.distance(point) ? curr : acc);
+    }
+    round (precision) { this.map((point) => point.round(precision, true)) }
 
     *[Symbol.iterator]() {
         yield* this.#points;
@@ -140,6 +157,16 @@ export class Path extends TrackableObject { // points should be ordered clockwis
             path.push(new Vector(arr[i], arr[i+1]));
         return path;
     }
+    static intersectAngle (p0, p1, p2, p3) { // lightweight version of interections method
+        const d0 = p1.sub(p0),
+            d1 = p3.sub(p2),
+            cross = d0.cross(d1),
+            dot = d0.dot(d1);
+        return {
+            angle: Math.atan2(cross, dot),
+            entering: cross > 0
+        };
+    }
 }
 
 export function *tweenPoints (previous, current, resolution) {
@@ -150,4 +177,8 @@ export function *tweenPoints (previous, current, resolution) {
     for (let inc = resolution; inc < dist; inc += resolution) {
         yield previous.add(step.mul(inc));
     }
+}
+
+export function Ray (origin, direction, distance) {
+    return new Path(origin, origin.add(direction.mul(distance)));
 }

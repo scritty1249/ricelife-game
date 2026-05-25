@@ -1,15 +1,21 @@
 import { InputListener, MovementController, TankController, AppCanvas } from "./controller/controller.js";
-import { Vector, Direction, Color, Polygon, GeometryWorker } from "./geometry/geometry.js";
-import { ResizedImage, drawCircle, drawMarker, rad2deg } from "./utils.js";
-import { drawTerrain, generateTerrain } from "./terrain/terrain.js";
+import { Vector, Direction, Color, Polygon, GeometryWorker, Ray, Path } from "./geometry/geometry.js";
+import { ResizedImage, drawCircle, drawMarker, rad2deg, roundTo } from "./utils.js";
+import { drawTerrain, generateTerrain, generateWave } from "./terrain/terrain.js";
 import * as Projectiles from "./projectile/projectile.js";
+
+// [!] for debugging
+const URL_PARAMS = new URLSearchParams(window?.location?.search);
+
 
 async function fireProjectile (shot, state, config) { // [!} laziness
     state.projectile = new shot(state.tanks[config.playerTank].barrelPos, state.move.rotation + 270);
+    state.tracer = state.projectile.tracer;
     state.blastTerrain = state.terrain.clone();
     state.landing = state.projectile.intersectAt(state.blastTerrain, 1/config.fps, config.display.size.x); // [!] for testing
     if (state.landing) {
         state.redrawJob = state.geometry.cut("blastTerrain", state.terrain, ...state.projectile.blast.shapesAt(state.landing.point))
+            .then((polygon) => polygon.roundPoints(2))
             .then((polygon) => state.blastTerrain.apply(polygon))
             .then((polygon) => config.display.drawTerrain("blastBackground", state.blastTerrain, config.terrain.fill, config.terrain.edge));
     }
@@ -25,15 +31,12 @@ function handleInput (state, config) {
         else if (state.input.activeKeys.shoot3)
             fireProjectile(state.projectileTypes.shoot3, state, config);
     }
+    state.tanks[config.playerTank].position.round(1/GLOBAL_RESOLUTION);
     if (state.input.activeKeys.mvfwd) {
-        state.move.move(1,
-            (window?.debugTools || (new URLSearchParams(window.location.search).get("debug") && window?.debugTools !== false))
-        );
+        state.move.move(1);
     }
     if (state.input.activeKeys.mvbck) {
-        state.move.move(-1,
-            (window?.debugTools || (new URLSearchParams(window.location.search).get("debug") && window?.debugTools !== false))
-        );
+        state.move.move(-1);
     }
     if (state.input.activeKeys.aimcc) {
         state.tanks[config.playerTank].rotation.barrel--;
@@ -66,22 +69,27 @@ function animate (state, config) {
             waitPromise = state.redrawJob
                 .then(() => config.display.copyCanvas("background", config.display.worker.cache.blastBackground.image))
                 .then(() => state.terrain.apply(state.blastTerrain))
-                .then(() => state.move.set(player.position.x, true)); // update positioning - account for "falling"
+                .then(() => {
+                    player.position.round(2);
+                    if (state.terrain.holes.some((hole) => hole.isIntersecting(player.position))) // shallow check
+                        state.move.set(player.position.x); // update positioning - account for "falling"
+                });
         }
         waitPromise = waitPromise.then(() => {
-            // Draw the foreground (main game loop - related polygons and images)
+            // Draw the screen (main game loop - related polygons and images)
             config.display.clear();
-            ctx.drawImage(config.display.worker.cache.background.image, 0, 0);
             for (const tank of Object.values(state.tanks))
                 tank.draw(ctx);
+            ctx.drawImage(config.display.worker.cache.background.image, 0, 0);
             if (state.projectile) {
                 state.projectile.draw(ctx);
                 if (state.projectile.isProjectile) {
-                    state.projectile.tracer.draw(ctx);
                     state.projectile.update(1 / config.fps);
                 } else state.projectile = false;
             }
-            if (window?.debugTools || (new URLSearchParams(window.location.search).get("debug") && window?.debugTools !== false)) {
+            if (state.tracer) state.tracer.draw(ctx);
+
+            if (window?.debugTools || (URL_PARAMS.get("debug") && window?.debugTools !== false)) {
                 // [!] testing
 
                 // draw any holes in terrain
@@ -96,7 +104,7 @@ function animate (state, config) {
 
                 // draw player body and barrel positions
                 drawCircle(ctx, player.barrelPos);
-                drawCircle(ctx, new Vector(player.position.x, player.position.y), "green");
+                drawCircle(ctx, new Vector(player.position.x, player.position.y), 5,  "green");
                 { // draw terrain outline. Draws holes weirdly though
                     ctx.save();
                     state.terrain.draw(ctx);
@@ -108,9 +116,10 @@ function animate (state, config) {
                 }
 
                 // draw Y-axis positioning raycasters
-                drawCircle(ctx, new Vector(player.position.x, 20), 7, "purple")
-                drawCircle(ctx, new Vector(player.position.x, config.display.size.y - 20), 7, "white")
-                state.terrain.raycast(new Vector(player.position.x, 0), Direction(90), config.display.size.y - 1.1)
+                const ray = Ray(new Vector(player.position.x, 0), Direction(90), config.display.size.y - 20);
+                drawCircle(ctx, ray.at(0), 7, "purple")
+                drawCircle(ctx, ray.at(-1), 7, "white")
+                state.terrain.raycast(ray)
                     .toSorted((a, b) => b.point.y - a.point.y)
                     .forEach(({point, angle, entering}, i) => drawMarker(ctx, point, Direction((angle + Math.PI) % (2 * Math.PI), false), 4, 20, entering ? "purple" : "white"));
                 
@@ -142,6 +151,7 @@ async function load() {
 
 const FPS = 60;
 const GROUND = 700;
+const GLOBAL_RESOLUTION = .5;
 const INPUT_MAP = {
     ArrowUp: "mvfwd",
     ArrowDown: "mvbck",
@@ -157,9 +167,11 @@ function main(...loaded) {
     const Display = new AppCanvas(document.getElementById("app"), new Vector(1920, 1080));
     const Inputs = new InputListener(window, INPUT_MAP);
     const Tank = new TankController(loaded[0], loaded[1], new Vector());
-    const Terrain = generateTerrain(Display.size, GROUND);
-    const Mover = new MovementController(Terrain, Tank, (loaded[0].height / 5));
-
+    // [!] testing
+    const Terrain = URL_PARAMS.get("map") == "flat"
+        ? generateTerrain(new Path(new Vector(0, GROUND), new Vector(Display.size.x, GROUND)).smooth(GLOBAL_RESOLUTION), Display.size)
+        : generateTerrain(generateWave(Display.size.x, GLOBAL_RESOLUTION, (v) => v.y += GROUND, .03, 40, 1.3, 15), Display.size);
+    const Mover = new MovementController(Terrain, Tank, (loaded[0].height / 7));
     Display.createCache("blastBackground");
     Display.createCache("background");
 
@@ -181,7 +193,7 @@ function main(...loaded) {
         
         // uncertain about these. will likely refactor out in near future don't implement too much that relies on these
         projectile: undefined,
-        trace: undefined,
+        tracer: undefined,
         landing: undefined,
         blastTerrain: undefined,
         projectileTypes: {

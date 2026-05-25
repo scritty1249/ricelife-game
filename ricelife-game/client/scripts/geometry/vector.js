@@ -1,4 +1,4 @@
-import { deg2rad, floatEqual } from "../utils.js";
+import { deg2rad, floatEqual, roundTo } from "../utils.js";
 
 export class Vector {
     constructor(x = 0, y = null) {
@@ -93,6 +93,12 @@ export class Vector {
             return new Vector(this.x + dx, this.y + dy);
         }
     }
+    round (precision, mutate = false) {
+        const vec = mutate ? this : this.clone();
+        vec.x = roundTo(vec.x, precision);
+        vec.y = roundTo(vec.y, precision);
+        return vec;
+    }
     lerp (vector, factor) { // (Linear Interpolation) returns the point between this vector and given vector. distance from this vector determined by factor given
         if (!vector?.isVector) throw new Error("[Vector] Error: Cannot linearly interpolate between Vector and non-Vector type " + (typeof vector));
         return this.add(vector.sub(this).mul(factor));
@@ -100,11 +106,18 @@ export class Vector {
     sum () {
         return this.x + this.y;
     }
-    diff () {
-        return this.x - this.y;
+    diff (reverse = false) {
+        return reverse
+            ? this.y - this.x
+            : this.x - this.y;
     }
     prod () {
         return this.x * this.y;
+    }
+    quot (reverse = false) {
+        return reverse
+            ? this.y / this.x
+            : this.x / this.y;
     }
     magnitude () {
         return Math.sqrt(this.pow(2).sum());
@@ -122,7 +135,7 @@ export class Vector {
         return (this.x * vector.y) - (vector.x * this.y);
 
     }
-    angle (...vectors) {
+    angle (...vectors) { // returns average angle between all given vectors, from this vector
         let sumCos = 0, sumSin = 0;
         for (const vector of vectors) {
             if (!vector?.isVector) throw new Error("[Vector] Error: Cannot calculate angle from non-Vector type " + (typeof vector));
@@ -192,4 +205,3 @@ export function Direction (angle, degrees = true) {
     const rad = degrees ? deg2rad(angle) : angle;
     return new Vector(Math.cos(rad), Math.sin(rad));
 }
-

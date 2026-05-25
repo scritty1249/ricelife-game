@@ -9,12 +9,18 @@ export function str2hex (str) {
     .join("");
 }
 
+export function roundToPlace (num, precision = 2) { const place = 10**precision; return Math.round(num * place) / place }
+
+export function roundTo (num, precision = 1) { return Math.round(num * precision) / precision }
+
 export function drawCircle (ctx, origin, radius = 4, color = "red") { // [!] debugging function
     ctx.fillStyle = color;
     ctx.beginPath();
     ctx.arc(origin.x, origin.y, radius, 0, 2 * Math.PI);
     ctx.fill();
 }
+
+export function clamp (num, min, max) { return Math.min(max, Math.max(min, num)) }
 
 export function drawMarker (ctx, origin, direction, radius = 4, length = 15, color = "red") { // [!] debugging function
     drawCircle(ctx, origin, radius, color);

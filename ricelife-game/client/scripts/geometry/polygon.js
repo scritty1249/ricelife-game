@@ -170,26 +170,40 @@ export class Polygon extends TrackableObject { // points should be ordered clock
             throw new Error("[Polygon] Error: Unable to compute intersect of unsupported type " + (typeof value));
     }
 
-    raycast (origin, direction, distance) {
-        const ray = new Path(origin, origin.add(direction.mul(distance)));
+    raycast (ray) {
+        const distance = ray.at(0).distance(ray.at(-1));
+        const holes = this.holes;
         const hits = [];
-        const outerIntersects = ray.intersect(this.path);
-        for (const inter of outerIntersects)
-            if (!this.holes.some(hole => hole.isIntersecting(inter.point)) && !hits.some(({point}) => point.eq(inter.point)))
+        for (const inter of ray.intersections(this.path))
+            if (!holes.some(hole => hole.isIntersecting(inter.point)) && !hits.some(({point}) => point.eq(inter.point)))
                 hits.push({ point: inter.point, distance: inter.coeff.other * distance, angle: inter.angle, entering: inter.entering });
-        for (const hole of this.holes) {
-            const holeIntersects = ray.intersect(hole.path);
-            for (const inter of holeIntersects)
-                if (this.isIntersecting(inter.point, true) && !hits.some(({point}) => point.eq(inter.point)))
-                    hits.push({ point: inter.point, distance: inter.coeff.other * distance, angle: (inter.angle + Math.PI) % (2 * Math.PI), entering: !inter.entering});
+
+        for (let idx = 0; idx < holes.length; idx++) {
+            holes[idx].raycast(ray).filter((hit) => {
+                hit.entering = !hit.entering;
+                return !holes.some((h, i) => i == idx || h.isIntersecting(hit.point));
+            });
+        }
+        for (const hole of holes) {
+            hole.raycast(ray).filter((hit) => {
+                hit.entering = !hit.entering;
+                return !holes.some((h) => h.isIntersecting(hit.point));
+            });
         }
         return hits;
     }
 
+    nearestTo (point) { // returns the nearest SURFACE point to the given point. Accounts for hole "surfaces"
+        const dummy = new Path(this.path.nearestTo(point));
+        for (const hole of this.holes)
+            dummy.push(hole.nearestTo(point))
+        return dummy.nearestTo(point);
+    }
+
     translate (translate, mutate = false) {
         const poly = mutate ? this : this.clone();
-        for (const pt of poly.path.points)
-            pt.add(translate, true);
+        poly.path.translate(translate, mutate);
+        poly.holes.forEach((hole) => hole.translate(translate, mutuate));
         return poly;
     }
 
@@ -199,7 +213,7 @@ export class Polygon extends TrackableObject { // points should be ordered clock
         // close the paths
         if (thisPath.length > 2) thisPath.push(thisPath.at(-1));
         if (thatPath.length > 2) thatPath.push(thatPath.at(-1));
-        return thisPath.intersect(thatPath);
+        return thisPath.intersections(thatPath);
     }
 
     Float64 (depth, buffer = true) {
@@ -217,6 +231,12 @@ export class Polygon extends TrackableObject { // points should be ordered clock
     get path () { return this.#path }
     get holes () { return this.#holes }
 
+    roundPoints (precision) {
+        this.path.round(precision);
+        for (const hole of this.holes)
+            hole.roundPoints(precision);
+        return this; // for chaining
+    }
     apply (polygon) {
         if (!polygon?.isPolygon) throw new Error("[Polygon] Error: Cannot apply non-Polygon type " + (typeof polygon));
         this.#path.apply(polygon.path);

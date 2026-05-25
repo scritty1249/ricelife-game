@@ -25,12 +25,7 @@ export class GeometryWorker {
             transfer.push(...data.buffers);
         }
         return this.worker.post("CUT_POLY", payload, transfer, key, ["polygon"])
-            .then(({polygon}) => {//Polygon.fromObject(this.worker.cache[key]?.polygon ? this.worker.cache[key].polygon : polygon, this.#maxDepth));
-                console.log(polygon);
-                const poly = Polygon.fromObject(this.worker.cache[key]?.polygon ? this.worker.cache[key].polygon : polygon, this.#maxDepth);
-                console.log(poly);
-                return poly;
-            });
+            .then(({polygon}) => Polygon.fromObject(this.worker.cache[key]?.polygon ? this.worker.cache[key].polygon : polygon, this.#maxDepth));
     }
 
     get worker () { return this.#worker }

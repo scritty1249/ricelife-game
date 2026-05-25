@@ -61,24 +61,15 @@ export function drawTerrain (ctx, polygon, fillColor, edgeColor, gradientWidth, 
     ctx.restore();
 }
 
-export function generateTerrain(size, originHeight, resolution = 1, smoothness = 1.3, randomness = 15) {
-    const terrainPath = generateWave(
-        size.x,
-        resolution,
-        (pt) => (pt.y = originHeight + pt.y),
-        .03,
-        40,
-        smoothness,
-        randomness
+export function generateTerrain (path, maxSize) {
+    path.push(
+        new Vector(maxSize.x, maxSize.y - 1),
+        new Vector(0, maxSize.y - 1)
     );
-    terrainPath.push(
-        new Vector(size.x, size.y - 1),
-        new Vector(0, size.y - 1)
-    );
-    return new Polygon(terrainPath);
-}
+    return new Polygon(path);
+};
 
-function generateWave(length, resolution = 1, modifier = (vector) => {}, freq = 0.03, amplitude = 40, smoothness = 1.3, randomness = 15) {
+export function generateWave(length, resolution = 1, modifier = (vector) => {}, freq = 0.03, amplitude = 40, smoothness = 1.3, randomness = 15) {
     const wave = new Path();
     const phases = [Math.random() * Math.PI, Math.random() * Math.PI];
     const randAmp = randomness + Math.random() * randomness; // this second amplitude determines variation amount
