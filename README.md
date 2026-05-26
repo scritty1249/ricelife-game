@@ -12,8 +12,7 @@ Use any server hosting method of choice, and serve `index.html` from the `/ricel
 #### Controls
 - **W,A,S,D:** Forward, Left, Backward, Right
 - **Space:** Shoot ammo type 1
-- **F Key:** Shoot ammo type 2
-- **G Key:** Shoot ammo type 3
+- **1-9,0:** Shoot ammo type 1-10
 - **Arrow Up:** Increase shot power
 - **Arrow Down:** Decrease shot power
 - **Arrow Left:** Aim Left

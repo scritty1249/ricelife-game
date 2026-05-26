@@ -32,12 +32,11 @@ function handleInput (state, config) {
     
     // keyboard
     if (state.projectile === undefined) {
-        if (keyboard.keyActive("shoot1"))
-            fireProjectile(state.projectileTypes.shoot1, state, config);
-        else if (keyboard.keyActive("shoot2"))
-            fireProjectile(state.projectileTypes.shoot2, state, config);
-        else if (keyboard.keyActive("shoot3"))
-            fireProjectile(state.projectileTypes.shoot3, state, config);
+        for (const [keyMapping, shotType] of Object.entries(state.projectileTypes))
+            if (keyboard.keyActive(keyMapping)) {
+                fireProjectile(shotType, state, config);
+                break;
+            }
     }
     player.position.round(1/GLOBAL_RESOLUTION);
     if (keyboard.keyActive("mv+")) {
@@ -185,9 +184,17 @@ const INPUT_MAP = {
     ArrowLeft: "aim-", // counterclockwise
     ArrowUp: "shot+", // increment shot power
     ArrowDown: "shot-", // deincrement shot power
-    Space: "shoot1",
-    KeyF: "shoot2",
-    KeyG: "shoot3"
+    Space: "shot1",
+    Digit1: "shot1",
+    Digit2: "shot2",
+    Digit3: "shot3",
+    Digit4: "shot4",
+    Digit5: "shot5",
+    Digit6: "shot6",
+    Digit7: "shot7",
+    Digit8: "shot8",
+    Digit9: "shot9",
+    Digit0: "shot10"
 };
 const POINTER_CALLBACKS = (aimCtrl) => ({
     ondrag: (current, origin) => { if (aimCtrl.inClickRange(origin)) aimCtrl.update(current) },
@@ -230,9 +237,10 @@ function main(...loaded) {
         landing: undefined,
         blastTerrain: undefined,
         projectileTypes: {
-            shoot1: Projectiles.BasicShot,
-            shoot2: Projectiles.Spreader,
-            shoot3: Projectiles.Flower   
+            shot1: Projectiles.BasicShot,
+            shot2: Projectiles.Spreader,
+            shot3: Projectiles.Flower,
+            shot4: Projectiles.Digger
         },
 
         tanks: {[Tank.id]: Tank},
