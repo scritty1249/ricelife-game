@@ -151,7 +151,7 @@ async function load() {
 
 const FPS = 60;
 const GROUND = 700;
-const GLOBAL_RESOLUTION = .5;
+const GLOBAL_RESOLUTION = Math.floor((1/2) * 10) / 10;
 const INPUT_MAP = {
     ArrowUp: "mvfwd",
     ArrowDown: "mvbck",

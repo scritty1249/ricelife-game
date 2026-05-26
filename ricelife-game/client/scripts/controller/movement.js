@@ -41,7 +41,6 @@ export class MovementController { // only moves along X axis
         this.#range = this.#terrain.path.points.slice(0, -2).map((pt) => pt.x).toSorted((a, b) => b - a).at(0); // [!] unsafe math
         this.#terrainHeight = Math.max(...this.#terrain.path.points.map(({y}) => y));
         this.offsetY = offsetY;
-        this.maxTilt = 130; // range of how much the player's body can tilt before movement is blocked (dont drive straight up walls)
     }
 
     move (amount, resolution = .01) {
@@ -57,7 +56,6 @@ export class MovementController { // only moves along X axis
         }
 
         const hit = hits.at(0); // should already be sorted in decesnding order (from targetX to origin)
-        console.log(hit);
         // setting position
         position.x = hit.point.x;
         position.y = hit.point.y + this.offsetY;
@@ -84,9 +82,7 @@ export class MovementController { // only moves along X axis
             return false;
         }
 
-        let angle = rad2deg(hit.angle) + (hit.entering ? 270 : 90);
-        if (angle < 0) angle += 360;
-        angle = angle % 360;
+        const angle = normalizeAngle(hit.angle, hit.entering);
 
         // setting position
         position.x = amount;
@@ -100,7 +96,7 @@ export class MovementController { // only moves along X axis
         const { position, width } = this.#player;
         const ray = Ray(new Vector(), Direction(90), this.#terrainHeight - 1);
         const movingRight = targetX > position.x;
-        const maxHeight = position.y - this.offsetY - this.#player.height; // next position should not be going OVER this - under is still fine. (player would be falling)
+        const maxHeight = position.y - (this.#player.height / 2); // next position should not be going OVER this - under is still fine. (player would be falling)
         const nodes = this.#terrain.path.pointNodes;
         const slices = [];
         const points = [];
@@ -122,7 +118,7 @@ export class MovementController { // only moves along X axis
             slice.sort((a, b) => a.point.y - b.point.y);
             const { point, prevNode, nextNode, hole } = slice.at(-1);
             ray.x = point.x;
-            const inter = Path.intersectAngle(prevNode, nextNode, ...ray);
+            const inter = Path.intersectAngle(ray.at(0), ray.at(-1), prevNode, nextNode);
             const angle = normalizeAngle(inter.angle, inter.entering);
             yield { point, angle, entering: inter.entering };
         }
@@ -221,7 +217,7 @@ export class MovementController { // only moves along X axis
 }
 
 function normalizeAngle (radians, pointingOut) {
-    let degrees = rad2deg(radians) + (pointingOut ? 270 : 0);
+    let degrees = rad2deg(radians) + (pointingOut ? 270 : 90);
     if (degrees < 0) degrees += 360;
     return degrees % 360;
 }
