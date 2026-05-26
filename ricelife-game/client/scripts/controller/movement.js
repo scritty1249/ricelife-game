@@ -56,7 +56,6 @@ export class MovementController { // only moves along X axis
         }
 
         const hit = hits.at(0); // should already be sorted in decesnding order (from targetX to origin)
-        console.log(hit.angle);
         // setting position
         position.x = hit.point.x;
         position.y = hit.point.y + this.offsetY;

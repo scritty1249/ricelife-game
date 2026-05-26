@@ -89,7 +89,7 @@ function animate (state, config) {
             }
             if (state.tracer) state.tracer.draw(ctx);
 
-            if (window?.debugTools || (URL_PARAMS.get("debug") && window?.debugTools !== false)) {
+            if (window?.debugTools || (URL_PARAMS.get("debug") === true && window?.debugTools !== false)) {
                 // [!] testing
 
                 // draw any holes in terrain
