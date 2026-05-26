@@ -230,7 +230,7 @@ export class Polygon extends TrackableObject { // points should be ordered clock
     get isPolygon () { return true }
     get path () { return this.#path }
     get holes () { return this.#holes }
-    get edgePoints () { // returns out of order points from polygon and holes that do not overlap with any other holes
+    edgePoints () { // returns out of order points from polygon and holes that do not overlap with any other holes
         const points = [...this.path.points];
         for (const hole of this.holes)
             points.push(...hole.path.points
@@ -238,12 +238,13 @@ export class Polygon extends TrackableObject { // points should be ordered clock
                     !this.holes.some((h)=>h.isIntersecting(point))));
         return points;
     }
-    get edgeNodes () {
+    edgeNodes (ignoreHoles = false) {
         const nodes = this.path.pointNodes;
         for (const hole of this.holes)
-            nodes.push(...hole.edgeNodes
+            nodes.push(...hole.edgeNodes(ignoreHoles)
                 .filter(({point})=>
-                    !this.holes.some((h)=>h.isIntersecting(point)))
+                    ignoreHoles
+                    || !this.holes.some((h)=>h.isIntersecting(point)))
                 .map((pt) => ({...pt, hole: true})));
         return nodes;
     }

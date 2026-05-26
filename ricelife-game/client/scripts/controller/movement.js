@@ -97,14 +97,16 @@ export class MovementController { // only moves along X axis
         const ray = Ray(new Vector(), Direction(90), this.#terrainHeight - 1);
         const movingRight = targetX > position.x;
         const maxHeight = position.y - (this.#player.height / 2); // next position should not be going OVER this - under is still fine. (player would be falling)
-        const nodes = this.#terrain.edgeNodes;
+        const nodes = this.#terrain.edgeNodes(true);
+        const overlappingHoles = this.#terrain.holes.filter((hole) => hole.isIntersecting(ray));
         const slices = [];
         for (const node of nodes
                 .filter(({point}) =>
                     point.y >= maxHeight
                     && (floatEqual(point.x, targetX)
                     || (movingRight && point.x + (width + 1) > position.x && point.x <= targetX)
-                    || (!movingRight && point.x - (width + 1) < position.x && point.x >= targetX)))
+                    || (!movingRight && point.x - (width + 1) < position.x && point.x >= targetX))
+                    && !overlappingHoles.some((hole) => hole.isIntersecting(point)))
                 .toSorted((a, b) => Math.abs(targetX - a.point.x) - Math.abs(targetX - b.point.x))) // sort distance from closest to furthest to targetX
             // add to exisiting slice
             if (floatEqual(node.point.x, slices.at(-1)?.at(0)?.point?.x)) slices.at(-1).push(node);
