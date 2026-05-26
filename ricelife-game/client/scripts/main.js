@@ -173,7 +173,7 @@ async function load() {
 
 const FPS = 60;
 const GROUND = 700;
-const GLOBAL_RESOLUTION = Math.floor((1/2) * 10) / 10;
+const GLOBAL_RESOLUTION = Math.floor((1/3) * 10) / 10;
 const CLICK_DURATION_MS = 90;
 const INPUT_MAP = {
     KeyW: "mv+",
@@ -250,7 +250,7 @@ function main(...loaded) {
     };
     
     Mover.set(Math.floor(Display.size.x / 4));
-    Aimer.update(Tank.position.add({x: 0, y: -100}));
+    Aimer.update(Tank.position.add({x: 0, y: -Display.size.y})); // aim straight up and set power to 100% (1)
     Tank.offset.barrel.y = -15;
     Tank.offset.body.y = -(loaded[0].height / 2);
     Display.canvas.focus();

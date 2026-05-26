@@ -5,9 +5,13 @@ A multiplayer game running in a Discord Embedded App Activity
 This demo is only available during inital testing. Support for running this application in a browser outside of a Discord Embedded Activity (the target client) is not guarenteed and will be discontinued at developer discretion.
 
 #### Running the demo
-Use any server hosting method of choice, and serve `index.html` from the `/ricelife-game/client` directory scope. This demo (*and expected final version*) does not require any extra third-party binaries or modules to function beyond serving the game content.
 
-*Discord App SDK will be used in later stages of development to interact with the Discord application outside of gameplay.*
+The demo is available on Github Pages at: https://scritty1249.github.io/ricelife-game/ricelife-game/client
+
+> Running the demo yourself:\
+> Use any server hosting method of choice, and serve `index.html` from the `/ricelife-game/client` directory scope. This demo (*and expected final version*) does not require any extra third-party binaries or modules to function beyond serving the game content.
+>
+> *Discord App SDK will be used in later stages of development to interact with the Discord application outside of gameplay.*
 
 #### Controls
 - **W,A,S,D:** Forward, Left, Backward, Right
