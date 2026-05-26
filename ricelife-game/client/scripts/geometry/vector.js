@@ -74,14 +74,11 @@ export class Vector {
             : new Vector(-diff.y, diff.x);
     }
     transpose (mutate = false) {
-        if (mutate) {
-            const x = this.x;
-            this.x = this.y;
-            this.y = x;
-            return this;
-        } else {
-            return new Vector(this.y, this.x);
-        }
+        const vec = mutate ? this : this.clone();
+        const x = vec.x;
+        vec.x = vec.y;
+        vec.y = x;
+        return vec;
     }
     project (radians, magnitude, mutate = false) {
         const [dx, dy] = [magnitude * Math.cos(radians), magnitude * Math.sin(radians)];
@@ -122,6 +119,19 @@ export class Vector {
     magnitude () {
         return Math.sqrt(this.pow(2).sum());
     }
+    rotate (radians, mutate = false) {
+        const vec = mutate ? this : this.clone();
+        const cos = Math.cos(radians);
+        const sin = Math.sin(radians);
+        const x = vec.mul({x: cos, y: sin}).diff();
+        const y = vec.mul({x: sin, y: cos}).sum();
+        vec.apply(x, y);
+        return vec;
+    }
+    pivot (radians, origin, mutute = false) {
+        const vec = mutate ? this : this.clone();
+        return vec.sub(origin).rotate(radians).add(origin);
+    }
     distance (vector) {
         if (!vector?.isVector) throw new Error("[Vector] Error: Cannot calculate distance between Vector and non-Vector type " + (typeof vector));
         return Math.hypot(vector.x - this.x, vector.y - this.y);
@@ -135,16 +145,21 @@ export class Vector {
         return (this.x * vector.y) - (vector.x * this.y);
 
     }
-    angle (...vectors) { // returns average angle between all given vectors, from this vector
-        let sumCos = 0, sumSin = 0;
-        for (const vector of vectors) {
-            if (!vector?.isVector) throw new Error("[Vector] Error: Cannot calculate angle from non-Vector type " + (typeof vector));
-            const diff = vector.sub(this);
-            const angle = Math.atan2(diff.y, diff.x);
-            sumCos += Math.cos(angle);
-            sumSin += Math.sin(angle);
+    angle (...vectors) { // returns average angle between all given vectors, from this vector (in radians)
+        if (vectors.length === 1) {
+            const vector = vectors[0].sub(this);
+            return Math.atan2(vector.y, vector.x);
+        } else {
+            let sumCos = 0, sumSin = 0;
+            for (const vector of vectors) {
+                if (!vector?.isVector) throw new Error("[Vector] Error: Cannot calculate angle from non-Vector type " + (typeof vector));
+                const diff = vector.sub(this);
+                const angle = Math.atan2(diff.y, diff.x);
+                sumCos += Math.cos(angle);
+                sumSin += Math.sin(angle);
+            }
+            return Math.atan2(sumSin, sumCos);
         }
-        return Math.atan2(sumSin, sumCos);
     }
     eq (vector) {
         return vector?.isVector && floatEqual(this.x, vector.x) && floatEqual(this.y, vector.y);
@@ -186,7 +201,7 @@ export class Color {
             && Object.hasOwn(value, "b"))
             ({r: this.r, g: this.g, b: this.b, a: this.a} = value);
         else if (b !== undefined)
-            [this.r, this.g, this.b, this.a] = value, g, b, a;
+            [this.r, this.g, this.b, this.a] = [value, g, b, a];
         else
             throw new Error("[Color] Error: Invalid argument at declaration");
         if (!Number.isFinite(this.a))
@@ -197,8 +212,9 @@ export class Color {
         + this.r.toString(16).padStart(2, "0")
         + this.g.toString(16).padStart(2, "0")
         + this.b.toString(16).padStart(2, "0")
-        + (this.a < 255 ? this.a.toString(16).padStart(2, "0") : "");
+        + (this.a < 255 ? Math.floor(this.a).toString(16).padStart(2, "0") : "");
     }
+    clone () { return new Color(this.r, this.g, this.b, this.a) }
 }
 
 export function Direction (angle, degrees = true) {

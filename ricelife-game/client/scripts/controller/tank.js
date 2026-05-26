@@ -44,6 +44,7 @@ export class TankController extends TrackableObject {
         this.#drawBody(ctx);
     }
 
+    get relativePosition () { return this.position.add(this.offset.body) }
     get width () { return this.#source.body.width }
     get height () { return this.#source.body.height }
     get barrelPos () { // gets coord at tip of barrel

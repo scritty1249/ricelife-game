@@ -13,23 +13,36 @@ export function roundToPlace (num, precision = 2) { const place = 10**precision;
 
 export function roundTo (num, precision = 1) { return Math.round(num * precision) / precision }
 
+export function clamp (num, min, max) { return Math.min(max, Math.max(min, num)) }
+
 export function drawCircle (ctx, origin, radius = 4, color = "red") { // [!] debugging function
+    ctx.save();
     ctx.fillStyle = color;
     ctx.beginPath();
     ctx.arc(origin.x, origin.y, radius, 0, 2 * Math.PI);
     ctx.fill();
+    ctx.restore();
 }
 
-export function clamp (num, min, max) { return Math.min(max, Math.max(min, num)) }
 
 export function drawMarker (ctx, origin, direction, radius = 4, length = 15, color = "red") { // [!] debugging function
     drawCircle(ctx, origin, radius, color);
+    drawLine(ctx, origin, origin.add(direction.mul(length * 2)), radius/2, color);
+}
+
+export function drawLine (ctx, origin, target, thickness = 2, color = "red") { // [!] debugging function
+    ctx.save();
     ctx.strokeStyle = color;
-    ctx.lineWidth = radius / 2;
+    ctx.lineWidth = thickness;
     ctx.beginPath();
     ctx.moveTo(...origin);
-    ctx.lineTo(...origin.add(direction.mul(length * 2)));
+    ctx.lineTo(...target);
     ctx.stroke();
+    ctx.restore();
+}
+
+export function normalizeAngle (degrees) {
+    return (((degrees % 360) + 360) % 360);
 }
 
 export function floatEqual (a, b) { return Math.abs(a - b) < Number.EPSILON }

@@ -1,6 +1,6 @@
-import { InputListener, MovementController, TankController, AppCanvas } from "./controller/controller.js";
+import { InputListener, MovementController, TankController, AppCanvas, AimController } from "./controller/controller.js";
 import { Vector, Direction, Color, Polygon, GeometryWorker, Ray, Path } from "./geometry/geometry.js";
-import { ResizedImage, drawCircle, drawMarker, rad2deg, roundTo } from "./utils.js";
+import { ResizedImage, drawCircle, drawMarker, drawLine, rad2deg, roundTo, floatEqual, normalizeAngle } from "./utils.js";
 import { drawTerrain, generateTerrain, generateWave } from "./terrain/terrain.js";
 import * as Projectiles from "./projectile/projectile.js";
 
@@ -9,7 +9,7 @@ const URL_PARAMS = new URLSearchParams(window?.location?.search);
 
 
 async function fireProjectile (shot, state, config) { // [!} laziness
-    state.projectile = new shot(state.tanks[config.playerTank].barrelPos, state.move.rotation + 270);
+    state.projectile = new shot(state.tanks[config.playerTank].barrelPos, state.move.rotation + 270, state.aimer.power);
     state.tracer = state.projectile.tracer;
     state.blastTerrain = state.terrain.clone();
     state.landing = state.projectile.intersectAt(state.blastTerrain, 1/config.fps, config.display.size.x); // [!] for testing
@@ -22,27 +22,43 @@ async function fireProjectile (shot, state, config) { // [!} laziness
 }
 
 function handleInput (state, config) {
-    // handle input jobs
+    const player = state.tanks[config.playerTank];
+    const { keyboard, pointer } = state.input;
+    let pointerActive = false; // pointer inputs take precedence over keyboard inputs. If don't "fight" for conflicting controls
+    // pointer
+    if (pointer.isActive && state.aimer.inClickRange(pointer.position)) {
+        // state.aimer.power = 
+    }
+    
+    // keyboard
     if (state.projectile === undefined) {
-        if (state.input.activeKeys.shoot1)
+        if (keyboard.keyActive("shoot1"))
             fireProjectile(state.projectileTypes.shoot1, state, config);
-        else if (state.input.activeKeys.shoot2)
+        else if (keyboard.keyActive("shoot2"))
             fireProjectile(state.projectileTypes.shoot2, state, config);
-        else if (state.input.activeKeys.shoot3)
+        else if (keyboard.keyActive("shoot3"))
             fireProjectile(state.projectileTypes.shoot3, state, config);
     }
-    state.tanks[config.playerTank].position.round(1/GLOBAL_RESOLUTION);
-    if (state.input.activeKeys.mvfwd) {
+    player.position.round(1/GLOBAL_RESOLUTION);
+    if (keyboard.keyActive("mv+")) {
         state.move.move(1);
     }
-    if (state.input.activeKeys.mvbck) {
+    if (keyboard.keyActive("mv-")) {
         state.move.move(-1);
     }
-    if (state.input.activeKeys.aimcc) {
-        state.tanks[config.playerTank].rotation.barrel--;
+    if (keyboard.keyActive("shot+")) {
+        state.aimer.power+=.02;
     }
-    if (state.input.activeKeys.aimcw) {
-        state.tanks[config.playerTank].rotation.barrel++;
+    if (keyboard.keyActive("shot-")) {
+        state.aimer.power-=.02;
+    }
+    if (!pointerActive) {
+        if (keyboard.keyActive("aim+")) {
+            state.aimer.rotation++;
+        }
+        if (keyboard.keyActive("aim-")) {
+            state.aimer.rotation--;
+        }
     }
 }
 
@@ -78,6 +94,7 @@ function animate (state, config) {
         waitPromise = waitPromise.then(() => {
             // Draw the screen (main game loop - related polygons and images)
             config.display.clear();
+            state.aimer.draw(ctx);
             for (const tank of Object.values(state.tanks))
                 tank.draw(ctx);
             ctx.drawImage(config.display.worker.cache.background.image, 0, 0);
@@ -89,7 +106,7 @@ function animate (state, config) {
             }
             if (state.tracer) state.tracer.draw(ctx);
 
-            if (window?.debugTools || (URL_PARAMS.get("debug") === true && window?.debugTools !== false)) {
+            if (window?.debugTools || (URL_PARAMS.get("debug") === "true" && window?.debugTools !== false)) {
                 // [!] testing
 
                 // draw any holes in terrain
@@ -134,6 +151,12 @@ function animate (state, config) {
                     ctx.restore();
                     if (state.landing) drawCircle(ctx, state.landing.point, state.projectile.config.radius, "orange"); // draw landing point
                 } else state.landing = undefined;
+
+                if (state.input.pointer.isActive) {
+                    drawCircle(ctx, state.input.pointer.position, 4, "yellow");
+                    if (state.input.pointer.isDragging && state.aimer.inClickRange(state.input.pointer.dragStart))
+                        drawLine(ctx, player.barrelPos, state.input.pointer.position, 2, "rgba(255, 255, 0, 0.5)");
+                }
             }
         });
     }
@@ -152,26 +175,35 @@ async function load() {
 const FPS = 60;
 const GROUND = 700;
 const GLOBAL_RESOLUTION = Math.floor((1/2) * 10) / 10;
+const CLICK_DURATION_MS = 90;
 const INPUT_MAP = {
-    ArrowUp: "mvfwd",
-    ArrowDown: "mvbck",
-    ArrowLeft: "aimcc", // counterclockwise
-    ArrowRight: "aimcw", // clockwise
+    KeyW: "mv+",
+    KeyS: "mv-",
+    KeyD: "mv+",
+    KeyA: "mv-",
+    ArrowRight: "aim+", // clockwise
+    ArrowLeft: "aim-", // counterclockwise
+    ArrowUp: "shot+", // increment shot power
+    ArrowDown: "shot-", // deincrement shot power
     Space: "shoot1",
     KeyF: "shoot2",
     KeyG: "shoot3"
-
-}
+};
+const POINTER_CALLBACKS = (aimCtrl) => ({
+    ondrag: (current, origin) => { if (aimCtrl.inClickRange(origin)) aimCtrl.update(current) },
+    onclick: (current) => { if (aimCtrl.inClickRange(current)) aimCtrl.update(current) }
+});
 
 function main(...loaded) {
     const Display = new AppCanvas(document.getElementById("app"), new Vector(1920, 1080));
-    const Inputs = new InputListener(window, INPUT_MAP);
     const Tank = new TankController(loaded[0], loaded[1], new Vector());
+    const Aimer = new AimController(Tank, Tank.width * 3);
     // [!] testing
     const Terrain = URL_PARAMS.get("map") == "flat"
         ? generateTerrain(new Path(new Vector(0, GROUND), new Vector(Display.size.x, GROUND)).smooth(GLOBAL_RESOLUTION), Display.size)
         : generateTerrain(generateWave(Display.size.x, GLOBAL_RESOLUTION, (v) => v.y += GROUND, .03, 40, 1.3, 15), Display.size);
     const Mover = new MovementController(Terrain, Tank, (loaded[0].height / 7));
+    const Inputs = new InputListener(Display.canvas, CLICK_DURATION_MS, INPUT_MAP, POINTER_CALLBACKS(Aimer));
     Display.createCache("blastBackground");
     Display.createCache("background");
 
@@ -187,6 +219,7 @@ function main(...loaded) {
     };
     const state = {
         input: Inputs,
+        aimer: Aimer,
         move: Mover,
         polygons: {},
         geometry: new GeometryWorker(),
@@ -209,9 +242,10 @@ function main(...loaded) {
     };
     
     Mover.set(Math.floor(Display.size.x / 4));
+    Aimer.update(Tank.position.add({x: 0, y: -100}));
     Tank.offset.barrel.y = -15;
     Tank.offset.body.y = -(loaded[0].height / 2);
-
+    Display.canvas.focus();
     animate(state, config);
 }
 
