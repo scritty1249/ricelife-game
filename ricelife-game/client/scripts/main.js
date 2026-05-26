@@ -1,6 +1,6 @@
 import { InputListener, MovementController, TankController, AppCanvas, AimController } from "./controller/controller.js";
 import { Vector, Direction, Color, Polygon, GeometryWorker, Ray, Path } from "./geometry/geometry.js";
-import { ResizedImage, drawCircle, drawMarker, drawLine, rad2deg, roundTo, floatEqual, normalizeAngle } from "./utils.js";
+import { ResizedImage, drawCircle, drawMarker, drawLine, rad2deg, roundTo, floatEqual, normalizeAngle } from "./utils/utils.js";
 import { drawTerrain, generateTerrain, generateWave } from "./terrain/terrain.js";
 import * as Projectiles from "./projectile/projectile.js";
 
@@ -167,9 +167,9 @@ function animate (state, config) {
 }
 
 async function load() {
-    const tank = await new ResizedImage("../tank.png", 50).onload;
-    const barrel = await new ResizedImage("../barrel.png", undefined, tank.scale).onload;
-    main(tank, barrel);
+    const body = await new ResizedImage("./assets/tank/body.png", 50).onload;
+    const barrel = await new ResizedImage("./assets/tank/barrel.png", undefined, body.scale).onload;
+    main(body, barrel);
 }
 
 const FPS = 60;

@@ -1,4 +1,4 @@
-import { TrackableObject, floatEqual } from "../utils.js";
+import { TrackableObject, floatEqual } from "../utils/utils.js";
 import { Circle, Vector, Direction, Color, Path } from "../geometry/geometry.js";
 
 export class Projectile extends TrackableObject {

@@ -1,4 +1,4 @@
-import { TrackableObject, uuid } from "../utils.js";
+import { TrackableObject, uuid } from "../utils/utils.js";
 
 export class WorkerManager extends TrackableObject {
     #cache;

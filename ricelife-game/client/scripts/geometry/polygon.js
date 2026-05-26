@@ -1,5 +1,5 @@
 import { Path, tweenPoints } from "./path.js";
-import { TrackableObject } from "../utils.js";
+import { TrackableObject } from "../utils/utils.js";
 
 export class Polygon extends TrackableObject { // points should be ordered clockwise (in positioning)
     #path;

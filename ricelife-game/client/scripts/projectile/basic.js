@@ -1,6 +1,6 @@
 import { Projectile, BasicShot } from "./default.js";
 import { Circle, Vector, Direction, Color } from "../geometry/geometry.js";
-import { deg2rad } from "../utils.js";
+import { deg2rad } from "../utils/utils.js";
 
 export { BasicShot } from "./default.js";
 

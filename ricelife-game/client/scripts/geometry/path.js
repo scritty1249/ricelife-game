@@ -1,4 +1,4 @@
-import { TrackableObject, clamp } from "../utils.js";
+import { TrackableObject, clamp } from "../utils/utils.js";
 import { Vector } from "./vector.js";
 
 export class Path extends TrackableObject { // points should be ordered clockwise (in positioning)

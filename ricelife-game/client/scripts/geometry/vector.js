@@ -1,4 +1,4 @@
-import { deg2rad, floatEqual, roundTo } from "../utils.js";
+import { deg2rad, floatEqual, roundTo } from "../utils/utils.js";
 
 export class Vector {
     constructor(x = 0, y = null) {

@@ -1,5 +1,5 @@
-import { Vector, Direction } from "../geometry/vector.js";
-import { deg2rad, TrackableObject } from "../utils.js";
+import { Vector, Direction } from "../geometry/geometry.js";
+import { deg2rad, TrackableObject } from "../utils/utils.js";
 
 export class TankController extends TrackableObject {
     #source;

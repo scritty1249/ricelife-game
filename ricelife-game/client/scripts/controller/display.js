@@ -1,6 +1,6 @@
 import { Vector } from "../geometry/geometry.js";
 import { WorkerManager } from "./workers.js";
-import { uuid } from "../utils.js";
+import { uuid } from "../utils/utils.js";
 
 export class AppCanvas { // [!] TODO: Implement WorkerManager here
     #worker;
