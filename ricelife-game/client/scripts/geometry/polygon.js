@@ -230,6 +230,23 @@ export class Polygon extends TrackableObject { // points should be ordered clock
     get isPolygon () { return true }
     get path () { return this.#path }
     get holes () { return this.#holes }
+    get edgePoints () { // returns out of order points from polygon and holes that do not overlap with any other holes
+        const points = [...this.path.points];
+        for (const hole of this.holes)
+            points.push(...hole.path.points
+                .filter(({point})=>
+                    !this.holes.some((h)=>h.isIntersecting(point))));
+        return points;
+    }
+    get edgeNodes () {
+        const nodes = this.path.pointNodes;
+        for (const hole of this.holes)
+            nodes.push(...hole.edgeNodes
+                .filter(({point})=>
+                    !this.holes.some((h)=>h.isIntersecting(point)))
+                .map((pt) => ({...pt, hole: true})));
+        return nodes;
+    }
 
     roundPoints (precision) {
         this.path.round(precision);

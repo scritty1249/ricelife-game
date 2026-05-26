@@ -56,6 +56,7 @@ export class MovementController { // only moves along X axis
         }
 
         const hit = hits.at(0); // should already be sorted in decesnding order (from targetX to origin)
+        console.log(hit.angle);
         // setting position
         position.x = hit.point.x;
         position.y = hit.point.y + this.offsetY;
@@ -97,12 +98,8 @@ export class MovementController { // only moves along X axis
         const ray = Ray(new Vector(), Direction(90), this.#terrainHeight - 1);
         const movingRight = targetX > position.x;
         const maxHeight = position.y - (this.#player.height / 2); // next position should not be going OVER this - under is still fine. (player would be falling)
-        const nodes = this.#terrain.path.pointNodes;
+        const nodes = this.#terrain.edgeNodes;
         const slices = [];
-        const points = [];
-        const validPoints = [];
-        for (const hole of this.#terrain.holes)
-            nodes.push(...hole.path.pointNodes.map((pt) => ({...pt, hole: true})));
         for (const node of nodes
                 .filter(({point}) =>
                     point.y >= maxHeight
@@ -115,7 +112,7 @@ export class MovementController { // only moves along X axis
             // push a new slice
             else slices.push([node]);
         for (const slice of slices) {
-            slice.sort((a, b) => a.point.y - b.point.y);
+            slice.sort((a, b) => Math.abs(position.y - b.point.y) - Math.abs(position.y - a.point.y));
             const { point, prevNode, nextNode, hole } = slice.at(-1);
             ray.x = point.x;
             const inter = Path.intersectAngle(ray.at(0), ray.at(-1), prevNode, nextNode);
