@@ -7,7 +7,6 @@ import * as Projectiles from "./projectile/projectile.js";
 // [!] for debugging
 const URL_PARAMS = new URLSearchParams(window?.location?.search);
 
-
 async function fireProjectile (shot, state, config) { // [!} laziness
     state.projectile = new shot(state.tanks[config.playerTank].barrelPos, state.move.rotation + 270, state.aimer.power);
     state.tracer = state.projectile.tracer;
@@ -24,11 +23,9 @@ async function fireProjectile (shot, state, config) { // [!} laziness
 function handleInput (state, config) {
     const player = state.tanks[config.playerTank];
     const { keyboard, pointer } = state.input;
-    let pointerActive = false; // pointer inputs take precedence over keyboard inputs. If don't "fight" for conflicting controls
+    let pointerActive = false; // pointer inputs take precedence over keyboard inputs. don't "fight" for conflicting controls
     // pointer
-    if (pointer.isActive && state.aimer.inClickRange(pointer.position)) {
-        // state.aimer.power = 
-    }
+    // [!] pointer logic handled by callbacks for now
     
     // keyboard
     if (state.projectile === undefined) {
@@ -61,14 +58,80 @@ function handleInput (state, config) {
     }
 }
 
+function drawDebugOverlay (state, config) {
+    const { canvas, ctx } = config.display;
+    const player = state.tanks[config.playerTank];
+    // draw any holes in terrain
+    for (const hole of state.terrain.holes) {
+        ctx.save();
+        hole.draw(ctx);
+        ctx.strokeStyle = "red";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    // draw player body and barrel positions
+    drawCircle(ctx, player.barrelPos);
+    drawCircle(ctx, new Vector(player.position.x, player.position.y), 5,  "green");
+    { // draw terrain outline. Draws holes weirdly though
+        ctx.save();
+        state.terrain.draw(ctx);
+        ctx.clip("evenodd"); 
+        ctx.strokeStyle = "blue";
+        ctx.lineWidth = 4;
+        ctx.stroke(); 
+        ctx.restore();
+    }
+
+    // draw Y-axis positioning raycasters
+    const ray = Ray(new Vector(player.position.x, 0), Direction(90), config.display.size.y - 20);
+    drawCircle(ctx, ray.at(0), 7, "purple")
+    drawCircle(ctx, ray.at(-1), 7, "white")
+    state.terrain.raycast(ray)
+        .toSorted((a, b) => b.point.y - a.point.y)
+        .forEach(({point, angle, entering}, i) => drawMarker(ctx, point, Direction((angle + Math.PI) % (2 * Math.PI), false), 4, 20, entering ? "purple" : "white"));
+
+    if (state.projectile) {
+        // draw blast radius while in flight
+        ctx.save();
+        ctx.strokeStyle = "orange";
+        ctx.lineWidth = 2;
+        for (const shape of state.projectile.blast.shapes)
+            shape.path.draw(ctx);
+        ctx.stroke(); 
+        ctx.restore();
+        if (state.landing) drawCircle(ctx, state.landing.point, state.projectile.config.radius, "orange"); // draw landing point
+    } else state.landing = undefined;
+
+    if (state.input.pointer.isActive) {
+        drawCircle(ctx, state.input.pointer.position, 4, "yellow");
+        if (state.input.pointer.isDragging && state.aimer.inClickRange(state.input.pointer.dragStart))
+            drawLine(ctx, player.barrelPos, state.input.pointer.position, 2, "rgba(255, 255, 0, 0.5)");
+    }
+}
+
+function drawFrame (state, config) {
+   const { canvas, ctx } = config.display;
+    config.display.clear();
+    state.aimer.draw(ctx);
+    for (const tank of Object.values(state.tanks))
+        tank.draw(ctx);
+    ctx.drawImage(config.display.worker.cache.background.image, 0, 0);
+    if (state.projectile) {
+        state.projectile.draw(ctx);
+        if (state.projectile.isProjectile) {
+            state.projectile.update(1 / config.fps);
+        } else state.projectile = false;
+    }
+    if (state.tracer) state.tracer.draw(ctx);
+}
+
 function animate (state, config) {
     const nowStamp = performance.now();
     const elapsed = nowStamp - state.lastStamp;
-    const { canvas, ctx } = config.display;
     const player = state.tanks[config.playerTank];
     let waitPromise = config.display.worker.cache.background ? Promise.resolve() : state.redrawJob;
-    // draw cache updates
-    // ...
 
     if (elapsed < config.frameInterval) { // run any between-frame logic
     } else { // redraw frame
@@ -92,71 +155,10 @@ function animate (state, config) {
         }
         waitPromise = waitPromise.then(() => {
             // Draw the screen (main game loop - related polygons and images)
-            config.display.clear();
-            state.aimer.draw(ctx);
-            for (const tank of Object.values(state.tanks))
-                tank.draw(ctx);
-            ctx.drawImage(config.display.worker.cache.background.image, 0, 0);
-            if (state.projectile) {
-                state.projectile.draw(ctx);
-                if (state.projectile.isProjectile) {
-                    state.projectile.update(1 / config.fps);
-                } else state.projectile = false;
-            }
-            if (state.tracer) state.tracer.draw(ctx);
-
-            if (window?.debugTools || (URL_PARAMS.get("debug") === "true" && window?.debugTools !== false)) {
+            drawFrame(state, config);
+            if (window?.debugTools || (URL_PARAMS.get("debug") === "true" && window?.debugTools !== false))
                 // [!] testing
-
-                // draw any holes in terrain
-                for (const hole of state.terrain.holes) {
-                    ctx.save();
-                    hole.draw(ctx);
-                    ctx.strokeStyle = "red";
-                    ctx.lineWidth = 2;
-                    ctx.stroke();
-                    ctx.restore();
-                }
-
-                // draw player body and barrel positions
-                drawCircle(ctx, player.barrelPos);
-                drawCircle(ctx, new Vector(player.position.x, player.position.y), 5,  "green");
-                { // draw terrain outline. Draws holes weirdly though
-                    ctx.save();
-                    state.terrain.draw(ctx);
-                    ctx.clip("evenodd"); 
-                    ctx.strokeStyle = "blue";
-                    ctx.lineWidth = 4;
-                    ctx.stroke(); 
-                    ctx.restore();
-                }
-
-                // draw Y-axis positioning raycasters
-                const ray = Ray(new Vector(player.position.x, 0), Direction(90), config.display.size.y - 20);
-                drawCircle(ctx, ray.at(0), 7, "purple")
-                drawCircle(ctx, ray.at(-1), 7, "white")
-                state.terrain.raycast(ray)
-                    .toSorted((a, b) => b.point.y - a.point.y)
-                    .forEach(({point, angle, entering}, i) => drawMarker(ctx, point, Direction((angle + Math.PI) % (2 * Math.PI), false), 4, 20, entering ? "purple" : "white"));
-                
-                if (state.projectile) {
-                    // draw blast radius while in flight
-                    ctx.save();
-                    ctx.strokeStyle = "orange";
-                    ctx.lineWidth = 2;
-                    for (const shape of state.projectile.blast.shapes)
-                        shape.path.draw(ctx);
-                    ctx.stroke(); 
-                    ctx.restore();
-                    if (state.landing) drawCircle(ctx, state.landing.point, state.projectile.config.radius, "orange"); // draw landing point
-                } else state.landing = undefined;
-
-                if (state.input.pointer.isActive) {
-                    drawCircle(ctx, state.input.pointer.position, 4, "yellow");
-                    if (state.input.pointer.isDragging && state.aimer.inClickRange(state.input.pointer.dragStart))
-                        drawLine(ctx, player.barrelPos, state.input.pointer.position, 2, "rgba(255, 255, 0, 0.5)");
-                }
-            }
+                drawDebugOverlay(state, config);
         });
     }
     waitPromise.then(() => {
