@@ -190,7 +190,7 @@ export class Vector {
 }
 
 export class Color {
-    #hexPattern = /^#([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})?$/;
+    static #hexPattern = /^#([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})?$/;
     constructor (value, g = undefined, b = undefined, a = 255) {
         let matches, _;
         if (typeof value === "string"
