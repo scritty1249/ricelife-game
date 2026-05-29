@@ -194,7 +194,7 @@ export class Color {
     constructor (value, g = undefined, b = undefined, a = 255) {
         let matches, _;
         if (typeof value === "string"
-            && (matches = value.match(this.#hexPattern)))
+            && (matches = value.match(Color.#hexPattern)))
             [_, this.r, this.g, this.b, this.a] = Array.from(matches, (match) => parseInt(match, 16));
         else if (Object.hasOwn(value, "r")
             && Object.hasOwn(value, "g")
