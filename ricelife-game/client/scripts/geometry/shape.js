@@ -39,9 +39,9 @@ export class Shape extends Polygon {
             point.add(this._position, true);
     }
 
-    draw (ctx, close = true) {
+    draw (cursor, close = true) {
         this.updatePath();
-        super.draw(ctx, close);
+        super.draw(cursor, close);
     }
 
     clone () { return new Shape(this.position.clone(), this.resolution) }

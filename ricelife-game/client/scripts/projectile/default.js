@@ -16,12 +16,12 @@ export class Projectile extends TrackableObject {
         {
             const tracer = new Path();
             const _originalDraw = tracer.draw;
-            tracer.draw = function (ctx) {
-                ctx.save();
-                ctx.setLineDash([10, 20]);
-                ctx.strokeStyle = "rgba(255, 255, 255, .35)";
-                _originalDraw.call(this, ctx);
-                ctx.restore();
+            tracer.draw = function (cursor) {
+                cursor.save();
+                cursor.setLineDash([10, 20]);
+                cursor.strokeStyle = "rgba(255, 255, 255, .35)";
+                _originalDraw.call(this, cursor);
+                cursor.restore();
             }
             this.#tracer = tracer;
         }
@@ -94,7 +94,7 @@ export class BasicShot extends Projectile {
             ? new.target.config
             : {
                 initalSpeed: 400,
-                acceleration: new Vector(20, 200),
+                acceleration: new Vector(20, -200),
                 drag: 0.001,
                 radius: 5,
                 blastRadius: 30
@@ -114,13 +114,13 @@ export class BasicShot extends Projectile {
             shapesAt: function (position) {
                 return Array.from(this._shapes, (shape) => shape.translate(position));
             },
-            draw: function (ctx) {
+            draw: function (cursor) {
                 for (const shape of this.shapes) {
-                    ctx.save();
-                    ctx.fillStyle = this.color;
-                    shape.draw(ctx);
-                    ctx.fill();
-                    ctx.restore();
+                    cursor.save();
+                    cursor.fillStyle = this.color;
+                    shape.draw(cursor);
+                    cursor.fill();
+                    cursor.restore();
                 }
             }
         };
@@ -132,10 +132,10 @@ export class BasicShot extends Projectile {
         this.#shape.updatePath();
     }
 
-    draw (ctx) {
-        ctx.fillStyle = this.color;
-        this.shape.draw(ctx);
-        ctx.fill();
+    draw (cursor) {
+        cursor.fillStyle = this.color;
+        this.shape.draw(cursor);
+        cursor.fill();
     }
 
     // expensive but accurate. we should only be calling this ONCE when a shot is fired anyways

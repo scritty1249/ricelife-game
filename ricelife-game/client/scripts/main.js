@@ -1,11 +1,12 @@
 import { InputListener, MovementController, TankController, AppCanvas, AimController } from "./controller/controller.js";
 import { Vector, Direction, Color, Polygon, GeometryWorker, Ray, Path } from "./geometry/geometry.js";
-import { ResizedImage, drawCircle, drawMarker, drawLine, rad2deg, roundTo, floatEqual, normalizeAngle } from "./utils/utils.js";
+import { ResizedImage, drawCircle, drawMarker, drawLine, rad2deg, roundTo, floatEqual, normalizeAngle, drawText } from "./utils/utils.js";
 import { drawTerrain, generateTerrain, generateWave } from "./terrain/terrain.js";
 import * as Projectiles from "./projectile/projectile.js";
 
 // [!] for debugging
 const URL_PARAMS = new URLSearchParams(window?.location?.search);
+const DEBUG_ENABLED = () => window?.debugTools || (URL_PARAMS.get("debug") === "true" && window?.debugTools !== false);
 
 async function fireProjectile (shot, state, config) { // [!} laziness
     state.projectile = new shot(state.tanks[config.playerTank].barrelPos, state.move.rotation + 270, state.aimer.power);
@@ -59,72 +60,74 @@ function handleInput (state, config) {
 }
 
 function drawDebugOverlay (state, config) {
-    const { canvas, ctx } = config.display;
+    const { cursor } = config.display;
     const player = state.tanks[config.playerTank];
     // draw any holes in terrain
     for (const hole of state.terrain.holes) {
-        ctx.save();
-        hole.draw(ctx);
-        ctx.strokeStyle = "red";
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        ctx.restore();
+        cursor.save();
+        hole.draw(cursor);
+        cursor.strokeStyle = "red";
+        cursor.lineWidth = 2;
+        cursor.stroke();
+        cursor.restore();
     }
 
     // draw player body and barrel positions
-    drawCircle(ctx, player.barrelPos);
-    drawCircle(ctx, new Vector(player.position.x, player.position.y), 5,  "green");
+    drawCircle(cursor, player.barrelPos);
+    drawCircle(cursor, new Vector(player.position.x, player.position.y), 5,  "green");
     { // draw terrain outline. Draws holes weirdly though
-        ctx.save();
-        state.terrain.draw(ctx);
-        ctx.clip("evenodd"); 
-        ctx.strokeStyle = "blue";
-        ctx.lineWidth = 4;
-        ctx.stroke(); 
-        ctx.restore();
+        cursor.save();
+        state.terrain.draw(cursor);
+        cursor.clip("evenodd"); 
+        cursor.strokeStyle = "blue";
+        cursor.lineWidth = 4;
+        cursor.stroke(); 
+        cursor.restore();
     }
 
     // draw Y-axis positioning raycasters
     const ray = Ray(new Vector(player.position.x, 0), Direction(90), config.display.size.y - 20);
-    drawCircle(ctx, ray.at(0), 7, "purple")
-    drawCircle(ctx, ray.at(-1), 7, "white")
+    drawCircle(cursor, ray.at(0), 7, "purple")
+    drawCircle(cursor, ray.at(-1), 7, "white")
     state.terrain.raycast(ray)
         .toSorted((a, b) => b.point.y - a.point.y)
-        .forEach(({point, angle, entering}, i) => drawMarker(ctx, point, Direction((angle + Math.PI) % (2 * Math.PI), false), 4, 20, entering ? "purple" : "white"));
+        .forEach(({point, angle, entering}, i) => drawMarker(cursor, point, Direction((angle + Math.PI) % (2 * Math.PI), false), 4, 20, entering ? "purple" : "white"));
 
     if (state.projectile) {
         // draw blast radius while in flight
-        ctx.save();
-        ctx.strokeStyle = "orange";
-        ctx.lineWidth = 2;
+        cursor.save();
+        cursor.strokeStyle = "orange";
+        cursor.lineWidth = 2;
         for (const shape of state.projectile.blast.shapes)
-            shape.path.draw(ctx);
-        ctx.stroke(); 
-        ctx.restore();
-        if (state.landing) drawCircle(ctx, state.landing.point, state.projectile.config.radius, "orange"); // draw landing point
+            shape.path.draw(cursor);
+        cursor.stroke(); 
+        cursor.restore();
+        if (state.landing) drawCircle(cursor, state.landing.point, state.projectile.config.radius, "orange"); // draw landing point
     } else state.landing = undefined;
 
     if (state.input.pointer.isActive) {
-        drawCircle(ctx, state.input.pointer.position, 4, "yellow");
+        const { position } = state.input.pointer;
+        drawCircle(cursor, position, 4, "yellow");
+        drawText(cursor, position, position.toString(), "yellow");
         if (state.input.pointer.isDragging && state.aimer.inClickRange(state.input.pointer.dragStart))
-            drawLine(ctx, player.barrelPos, state.input.pointer.position, 2, "rgba(255, 255, 0, 0.5)");
+            drawLine(cursor, player.barrelPos, position, 2, "rgba(255, 255, 0, 0.5)");
     }
 }
 
 function drawFrame (state, config) {
-   const { canvas, ctx } = config.display;
-    config.display.clear();
-    state.aimer.draw(ctx);
+    const { cursor } = config.display;
+    cursor.clear();
+    state.aimer.draw(cursor);
     for (const tank of Object.values(state.tanks))
-        tank.draw(ctx);
-    ctx.drawImage(config.display.worker.cache.background.image, 0, 0);
+        tank.draw(cursor);
+    cursor.drawImage(config.display.worker.cache.background.image, 0, 0);
     if (state.projectile) {
-        state.projectile.draw(ctx);
+        state.projectile.draw(cursor);
         if (state.projectile.isProjectile) {
             state.projectile.update(1 / config.fps);
         } else state.projectile = false;
     }
-    if (state.tracer) state.tracer.draw(ctx);
+    if (state.tracer) state.tracer.draw(cursor);
 }
 
 function animate (state, config) {
@@ -132,7 +135,7 @@ function animate (state, config) {
     const elapsed = nowStamp - state.lastStamp;
     const player = state.tanks[config.playerTank];
     let waitPromise = config.display.worker.cache.background ? Promise.resolve() : state.redrawJob;
-
+    
     if (elapsed < config.frameInterval) { // run any between-frame logic
     } else { // redraw frame
         state.lastStamp = nowStamp - (elapsed % config.frameInterval);
@@ -156,7 +159,7 @@ function animate (state, config) {
         waitPromise = waitPromise.then(() => {
             // Draw the screen (main game loop - related polygons and images)
             drawFrame(state, config);
-            if (window?.debugTools || (URL_PARAMS.get("debug") === "true" && window?.debugTools !== false))
+            if (DEBUG_ENABLED())
                 // [!] testing
                 drawDebugOverlay(state, config);
         });
@@ -174,7 +177,7 @@ async function load() {
 }
 
 const FPS = 60;
-const GROUND = 700;
+const GROUND = 300;
 const GLOBAL_RESOLUTION = Math.floor((1/3) * 10) / 10;
 const CLICK_DURATION_MS = 90;
 const INPUT_MAP = {
@@ -252,10 +255,16 @@ function main(...loaded) {
     };
     
     Mover.set(Math.floor(Display.size.x / 4));
-    Aimer.update(Tank.position.add({x: 0, y: -Display.size.y})); // aim straight up and set power to 100% (1)
-    Tank.offset.barrel.y = -15;
-    Tank.offset.body.y = -(loaded[0].height / 2);
+    Aimer.update(Tank.position.add({x: 0, y: Display.size.y})); // aim straight up and set power to 100% (1)
+    Tank.offset.barrel.y = 15;
+    Tank.offset.body.y = (loaded[0].height / 2);
     Display.canvas.focus();
+    // [!] testing
+    if (DEBUG_ENABLED()) {
+        window._GAME_STATE = state;
+        window._GAME_CONFIG = config;
+    }
+
     animate(state, config);
 }
 

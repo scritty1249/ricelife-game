@@ -165,17 +165,15 @@ export class Vector {
         return vector?.isVector && floatEqual(this.x, vector.x) && floatEqual(this.y, vector.y);
     }
     apply (x, y = null) {
-        if (Number.isFinite(x)) {
-            if (y === null) {
-                this.x = x;
-                this.y = x;
-            } else {
-                this.x = x;
-                this.y = y;
-            }
-        } else {
+        if (x?.isVector) {
             this.x = x.x;
             this.y = x.y;
+        } else if (y === null) { // set to scalar
+            this.x = x;
+            this.y = x;
+        } else {
+            this.x = x;
+            this.y = y;
         }
     }
     // overload / basic operations

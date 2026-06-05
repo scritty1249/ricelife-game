@@ -1,6 +1,6 @@
 import { Polygon, Color } from "../geometry/geometry.js";
 import { drawTerrain } from "../terrain/terrain.js";
-import { wipeCanvas } from "../controller/display.js";
+import { Canvas2DContextCursorFactory } from "../controller/controller.js";
 
 const CANVAS = {};
 
@@ -30,10 +30,10 @@ self.onmessage = (e) => {
              * }
              */
             const { key, polygon, edgeColor, fillColor, gradientWidth, resolution } = payload;
-            const { canvas, ctx } = CANVAS[key];
+            const { canvas, cursor } = CANVAS[key];
             const terrain = Polygon.fromObject(polygon, 1);
-            CANVAS[key].clear();
-            drawTerrain(ctx, terrain, new Color(fillColor), new Color(edgeColor), gradientWidth, resolution);
+            cursor.clear();
+            drawTerrain(cursor, terrain, new Color(fillColor), new Color(edgeColor), gradientWidth, resolution);
             const bitmap = canvas.transferToImageBitmap();
             self.postMessage({ type: type, id: id, image: bitmap }, [bitmap]);
         } else if (type === "DRAW_IMAGE") {
@@ -48,9 +48,9 @@ self.onmessage = (e) => {
              * }
              */
             const { key, image, x, y, width, height } = payload;
-            const { canvas, ctx } = CANVAS[key];
-            if (width === undefined || height === undefined) ctx.drawImage(image, x, y);
-            else ctx.drawImage(image, x, y, width, height);
+            const { canvas, cursor } = CANVAS[key];
+            if (width === undefined || height === undefined) cursor.drawImage(image, x, y);
+            else cursor.drawImage(image, x, y, width, height);
             const bitmap = canvas.transferToImageBitmap();
             self.postMessage({ type: type, id: id, image: bitmap }, [bitmap]);
         } else if (type === "CLEAR_CANVAS") {
@@ -60,7 +60,8 @@ self.onmessage = (e) => {
              * }
              */
             const { key } = payload;
-            CANVAS[key].clear();
+            const { cursor } = CANVAS[key];
+            cursor.clear();
             self.postMessage({ type: type, id: id, key: key });
         } else if (type === "DROP_CANVAS") {
             /* Payload expected:
@@ -74,9 +75,9 @@ self.onmessage = (e) => {
         }
     } catch (e) {
         self.postMessage({ type: type, id: id, error: {
-            message: e.message,
-            name: e.name,
-            stack: e.stack.split("\n")
+            message: e?.message,
+            name: e?.name,
+            stack: e?.stack?.split("\n")
         }});
     }
 };
@@ -85,7 +86,6 @@ function initCanvas (width, height) {
     const canvas = new OffscreenCanvas(width, height)
     return {
         canvas: canvas,
-        ctx: canvas.getContext("2d"),
-        clear: wipeCanvas
+        cursor: Canvas2DContextCursorFactory(canvas),
     };
 }

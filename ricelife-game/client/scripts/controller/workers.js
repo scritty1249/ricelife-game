@@ -22,6 +22,10 @@ export class WorkerManager extends TrackableObject {
                 console.warn("[WorkerManager] Warning: Web worker replied to an unregistered transaction ", e);
             }
         }
+        this.#worker.onerror = (err) => {
+            console.error("[WorkerManager] Error: Worker crashed - " + err?.messaage);
+            throw err
+        }
         this.#cacheProxy = new Proxy(this.#cache, {
             set(target, prop, value, receiver) {
                 if (target[prop])

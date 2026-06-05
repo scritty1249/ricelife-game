@@ -121,31 +121,29 @@ export class Polygon extends TrackableObject { // points should be ordered clock
                 if (currNode.isIntersect) {
                     onThis = !onThis;
                     currNode = currNode.neighbor;
-                    currNode = (currNode.entry !== onThis) ? currNode.prev : currNode.next;
-                } else
-                    currNode = onThis ? currNode.next : currNode.prev;
+                }
+                currNode = currNode.next;
             }
             if (newPts.length > 2)
                 polyPieces.push(new Polygon(new Path(...newPts)));
         }
-        if (polyPieces.length === 0) return newPolygon;
         if (polyPieces.length > 1) {
             const hole = poly.clone();
             if (newPolygon.path.isClockwise) hole.path.points.reverse();
             newPolygon.holes.push(hole);
-        } else
+        } else if (polyPieces.length !== 0)
             newPolygon.path.apply(...polyPieces[0].path.points);
         return newPolygon;
     }
 
-    draw (ctx, close = true) { // only draw the path
+    draw (cursor, close = true) { // only draw the path
         if (!this.#path.points.length) return;
         const path = this.path;
-        if (close) ctx.beginPath();
-        ctx.moveTo(...path.points[0]);
+        if (close) cursor.beginPath();
+        cursor.moveTo(path.points[0]);
         for (let i = 1; i < path.points.length; i++)
-            ctx.lineTo(...path.points[i]);
-        if (close) ctx.closePath();
+            cursor.lineTo(path.points[i]);
+        if (close) cursor.closePath();
     }
 
     isIntersecting (value, ignoreholes = false) {

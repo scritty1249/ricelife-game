@@ -1,23 +1,23 @@
 import { Vector, Path, Polygon } from "../geometry/geometry.js";
 
-export function drawTerrain (ctx, polygon, fillColor, edgeColor, gradientWidth, resolution) { // fill and edge colors are expected to be Color objects
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    polygon.draw(ctx);
-    ctx.fillStyle = fillColor.toString();
-    ctx.fill();
+export function drawTerrain (cursor, polygon, fillColor, edgeColor, gradientWidth, resolution) { // fill and edge colors are expected to be Color objects
+    cursor.lineCap = "round";
+    cursor.lineJoin = "round";
+    polygon.draw(cursor);
+    cursor.fillStyle = fillColor.toString();
+    cursor.fill();
 
     if (polygon.holes) {
-        ctx.globalCompositeOperation = "destination-out";
-        ctx.fillStyle = "black"; // mask color, abitrary
+        cursor.globalCompositeOperation = "destination-out";
+        cursor.fillStyle = "black"; // mask color, abitrary
         
         for (const hole of polygon.holes) {
-            hole.draw(ctx);
-            ctx.fill();
-            ctx.lineWidth = 1.5; // straight up mask a tiny extra bit around each hole lmao, we LOVE antialiasing!
-            ctx.stroke();
+            hole.draw(cursor);
+            cursor.fill();
+            cursor.lineWidth = 1.5; // straight up mask a tiny extra bit around each hole lmao, we LOVE antialiasing!
+            cursor.stroke();
         }        
-        ctx.globalCompositeOperation = "source-over";
+        cursor.globalCompositeOperation = "source-over";
     }
 
     const topEdge = polygon.path.clone();
@@ -46,25 +46,25 @@ export function drawTerrain (ctx, polygon, fillColor, edgeColor, gradientWidth, 
         }
     }
 
-    ctx.save();
-    polygon.draw(ctx);
-    ctx.clip();
-    ctx.globalCompositeOperation = "source-atop";
+    cursor.save();
+    polygon.draw(cursor);
+    cursor.clip();
+    cursor.globalCompositeOperation = "source-atop";
     for (let i = 0; i <= gradientWidth; i += resolution) {
         const alpha = (1 - (i / gradientWidth)).toFixed(2)**10;
-        ctx.lineWidth = i * 2;
-        ctx.strokeStyle = `rgba(${edgeColor.r}, ${edgeColor.g}, ${edgeColor.b}, ${alpha})`;
-        topEdge.draw(ctx);
+        cursor.lineWidth = i * 2;
+        cursor.strokeStyle = `rgba(${edgeColor.r}, ${edgeColor.g}, ${edgeColor.b}, ${alpha})`;
+        topEdge.draw(cursor);
         for (const openHoleEdge of holeTopEdges)
-            openHoleEdge.draw(ctx);
+            openHoleEdge.draw(cursor);
     }
-    ctx.restore();
+    cursor.restore();
 }
 
 export function generateTerrain (path, maxSize) {
     path.push(
-        new Vector(maxSize.x, maxSize.y - 1),
-        new Vector(0, maxSize.y - 1)
+        new Vector(maxSize.x, 0),
+        new Vector(0, 0)
     );
     return new Polygon(path);
 };

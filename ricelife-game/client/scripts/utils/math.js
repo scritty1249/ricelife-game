@@ -15,8 +15,10 @@ export function roundTo (num, precision = 1) { return Math.round(num * precision
 
 export function clamp (num, min, max) { return Math.min(max, Math.max(min, num)) }
 
-export function normalizeAngle (degrees) {
-    return (((degrees % 360) + 360) % 360);
-}
+export function normalizeAngle (degrees) { return (((degrees % 360) + 360) % 360) }
 
 export function floatEqual (a, b) { return Math.abs(a - b) < Number.EPSILON }
+
+export function global2screen (point, height) { return point.add({x: 0, y: -height}) }
+
+export function screen2global (point, height) { return point.add({x: 0, y: height}) }

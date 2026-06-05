@@ -7,7 +7,7 @@ export { BasicShot } from "./default.js";
 export class Spreader extends BasicShot {
     static config = {
         initalSpeed: 400,
-        acceleration: new Vector(20, 200),
+        acceleration: new Vector(20, -200),
         drag: 0.001,
         radius:  7.5,
         blastRadius: 25
@@ -24,7 +24,7 @@ export class Spreader extends BasicShot {
 export class Flower extends BasicShot {
     static config = {
         initalSpeed: 400,
-        acceleration: new Vector(20, 200),
+        acceleration: new Vector(20, -200),
         drag: 0.001,
         radius:  7.5,
         blastRadius: 35
@@ -41,7 +41,7 @@ export class Flower extends BasicShot {
 export class Digger extends BasicShot {
     static config = {
         initalSpeed: 500,
-        acceleration: new Vector(10, 300),
+        acceleration: new Vector(10, -300),
         drag: 0.003,
         radius:  8,
         blastRadius: 30

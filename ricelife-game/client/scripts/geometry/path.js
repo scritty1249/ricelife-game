@@ -26,13 +26,13 @@ export class Path extends TrackableObject { // points should be ordered clockwis
         return this; // for chaining
     }
 
-    draw (ctx, close = true) { // only draw the path
+    draw (cursor, close = true) { // only draw the path
         if (!this.#points.length) return;
-        if (close) ctx.beginPath();
-        ctx.moveTo(...this.#points[0]);
+        if (close) cursor.beginPath();
+        cursor.moveTo(this.#points[0]);
         for (const point of this.#points.slice(1))
-            ctx.lineTo(...point);
-        if (close) ctx.stroke();
+            cursor.lineTo(point);
+        if (close) cursor.stroke();
     }
 
     *lines () { // returns pairs of Vectors as Paths
@@ -83,7 +83,7 @@ export class Path extends TrackableObject { // points should be ordered clockwis
             }
         }
         if (intersections.length === 0) return [];
-        intersections.sort((a, b) => (a.index.self !== b.index.self) ? a.index.self - b.index.self : a.coeff.self - b.coeff.self);         // sort intersections along "this" path
+        intersections.sort((a, b) => (a.index.self !== b.index.self) ? a.index.self - b.index.self : a.coeff.self - b.coeff.self); // sort intersections along "this" path
         let i = 0;
         while (intersections.length > 0 && !intersections[0].entering && i < intersections.length) {
             intersections.push(intersections.shift());

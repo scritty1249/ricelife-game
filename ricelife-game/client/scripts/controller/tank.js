@@ -21,27 +21,27 @@ export class TankController extends TrackableObject {
         this.position = position;
     }
 
-    #drawBarrel (ctx) { // barrel assumed to be pointed UP
+    #drawBarrel (cursor) { // barrel assumed to be pointed UP
         const barrel = this.#source.barrel;
-        ctx.save();
-        ctx.translate(...this.position.add(this.offset.barrel));
-        ctx.rotate(deg2rad(this.rotation.barrel % 360));
-        ctx.drawImage(barrel.img, -barrel.width / 2, -barrel.height, barrel.width, barrel.height); // pivot around bottom-center of image
-        ctx.restore();
+        cursor.save();
+        cursor.translate(this.position.add(this.offset.barrel));
+        cursor.rotate(-deg2rad(this.rotation.barrel % 360));
+        cursor.drawImage(barrel.img, -barrel.width / 2, 0, barrel.width, barrel.height); // pivot around bottom-center of image
+        cursor.restore();
     }
 
-    #drawBody (ctx) { // [!] repetitive?
+    #drawBody (cursor) { // [!] repetitive?
         const body = this.#source.body;
-        ctx.save();
-        ctx.translate(...this.position.add(this.offset.body));
-        ctx.rotate(deg2rad(this.rotation.body));
-        ctx.drawImage(body.img, -body.width / 2, -body.height / 2, body.width, body.height); // pivot around center-center of image
-        ctx.restore();
+        cursor.save();
+        cursor.translate(this.position.add(this.offset.body));
+        cursor.rotate(-deg2rad(this.rotation.body));
+        cursor.drawImage(body.img, -body.width / 2, -body.height / 2, body.width, body.height); // pivot around center-center of image
+        cursor.restore();
     }
 
-    draw (ctx) {
-        this.#drawBarrel(ctx);
-        this.#drawBody(ctx);
+    draw (cursor) {
+        this.#drawBarrel(cursor);
+        this.#drawBody(cursor);
     }
 
     get relativePosition () { return this.position.add(this.offset.body) }

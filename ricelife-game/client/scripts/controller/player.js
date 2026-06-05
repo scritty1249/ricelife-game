@@ -62,6 +62,7 @@ export class PointerListener  {
     #clickMs;
     #offset = new Vector();
     #scale = new Vector(1, 1);
+    #elementSize = new Vector(0, 0);
     #tracking = {
         position: new Vector(),
         down: {
@@ -112,39 +113,43 @@ export class PointerListener  {
     #updatePosition (event) {
         const { clientX, clientY } = event;
         this.#tracking.position.apply(clientX, clientY);
-        this.#tracking.position.sub(this.#offset, true);
-        this.#tracking.position.mul(this.#scale, true);
+        this.#normalizePoint(this.#tracking.position);
     }
 
     #updateOffset (element) {
         const { position, up, down } = this.#tracking;
         {
             // change any existing position data back to global
-            position.div(this.#scale, true);
-            position.add(this.#offset, true);
-            if (up.stamp !== undefined) {
-                up.position.div(this.#scale, true);
-                up.position.add(this.#offset, true);
-            }
-            if (down.stamp !== undefined) {
-                down.position.div(this.#scale, true);
-                down.position.add(this.#offset, true);
-            }
+            this.#denormalizePoint(position);
+            if (up.stamp !== undefined)
+                this.#denormalizePoint(up.position);
+            if (down.stamp !== undefined)
+                this.#denormalizePoint(down.position);
         }
-        const { left, top, width, height } = element.getBoundingClientRect();
+        const { left, top, width, height, bottom } = element.getBoundingClientRect();
+        this.#elementSize.apply(width, bottom); // for y coordinate normalization
         this.#offset.apply(left, top);
         this.#scale.apply(element.width / width, element.height / height);
         // make position data relative to new position
-        position.mul(this.#scale, true);
-        position.add(this.#offset, true);
-        if (up.stamp !== undefined) {
-            up.position.sub(this.#offset, true);
-            up.position.mul(this.#scale, true);
-        }
-        if (down.stamp !== undefined) {
-            down.position.sub(this.#offset, true);
-            down.position.mul(this.#scale, true);
-        }
+        this.#normalizePoint(position);
+        if (up.stamp !== undefined)
+            this.#normalizePoint(up.position);
+        if (down.stamp !== undefined)
+            this.#normalizePoint(down.position);
+    }
+
+    #normalizePoint (point) { // this is a mutating operation!
+        point.y = this.#elementSize.y - point.y;
+        point.sub(this.#offset, true);
+        point.mul(this.#scale, true);
+        return point; // for chaining
+    }
+
+    #denormalizePoint (point) {
+        point.div(this.#scale, true);
+        point.add(this.#offset, true);
+        point.y += this.#elementSize.y;
+        return point; // for chaining
     }
 
     get position () { return this.#tracking.position.clone() }
@@ -218,13 +223,13 @@ export class MovementController { // only moves along X axis
         const { position, width } = this.#player;
         const ray = Ray(new Vector(), Direction(90), this.#terrainHeight - 1);
         const movingRight = targetX > position.x;
-        const maxHeight = position.y - (this.#player.height / 2); // next position should not be going OVER this - under is still fine. (player would be falling)
+        const maxHeight = position.y + (this.#player.height / 2); // next position should not be going OVER this - under is still fine. (player would be falling)
         const nodes = this.#terrain.edgeNodes(true);
         const overlappingHoles = this.#terrain.holes.filter((hole) => hole.isIntersecting(ray));
         const slices = [];
         for (const node of nodes
                 .filter(({point}) =>
-                    point.y >= maxHeight
+                    point.y < maxHeight
                     && (floatEqual(point.x, targetX)
                     || (movingRight && point.x + (width + 1) > position.x && point.x <= targetX)
                     || (!movingRight && point.x - (width + 1) < position.x && point.x >= targetX))
@@ -236,7 +241,7 @@ export class MovementController { // only moves along X axis
             else slices.push([node]);
         for (const slice of slices) {
             slice.sort((a, b) => Math.abs(position.y - b.point.y) - Math.abs(position.y - a.point.y));
-            const { point, prevNode, nextNode, hole } = slice.at(-1);
+            const { point, prevNode, nextNode, hole } = slice.at(0);
             ray.x = point.x;
             const inter = Path.intersectAngle(ray.at(0), ray.at(-1), prevNode, nextNode);
             const angle = this.#normalizeAngle(inter.angle, inter.entering);
@@ -303,18 +308,18 @@ export class AimController { // takes control of rotation for a Tank barrel
         }
     }
 
-    draw (ctx) {
+    draw (cursor) {
         const { circle, triangle, cone } = this.#display;
         const position = this.#player.relativePosition;
         circle.shape.position.apply(position);
         triangle.shape.position.apply(position);
         cone.shape.position.apply(position);
-        ctx.save();
-        this.#drawPowerCircle(ctx);
-        ctx.clip();
-        this.#drawAngleTriangle(ctx, triangle);
-        this.#drawAngleTriangle(ctx, cone);
-        ctx.restore();
+        cursor.save();
+        this.#drawPowerCircle(cursor);
+        cursor.clip();
+        this.#drawAngleTriangle(cursor, triangle);
+        this.#drawAngleTriangle(cursor, cone);
+        cursor.restore();
     }
 
     inClickRange (point) {
@@ -326,7 +331,7 @@ export class AimController { // takes control of rotation for a Tank barrel
     update (point) { // updates barrel too
         if (!this.#pointerRecorded) {
             this.#pointerRecorded = true;
-            this.#pointerPosition.apply(point.x, point.y);
+            this.#pointerPosition.apply(point);
         } else this.pointer.apply(point); // prefer the getter when possible
         this.rotation = this.#angleFromPointer();
         this.power = this.#powerFromPointer();
@@ -354,24 +359,24 @@ export class AimController { // takes control of rotation for a Tank barrel
         }
     }
 
-    #drawPowerCircle (ctx) {
+    #drawPowerCircle (cursor) {
         const { shape, color } = this.#display.circle;
-        ctx.save();
-        ctx.fillStyle = color.toString();
-        shape.draw(ctx, true);
-        ctx.fill();
-        ctx.restore();
+        cursor.save();
+        cursor.fillStyle = color.toString();
+        shape.draw(cursor, true);
+        cursor.fill();
+        cursor.restore();
     }
 
-    #drawAngleTriangle (ctx, triangle) {
+    #drawAngleTriangle (cursor, triangle) {
         const { shape, color } = triangle;
-        ctx.save();
-        ctx.fillStyle = color.toString();
-        ctx.beginPath();
-        shape.draw(ctx, false);
-        ctx.closePath();
-        ctx.fill();
-        ctx.restore();
+        cursor.save();
+        cursor.fillStyle = color.toString();
+        cursor.beginPath();
+        shape.draw(cursor, false);
+        cursor.closePath();
+        cursor.fill();
+        cursor.restore();
     }
 
     #powerFromPointer () { return this.#player.relativePosition.distance(this.pointer) / this.#radius } // unclamped
