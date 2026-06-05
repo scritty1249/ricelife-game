@@ -196,7 +196,7 @@ export class MovementController { // only moves along X axis
         const position = this.#player.position;
 
         const maxHeight = this.#player.height + position.y + this.offsetY; // next position should not be going OVER this - under is still fine. (player would be falling)
-        const ray = Ray(new Vector(amount, 0), Direction(90), this.#terrainHeight - 1);
+        const ray = Ray(new Vector(amount, this.#terrainHeight), Direction(270), this.#terrainHeight - 1);
         const hits = this.#terrain.raycast(ray);
         const exiting = hits.some(({entering}) => !entering);
 
