@@ -39,3 +39,4 @@ The follow URL query parameters will have visible impact on the demo.
 - `Polygons` register holes even when a `cut` operation would not seperate the polygon into seperate parts
     - *Polygon edge is still cut correctly*
     - *May have something to do with the handoff between the geometry webworkers and main loop*
+    - Holes are not needlessly added if projectile blast collides with terrain from the top
