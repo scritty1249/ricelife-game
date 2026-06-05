@@ -50,8 +50,8 @@ export class Digger extends BasicShot {
         super(origin, angle, power, resolution);
         this.blast._shapes.splice(0, this.blast._shapes.length);
         this.blast._shapes.push(new Circle(new Vector(), this.config.blastRadius));
-        this.blast._shapes.push(new Circle(new Vector(0, this.config.blastRadius * 1.75), this.config.blastRadius));
-        this.blast._shapes.push(new Circle(new Vector(0, this.config.blastRadius * 1.75 * 2), this.config.blastRadius));
-        this.blast._shapes.push(new Circle(new Vector(0, this.config.blastRadius * 1.75 * 3), this.config.blastRadius));
+        this.blast._shapes.push(new Circle(new Vector(0, -this.config.blastRadius * 1.75), this.config.blastRadius));
+        this.blast._shapes.push(new Circle(new Vector(0, -this.config.blastRadius * 1.75 * 2), this.config.blastRadius));
+        this.blast._shapes.push(new Circle(new Vector(0, -this.config.blastRadius * 1.75 * 3), this.config.blastRadius));
     }
 }
