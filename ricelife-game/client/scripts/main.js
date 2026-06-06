@@ -15,7 +15,7 @@ async function fireProjectile (shot, state, config) { // [!} laziness
     state.landing = state.projectile.intersectAt(state.blastTerrain, 1/config.fps, config.display.size.x); // [!] for testing
     if (state.landing) {
         state.redrawJob = state.geometry.cut("blastTerrain", state.terrain, ...state.projectile.blast.shapesAt(state.landing.point))
-            .then((polygon) => polygon.roundPoints(2))
+            //.then((polygon) => polygon.roundPoints(2))
             .then((polygon) => state.blastTerrain.apply(polygon))
             .then((polygon) => config.display.drawTerrain("blastBackground", state.blastTerrain, config.terrain.fill, config.terrain.edge));
     }

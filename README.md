@@ -34,5 +34,3 @@ The follow URL query parameters will have visible impact on the demo.
 
 ## Known Bugs
 - Players may be able to phase through vertical terrain (*"walls"*) if the terrain is thin enough
-- Player body orentation changes too abruptly when traversing terrain with lots of sharp edges
-    - Orientation changes rapidly over nearly smooth surfaces if any holes exist in terrain anywhere
