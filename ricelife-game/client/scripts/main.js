@@ -257,7 +257,7 @@ function main(...loaded) {
     Mover.set(Math.floor(Display.size.x / 4));
     Aimer.update(Tank.position.add({x: 0, y: Display.size.y})); // aim straight up and set power to 100% (1)
     Tank.offset.barrel.y = 15;
-    Tank.offset.body.y = (loaded[0].height / 2);
+    Tank.offset.body.y = (loaded[0].height / 3.5);
     Display.canvas.focus();
     // [!] testing
     if (DEBUG_ENABLED()) {
