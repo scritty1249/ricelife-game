@@ -27,7 +27,7 @@ export class Animation {
         return this.#prevFrame;
     }
 
-    clone () { return new Animation (this.position, this.#frames, this.#framerateMs * 1000) } // Clones by reference
+    clone () { return new Animation (this.position, this.#frames.clone(), this.#framerateMs * 1000) } // Clones by reference
 
     get isAnimation () { return true }
     get hasNext () { return this.elapsed() >= this.#framerateMs && !this.ended }
@@ -43,10 +43,9 @@ export class AnimationList {
         this.push(...animations);
     }
 
-    #typeCheck (obj) { if (!obj?.isAnimation) throw new Error("[AnimationList] Error: Cannot add non-animation of type " + (typeof obj)) }
     push (...animations) {
         for (const animation of animations) {
-            this.#typeCheck(animation);
+            if (!animation?.isAnimation) throw new Error("[AnimationList] Error: Cannot add non-animation of type " + (typeof animation));
             this.#animations.push(animation);
         }        
     }
