@@ -90,15 +90,16 @@ export class BasicShot extends Projectile {
     #blast;
     config;
     constructor (origin, angle, power = 1, resolution = 1) {
+        const defualtConfig = {
+            initalSpeed: 400,
+            acceleration: new Vector(20, -200),
+            drag: 0.001,
+            radius: 5,
+            blastRadius: 30
+        };
         const config = new.target.config
-            ? new.target.config
-            : {
-                initalSpeed: 400,
-                acceleration: new Vector(20, -200),
-                drag: 0.001,
-                radius: 5,
-                blastRadius: 30
-            };
+            ? {...defualtConfig, ...new.target.config}
+            : defualtConfig;
         const direction = Direction(angle).mul(config.initalSpeed * power);
         super(origin, direction, config.acceleration, config.drag);
         this.direction = direction; // make accessible for later calculations

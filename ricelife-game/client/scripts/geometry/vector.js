@@ -96,6 +96,12 @@ export class Vector {
         vec.y = roundTo(vec.y, precision);
         return vec;
     }
+    floor (mutate = false) {
+        const vec = mutate ? this : this.clone();
+        vec.x = Math.floor(vec.x);
+        vec.y = Math.floor(vec.y);
+        return vec;
+    }
     lerp (vector, factor) { // (Linear Interpolation) returns the point between this vector and given vector. distance from this vector determined by factor given
         if (!vector?.isVector) throw new Error("[Vector] Error: Cannot linearly interpolate between Vector and non-Vector type " + (typeof vector));
         return this.add(vector.sub(this).mul(factor));
@@ -175,6 +181,7 @@ export class Vector {
             this.x = x;
             this.y = y;
         }
+        return this; // for chaining
     }
     // overload / basic operations
     *[Symbol.iterator]() {

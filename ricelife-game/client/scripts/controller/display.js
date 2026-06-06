@@ -57,52 +57,66 @@ class Canvas2DContextCursor {
         this.#size = new Vector(this.#ctx.canvas.width, this.#ctx.canvas.height);
     }
 
-    #normalizeY(y) {
+    normalizeY (y) {
         return this.#size.y - y;
     }
-    clear() {
+    clear () {
         this.#ctx.clearRect(0, 0, this.#size.x, this.#size.y);
     }
-    translate(x, y = null) {
+    translate (x, y = null) {
         x?.isVector
-            ? this.#ctx.translate(x.x, this.#normalizeY(x.y))
-            : this.#ctx.translate(x, this.#normalizeY(y));
+            ? this.#ctx.translate(x.x, this.normalizeY(x.y))
+            : this.#ctx.translate(x, this.normalizeY(y));
     }
-    moveTo(x, y = null) {
+    moveTo (x, y = null) {
         x?.isVector
-            ? this.#ctx.moveTo(x.x, this.#normalizeY(x.y))
-            : this.#ctx.moveTo(x, this.#normalizeY(y));
+            ? this.#ctx.moveTo(x.x, this.normalizeY(x.y))
+            : this.#ctx.moveTo(x, this.normalizeY(y));
     }
-    lineTo(x, y = null) {
+    lineTo (x, y = null) {
         x?.isVector
-            ? this.#ctx.lineTo(x.x, this.#normalizeY(x.y))
-            : this.#ctx.lineTo(x, this.#normalizeY(y));
+            ? this.#ctx.lineTo(x.x, this.normalizeY(x.y))
+            : this.#ctx.lineTo(x, this.normalizeY(y));
     }
-    arc(x, y = null, ...args) {
-        x?.isVector
-            ? (y === null)
-                ? this.#ctx.arc(x.x, this.#normalizeY(x.y), ...args)
-                : this.#ctx.arc(x.x, this.#normalizeY(x.y), y, ...args)
-            : this.#ctx.arc(x, this.#normalizeY(y), ...args);
-    }
-    strokeText(text, x, y = null, ...args) {
+    arc (x, y = null, ...args) {
         x?.isVector
             ? (y === null)
-                ? this.#ctx.strokeText(text, x.x, this.#normalizeY(x.y), ...args)
-                : this.#ctx.strokeText(text, x.x, this.#normalizeY(x.y), y, ...args)
-            : this.#ctx.strokeText(text, x, this.#normalizeY(y), ...args);
+                ? this.#ctx.arc(x.x, this.normalizeY(x.y), ...args)
+                : this.#ctx.arc(x.x, this.normalizeY(x.y), y, ...args)
+            : this.#ctx.arc(x, this.normalizeY(y), ...args);
     }
-    fillText(text, x, y = null, ...args) {
+    strokeText (text, x, y = null, ...args) {
         x?.isVector
             ? (y === null)
-                ? this.#ctx.fillText(text, x.x, this.#normalizeY(x.y), ...args)
-                : this.#ctx.fillText(text, x.x, this.#normalizeY(x.y), y, ...args)
-            : this.#ctx.fillText(text, x, this.#normalizeY(y), ...args);
+                ? this.#ctx.strokeText(text, x.x, this.normalizeY(x.y), ...args)
+                : this.#ctx.strokeText(text, x.x, this.normalizeY(x.y), y, ...args)
+            : this.#ctx.strokeText(text, x, this.normalizeY(y), ...args);
     }
-    get ctx() {
+    fillText (text, x, y = null, ...args) {
+        x?.isVector
+            ? (y === null)
+                ? this.#ctx.fillText(text, x.x, this.normalizeY(x.y), ...args)
+                : this.#ctx.fillText(text, x.x, this.normalizeY(x.y), y, ...args)
+            : this.#ctx.fillText(text, x, this.normalizeY(y), ...args);
+    }
+    drawImage (image, ...args) { // only override / normalize Y when given vector parameters
+        if (args.length === 1 && args[0]?.isVector) { // drawImage(image, dVector)
+            const [dXY] = args;
+            this.#ctx.drawImage(image, dXY.x, this.normalizeY(dXY.y));
+        } else if (args.length === 2 && args[0]?.isVector && args[1]?.isVector) { // drawImage(image, Vector<dx, dy>, Vector<dWidth, dHeight>)
+            const [dXY, dWH] = args;
+            this.#ctx.drawImage(image, dXY.x, this.normalizeY(dXY.y), dWH.x, dWH.y);
+        } else if (args.length === 4 && args[0]?.isVector && args[1]?.isVector && args[2]?.isVector && args[3]?.isVector) { // drawImage(image, Vector<sx, sy>, Vector<sWidth, sHeight>, Vector<dx, dy>, Vector<dWidth, dHeight>)
+            const [sXY, sWH, dXY, dWH] = args;
+            this.#ctx.drawImage(image, sXY.x, sXY.y, sWH.x, sWH.y, dXY.x, this.normalizeY(dXY.y), dWH.x, dWH.y);
+        } else {
+            this.#ctx.drawImage(image, ...args);
+        }
+    }
+    get ctx () {
         return this.#ctx;
     }
-    get isCanvasCursor() {
+    get isCanvasCursor () {
         return true;
     }
 }

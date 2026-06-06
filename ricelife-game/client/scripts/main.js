@@ -1,7 +1,8 @@
 import { InputListener, MovementController, TankController, AppCanvas, AimController } from "./controller/controller.js";
 import { Vector, Direction, Color, Polygon, GeometryWorker, Ray, Path } from "./geometry/geometry.js";
-import { ResizedImage, drawCircle, drawMarker, drawLine, rad2deg, roundTo, floatEqual, normalizeAngle, drawText } from "./utils/utils.js";
+import { drawCircle, drawMarker, drawLine, rad2deg, roundTo, floatEqual, normalizeAngle, drawText } from "./utils/utils.js";
 import { drawTerrain, generateTerrain, generateWave } from "./terrain/terrain.js";
+import { LoadImage, Spritesheet, Animation, AnimationList } from "./animate/animate.js";
 import * as Projectiles from "./projectile/projectile.js";
 
 // [!] for debugging
@@ -14,10 +15,21 @@ async function fireProjectile (shot, state, config) { // [!} laziness
     state.blastTerrain = state.terrain.clone();
     state.landing = state.projectile.intersectAt(state.blastTerrain, 1/config.fps, config.display.size.x); // [!] for testing
     if (state.landing) {
+        const shotConfig = state.projectile.config;
         state.redrawJob = state.geometry.cut("blastTerrain", state.terrain, ...state.projectile.blast.shapesAt(state.landing.point))
-            //.then((polygon) => polygon.roundPoints(2))
             .then((polygon) => state.blastTerrain.apply(polygon))
-            .then((polygon) => config.display.drawTerrain("blastBackground", state.blastTerrain, config.terrain.fill, config.terrain.edge));
+            .then((polygon) => config.display.drawTerrain("blastBackground", state.blastTerrain, config.terrain.fill, config.terrain.edge))
+            // [!] temporary
+            .then(() => {
+                // return the blast animation
+                const ss = state.blastAnimationFrames.clone();
+                ss.width = (shotConfig.blastRadius * 2) * 20;
+                const centerPoint = state.landing.point.clone();
+                const offset = ss.frameSize.mul(ss.scale);
+                centerPoint.x -= offset.x * .4; // animation is slightly off center
+                centerPoint.y += offset.y * .6;
+                return new Animation(centerPoint, ss, state.blastAnimationFps);
+            }); 
     }
 }
 
@@ -128,6 +140,7 @@ function drawFrame (state, config) {
         } else state.projectile = false;
     }
     if (state.tracer) state.tracer.draw(cursor);
+    state.animations.update(cursor);
 }
 
 function animate (state, config) {
@@ -148,6 +161,7 @@ function animate (state, config) {
         if (state.projectile === false) {
             state.projectile = undefined;
             waitPromise = state.redrawJob
+                .then((animation) => state.animations.push(animation))
                 .then(() => config.display.copyCanvas("background", config.display.worker.cache.blastBackground.image))
                 .then(() => state.terrain.apply(state.blastTerrain))
                 .then(() => {
@@ -171,9 +185,10 @@ function animate (state, config) {
 }
 
 async function load() {
-    const body = await new ResizedImage("./assets/tank/body.png", 50).onload;
-    const barrel = await new ResizedImage("./assets/tank/barrel.png", undefined, body.scale).onload;
-    main(body, barrel);
+    const body = await new LoadImage("./assets/tank/body.png").onload;
+    const barrel = await new LoadImage("./assets/tank/barrel.png").onload;
+    const testExplosion = await new Spritesheet("./assets/explosion_ss_512x512.png", 512, 512).onload;
+    main(body, barrel, testExplosion);
 }
 
 const FPS = 60;
@@ -207,8 +222,12 @@ const POINTER_CALLBACKS = (aimCtrl) => ({
 });
 
 function main(...loaded) {
+    const [tankBodyImage, tankBarrelImage, testExplosion] = loaded;
+    tankBodyImage.width = 50;
+    tankBarrelImage.scale.apply(tankBodyImage.scale);
+
     const Display = new AppCanvas(document.getElementById("app"), new Vector(1920, 1080));
-    const Tank = new TankController(loaded[0], loaded[1], new Vector());
+    const Tank = new TankController(tankBodyImage, tankBarrelImage, new Vector());
     const Aimer = new AimController(Tank, Tank.width * 3);
     // [!] testing
     const Terrain = URL_PARAMS.get("map") == "flat"
@@ -218,6 +237,8 @@ function main(...loaded) {
     const Inputs = new InputListener(Display.canvas, CLICK_DURATION_MS, INPUT_MAP, POINTER_CALLBACKS(Aimer));
     Display.createCache("blastBackground");
     Display.createCache("background");
+    // [!] testing
+    const Animations = new AnimationList();
 
     const config = {
         fps: FPS,
@@ -241,12 +262,15 @@ function main(...loaded) {
         tracer: undefined,
         landing: undefined,
         blastTerrain: undefined,
+        blastAnimationFrames: testExplosion,
+        blastAnimationFps: 25,
         projectileTypes: {
             shot1: Projectiles.BasicShot,
             shot2: Projectiles.Spreader,
             shot3: Projectiles.Flower,
             shot4: Projectiles.Digger
         },
+        animations: Animations,
 
         tanks: {[Tank.id]: Tank},
         terrain: Terrain,

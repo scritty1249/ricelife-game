@@ -31,10 +31,6 @@ export class Polygon extends TrackableObject { // points should be ordered clock
             hole.smooth(resolution);
     }
 
-    merge (poly, mutate = false) {
-
-    }
-
     // [!] I have no idea what I'm doing!
     cut (poly, mutate = false) { // https://en.wikipedia.org/wiki/Greiner%E2%80%93Hormann_clipping_algorithm
         if (!poly?.isPolygon) {
