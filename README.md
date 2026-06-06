@@ -36,7 +36,3 @@ The follow URL query parameters will have visible impact on the demo.
 - Players may be able to phase through vertical terrain (*"walls"*) if the terrain is thin enough
 - Player body orentation changes too abruptly when traversing terrain with lots of sharp edges
     - Orientation changes rapidly over nearly smooth surfaces if any holes exist in terrain anywhere
-- `Polygons` register holes even when a `cut` operation would not seperate the polygon into seperate parts
-    - *Polygon edge is still cut correctly*
-    - *May have something to do with the handoff between the geometry webworkers and main loop*
-    - Holes are not needlessly added if projectile blast collides with terrain from the top

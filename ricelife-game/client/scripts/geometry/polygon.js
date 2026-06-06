@@ -125,7 +125,7 @@ export class Polygon extends TrackableObject { // points should be ordered clock
                 currNode = currNode.next;
             }
             if (newPts.length > 2)
-                polyPieces.push(new Polygon(new Path(...newPts)));
+                polyPieces.push(new Polygon(...newPts));
         }
         if (polyPieces.length > 1) {
             const hole = poly.clone();
