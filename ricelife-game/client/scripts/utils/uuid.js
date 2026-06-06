@@ -5,5 +5,6 @@ export class TrackableObject {
     constructor() {
         this.#id = uuid();
     }
+    eq (other) { return other?.id && other?.id === this.id }
     get id () { return this.#id };
 }
