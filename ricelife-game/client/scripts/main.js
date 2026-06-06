@@ -214,7 +214,7 @@ function main(...loaded) {
     const Terrain = URL_PARAMS.get("map") == "flat"
         ? generateTerrain(new Path(new Vector(0, GROUND), new Vector(Display.size.x, GROUND)).smooth(GLOBAL_RESOLUTION), Display.size)
         : generateTerrain(generateWave(Display.size.x, GLOBAL_RESOLUTION, (v) => v.y += GROUND, .03, 40, 1.3, 15), Display.size);
-    const Mover = new MovementController(Terrain, Tank, (loaded[0].height / 7));
+    const Mover = new MovementController(Terrain, Tank, -(Tank.offset.body.y / 10));
     const Inputs = new InputListener(Display.canvas, CLICK_DURATION_MS, INPUT_MAP, POINTER_CALLBACKS(Aimer));
     Display.createCache("blastBackground");
     Display.createCache("background");
@@ -256,8 +256,6 @@ function main(...loaded) {
     
     Mover.set(Math.floor(Display.size.x / 4));
     Aimer.update(Tank.position.add({x: 0, y: Display.size.y})); // aim straight up and set power to 100% (1)
-    Tank.offset.barrel.y = 15;
-    Tank.offset.body.y = (loaded[0].height / 3.5);
     Display.canvas.focus();
     // [!] testing
     if (DEBUG_ENABLED()) {

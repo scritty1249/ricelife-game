@@ -15,8 +15,8 @@ export class TankController extends TrackableObject {
             barrel: 0,
         };
         this.offset = {
-            barrel: new Vector(),
-            body: new Vector()
+            barrel: new Vector(0, bodyImage.height / 2),
+            body: new Vector(0, bodyImage.height / 2)
         }
         this.position = position;
     }
