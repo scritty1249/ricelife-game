@@ -217,8 +217,8 @@ const INPUT_MAP = {
     KeyS: "mv-",
     KeyD: "mv+",
     KeyA: "mv-",
-    ArrowRight: "aim+", // clockwise
-    ArrowLeft: "aim-", // counterclockwise
+    ArrowRight: "aim-", // counterclockwise
+    ArrowLeft: "aim+", // clockwise
     ArrowUp: "shot+", // increment shot power
     ArrowDown: "shot-", // deincrement shot power
     Space: "shot1",
