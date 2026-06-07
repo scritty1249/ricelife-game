@@ -39,32 +39,34 @@ async function fireProjectile (shot, state, config) { // [!} laziness
 function handleInput (state, config) {
     const player = state.tanks[config.playerTank];
     const { keyboard, pointer } = state.input;
-    let pointerActive = false; // pointer inputs take precedence over keyboard inputs. don't "fight" for conflicting controls
-    // pointer
-    // [!] pointer logic handled by callbacks for now
-    
-    // keyboard
-    if (state.projectile === undefined) {
-        for (const [keyMapping, shotType] of Object.entries(state.projectileTypes))
-            if (keyboard.keyActive(keyMapping)) {
-                fireProjectile(shotType, state, config);
-                break;
-            }
-    }
-    player.position.round(1/GLOBAL_RESOLUTION);
-    if (keyboard.keyActive("mv+")) {
-        state.move.move(1);
-    }
-    if (keyboard.keyActive("mv-")) {
-        state.move.move(-1);
-    }
-    if (keyboard.keyActive("shot+")) {
-        state.aimer.power+=.02;
-    }
-    if (keyboard.keyActive("shot-")) {
-        state.aimer.power-=.02;
-    }
-    if (!pointerActive) {
+    let pointerActive = pointer.isActive; // pointer inputs take precedence over keyboard inputs. don't "fight" for conflicting controls
+    // [!] most pointer logic handled by callbacks
+    if (pointerActive) {
+        // pointer
+        if (pointer.isHolding)
+            state.interface.onhold(pointer.position);
+    } else {
+        // keyboard
+        if (state.projectile === undefined) {
+            for (const [keyMapping, shotType] of Object.entries(state.projectileTypes))
+                if (keyboard.keyActive(keyMapping)) {
+                    fireProjectile(shotType, state, config);
+                    break;
+                }
+        }
+        player.position.round(1/GLOBAL_RESOLUTION);
+        if (keyboard.keyActive("mv+")) {
+            state.move.move(1);
+        }
+        if (keyboard.keyActive("mv-")) {
+            state.move.move(-1);
+        }
+        if (keyboard.keyActive("shot+")) {
+            state.aimer.power+=.02;
+        }
+        if (keyboard.keyActive("shot-")) {
+            state.aimer.power-=.02;
+        }
         if (keyboard.keyActive("aim+")) {
             state.aimer.rotation++;
         }
@@ -197,8 +199,13 @@ async function load() {
     const body = await new LoadImage("./assets/tank/body.png").onload;
     const barrel = await new LoadImage("./assets/tank/barrel.png").onload;
     const testExplosion = await new Spritesheet("./assets/blast/explosion_ss_512x512.png", 512, 512).onload;
-    const fireButton = await new LoadImage("./assets/interface/buttons/fire.png").onload;
-    main(body, barrel, testExplosion, fireButton);
+    const buttons = await Promise.all([
+        new LoadImage("./assets/interface/buttons/fire.png").onload,
+        new LoadImage("./assets/interface/buttons/select.png").onload,
+        new LoadImage("./assets/interface/buttons/right.png").onload,
+        new LoadImage("./assets/interface/buttons/left.png").onload
+    ]);
+    main(body, barrel, testExplosion, buttons);
 }
 
 const FPS = 60;
@@ -232,7 +239,7 @@ const POINTER_CALLBACKS = (aimCtrl) => ({
 });
 
 function main(...loaded) {
-    const [tankBodyImage, tankBarrelImage, testExplosion, fireButton] = loaded;
+    const [tankBodyImage, tankBarrelImage, testExplosion, buttons] = loaded;
     tankBodyImage.width = 50;
     tankBarrelImage.scale.apply(tankBodyImage.scale);
     {
@@ -299,14 +306,32 @@ function main(...loaded) {
     
     {
         // setting up UI
-        fireButton.width = 200;
-        const button = new Menu.Button(fireButton);
-        button.position.apply(75, 150);
+        const [fireImage, selectImage, rightImage, leftImage] = buttons;
+        fireImage.height = 100;
+        selectImage.height = 100;
+        rightImage.height = 100;
+        leftImage.height = 100;
+        const fireButton = new Menu.DispatchButton(fireImage, Display.canvas, "FIRE");
+        fireButton.position.apply(75, 150);
+        const selectButton = new Menu.DispatchButton(selectImage, Display.canvas, "SELECT");
+        selectButton.position.apply(300, 150);
+        const rightButton = new Menu.DispatchButton(rightImage, Display.canvas, "RMOVE");
+        rightButton.position.apply(Display.size.x - rightImage.width - 75, 150);
+        const leftButton = new Menu.DispatchButton(leftImage, Display.canvas, "LMOVE");
+        leftButton.position.apply(rightButton.position.x - leftImage.width - 25, 150);
+
+        const btns = [fireButton, selectButton, rightButton, leftButton];
+
+        // setting up button listeners
+        Display.canvas.addEventListener("RMOVE_HOLD", () => Mover.move(1));
+        Display.canvas.addEventListener("LMOVE_HOLD", () => Mover.move(-1));
+        Display.canvas.addEventListener("RMOVE_CLICK", () => Mover.move(1));
+        Display.canvas.addEventListener("LMOVE_CLICK", () => Mover.move(-1));
 
         UIInterface.insert() // draw layer zero after background but before terrain
             .push(Aimer);
         UIInterface.insert()
-            .push(button);
+            .push(...btns);
     }
 
     Mover.set(Math.floor(Display.size.x / 4));

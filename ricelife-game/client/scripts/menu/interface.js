@@ -34,6 +34,14 @@ export class Interface { // pointer events are prioritized in FIFO order
             if ((item = layer.isDragged(origin)) !== undefined) break;
         if (item !== undefined) item.ondrag(point);
     }
+
+    onhold (point) {
+        let item = undefined;
+        for (const layer of this.#iterate())
+            if ((item = layer.isHeld(point)) !== undefined) break;
+        if (item !== undefined) item.onhold(point);
+    }
+
     draw (cursor, start = 0, end = -1) { for (const layer of this.#iterate(start, end, false)) layer.draw(cursor) }
     slice (start = 0, end = -1) { return new Interface(...this.#layers.slice(start, end)) }
 
@@ -94,6 +102,16 @@ class InterfaceLayer extends TrackableObject { // pointer events are prioritized
         }
         return undefined;
     }
+    isHeld (point) {
+        for (const item of this.items) {
+            if (
+                this.#supportsCursorEvents(item)
+                && this.#supportsHoldEvents(item)
+                && item.isOver(point)
+            ) return item;
+        }
+        return undefined;
+    }
     isOver (point) {
         for (const item of this.items) {
             if (
@@ -112,6 +130,7 @@ class InterfaceLayer extends TrackableObject { // pointer events are prioritized
     #supportsDraw (item) { return typeof item?.draw === "function" }
     #supportsCursorEvents (item) { return typeof item?.isOver === "function" }
     #supportsClickEvents (item) { return typeof item?.onclick === "function" }
+    #supportsHoldEvents (item) { return typeof item?.onhold === "function" }
     #supportsDragEvents (item) { return typeof item?.ondrag === "function" }
 
     get isInterfaceLayer () { return true }

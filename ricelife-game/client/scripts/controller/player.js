@@ -63,6 +63,10 @@ class PointerListener  {
     #offset = new Vector();
     #scale = new Vector(1, 1);
     #elementSize = new Vector(0, 0);
+    #holding = {
+        isHolding: false,
+        timeout: undefined
+    };
     #tracking = {
         position: new Vector(),
         down: {
@@ -86,11 +90,26 @@ class PointerListener  {
         this.#listeningTo.addEventListener("pointerup", (event) => this.#updateUp(event));
     }
 
+    #setHoldTimeout () {
+        const { position } = this;
+        this.#clearHoldTimeout();
+        this.#holding.timeout = setTimeout(() => {
+            this.#holding.isHolding = (this.isActive && position.eq(this.position))
+        }, this.#clickMs);
+    }
+
+    #clearHoldTimeout () {
+        this.#holding.isHolding = false;
+        if (this.#holding.timeout)
+            clearTimeout(this.#holding.timeout);
+    }
+
     #updateDown (event) { // keep up and down event callbacks seperate for (marginal) perfomance boost
         this.#updatePosition(event);
         this.#tracking.up.stamp = undefined; // clear data from last down event
         this.#tracking.down.stamp = performance.now();
         this.#tracking.down.position.apply(this.#tracking.position);
+        this.#setHoldTimeout();
     }
 
     #updateUp (event) {
@@ -100,10 +119,12 @@ class PointerListener  {
             this.callbackFns?.onclick(this.position);
         this.#tracking.up.stamp = performance.now();
         this.#tracking.up.position.apply(this.#tracking.position);
+        this.#clearHoldTimeout();
     }
 
     #updateMove (event) {
         this.#updatePosition(event);
+        this.#setHoldTimeout();
         // drag detection
         if (this.activeDuration >= this.#clickMs - Number.EPSILON)
             this.callbackFns?.ondrag(this.position, this.#tracking.down.position); // pass origin position by reference to avoid making duplicates
@@ -152,6 +173,7 @@ class PointerListener  {
     }
 
     get position () { return this.#tracking.position.clone() }
+    get isHolding () { return this.#holding.isHolding = (this.isActive && this.#holding.isHolding) }
     get isActive () { return this.#tracking.down.stamp !== undefined && this.#tracking.up.stamp === undefined }
     get isDragging () { return this.activeDuration >= this.#clickMs - Number.EPSILON }
     get dragStart () { return this.isDragging ? this.#tracking.down.position.clone() : undefined }

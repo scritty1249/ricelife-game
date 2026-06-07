@@ -33,3 +33,24 @@ export class Button extends TrackableObject {
     get width () { return this.#img.width }
     get height () { return this.#img.height }
 }
+
+export class DispatchButton extends Button {
+    #eventPrefix;
+    #events = {
+        click: undefined,
+        hold: undefined,
+    }
+    #dispatchTo;
+    constructor (image, dispatchTo, elementPrefix = null) {
+        super(image);
+        this.#eventPrefix = elementPrefix === null
+            ? this.id
+            : elementPrefix;
+        this.#dispatchTo = dispatchTo;
+        this.#events.click = new CustomEvent(`${this.#eventPrefix}_CLICK`);
+        this.#events.hold = new CustomEvent(`${this.#eventPrefix}_HOLD`);
+    }
+
+    onclick (point) { this.#dispatchTo.dispatchEvent(this.#events.click) }
+    onhold (point) { if (this.isOver(point)) this.#dispatchTo.dispatchEvent(this.#events.hold) }
+}
