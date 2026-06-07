@@ -23,10 +23,25 @@ export function drawLine (cursor, origin, target, thickness = 2, color = "red") 
     cursor.restore();
 }
 
-export function drawText (cursor, position, text, color = "red", font = "48px serif") {
+export function drawText (cursor, position, text, color = "red", font = "48px serif") { // [!] debugging function
     cursor.save();
     cursor.fillStyle = color;
     cursor.font = font;
     cursor.fillText(text, position);
     cursor.restore();
+}
+
+export function outlineImage (cursor, loadedImage, position, thickness = 2, color = "red") { // [!] debugging function
+    const { size } = loadedImage;
+    const one = position.clone(),
+        two = position.clone(),
+        three = position.clone(),
+        four = position.clone();
+    two.x += size.x;
+    three.x += size.x; three.y -= size.y;
+    four.y -= size.y;
+    drawLine(cursor, one, two, thickness, color);
+    drawLine(cursor, two, three, thickness, color);
+    drawLine(cursor, three, four, thickness, color);
+    drawLine(cursor, four, one, thickness, color);
 }

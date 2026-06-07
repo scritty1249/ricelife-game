@@ -27,7 +27,7 @@ export class TankController extends TrackableObject {
         cursor.translate(this.position.add(this.offset.barrel));
         cursor.rotate(-deg2rad(this.rotation.barrel % 360));
 
-        barrel.drawScaled(cursor, -barrel.width / 2, 0);
+        barrel.draw(cursor, -barrel.width / 2, 0);
         // cursor.drawImage(barrel.img, -barrel.size.x / 2, 0, barrel.size.x, barrel.size.y); // pivot around bottom-center of image
         cursor.restore();
     }
@@ -37,7 +37,7 @@ export class TankController extends TrackableObject {
         cursor.save();
         cursor.translate(this.position.add(this.offset.body));
         cursor.rotate(-deg2rad(this.rotation.body));
-        body.drawScaled(cursor, -body.width / 2, -body.height / 2);
+        body.draw(cursor, -body.width / 2, -body.height / 2);
 
         // cursor.drawImage(body.img, -body.width / 2, -body.height / 2, body.size.x, body.size.y); // pivot around center-center of image
         cursor.restore();

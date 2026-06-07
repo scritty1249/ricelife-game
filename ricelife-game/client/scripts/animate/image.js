@@ -1,5 +1,5 @@
 import { Vector } from "../geometry/geometry.js";
-import { TrackableObject } from "../utils/utils.js";
+import { TrackableObject, drawLine } from "../utils/utils.js";
 
 export class LoadImage extends TrackableObject {
     #img;
@@ -36,7 +36,11 @@ export class LoadImage extends TrackableObject {
         }
     }
 
-    drawScaled (cursor, dx, dy) { cursor.drawImage(this.img, 0, 0, this.#size.x, this.#size.y, dx, dy, this.size.x, this.size.y) }
+    draw (cursor, dx, dy, normalize = false) {
+        normalize
+            ? cursor.drawImage(this.img, 0, 0, this.#size.x, this.#size.y, dx, cursor.normalizeY(dy), this.size.x, this.size.y)
+            : cursor.drawImage(this.img, 0, 0, this.#size.x, this.#size.y, dx, dy, this.size.x, this.size.y);
+        }
     clone () { return new LoadImage(this) }
 
     get isLoadImage () { return true }

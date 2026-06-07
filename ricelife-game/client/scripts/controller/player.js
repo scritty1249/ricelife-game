@@ -1,5 +1,5 @@
 import { Vector, Direction, Path, Ray, Circle, Color, Triangle } from "../geometry/geometry.js";
-import { rad2deg, deg2rad, floatEqual, clamp, normalizeAngle } from "../utils/utils.js";
+import { rad2deg, deg2rad, floatEqual, clamp, normalizeAngle, TrackableObject } from "../utils/utils.js";
 
 export class InputListener { // wrapper for K&M input
     #keyboard;
@@ -10,14 +10,14 @@ export class InputListener { // wrapper for K&M input
         pointerCallbacks = {ondrag: (point) => {}, onclick: (point) => {}}
     ) {
         this.#keyboard = new KeyboardListener(window, keyCodeMap);
-        this.#pointer = new PointerListener(appCanvas, clickThresholdMs, pointerCallbacks.ondrag, pointerCallbacks.onclick);
+        this.#pointer = new PointerListener(appCanvas, clickThresholdMs, pointerCallbacks);
     }
 
     get keyboard () { return this.#keyboard }
     get pointer () { return this.#pointer }
 }
 
-export class KeyboardListener {
+class KeyboardListener {
     #keyCodeMap;
     #activeKeys;
     #activeKeysProxy;
@@ -56,7 +56,7 @@ export class KeyboardListener {
     get activeKeys() { return this.#activeKeysProxy }
 }
 
-export class PointerListener  {
+class PointerListener  {
     #listeningTo; // should be the app canvas instead of the browser window
     #resizeObserver;
     #clickMs;
@@ -74,9 +74,8 @@ export class PointerListener  {
             stamp: undefined   
         }
     };
-    constructor (listenTo, clickThresholdMs, dragCallbackFn = (point, origin) => {}, clickCallbackFn = (point) => {}) {
-        this.onclick = clickCallbackFn;
-        this.ondrag = dragCallbackFn;
+    constructor (listenTo, clickThresholdMs, callbackFns) {
+        this.callbackFns = callbackFns;
         this.#clickMs = clickThresholdMs;
         this.#listeningTo = listenTo; // ASSUMES POSITION OF ELEMENT DOES NOT CHANGE - will response to resize related changes though
         this.#resizeObserver = new ResizeObserver(([{target}]) => this.#updateOffset(target));
@@ -98,7 +97,7 @@ export class PointerListener  {
         this.#updatePosition(event);
         // click detection
         if (this.activeDuration <= this.#clickMs + Number.EPSILON)
-            this.onclick(this.position);
+            this.callbackFns?.onclick(this.position);
         this.#tracking.up.stamp = performance.now();
         this.#tracking.up.position.apply(this.#tracking.position);
     }
@@ -107,7 +106,7 @@ export class PointerListener  {
         this.#updatePosition(event);
         // drag detection
         if (this.activeDuration >= this.#clickMs - Number.EPSILON)
-            this.ondrag(this.position, this.#tracking.down.position); // pass origin position by reference to avoid making duplicates
+            this.callbackFns?.ondrag(this.position, this.#tracking.down.position); // pass origin position by reference to avoid making duplicates
     }
 
     #updatePosition (event) {
@@ -264,7 +263,7 @@ export class MovementController { // only moves along X axis
     }
 }
 
-export class AimController { // takes control of rotation for a Tank barrel
+export class AimController extends TrackableObject { // takes control of rotation for a Tank barrel
     #player;
     #radius;
     #rotation;
@@ -278,6 +277,7 @@ export class AimController { // takes control of rotation for a Tank barrel
         coneColor = new Color(255, 255, 255, 0.075 * 255),
         resolution = .25
     ) {
+        super();
         this.#player = tank;
         this.#radius = radius;
         this.#power = 1;
@@ -322,12 +322,6 @@ export class AimController { // takes control of rotation for a Tank barrel
         cursor.restore();
     }
 
-    inClickRange (point) {
-        const { shape } = this.#display.circle;
-        shape.updatePath();
-        return shape.isIntersecting(point);
-    }
-
     update (point) { // updates barrel too
         if (!this.#pointerRecorded) {
             this.#pointerRecorded = true;
@@ -338,6 +332,15 @@ export class AimController { // takes control of rotation for a Tank barrel
         // point triangle at pointer position- if we don't get another update, hold the same angle
         this.#updateTriangles();
     }
+
+    // support for clickable object type
+    isOver (point) {
+        const { shape } = this.#display.circle;
+        shape.updatePath();
+        return shape.isIntersecting(point);
+    }
+    ondrag (point) { this.update(point) }
+    onclick (point) { this.update(point) }
 
     #updateTriangles () { // updates "beam" and "cone" triangle based on barrel angle. Does not update barrel- stored angle takes precedence over angle derived from pointer here
         {

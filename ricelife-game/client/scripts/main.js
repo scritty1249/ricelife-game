@@ -1,8 +1,9 @@
 import { InputListener, MovementController, TankController, AppCanvas, AimController } from "./controller/controller.js";
 import { Vector, Direction, Color, Polygon, GeometryWorker, Ray, Path } from "./geometry/geometry.js";
-import { drawCircle, drawMarker, drawLine, rad2deg, roundTo, floatEqual, normalizeAngle, drawText } from "./utils/utils.js";
+import { drawCircle, drawMarker, drawLine, rad2deg, roundTo, floatEqual, normalizeAngle, drawText, outlineImage } from "./utils/utils.js";
 import { drawTerrain, generateTerrain, generateWave } from "./terrain/terrain.js";
 import { LoadImage, Spritesheet, Animation, AnimationList } from "./animate/animate.js";
+import * as Menu from "./menu/menu.js"
 import * as Projectiles from "./projectile/projectile.js";
 
 // [!] for debugging
@@ -119,11 +120,16 @@ function drawDebugOverlay (state, config) {
         if (state.landing) drawCircle(cursor, state.landing.point, state.projectile.config.radius, "orange"); // draw landing point
     } else state.landing = undefined;
 
+    [...state.interface].forEach(({items}) => [...items].forEach((item) => {
+        if (item?.isButton)
+            outlineImage(cursor, item.source, item.position, 1, "green");
+    }));
+
     if (state.input.pointer.isActive) {
         const { position } = state.input.pointer;
         drawCircle(cursor, position, 4, "yellow");
         drawText(cursor, position, position.toString(), "yellow");
-        if (state.input.pointer.isDragging && state.aimer.inClickRange(state.input.pointer.dragStart))
+        if (state.input.pointer.isDragging && state.aimer.isOver(state.input.pointer.dragStart))
             drawLine(cursor, player.barrelPos, position, 2, "rgba(255, 255, 0, 0.5)");
     }
 }
@@ -131,7 +137,7 @@ function drawDebugOverlay (state, config) {
 function drawFrame (state, config) {
     const { cursor } = config.display;
     cursor.clear();
-    state.aimer.draw(cursor);
+    state.interface.draw(cursor, 0, 1);
     for (const tank of Object.values(state.tanks))
         tank.draw(cursor);
     cursor.drawImage(config.display.worker.cache.background.image, 0, 0);
@@ -143,6 +149,7 @@ function drawFrame (state, config) {
     }
     if (state.tracer) state.tracer.draw(cursor);
     state.animations.update(cursor);
+    state.interface.draw(cursor, 1);
 }
 
 function animate (state, config) {
@@ -189,8 +196,9 @@ function animate (state, config) {
 async function load() {
     const body = await new LoadImage("./assets/tank/body.png").onload;
     const barrel = await new LoadImage("./assets/tank/barrel.png").onload;
-    const testExplosion = await new Spritesheet("./assets/explosion_ss_512x512.png", 512, 512).onload;
-    main(body, barrel, testExplosion);
+    const testExplosion = await new Spritesheet("./assets/blast/explosion_ss_512x512.png", 512, 512).onload;
+    const fireButton = await new LoadImage("./assets/interface/buttons/fire.png").onload;
+    main(body, barrel, testExplosion, fireButton);
 }
 
 const FPS = 60;
@@ -219,12 +227,12 @@ const INPUT_MAP = {
     Digit0: "shot10"
 };
 const POINTER_CALLBACKS = (aimCtrl) => ({
-    ondrag: (current, origin) => { if (aimCtrl.inClickRange(origin)) aimCtrl.update(current) },
-    onclick: (current) => { if (aimCtrl.inClickRange(current)) aimCtrl.update(current) }
+    ondrag: (current, origin) => { if (aimCtrl.isOver(origin)) aimCtrl.update(current) },
+    onclick: (current) => { if (aimCtrl.isOver(current)) aimCtrl.update(current) }
 });
 
 function main(...loaded) {
-    const [tankBodyImage, tankBarrelImage, testExplosion] = loaded;
+    const [tankBodyImage, tankBarrelImage, testExplosion, fireButton] = loaded;
     tankBodyImage.width = 50;
     tankBarrelImage.scale.apply(tankBodyImage.scale);
     {
@@ -243,7 +251,8 @@ function main(...loaded) {
         ? generateTerrain(new Path(new Vector(0, GROUND), new Vector(Display.size.x, GROUND)).smooth(GLOBAL_RESOLUTION), Display.size)
         : generateTerrain(generateWave(Display.size.x, GLOBAL_RESOLUTION, (v) => v.y += GROUND, .03, 40, 1.3, 15), Display.size);
     const Mover = new MovementController(Terrain, Tank, -(Tank.offset.body.y / 10));
-    const Inputs = new InputListener(Display.canvas, CLICK_DURATION_MS, INPUT_MAP, POINTER_CALLBACKS(Aimer));
+    const UIInterface = new Menu.Interface();
+    const Inputs = new InputListener(Display.canvas, CLICK_DURATION_MS, INPUT_MAP, UIInterface);
     Display.createCache("blastBackground");
     Display.createCache("background");
     // [!] testing
@@ -265,6 +274,7 @@ function main(...loaded) {
         move: Mover,
         polygons: {},
         geometry: new GeometryWorker(),
+        interface: UIInterface,
         
         // uncertain about these. will likely refactor out in near future don't implement too much that relies on these
         projectile: undefined,
@@ -287,6 +297,18 @@ function main(...loaded) {
         redrawJob: Display.drawTerrain("background", Terrain, config.terrain.fill, config.terrain.edge)
     };
     
+    {
+        // setting up UI
+        fireButton.width = 200;
+        const button = new Menu.Button(fireButton);
+        button.position.apply(75, 150);
+
+        UIInterface.insert() // draw layer zero after background but before terrain
+            .push(Aimer);
+        UIInterface.insert()
+            .push(button);
+    }
+
     Mover.set(Math.floor(Display.size.x / 4));
     Aimer.update(Tank.position.add({x: 0, y: Display.size.y})); // aim straight up and set power to 100% (1)
     Display.canvas.focus();
