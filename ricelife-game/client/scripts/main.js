@@ -16,20 +16,22 @@ async function fireProjectile (shot, state, config) { // [!} laziness
     state.landing = state.projectile.intersectAt(state.blastTerrain, 1/config.fps, config.display.size.x); // [!] for testing
     if (state.landing) {
         const shotConfig = state.projectile.config;
-        state.redrawJob = state.geometry.cut("blastTerrain", state.terrain, ...state.projectile.blast.shapesAt(state.landing.point))
+        const blasts = state.projectile.blast.shapesAt(state.landing.point);
+        state.redrawJob = state.geometry.cut("blastTerrain", state.terrain, ...blasts)
             .then((polygon) => state.blastTerrain.apply(polygon))
             .then((polygon) => config.display.drawTerrain("blastBackground", state.blastTerrain, config.terrain.fill, config.terrain.edge))
             // [!] temporary
             .then(() => {
                 // return the blast animation
+                const aniList = new AnimationList();
                 const ss = state.blastAnimationFrames.clone();
                 ss.width = (shotConfig.blastRadius * 2) * 20;
-                const centerPoint = state.landing.point.clone();
-                const offset = ss.frameSize.mul(ss.scale);
-                centerPoint.x -= offset.x * .4; // animation is slightly off center
-                centerPoint.y += offset.y * .6;
-                return new Animation(centerPoint, ss, state.blastAnimationFps);
-            }); 
+                for (const blast of blasts)
+                    aniList.push(new Animation(blast.position, ss, state.blastAnimationFps));
+                aniList.pause();
+                state.animations.push(...aniList);
+                return aniList;
+            });
     }
 }
 
@@ -161,7 +163,7 @@ function animate (state, config) {
         if (state.projectile === false) {
             state.projectile = undefined;
             waitPromise = state.redrawJob
-                .then((animation) => state.animations.push(animation))
+                .then((animation) => animation.play())
                 .then(() => config.display.copyCanvas("background", config.display.worker.cache.blastBackground.image))
                 .then(() => state.terrain.apply(state.blastTerrain))
                 .then(() => {
@@ -225,6 +227,13 @@ function main(...loaded) {
     const [tankBodyImage, tankBarrelImage, testExplosion] = loaded;
     tankBodyImage.width = 50;
     tankBarrelImage.scale.apply(tankBodyImage.scale);
+    {
+        const offset = testExplosion.frameSize.mul(testExplosion.scale);
+        testExplosion.offset.apply(
+            -offset.x * .4, // animation is slightly off center
+            offset.y * .6
+        );
+    }
 
     const Display = new AppCanvas(document.getElementById("app"), new Vector(1920, 1080));
     const Tank = new TankController(tankBodyImage, tankBarrelImage, new Vector());
