@@ -87,6 +87,9 @@ function handleInput (state, config) {
                     .slice(0, 0) // only parse inputs for specific layers with the menu buttons (currently not implemented)
                     .onhold(pointer.position);
         }
+        if (keyboard.keyActive("esc")) {
+            
+        }
     }
 }
 
@@ -228,6 +231,7 @@ const GROUND = 350;
 const GLOBAL_RESOLUTION = Math.floor((1/3) * 10) / 10;
 const CLICK_DURATION_MS = 90;
 const INPUT_MAP = {
+    Escape: "esc",
     KeyW: "mv+",
     KeyS: "mv-",
     KeyD: "mv+",
