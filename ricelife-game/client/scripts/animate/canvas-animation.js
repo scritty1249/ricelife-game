@@ -13,8 +13,9 @@ export class Animation {
         reject: undefined
     };
     loop = false;
-    paused = false;
+    paused = true;
     speed = 1;
+    delay = 0; // milliseconds, and is affected by speed
     // framerate in frames per second
     constructor (position, frames, framerate) {
         this.#position.apply(position);
@@ -37,7 +38,7 @@ export class Animation {
         if (this.hasNext) this.next().draw(cursor, this.position);
         else if (this.#prevFrame) this.#prevFrame.draw(cursor, this.position);
     }
-    elapsed () { return performance.now() - this.#lastAtTime }
+    intervalElapsed () { return performance.now() - this.#lastAtTime }
     next () {
         if (this.ended) return undefined;
         if (this.paused) return this.#prevFrame;
@@ -46,6 +47,8 @@ export class Animation {
         return this.#prevFrame;
     }
     play () {
+        if (this.#frame === 0)
+            this.#lastAtTime = performance.now() + this.delay;
         this.paused = false;
         return this; // for chaining
     }
@@ -60,7 +63,7 @@ export class Animation {
     }
 
     get isAnimation () { return true }
-    get hasNext () { return this.elapsed() >= this.#framerateMs / this.speed && !this.ended && !this.paused }
+    get hasNext () { return this.intervalElapsed() >= this.#framerateMs / this.speed && !this.ended && !this.paused }
     get ended () {
         const result = this.frame >= this.#frames.length  && !this.loop;
         if (result)
@@ -71,6 +74,8 @@ export class Animation {
     get frame () { return this.#frame }
     get progress () { return this.#frame / this.#frames.length }
     set frame (value) { return this.#frame = (this.loop ? value % this.#frames.length : value) }
+    get duration () { return this.#framerateMs * this.#frames.length } // milliseconds
+    get elapsed () { return this.progress * this.duration } // milliseconds
     get position () { return this.#position }
 }
 

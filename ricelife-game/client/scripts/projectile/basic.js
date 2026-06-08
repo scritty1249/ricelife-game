@@ -17,10 +17,10 @@ export class Spreader extends BasicShot {
 
         this.config.color.glow.apply(0, 212, 255);
 
-        this.blast._shapes.splice(0, this.blast._shapes.length);
-        this.blast._shapes.push(new Circle(new Vector(), this.config.blastRadius));
-        this.blast._shapes.push(new Circle(new Vector(-this.config.blastRadius * 1.75, 0), this.config.blastRadius, this.resolution));
-        this.blast._shapes.push(new Circle(new Vector(this.config.blastRadius * 1.75, 0), this.config.blastRadius, this.resolution));
+        this.blast.blasts.splice(0, this.blast.blasts.length);
+        this.blast.push(new Circle(new Vector(), this.config.blastRadius, this.resolution), 0);
+        this.blast.push(new Circle(new Vector(-this.config.blastRadius * 1.75, 0), this.config.blastRadius, this.resolution), 250);
+        this.blast.push(new Circle(new Vector(this.config.blastRadius * 1.75, 0), this.config.blastRadius, this.resolution), 500);
     }
 }
 
@@ -39,10 +39,11 @@ export class Flower extends BasicShot {
         this.config.glow.radius = 20;
         this.config.glow.resolution = 3;
 
-        this.blast._shapes.splice(0, this.blast._shapes.length);
-        this.blast._shapes.push(...Array.from([0, 360/7, 720/7, 1080/7, 1440/7, 1800/7, 2160/7], (angle) => {
+        this.blast.blasts.splice(0, this.blast.blasts.length);
+        Array.from([0, 360/7, 720/7, 1080/7, 1440/7, 1800/7, 2160/7], (angle, i) => {
             const rad = deg2rad(angle);
-            return new Circle(new Vector(Math.cos(rad), Math.sin(rad)).mul(this.config.radius + (this.config.blastRadius * 1.75)), this.config.blastRadius, this.resolution)}));
+            return new Circle(new Vector(Math.cos(rad), Math.sin(rad)).mul(this.config.radius + (this.config.blastRadius * 1.75)), this.config.blastRadius, this.resolution)})
+            .forEach((shape, i) => this.blast.push(shape, i * 100));
     }
 }
 
@@ -60,10 +61,10 @@ export class Digger extends BasicShot {
         this.config.color.main.apply(200, 90, 0);
         this.config.color.glow.apply(210, 165, 0);
 
-        this.blast._shapes.splice(0, this.blast._shapes.length);
-        this.blast._shapes.push(new Circle(new Vector(), this.config.blastRadius, this.resolution));
-        this.blast._shapes.push(new Circle(new Vector(0, -this.config.blastRadius * 1.75), this.config.blastRadius, this.resolution));
-        this.blast._shapes.push(new Circle(new Vector(0, -this.config.blastRadius * 1.75 * 2), this.config.blastRadius, this.resolution));
-        this.blast._shapes.push(new Circle(new Vector(0, -this.config.blastRadius * 1.75 * 3), this.config.blastRadius, this.resolution));
+        this.blast.blasts.splice(0, this.blast.blasts.length);
+        this.blast.push(new Circle(new Vector(), this.config.blastRadius, this.resolution), 0);
+        this.blast.push(new Circle(new Vector(0, -this.config.blastRadius * 1.75), this.config.blastRadius, this.resolution), 400);
+        this.blast.push(new Circle(new Vector(0, -this.config.blastRadius * 1.75 * 2), this.config.blastRadius, this.resolution), 800);
+        this.blast.push(new Circle(new Vector(0, -this.config.blastRadius * 1.75 * 3), this.config.blastRadius, this.resolution), 1200);
     }
 }

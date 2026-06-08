@@ -19,8 +19,9 @@ async function fireProjectile (shot, state, config) { // [!} laziness
     state.landing = state.projectile.intersectAt(state.blastTerrain, 1/config.fps, config.fps * 2 * 60); // [!] for testing
     if (state.landing) {
         const shotConfig = state.projectile.config;
-        const blasts = state.projectile.blast.shapesAt(state.landing.point);
-        state.redrawJob = state.geometry.cut("blastTerrain", state.terrain, ...blasts)
+        const blasts = state.projectile.blast.blastsAt(state.landing.point);
+        const blastDelays = state.projectile.blast.delay;
+        state.redrawJob = state.geometry.cut("blastTerrain", state.terrain, ...blasts.map(({shape}) => shape))
             .then((polygon) => state.blastTerrain.apply(polygon))
             .then((polygon) => config.display.drawTerrain("blastBackground", state.blastTerrain, config.terrain.fill, config.terrain.edge))
             // [!] temporary
@@ -29,9 +30,10 @@ async function fireProjectile (shot, state, config) { // [!} laziness
                 const aniList = new AnimationList();
                 const ss = state.blastAnimationFrames.clone();
                 ss.width = (shotConfig.blastRadius * 2) * 20;
-                for (const blast of blasts) {
-                    const ani = new Animation(blast.position, ss, state.blastAnimationFps);
+                for (const { shape, delay } of blasts) {
+                    const ani = new Animation(shape.position, ss, state.blastAnimationFps);
                     ani.speed = 1.25;
+                    ani.delay = delay * ani.speed;
                     aniList.push(ani);
                 }
                 aniList.pause();
@@ -46,6 +48,7 @@ async function fireProjectile (shot, state, config) { // [!} laziness
         ss.rotation = state.aimer.rotation + Math.PI;
         const ani = new Animation(state.tanks[config.playerTank].barrelPos, ss, state.muzzleFlashAnimationFps);
         ani.speed = 2.3;
+        ani.play();
         state.animations.push(ani);
     }
 }
@@ -145,8 +148,11 @@ function drawDebugOverlay (state, config) {
         cursor.save();
         cursor.strokeStyle = "orange";
         cursor.lineWidth = 2;
-        for (const shape of state.projectile.blast.shapes)
+        for (const { shape } of state.projectile.blast.blastsAt(state.projectile.position))
             shape.path.draw(cursor);
+        if (state.landing)
+            for (const { shape } of state.projectile.blast.blastsAt(state.landing.point))
+                shape.path.draw(cursor);
         cursor.stroke(); 
         cursor.restore();
         if (state.landing) drawCircle(cursor, state.landing.point, state.projectile.config.radius, "orange"); // draw landing point

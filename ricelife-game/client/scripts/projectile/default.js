@@ -120,17 +120,20 @@ export class BasicShot extends Projectile {
         const currentPosition = this.current.position;
         this.#shape = new Circle(currentPosition, config.radius, resolution);
         this.#blast = {
-            color: new Color("#FFD300"),
-            _shapes: [new Circle(new Vector(), config.blastRadius, resolution)],
-            get shapes () {
-                return this.shapesAt(currentPosition);
-            },
-            shapesAt: function (position) {
-                return Array.from(this._shapes, (shape) => {
-                    const s = shape.clone();
-                    s.position.add(position, true);
-                    return s;
-                });
+            blasts: [{
+                shape: new Circle(new Vector(), config.blastRadius, resolution),
+                delay: 0 // milliseconds
+            }],
+            push: function (shape, delayMs) { this.blasts.push({ shape, delay: delayMs }) },
+            blastsAt: function (position) {
+                return Array.from(this.blasts, ({shape, delay}) => {
+                    const newBlast = {
+                        delay,
+                        shape: shape.clone(),
+                    }
+                    newBlast.shape.position.add(position, true);
+                    return newBlast;
+                }).sort((a, b) => a.delay - b.delay);
             }
         };
     }
