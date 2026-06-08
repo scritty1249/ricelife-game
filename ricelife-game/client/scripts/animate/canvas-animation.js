@@ -57,7 +57,7 @@ export class AnimationList {
     push (...animations) {
         for (const animation of animations) {
             if (animation?.isAnimationList) this.push(...animation);
-            else if (!animation?.isAnimation) throw new Error("[AnimationList] Error: Cannot add non-animation of type " + (typeof animation));
+            else if (!animation?.isAnimation) throw new Error(`[${this.constructor.name}] Error: Cannot add non-animation of type ${typeof animation}`);
             else this.#animations.push(animation);
         }        
     }

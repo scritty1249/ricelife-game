@@ -1,95 +1,208 @@
 import { Polygon } from "./polygon.js";
 import { Path } from "./path.js";
 import { Vector, Direction } from "./vector.js";
+import { floatEqual } from "../utils/utils.js";
 
 export class Shape extends Polygon {
-    #positionProxy;
-    constructor (position, resolution = 1) {
-        super();
-        this.resolution = resolution;
-        this._position = position;
-        this.#positionProxy = new Proxy(this._position, {
-            set: (target, prop, value, reciever) => {
-                const result = Reflect.set(target, prop, value, reciever);
-                this.updatePath();
-                return result;
-            },
-            get: (target, prop, receiver) => {
-                const value = Reflect.get(target, prop, receiver);
-                if (typeof value === "function") {
-                    return (...args) => {
-                        const result = value.apply(target, args);
-                        this.updatePath();
-                        return result;
-                    };
-                }
-                return value;
+    #position = new Vector();
+    #scale = new Vector(1, 1);
+    #rotation = 0; // radians
+    #scaleProxy = new Proxy(this.#scale, {
+        set: (target, prop, value, reciever) => {
+            const prev = this.#scale.clone();
+            const result = Reflect.set(target, prop, value, reciever);
+            if (!this.#scale.eq(prev))
+                this.#applyScaleChange(prev);
+            return result;
+        },
+        get: (target, prop, receiver) => {
+            const value = Reflect.get(target, prop, receiver);
+            if (typeof value === "function") {
+                const self = this;
+                const curr = this.#scale;
+                const prev = this.#scale.clone();
+                return (...args) => {
+                    const result = value.apply(target, args);
+                    if (!curr.eq(prev))
+                        self.#applyScaleChange(prev);
+                    return result;
+                };
             }
-        });
+            return value;
+        }
+    });
+    #positionProxy = new Proxy(this.#position, {
+        set: (target, prop, value, reciever) => {
+            const prev = this.#position.clone();
+            const result = Reflect.set(target, prop, value, reciever);
+            if (!this.#position.eq(prev))
+                this.#applyPositionChange(this.#position.sub(prev));
+            return result;
+        },
+        get: (target, prop, receiver) => {
+            const value = Reflect.get(target, prop, receiver);
+            if (typeof value === "function") {
+                const self = this;
+                const curr = this.#position;
+                const prev = this.#position.clone();
+                return (...args) => {
+                    const result = value.apply(target, args);
+                    if (!curr.eq(prev))
+                        self.#applyPositionChange(curr.sub(prev));
+                    return result;
+                };
+            }
+            return value;
+        }
+    });
+
+    constructor (position, ...points) {
+        super(...points);
+        this.#position.apply(position);
+        if (!(floatEqual(position.x, 0) && floatEqual(position.y, 0)))
+            this.#applyPositionChange(position);
     }
 
-    translate(translate, mutate = false) {
-        const translated = super.translate(translate, mutate);
-        translated.position.add(translate, true);
-        return translated;
+    #applyScaleChange (previousScale) {
+        if (this.path.length === 0) return;
+        this.translate(this.#position.mul(-1), true); 
+        this.path.forEach((pt) => pt.div(previousScale, true).mul(this.#scale, true));
+        this.translate(this.#position, true);
+    }
+    #applyRotationChange (difference) {
+        if (this.path.length === 0) return;
+        this.path.forEach((pt) => pt.pivot(difference, this.#position, true));
+    }
+    #applyPositionChange (difference) {
+        if (this.path.length === 0) return;
+        this.translate(difference, true);
     }
 
-    updatePath () {
+    apply (scale, rotation, translation) {
+        this.#scale.apply(scale);
+        this.#rotation = rotation;
+        this.#position.apply(translation);
+        this.path.forEach((pt) => pt
+            .mul(scale, true)
+            .add(translation, true)
+            .pivot(rotation, translation, true));
+        return this; // for chaining
+    }
+    clone () {
+        const shape = new Shape(this.position.clone());
         for (const point of this.path)
-            point.add(this._position, true);
+            shape.path.push(point.clone());
+        return shape;
     }
-
-    draw (cursor, close = true) {
-        this.updatePath();
-        super.draw(cursor, close);
-    }
-
-    clone () { return new Shape(this.position.clone(), this.resolution) }
 
     get isShape () { return true }
     get position () { return this.#positionProxy }
+    get scale () { return this.#scaleProxy }
+    get rotation () { return this.#rotation } // radians
+    set rotation (radians) {
+        if (!floatEqual(radians, this.#rotation))
+            this.#applyRotationChange(radians - this.#rotation);
+        return (this.#rotation = radians);
+    }
 }
 
 export class Circle extends Shape {
+    #radius;
+    #resolution;
     constructor (position, radius, resolution = 1) {
-        super(position, resolution);
-        this.radius = radius;
-        this.updatePath(); // call once to initalize the shape
+        super(position);
+        this.#radius = radius;
+        this.#resolution = resolution;
+        this.#applyPath();
     }
 
-    updatePath () { // update path to be relative to position
-        const steps = Math.floor(360 / this.resolution);
-        this.path.apply(...Array.from({length: steps}, (_, i) => {
-            const angle = (i * 2 * Math.PI) / steps; 
-            return this._position.add({
-                x: this.radius * Math.cos(angle),
-                y: this.radius * Math.sin(angle)
-            })
-        }));
+    #applyPath () {
+        const path = this.path;
+        path.apply();
+        for (let i = 0; i < 360; i += this.resolution) {
+            const angle = (i * 2 * Math.PI) / 360;
+            path.push(
+                new Vector(
+                    this.radius * Math.cos(angle),
+                    this.radius * Math.sin(angle)
+                )
+            );
+        }
+        this.apply(this.scale, this.rotation, this.position);
+    }
+
+    clone () {
+        const circle = new Circle(this.position.clone(), this.radius, this.resolution);
+        circle.rotation = this.rotation;
+        circle.scale.apply(this.scale);
+        return circle;
     }
 
     get isCircle () { return true } // [!] may be redundant, depending on how specific we get with geometry later on...
-    clone () { return new Circle(this.position.clone(), this.radius, this.resolution) }
+    get radius () { return this.#radius }
+    set radius (value) {
+        const result = (this.#radius = value);
+        this.#applyPath();
+        return result;
+    }
+    get resolution () { return this.#resolution }
+    set resolution (value) {
+        const result = (this.#resolution = value);
+        this.#applyPath();
+        return result;
+    }
 }
 
 export class Triangle extends Shape {
+    #size = new Vector();
+    #sizeProxy = new Proxy(this.#size, {
+        set: (target, prop, value, reciever) => {
+            const prev = this.#size.clone();
+            const result = Reflect.set(target, prop, value, reciever);
+            if (!prev.eq(this.#size))
+                this.#applySize();
+            return result;
+        },
+        get: (target, prop, receiver) => {
+            const value = Reflect.get(target, prop, receiver);
+            if (typeof value === "function") {
+                const self = this;
+                const curr = this.#size;
+                const prev = this.#size.clone();
+                return (...args) => {
+                    const result = value.apply(target, args);
+                    if (!prev.eq(curr))
+                        self.#applySize();
+                    return result;
+                };
+            }
+            return value;
+        }
+    });
     // position is going to be the tip of the triangle, which extends BELOW the origin point
-    constructor (position, size, resolution = 1) {
-        super(position, resolution);
-        this.size = size;
-        this.angle = 0; // radians
-        this.updatePath();
+    constructor (position, size) {
+        super(position);
+        this.#size.apply(size);
+        this.#applySize();
     }
 
-    updatePath () {
-        const { _position: position } = this;
-        const centerBase = position.add(Direction(this.angle, false).mul(this.size.y));
-        const prependicularOffset = Direction(this.angle + (Math.PI / 2), false)
-            .mul(this.size.x);
-        this.path.apply(position.clone(), centerBase.add(prependicularOffset), centerBase.sub(prependicularOffset));
+    #applySize() {
+        const perpendicularOffset = this.#size.x / 2;
+        this.path.apply(
+            new Vector(),
+            new Vector(perpendicularOffset,  -this.#size.y),
+            new Vector(-perpendicularOffset,  -this.#size.y)
+        );
+        this.apply(this.scale, this.rotation, this.position);
     }
 
-    get basePoint () { return this.position.add(Direction(this.angle, false).mul(this.size.y)) } // center of bottom
+    get basePoint () { return this.position.add(Direction(this.rotation, false).mul(this.size.y)) } // center of bottom
     get isTriangle () { return true } // [!] may be redundant, depending on how specific we get with geometry later on...
-    clone () { return new Triangle(this.position.clone(), this.size.clone(), this.resolution) }
+    get size () { return this.#sizeProxy }
+    clone () {
+        const triangle = new Triangle(this.position.clone(), this.size.clone());
+        triangle.rotation = this.rotation;
+        triangle.scale.apply(this.scale);
+        return triangle;
+    }
 }

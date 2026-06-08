@@ -50,7 +50,7 @@ export class LoadImage extends TrackableObject {
     get onload () { return this.#ready ? Promise.resolve(this) : this.#loadPromise }
     get img () {
         if (!this.#ready)
-            throw new Error("[LoadedImage] Error: Cannot access image - not loaded");
+            throw new Error(`[${this.constructor.name}] Error: Cannot access image - not loaded`);
         return this.#img;
     }
     // applying proportional transformations

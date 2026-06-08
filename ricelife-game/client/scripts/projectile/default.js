@@ -88,14 +88,27 @@ export class Projectile extends TrackableObject {
 export class BasicShot extends Projectile {
     #shape;
     #blast;
+    #tail = new Array();
     config;
     constructor (origin, angle, power = 1, resolution = 1) {
         const defualtConfig = {
             initalSpeed: 400,
             acceleration: new Vector(20, -200),
             drag: 0.001,
-            radius: 5,
-            blastRadius: 30
+            radius: 7,
+            blastRadius: 30,
+            color: {
+                main: new Color(255, 255, 255),
+                tail: new Color(255, 255, 255, 160),
+                glow: new Color(255, 0, 0, 100)
+            },
+            glow: {
+                radius: 25,
+                resolution: 5
+            },
+            tail: {
+                length: 10
+            }
         };
         const config = new.target.config
             ? {...defualtConfig, ...new.target.config}
@@ -113,41 +126,80 @@ export class BasicShot extends Projectile {
                 return this.shapesAt(currentPosition);
             },
             shapesAt: function (position) {
-                return Array.from(this._shapes, (shape) => shape.translate(position));
-            },
-            draw: function (cursor) {
-                for (const shape of this.shapes) {
-                    cursor.save();
-                    cursor.fillStyle = this.color;
-                    shape.draw(cursor);
-                    cursor.fill();
-                    cursor.restore();
-                }
+                return Array.from(this._shapes, (shape) => {
+                    const s = shape.clone();
+                    s.position.add(position, true);
+                    return s;
+                });
             }
         };
-        this.color = new Color("#FF0000");
     }
 
     update (seconds = 1) {
-        super.update(seconds);
-        this.#shape.updatePath();
+        if (this.#tail.length >= this.config.tail.length) this.#tail.shift();
+        this.#tail.push(this.shape.clone());
+        this.#shape.position.apply(super.update(seconds));
     }
 
     draw (cursor) {
-        cursor.fillStyle = this.color;
+        this.drawGlow(cursor);
+        this.drawTail(cursor);
+        cursor.save();
+        cursor.fillStyle = this.config.color.main.toString();
         this.shape.draw(cursor);
         cursor.fill();
+        cursor.restore();
+    }
+
+    drawTail (cursor) {
+        cursor.save();
+        cursor.fillStyle = this.config.color.tail.toString();
+        const minScale = 1 / this.#tail.length;
+        const scales = [];
+        for (let i = 0; i < this.#tail.length; i++) {
+            const tail = this.#tail[i];
+            scales.push(tail.scale.clone());
+            tail.scale.apply(minScale + (i / this.#tail.length));
+            this.#drawGlow(cursor, tail);
+        }
+        for (let i = 0; i < this.#tail.length; i++) {
+            const tail = this.#tail[i];
+            tail.draw(cursor);
+            tail.scale.apply(scales[i]);
+            cursor.fill();
+        }
+        cursor.restore();
+    }
+
+    drawGlow (cursor) {
+        this.#drawGlow(cursor, this.shape);
+    }
+
+    #drawGlow (cursor, shape) {
+        cursor.save();
+        shape.draw(cursor);
+        for (let i = 0; i <= this.config.glow.radius; i += this.config.glow.resolution) {
+            const color = this.config.color.glow.clone();
+            color.a *= (1 - (i / this.config.glow.radius)).toFixed(2);
+            cursor.strokeStyle = color.toString();
+            cursor.lineWidth = i;
+            cursor.stroke();
+        }
+        // mask out projectile space itself
+        cursor.globalCompositeOperation = "destination-out";
+        cursor.fill();
+        cursor.globalCompositeOperation = "source-over";
+        cursor.restore();
     }
 
     // expensive but accurate. we should only be calling this ONCE when a shot is fired anyways
     // returns the projectiles position when it's shape intersects with the given terrain
     intersectAt (polygon, increment = 1/60, limit = 1000) {
-        if (!polygon.isPolygon) throw new Error("[BasicShot] Error: Cannot perform intersection operation with non-Polygon");
+        if (!polygon.isPolygon) throw new Error(`[${this.constructor.name}] Error: Cannot perform intersection operation with non-Polygon`);
         const hitbox = this.shape.clone();
         const proj = this.clone();
-        hitbox._position = proj.position;
         for (let t = 0; t < limit; t += increment) {
-            hitbox.updatePath();
+            hitbox.position.apply(proj.position);
             if (polygon.isIntersecting(hitbox)) return { point: proj.position.clone(), at: t };
             proj.update(increment);
         }

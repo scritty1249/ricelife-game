@@ -10,7 +10,7 @@ export class WorkerManager extends TrackableObject {
         super();
         this.#cache = {}; // storing persistant values from worker
         this.#worker = new Worker(src, {type: "module"}); // path is relative to wherever this is being imported from browser POV- i.e. from index.html
-        if (!this.#worker) throw new Error("[WorkerManager] Error: Failed to initalize web worker - file could not be loaded");
+        if (!this.#worker) throw new Error(`[${this.constructor.name}] Error: Failed to initalize web worker - file could not be loaded`);
         this.#transaction = {}; // partially automatic garbage collection on resolved transactions
         this.#worker.onmessage = (e) => {
             const { id, error } = e.data;
@@ -19,11 +19,11 @@ export class WorkerManager extends TrackableObject {
                 if (error) this.#transaction[id].reject(e.data);
                 else this.#transaction[id].resolve(e.data);
             } else {
-                console.warn("[WorkerManager] Warning: Web worker replied to an unregistered transaction ", e);
+                console.warn(`[${this.constructor.name}] Warning: Web worker replied to an unregistered transaction `, e);
             }
         }
         this.#worker.onerror = (err) => {
-            console.error("[WorkerManager] Error: Worker crashed - " + err?.messaage);
+            console.error(`[${this.constructor.name}] Error: Worker crashed - ${err?.messaage}`);
             throw err
         }
         this.#cacheProxy = new Proxy(this.#cache, {

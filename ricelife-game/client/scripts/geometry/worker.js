@@ -9,7 +9,7 @@ export class GeometryWorker {
     }
 
     async cut (key, subject, ...cuts) {
-        if (!subject.isPolygon || cuts.some((cut) => !cut.isPolygon)) throw new Error("[GeometryWorker] Error: non-Polygon passed to Polygon-only operation");
+        if (!subject.isPolygon || cuts.some((cut) => !cut.isPolygon)) throw new Error(`[${this.constructor.name}] Error: non-Polygon passed to Polygon-only operation`);
         const subjectData = subject.Float64(this.#maxDepth);
         const payload = { subject: {path: subjectData.path, holes: subjectData.holes}, depth: this.#maxDepth, cuts: []};
         const transfer = subjectData.buffers;

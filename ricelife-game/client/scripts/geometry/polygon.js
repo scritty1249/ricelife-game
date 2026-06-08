@@ -1,4 +1,5 @@
 import { Path, tweenPoints } from "./path.js";
+import { Vector } from "./vector.js";
 import { TrackableObject } from "../utils/utils.js";
 
 export class Polygon extends TrackableObject { // points should be ordered clockwise (in positioning)
@@ -10,7 +11,7 @@ export class Polygon extends TrackableObject { // points should be ordered clock
         this.#holes.apply = function (...holes) {
             this.splice(0, this.length);
             for (const hole of holes) {
-                if (!hole.isPolygon) throw new Error("[Polygon] Error: Holes must be Polygons, not " + (typeof hole));
+                if (!hole.isPolygon) throw new Error(`[${this.constructor.name}] Error: Holes must be Polygons, not ${typeof hole}`);
                 this.push(hole);
             }
         }
@@ -34,7 +35,7 @@ export class Polygon extends TrackableObject { // points should be ordered clock
     // [!] I have no idea what I'm doing!
     cut (poly, mutate = false) { // https://en.wikipedia.org/wiki/Greiner%E2%80%93Hormann_clipping_algorithm
         if (!poly?.isPolygon) {
-            throw new Error("[Polygon] Error: Cannot cut with non-Polygon type " + (typeof poly));
+            throw new Error(`[${this.constructor.name}] Error: Cannot cut with non-Polygon type ${typeof poly}`);
         }
         const newPolygon = mutate ? this : this.clone();
 
@@ -161,7 +162,7 @@ export class Polygon extends TrackableObject { // points should be ordered clock
         } else if (value?.isPath) { // counts surface contact/collision as intersection
             return value.points.some((point) => this.isIntersecting(point));
         } else
-            throw new Error("[Polygon] Error: Unable to compute intersect of unsupported type " + (typeof value));
+            throw new Error(`[${this.constructor.name}] Error: Unable to compute intersect of unsupported type ${typeof value}`);
     }
 
     raycast (ray) {
@@ -224,6 +225,12 @@ export class Polygon extends TrackableObject { // points should be ordered clock
     get isPolygon () { return true }
     get path () { return this.#path }
     get holes () { return this.#holes }
+    get center () { // mostly for debugging
+        if (this.path.length === 0) return null;
+        const total = this.path.points.reduce((acc, pt) => acc.add(pt, true), new Vector());
+
+        return total.div(this.path.length);
+    }
     edgePoints () { // returns out of order points from polygon and holes that do not overlap with any other holes
         const points = [...this.path.points];
         for (const hole of this.holes)
@@ -242,7 +249,6 @@ export class Polygon extends TrackableObject { // points should be ordered clock
                 .map((pt) => ({...pt, hole: true})));
         return nodes;
     }
-
     roundPoints (precision) {
         this.path.round(precision);
         for (const hole of this.holes)
@@ -250,7 +256,7 @@ export class Polygon extends TrackableObject { // points should be ordered clock
         return this; // for chaining
     }
     apply (polygon) {
-        if (!polygon?.isPolygon) throw new Error("[Polygon] Error: Cannot apply non-Polygon type " + (typeof polygon));
+        if (!polygon?.isPolygon) throw new Error(`[${this.constructor.name}] Error: Cannot apply non-Polygon type ${typeof polygon}`);
         this.#path.apply(polygon.path);
         this.#holes.apply(...polygon.holes);
         return this; // for chaining
@@ -260,9 +266,9 @@ export class Polygon extends TrackableObject { // points should be ordered clock
             Array.from(this.holes, (hole) => hole.toString()).join(", ")
         }] }>`;
     }
-    clone () {
-        const poly = new Polygon(this.path.clone());
-        poly.holes.apply(...this.holes.map(hole => hole.clone()));
+    clone (deep = false) {
+        const poly = new Polygon(this.path.clone(deep));
+        poly.holes.apply(...this.holes.map(hole => hole.clone(deep)));
         return poly;
     }
     static fromObject (data, depth) {        

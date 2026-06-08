@@ -42,7 +42,7 @@ export class Path extends TrackableObject { // points should be ordered clockwis
     }
 
     intersections (path) { // returns the CLOCKWISE details of all intersections from this Path to the given Path ("this" points into "that"). !! This can return points that are not inside of the Path, if the resolution is large enough!
-        if (!path?.isPath) throw new Error("[Path] Error: Cannot find intersection with non-Path object " + (typeof path));
+        if (!path?.isPath) throw new Error(`[${this.constructor.name}] Error: Cannot find intersection with non-Path object ${typeof path}`);
         const intersections = [],
             thisPts = this.points,
             thatPts = path.points;
@@ -125,33 +125,45 @@ export class Path extends TrackableObject { // points should be ordered clockwis
     map (...args) {
         return this.#points.map(...args);
     }
+    forEach (...args) { this.#points.forEach(...args) }
     push (...points) {
         for (const pt of points)
-            if (!pt?.isVector) throw new Error("[Path] Error: Points pushed must be of type Vector, not " + (typeof pt));
+            if (!pt?.isVector) throw new Error(`[${this.constructor.name}] Error: Points pushed must be of type Vector, not ${typeof pt}`);
         this.#points.push(...points);
         return this.length;
     }
-    translate (vector, mutate = false) { const path = mutate ? this : this.clone(); path.points.forEach((point) => point.add(vector)); return path; }
+    translate (vector, mutate = false) {
+        const path = mutate ? this : this.clone(true);
+        path.points.forEach((point) => point.add(vector, true));
+        return path;
+    }
     slice (...args) { return this.points.slice(...args) }
     splice (...args) { return this.points.splice(...args) }
     at (...args) { return this.points.at(...args) }
     nearestTo (point) {
-        if (!point?.isVector) throw new Error("[Path] Error: Point must Vector type, not " + (typeof point));
+        if (!point?.isVector) throw new Error(`[${this.constructor.name}] Error: Point must Vector type, not ${typeof point}`);
         return this.points.reduce((acc, curr) => curr.distance(point) < acc.distance(point) ? curr : acc);
     }
     round (precision) { this.map((point) => point.round(precision, true)) }
-
+    eq (path) {
+        if (!path?.isPath || path.length !== this.length) return false;
+        for (let i = 0; i < this.length; i++)
+            if (!this.at(i).eq(path.at(i))) return false;
+        return true;
+    }
     *[Symbol.iterator]() {
         yield* this.#points;
     }
     toString () {
         return `[Path] <${this.#points.map((pt) => pt.toString()).join(", ")}>`;
     }
-    clone () {
-        return new Path(...this.#points);
+    clone (deep = false) {
+        return deep
+            ? new Path(...this.#points.map((pt) => pt.clone()))
+            : new Path(...this.#points);
     }
     static fromArray (arr) {
-        if (arr.length % 2 === 1) throw new Error("[Path] Error: Cannot initalize new Path from uneven array of length " + arr.length.toString());
+        if (arr.length % 2 === 1) throw new Error(`[${this.constructor.name}] Error: Cannot initalize new Path from uneven array of length ${arr.length.toString()}`);
         const path = new Path();
         for (let i = 0; i < arr.length; i+=2)
             path.push(new Vector(arr[i], arr[i+1]));

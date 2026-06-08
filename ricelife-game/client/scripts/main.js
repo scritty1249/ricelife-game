@@ -14,7 +14,7 @@ async function fireProjectile (shot, state, config) { // [!} laziness
     state.projectile = new shot(state.tanks[config.playerTank].barrelPos, state.move.rotation + 270, state.aimer.power);
     state.tracer = state.projectile.tracer;
     state.blastTerrain = state.terrain.clone();
-    state.landing = state.projectile.intersectAt(state.blastTerrain, 1/config.fps, config.display.size.x); // [!] for testing
+    state.landing = state.projectile.intersectAt(state.blastTerrain, 1/config.fps, config.fps * 2 * 60); // [!] for testing
     if (state.landing) {
         const shotConfig = state.projectile.config;
         const blasts = state.projectile.blast.shapesAt(state.landing.point);
@@ -62,10 +62,10 @@ function handleInput (state, config) {
             state.move.move(-1);
         }
         if (keyboard.keyActive("shot+")) {
-            state.aimer.power+=.02;
+            state.aimer.power+=.005;
         }
         if (keyboard.keyActive("shot-")) {
-            state.aimer.power-=.02;
+            state.aimer.power-=.005;
         }
         if (keyboard.keyActive("aim+")) {
             state.aimer.rotation++;
@@ -303,7 +303,7 @@ function main(...loaded) {
         lastStamp: performance.now(),
         redrawJob: Display.drawTerrain("background", Terrain, config.terrain.fill, config.terrain.edge)
     };
-    
+
     {
         // setting up UI
         const [fireImage, selectImage, rightImage, leftImage] = buttons;
@@ -327,6 +327,11 @@ function main(...loaded) {
         Display.canvas.addEventListener("LMOVE_HOLD", () => Mover.move(-1));
         Display.canvas.addEventListener("RMOVE_CLICK", () => Mover.move(1));
         Display.canvas.addEventListener("LMOVE_CLICK", () => Mover.move(-1));
+        Display.canvas.addEventListener("SELECT_CLICK", () => console.info("Select button clicked"));
+        Display.canvas.addEventListener("FIRE_CLICK", () => {
+            if (state.projectile === undefined)
+                fireProjectile(state.projectileTypes.shot1, state, config);
+        });
 
         UIInterface.insert() // draw layer zero after background but before terrain
             .push(Aimer);

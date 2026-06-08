@@ -97,7 +97,6 @@ class PointerListener  {
             this.#holding.isHolding = (this.isActive && position.eq(this.position))
         }, this.#clickMs);
     }
-
     #clearHoldTimeout () {
         this.#holding.isHolding = false;
         if (this.#holding.timeout)
@@ -129,7 +128,6 @@ class PointerListener  {
         if (this.activeDuration >= this.#clickMs - Number.EPSILON)
             this.callbackFns?.ondrag(this.position, this.#tracking.down.position); // pass origin position by reference to avoid making duplicates
     }
-
     #updatePosition (event) {
         const { clientX, clientY } = event;
         this.#tracking.position.apply(clientX, clientY);
@@ -226,7 +224,7 @@ export class MovementController { // only moves along X axis
         const hit = (exiting ? hits.filter(({entering}) => !entering) : hits)
             ?.toSorted((a, b) => b.point.y - a.point.y)?.at(0);
         if (!hit) {
-            console.warn("[MovementController] Warning: No valid terrain found for Y position at X", hits);
+            console.warn(`[${this.constructor.name}] Warning: No valid terrain found for Y position at X`, hits);
             return false;
         }
 
@@ -306,22 +304,23 @@ export class AimController extends TrackableObject { // takes control of rotatio
         this.#rotation = this.#player.rotation.barrel; // degrees
         this.#pointerPosition = new Vector();
         {
-            const fullBeamWidth = this.#radius / 4;
-            const fullConeWidth = fullBeamWidth / 3;
+            const pos = this.#player.relativePosition;
+            const fullBeamWidth = this.#radius / 3;
+            const fullConeWidth = fullBeamWidth / 2;
             this.#display = {
                 circle: {
-                    shape: new Circle(new Vector(), radius, resolution), // pass position by reference
+                    shape: new Circle(pos, radius, resolution), // pass position by reference
                     color: circleColor
                 },
                 // [!] running out of names...
                 triangle: { // outer
-                    shape: new Triangle(new Vector(), new Vector(fullBeamWidth, this.#radius), resolution),
+                    shape: new Triangle(pos, new Vector(fullBeamWidth, this.#radius)),
                     minWidth: fullBeamWidth / 3,
                     widthMultiplier: (fullBeamWidth / 3) * 1.5,
                     color: beamColor
                 },
                 cone: { // inner
-                    shape: new Triangle(new Vector(), new Vector(fullConeWidth, this.#radius), resolution),
+                    shape: new Triangle(pos, new Vector(fullConeWidth, this.#radius)),
                     minWidth: fullConeWidth / 3,
                     widthMultiplier: (fullConeWidth / 3) * 1.5,
                     color: coneColor
@@ -333,12 +332,14 @@ export class AimController extends TrackableObject { // takes control of rotatio
     draw (cursor) {
         const { circle, triangle, cone } = this.#display;
         const position = this.#player.relativePosition;
+        // only need to update positions
         circle.shape.position.apply(position);
         triangle.shape.position.apply(position);
         cone.shape.position.apply(position);
+
         cursor.save();
         this.#drawPowerCircle(cursor);
-        cursor.clip();
+        //cursor.clip();
         this.#drawAngleTriangle(cursor, triangle);
         this.#drawAngleTriangle(cursor, cone);
         cursor.restore();
@@ -349,8 +350,8 @@ export class AimController extends TrackableObject { // takes control of rotatio
             this.#pointerRecorded = true;
             this.#pointerPosition.apply(point);
         } else this.pointer.apply(point); // prefer the getter when possible
-        this.rotation = this.#angleFromPointer();
-        this.power = this.#powerFromPointer();
+        this.#rotation = this.#player.rotation.barrel = this.#angleFromPointer();
+        this.#power = clamp(this.#powerFromPointer(), 0, 1);
         // point triangle at pointer position- if we don't get another update, hold the same angle
         this.#updateTriangles();
     }
@@ -358,29 +359,33 @@ export class AimController extends TrackableObject { // takes control of rotatio
     // support for clickable object type
     isOver (point) {
         const { shape } = this.#display.circle;
-        shape.updatePath();
         return shape.isIntersecting(point);
     }
     ondrag (point) { this.update(point) }
     onclick (point) { this.update(point) }
 
     #updateTriangles () { // updates "beam" and "cone" triangle based on barrel angle. Does not update barrel- stored angle takes precedence over angle derived from pointer here
+        const angle = this.#rawAngle;
+        const position = this.#player.relativePosition;
+        const { radius, power } = this;
+        const expPow = power ** 4; // for scaling width of triangles
         {
             const { shape, minWidth, widthMultiplier } = this.#display.triangle;
-            shape.angle = this.#rawAngle;
-            shape.position.apply(this.#player.relativePosition);
-            shape.size.y = this.#radius * this.power * .95;
-            if (floatEqual(this.power, 1)) shape.size.y = this.#radius;
-            shape.size.x = minWidth + (widthMultiplier * this.power ** 5);
-            shape.updatePath();
+            shape.size.apply(
+                minWidth + (widthMultiplier * expPow),
+                radius * power * (floatEqual(power, 1) ? 1 : .95)
+            );
+            shape.position.apply(position);
+            shape.rotation = angle;
         }
         {
             const { shape, minWidth, widthMultiplier } = this.#display.cone;
-            shape.angle = this.#rawAngle;
-            shape.position.apply(this.#player.relativePosition);
-            shape.size.y = this.#radius * this.power;
-            shape.size.x = minWidth + (widthMultiplier * this.power ** 5);
-            shape.updatePath();
+            shape.size.apply(
+                minWidth + (widthMultiplier * expPow),
+                radius * power
+            );
+            shape.position.apply(position);
+            shape.rotation = angle;
         }
     }
 
@@ -408,8 +413,8 @@ export class AimController extends TrackableObject { // takes control of rotatio
     #angleFromPointer () { return normalizeAngle(rad2deg(this.pointer.angle(this.#player.relativePosition)) - 90) } // normalized
     #rawAngleFromPointer () { return this.#player.relativePosition.angle(this.pointer) }
 
-    get #rawAngle () { return deg2rad(this.rotation - 90) } // un-normalized, and in radians (meant for updating Shapes)
-    get pointer () { if (this.#pointerRecorded) return this.#pointerPosition; else throw new Error("[AimController] Error: Pointer position not set") }
+    get #rawAngle () { return deg2rad(this.rotation) } // un-normalized, and in radians (meant for updating Shapes)
+    get pointer () { if (this.#pointerRecorded) return this.#pointerPosition; else throw new Error(`[${this.constructor.name}] Error: Pointer position not set`) }
     get radius () { return this.#radius }
     get power () { return this.#power }
     set power (value) {

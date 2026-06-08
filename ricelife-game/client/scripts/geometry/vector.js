@@ -66,7 +66,7 @@ export class Vector {
         }
     }
     normal (vector, clockwise = true) { // finds normalized point perpendicular to the line 
-        if (!vector.isVector) throw new Error("[Vector] Error: Cannot calculate normal from Vector to non-Vector type " + (typeof vector));
+        if (!vector.isVector) throw new Error(`[${this.constructor.name}] Error: Cannot calculate normal from Vector to non-Vector type ${typeof vector}`);
         const diff = vector.sub(this);
         diff.div(diff.magnitude(), true);
         return clockwise
@@ -103,7 +103,7 @@ export class Vector {
         return vec;
     }
     lerp (vector, factor) { // (Linear Interpolation) returns the point between this vector and given vector. distance from this vector determined by factor given
-        if (!vector?.isVector) throw new Error("[Vector] Error: Cannot linearly interpolate between Vector and non-Vector type " + (typeof vector));
+        if (!vector?.isVector) throw new Error(`[${this.constructor.name}] Error: Cannot linearly interpolate between Vector and non-Vector type ${typeof vector}`);
         return this.add(vector.sub(this).mul(factor));
     }
     sum () {
@@ -131,23 +131,22 @@ export class Vector {
         const sin = Math.sin(radians);
         const x = vec.mul({x: cos, y: sin}).diff();
         const y = vec.mul({x: sin, y: cos}).sum();
-        vec.apply(x, y);
-        return vec;
+        return vec.apply(x, y); // for chaining
     }
-    pivot (radians, origin, mutute = false) {
+    pivot (radians, origin, mutate = false) {
         const vec = mutate ? this : this.clone();
-        return vec.sub(origin).rotate(radians).add(origin);
+        return vec.sub(origin, true).rotate(radians, true).add(origin, true);
     }
     distance (vector) {
-        if (!vector?.isVector) throw new Error("[Vector] Error: Cannot calculate distance between Vector and non-Vector type " + (typeof vector));
+        if (!vector?.isVector) throw new Error(`[${this.constructor.name}] Error: Cannot calculate distance between Vector and non-Vector type ${typeof vector}`);
         return Math.hypot(vector.x - this.x, vector.y - this.y);
     }
     dot (vector) { // dot product
-        if (!vector?.isVector) throw new Error("[Vector] Error: Cannot calculate dot product of Vector and non-Vector type " + (typeof vector));
+        if (!vector?.isVector) throw new Error(`[${this.constructor.name}] Error: Cannot calculate dot product of Vector and non-Vector type ${typeof vector}`);
         return this.mul(vector).sum();
     }
     cross (vector) { // cross product
-        if (!vector?.isVector) throw new Error("[Vector] Error: Cannot calculate cross product of Vector and non-Vector type " + (typeof vector));
+        if (!vector?.isVector) throw new Error(`[${this.constructor.name}] Error: Cannot calculate cross product of Vector and non-Vector type ${typeof vector}`);
         return (this.x * vector.y) - (vector.x * this.y);
 
     }
@@ -158,7 +157,7 @@ export class Vector {
         } else {
             let sumCos = 0, sumSin = 0;
             for (const vector of vectors) {
-                if (!vector?.isVector) throw new Error("[Vector] Error: Cannot calculate angle from non-Vector type " + (typeof vector));
+                if (!vector?.isVector) throw new Error(`[${this.constructor.name}] Error: Cannot calculate angle from non-Vector type ${typeof vector}`);
                 const diff = vector.sub(this);
                 const angle = Math.atan2(diff.y, diff.x);
                 sumCos += Math.cos(angle);
@@ -197,6 +196,10 @@ export class Vector {
 export class Color {
     static #hexPattern = /^#([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})?$/;
     constructor (value, g = undefined, b = undefined, a = 255) {
+        this.apply(value, g, b, a);
+    }
+
+    apply (value, g = undefined, b = undefined, a = 255) {
         let matches, _;
         if (typeof value === "string"
             && (matches = value.match(Color.#hexPattern)))
@@ -208,7 +211,7 @@ export class Color {
         else if (b !== undefined)
             [this.r, this.g, this.b, this.a] = [value, g, b, a];
         else
-            throw new Error("[Color] Error: Invalid argument at declaration");
+            throw new Error(`[${this.constructor.name}] Error: Cannot apply invalid type`);
         if (!Number.isFinite(this.a))
             this.a = 255
     }
@@ -220,6 +223,9 @@ export class Color {
         + (this.a < 255 ? Math.floor(this.a).toString(16).padStart(2, "0") : "");
     }
     clone () { return new Color(this.r, this.g, this.b, this.a) }
+
+    get isColor () { return true }
+
 }
 
 export function Direction (angle, degrees = true) {
