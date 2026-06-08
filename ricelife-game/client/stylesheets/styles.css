@@ -4,9 +4,9 @@ canvas {
     max-width: max-content;
     height: 100dvh;
     margin: 0;
-}
-canvas.cache {
-    display: none;
+    -webkit-user-select: none; /* Safari */
+    user-select: none;
+    pointer-events: none; /* pointer event listeners still fire */
 }
 body {
     margin: 0;
