@@ -7,6 +7,11 @@ export class Animation {
     #lastAtTime = 0;
     #frames = [];
     #prevFrame = undefined;
+    #promise = {
+        promise: undefined,
+        resolve: undefined,
+        reject: undefined
+    };
     // framerate in frames per second
     constructor (position, frames, framerate) {
         this.#position.apply(position);
@@ -14,6 +19,17 @@ export class Animation {
         this.#frames = frames;
         this.loop = false;
         this.paused = false;
+        this.#newPromise();
+    }
+
+    #newPromise () {
+        const { promise: oldPromise, resolve: oldResolve, reject: oldReject } = this.#promise;
+        ({ promise: this.#promise.promise, resolve: this.#promise.resolve, reject: this.#promise.reject } = Promise.withResolvers());
+        // maintain previous promises
+        if (oldPromise !== undefined) // assume all are populated if promise exists
+            this.#promise.promise
+                .then((e) => oldResolve(e))
+                .catch((e) => oldReject(e));
     }
 
     draw (cursor) {
@@ -41,7 +57,13 @@ export class Animation {
 
     get isAnimation () { return true }
     get hasNext () { return this.elapsed() >= this.#framerateMs && !this.ended && !this.paused }
-    get ended () { return this.frame >= this.#frames.length  && !this.loop }
+    get ended () {
+        const result = this.frame >= this.#frames.length  && !this.loop;
+        if (result)
+            this.#promise.resolve(); // [!] might cause bloat by repeatedly resolving an already resolved Promise
+        return result;
+    }
+    get onend () { return this.#promise.promise }
     get frame () { return this.#frame }
     get progress () { return this.#frame / this.#frames.length }
     set frame (value) { return this.#frame = (this.loop ? value % this.#frames.length : value) }
