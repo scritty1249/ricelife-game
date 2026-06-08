@@ -39,20 +39,22 @@ export class LoadImage extends TrackableObject {
     }
 
     draw (cursor, dx, dy, normalize = false) {
+        this.drawCrop(cursor, dx, dy, this.size.x, this.size.y, 0, 0, this.#size.x, this.#size.y, this.#origin, normalize);
+    }
+    drawCrop (cursor, dx, dy, dWidth, dHeight, sx, sy, sWidth, sHeight, origin, normalize = false) {
         cursor.save();
-        cursor.translate(dx, dy);
-        cursor.rotate(-this.rotation);        
-        normalize
-            ? cursor.drawImage(this.img, 0, 0, this.#size.x, this.#size.y, this.origin.x, cursor.normalizeY(this.origin.y), this.size.x, this.size.y)
-            : cursor.drawImage(this.img, 0, 0, this.#size.x, this.#size.y, this.origin.x, this.origin.y, this.size.x, this.size.y);
+        cursor.translate(dx, normalize ? cursor.normalizeY(dy) : dy);
+        cursor.rotate(-this.rotation);
+        const og = origin.mul(-1).mul(this.scale);
+        cursor.drawImage(this.img, sx, sy, sWidth, sHeight, og.x, og.y, dWidth, dHeight);
         cursor.restore();
     }
-        
     clone () { return new LoadImage(this) }
 
     get isLoadImage () { return true }
     get ready () { return this.#ready }
     get size () { return this.#size.mul(this.#scale) } // scaled
+    get rawSize () { return this.#size }
     get scale () { return this.#scale }
     get onload () { return this.#ready ? Promise.resolve(this) : this.#loadPromise }
     get img () {

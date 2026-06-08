@@ -12,7 +12,7 @@ export class Button extends TrackableObject {
         this.#boundingBoxSize.apply(this.#img.size);
     }
 
-    draw (cursor) { this.#img.draw(cursor, this.position.x, this.position.y, true) }
+    draw (cursor) { this.#img.draw(cursor, this.position.x, this.position.y) }
     isOver (point) { // expects global space coordinates
         const { x, y } = point;
         return (

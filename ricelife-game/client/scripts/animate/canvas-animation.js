@@ -12,13 +12,14 @@ export class Animation {
         resolve: undefined,
         reject: undefined
     };
+    loop = false;
+    paused = false;
+    speed = 1;
     // framerate in frames per second
     constructor (position, frames, framerate) {
         this.#position.apply(position);
         this.#framerateMs = 1000 / framerate;
         this.#frames = frames;
-        this.loop = false;
-        this.paused = false;
         this.#newPromise();
     }
 
@@ -52,11 +53,14 @@ export class Animation {
         this.paused = true;
         return this; // for chaining
     }
-
-    clone () { return new Animation (this.position, this.#frames.clone(), this.#framerateMs * 1000) } // Clones by reference
+    clone () { // Clones by reference
+        const ani = new Animation (this.position, this.#frames.clone(), this.#framerateMs * 1000);
+        ani.speed = this.speed;
+        ani.paused = this.paused;
+    }
 
     get isAnimation () { return true }
-    get hasNext () { return this.elapsed() >= this.#framerateMs && !this.ended && !this.paused }
+    get hasNext () { return this.elapsed() >= this.#framerateMs / this.speed && !this.ended && !this.paused }
     get ended () {
         const result = this.frame >= this.#frames.length  && !this.loop;
         if (result)

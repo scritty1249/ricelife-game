@@ -268,19 +268,13 @@ export class MovementController { // only moves along X axis
             yield { point, angle, entering: inter.entering };
         }
     }
-
-    get rotation () {
-        return this.#player.rotation.barrel;
-    }
     
     get position () {
         return this.#player.position;
     }
 
     #normalizeAngle (radians, pointingOut) {
-        let degrees = rad2deg(radians) + (pointingOut ? 270 : 90);
-        if (degrees < 0) degrees += 360;
-        return degrees % 360;
+        return radians + ((pointingOut ? 3 : 1) * (Math.PI / 2));
     }
 }
 
@@ -366,7 +360,7 @@ export class AimController extends TrackableObject { // takes control of rotatio
     onclick (point) { this.update(point) }
 
     #updateTriangles () { // updates "beam" and "cone" triangle based on barrel angle. Does not update barrel- stored angle takes precedence over angle derived from pointer here
-        const angle = this.#rawAngle;
+        const angle = this.rotation;
         const position = this.#player.relativePosition;
         const { radius, power } = this;
         const expPow = power ** 4; // for scaling width of triangles
@@ -411,10 +405,8 @@ export class AimController extends TrackableObject { // takes control of rotatio
     }
 
     #powerFromPointer () { return this.#player.relativePosition.distance(this.pointer) / this.#radius } // unclamped
-    #angleFromPointer () { return normalizeAngle(rad2deg(this.pointer.angle(this.#player.relativePosition)) - 90) } // normalized
-    #rawAngleFromPointer () { return this.#player.relativePosition.angle(this.pointer) }
+    #angleFromPointer () { return this.pointer.angle(this.#player.relativePosition) - (Math.PI / 2) } // normalized
 
-    get #rawAngle () { return deg2rad(this.rotation) } // un-normalized, and in radians (meant for updating Shapes)
     get pointer () { if (this.#pointerRecorded) return this.#pointerPosition; else throw new Error(`[${this.constructor.name}] Error: Pointer position not set`) }
     get radius () { return this.#radius }
     get power () { return this.#power }
@@ -424,8 +416,8 @@ export class AimController extends TrackableObject { // takes control of rotatio
         return result;
     }
     get rotation () { return this.#rotation }
-    set rotation (degrees) {
-        const result = this.#player.rotation.barrel = this.#rotation = degrees;
+    set rotation (radians) {
+        const result = this.#player.rotation.barrel = this.#rotation = radians;
         this.#updateTriangles();
         return result;
     }

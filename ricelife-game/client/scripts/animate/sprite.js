@@ -15,7 +15,7 @@ export class Spritesheet extends LoadImage {
         {
             // idiot proofing
             const mod = this.size.mod(this.#frameSize);
-            if (!(mod.x === 0 && mod.y === 0)) throw new Error("[SpriteSheet] Error: Image dimensions incompatible with frame size");
+            if (!(mod.x === 0 && mod.y === 0)) throw new Error(`[${this.constructor.name}] Error: Image dimensions incompatible with frame size`);
         }
         this.onload.then(() => {
             this.#dimensions.apply(
@@ -35,7 +35,13 @@ export class Spritesheet extends LoadImage {
     }
 
     at (index) { return this.#frames.at(index) }
-    clone () { return new Spritesheet(this, this.#frameSize.x, this.#frameSize.y, this.#offset) } // clones by reference
+    clone () { // clones by reference
+        const ss = new Spritesheet(this, this.#frameSize.x, this.#frameSize.y, this.#offset);
+        ss.origin.apply(this.origin);
+        ss.scale.apply(this.scale);
+        ss.rotation = this.rotation;
+        return ss;
+    }
 
     get offset () { return this.#offset } // raw offset. Scaled offset can be found in the individual frames. [!] is this too convoluted?
     get frameSize () { return this.#frameSize } // raw size. Scaled size can be found in the individual frames. [!] is this too convoluted?
@@ -45,20 +51,27 @@ export class Spritesheet extends LoadImage {
 
 class SpriteFrame {
     #spritesheet;
+    #origin = new Vector();
     constructor (x, y, spritesheet) {
         this.framePosition = new Vector(x, y);
         this.#spritesheet = spritesheet;
+        this.#origin
+            .add(this.#spritesheet.origin
+                .div(this.#spritesheet.rawSize)
+                .mul(this.#spritesheet.frameSize));
+            
     }
 
     draw (cursor, position) {
         const { framePosition, size, offset } = this,
-            { frameSize } = this.#spritesheet;
+            { frameSize, origin } = this.#spritesheet;
         const offsetPosition = position.add(offset);
-        cursor.drawImage(this.#spritesheet.img, framePosition, frameSize, offsetPosition, size);
+        this.#spritesheet.drawCrop(cursor, offsetPosition.x, offsetPosition.y, size.x, size.y, framePosition.x, framePosition.y, frameSize.x, frameSize.y, this.origin);
     }
 
     get isSpriteFrame () { return true }
     get offset () { return this.#spritesheet.offset.mul(this.#spritesheet.scale) }
     get size () { return this.#spritesheet.frameSize.mul(this.#spritesheet.scale) }
+    get origin () { return this.#origin }
     get spritesheet () { return this.#spritesheet } // [!] might be redundant, since these are only supposed to exist attached to Spritesheets
 }

@@ -113,7 +113,7 @@ export class BasicShot extends Projectile {
         const config = new.target.config
             ? {...defualtConfig, ...new.target.config}
             : defualtConfig;
-        const direction = Direction(angle).mul(config.initalSpeed * power);
+        const direction = Direction(angle, false).mul(config.initalSpeed * power);
         super(origin, direction, config.acceleration, config.drag);
         this.direction = direction; // make accessible for later calculations
         this.config = config;

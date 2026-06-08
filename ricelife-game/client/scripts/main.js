@@ -12,7 +12,7 @@ const DEBUG_ENABLED = () => window?.debugTools || (URL_PARAMS.get("debug") === "
 
 async function fireProjectile (shot, state, config) { // [!} laziness
     setTurn(state, false);
-    state.projectile = new shot(state.tanks[config.playerTank].barrelPos, state.move.rotation + 270, state.aimer.power);
+    state.projectile = new shot(state.tanks[config.playerTank].barrelPos, state.aimer.rotation + (3 * (Math.PI / 2)), state.aimer.power);
     state.tracer = state.projectile.tracer;
     state.blastTerrain = state.terrain.clone();
     state.landing = state.projectile.intersectAt(state.blastTerrain, 1/config.fps, config.fps * 2 * 60); // [!] for testing
@@ -28,12 +28,24 @@ async function fireProjectile (shot, state, config) { // [!} laziness
                 const aniList = new AnimationList();
                 const ss = state.blastAnimationFrames.clone();
                 ss.width = (shotConfig.blastRadius * 2) * 20;
-                for (const blast of blasts)
-                    aniList.push(new Animation(blast.position, ss, state.blastAnimationFps));
+                for (const blast of blasts) {
+                    const ani = new Animation(blast.position, ss, state.blastAnimationFps);
+                    ani.speed = 1.25;
+                    aniList.push(ani);
+                }
                 aniList.pause();
                 state.animations.push(...aniList);
                 return aniList;
             });
+    }
+    {
+        // play muzzle flash
+        const ss = state.muzzleFlashAnimationFrames.clone();
+        ss.width = 300; //(state.tanks[config.playerTank].width) + (state.projectile.config.radius * 2 * state.aimer.power);
+        ss.rotation = state.aimer.rotation + Math.PI;
+        const ani = new Animation(state.tanks[config.playerTank].barrelPos, ss, state.muzzleFlashAnimationFps);
+        ani.speed = 2.3;
+        state.animations.push(ani);
     }
 }
 
@@ -65,22 +77,22 @@ function handleInput (state, config) {
         }
         player.position.round(1/GLOBAL_RESOLUTION);
         if (keyboard.keyActive("mv+")) {
-            state.move.move(1);
+            state.move.move(config.moveIncr);
         }
         if (keyboard.keyActive("mv-")) {
-            state.move.move(-1);
+            state.move.move(-config.moveIncr);
         }
         if (keyboard.keyActive("shot+")) {
-            state.aimer.power+=.005;
+            state.aimer.power+=config.powerIncr;
         }
         if (keyboard.keyActive("shot-")) {
-            state.aimer.power-=.005;
+            state.aimer.power-=config.powerIncr;
         }
         if (keyboard.keyActive("aim+")) {
-            state.aimer.rotation++;
+            state.aimer.rotation+=config.aimIncr;
         }
         if (keyboard.keyActive("aim-")) {
-            state.aimer.rotation--;
+            state.aimer.rotation-=config.aimIncr;
         }
     } else {
         // only handle input related to menus (main menu, settings, exit button, etc.) - KT
@@ -217,13 +229,14 @@ async function load() {
     const body = await new LoadImage("./assets/tank/body.png").onload;
     const barrel = await new LoadImage("./assets/tank/barrel.png").onload;
     const testExplosion = await new Spritesheet("./assets/blast/explosion_ss_512x512.png", 512, 512).onload;
+    const testMuzzleFlash = await new Spritesheet("./assets/blast/muzzleflash_ss_1626x1882.png", 1626, 1882).onload;
     const buttons = await Promise.all([
         new LoadImage("./assets/interface/buttons/fire.png").onload,
         new LoadImage("./assets/interface/buttons/select.png").onload,
         new LoadImage("./assets/interface/buttons/right.png").onload,
         new LoadImage("./assets/interface/buttons/left.png").onload
     ]);
-    main(body, barrel, testExplosion, buttons);
+    main(body, barrel, testExplosion, testMuzzleFlash, buttons);
 }
 
 const FPS = 60;
@@ -258,7 +271,7 @@ const POINTER_CALLBACKS = (aimCtrl) => ({
 });
 
 function main(...loaded) {
-    const [tankBodyImage, tankBarrelImage, testExplosion, buttons] = loaded;
+    const [tankBodyImage, tankBarrelImage, testExplosion, testMuzzleFlash, buttons] = loaded;
     tankBodyImage.width = 50;
     tankBarrelImage.scale.apply(tankBodyImage.scale);
     {
@@ -266,6 +279,13 @@ function main(...loaded) {
         testExplosion.offset.apply(
             -offset.x * .4, // animation is slightly off center
             offset.y * .6
+        );
+    }
+    {
+        const offset = testMuzzleFlash.frameSize.mul(testMuzzleFlash.scale);
+        testMuzzleFlash.offset.apply(
+            -offset.x / 2,
+            offset.y
         );
     }
 
@@ -289,6 +309,9 @@ function main(...loaded) {
         frameInterval: 1000 / FPS,
         display: Display,
         playerTank: Tank.id,
+        moveIncr: 1,
+        aimIncr: (Math.PI / 180),
+        powerIncr: .005,
         terrain: {
             edge: new Color("#00e8f0"),
             fill: new Color("#0098eb")
@@ -308,6 +331,8 @@ function main(...loaded) {
         tracer: undefined,
         landing: undefined,
         blastTerrain: undefined,
+        muzzleFlashAnimationFrames: testMuzzleFlash,
+        muzzleFlashAnimationFps: 25,
         blastAnimationFrames: testExplosion,
         blastAnimationFps: 25,
         projectileTypes: {
@@ -343,10 +368,10 @@ function main(...loaded) {
         const btns = [fireButton, selectButton, rightButton, leftButton];
 
         // setting up button listeners
-        Display.canvas.addEventListener("RMOVE_HOLD", () => Mover.move(1));
-        Display.canvas.addEventListener("LMOVE_HOLD", () => Mover.move(-1));
-        Display.canvas.addEventListener("RMOVE_CLICK", () => Mover.move(1));
-        Display.canvas.addEventListener("LMOVE_CLICK", () => Mover.move(-1));
+        Display.canvas.addEventListener("RMOVE_HOLD", () => Mover.move(config.moveIncr));
+        Display.canvas.addEventListener("LMOVE_HOLD", () => Mover.move(-config.moveIncr));
+        Display.canvas.addEventListener("RMOVE_CLICK", () => Mover.move(config.moveIncr));
+        Display.canvas.addEventListener("LMOVE_CLICK", () => Mover.move(-config.moveIncr));
         Display.canvas.addEventListener("SELECT_CLICK", () => console.info("Select button clicked"));
         Display.canvas.addEventListener("FIRE_CLICK", () => {
             if (state.projectile === undefined)

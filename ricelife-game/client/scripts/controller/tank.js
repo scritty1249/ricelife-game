@@ -11,15 +11,15 @@ export class TankController extends TrackableObject {
             barrel: barrelImage
         };
         this.rotation = {
-            get body () { return rad2deg(bodyImage.rotation) },
-            get barrel () { return rad2deg(barrelImage.rotation) },
-            set body (degrees) {
-                bodyImage.rotation = deg2rad(degrees);
-                return degrees;
+            get body () { return bodyImage.rotation },
+            get barrel () { return barrelImage.rotation },
+            set body (radians) {
+                bodyImage.rotation = radians;
+                return radians;
             },
-            set barrel (degrees) {
-                barrelImage.rotation = deg2rad(degrees);
-                return degrees;
+            set barrel (radians) {
+                barrelImage.rotation = radians;
+                return radians;
             }
         };
         this.offset = {
@@ -28,8 +28,8 @@ export class TankController extends TrackableObject {
         }
         this.position = position;
 
-        bodyImage.origin.apply(-bodyImage.width / 2, -bodyImage.height / 2);
-        barrelImage.origin.apply(-barrelImage.width / 2, 0);
+        bodyImage.origin.apply(bodyImage.rawSize.x / 2, bodyImage.rawSize.y / 2); // pivot around middle-center of image
+        barrelImage.origin.apply(barrelImage.rawSize.x / 2, 0); // pivot around bottom-center of image
     }
 
     #drawBarrel (cursor) { // barrel assumed to be pointed UP
@@ -54,7 +54,7 @@ export class TankController extends TrackableObject {
     get height () { return this.#source.body.size.y }
     get barrelPos () { // gets coord at tip of barrel
         const origin = this.position.add(this.offset.barrel);
-        const angle = deg2rad(this.rotation.barrel + 270);
+        const angle = this.rotation.barrel + (3 * (Math.PI / 2));
         return origin.project(angle, this.#source.barrel.size.y);
     }
 }
