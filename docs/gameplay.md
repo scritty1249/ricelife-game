@@ -5,7 +5,7 @@ Gameplay will be divided into turns.
 - Player can move tank
 - Player can choose projectile type
 - Player can aim
-- Player can "lock in"
+- Player can end their turn, preventing all further actions
 
 ### After turn:
 - Compute animation frames (minor delay as this occurs is acceptable)
