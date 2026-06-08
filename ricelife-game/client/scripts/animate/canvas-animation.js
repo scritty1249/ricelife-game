@@ -71,7 +71,7 @@ export class Animation {
 }
 
 export class AnimationList {
-    #animations = [];
+    #animations = new Array();
     constructor (...animations) {
         this.push(...animations);
     }
@@ -106,4 +106,6 @@ export class AnimationList {
 
     get isAnimationList () { return true }
     get length () { return this.#animations.length }
+    get onend () { return Promise.all(this.#animations.map((ani) => ani.onend)) }
+    get ended () { return this.#animations.every((ani) => ani.ended) }
 }

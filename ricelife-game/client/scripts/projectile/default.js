@@ -144,6 +144,10 @@ export class BasicShot extends Projectile {
     draw (cursor) {
         this.drawGlow(cursor);
         this.drawTail(cursor);
+        this.drawShot(cursor);
+    }
+
+    drawShot (cursor) {
         cursor.save();
         cursor.fillStyle = this.config.color.main.toString();
         this.shape.draw(cursor);

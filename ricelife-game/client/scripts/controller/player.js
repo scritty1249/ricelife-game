@@ -78,6 +78,7 @@ class PointerListener  {
             stamp: undefined   
         }
     };
+    enabled = true; // blocks callbacks if set to false, but will still track pointer
     constructor (listenTo, clickThresholdMs, callbackFns) {
         this.callbackFns = callbackFns;
         this.#clickMs = clickThresholdMs;
@@ -114,7 +115,7 @@ class PointerListener  {
     #updateUp (event) {
         this.#updatePosition(event);
         // click detection
-        if (this.activeDuration <= this.#clickMs + Number.EPSILON)
+        if (this.activeDuration <= this.#clickMs + Number.EPSILON && this.enabled)
             this.callbackFns?.onclick(this.position);
         this.#tracking.up.stamp = performance.now();
         this.#tracking.up.position.apply(this.#tracking.position);
@@ -125,7 +126,7 @@ class PointerListener  {
         this.#updatePosition(event);
         this.#setHoldTimeout();
         // drag detection
-        if (this.activeDuration >= this.#clickMs - Number.EPSILON)
+        if (this.activeDuration >= this.#clickMs - Number.EPSILON && this.enabled)
             this.callbackFns?.ondrag(this.position, this.#tracking.down.position); // pass origin position by reference to avoid making duplicates
     }
     #updatePosition (event) {

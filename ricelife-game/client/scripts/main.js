@@ -11,6 +11,7 @@ const URL_PARAMS = new URLSearchParams(window?.location?.search);
 const DEBUG_ENABLED = () => window?.debugTools || (URL_PARAMS.get("debug") === "true" && window?.debugTools !== false);
 
 async function fireProjectile (shot, state, config) { // [!} laziness
+    setTurn(state, false);
     state.projectile = new shot(state.tanks[config.playerTank].barrelPos, state.move.rotation + 270, state.aimer.power);
     state.tracer = state.projectile.tracer;
     state.blastTerrain = state.terrain.clone();
@@ -34,6 +35,11 @@ async function fireProjectile (shot, state, config) { // [!} laziness
                 return aniList;
             });
     }
+}
+
+function setTurn (state, toggle) {
+    state.isTurn = toggle;
+    state.input.pointer.enabled = toggle;
 }
 
 function handleInput (state, config) {
@@ -139,7 +145,7 @@ function drawDebugOverlay (state, config) {
 function drawFrame (state, config) {
     const { cursor } = config.display;
     cursor.clear();
-    state.interface.draw(cursor, 0, 1);
+    if (state.isTurn) state.interface.draw(cursor, 0, 1);
     for (const tank of Object.values(state.tanks))
         tank.draw(cursor);
     cursor.drawImage(config.display.worker.cache.background.image, 0, 0);
@@ -151,7 +157,7 @@ function drawFrame (state, config) {
     }
     if (state.tracer) state.tracer.draw(cursor);
     state.animations.update(cursor);
-    state.interface.draw(cursor, 1);
+    if (state.isTurn) state.interface.draw(cursor, 1);
 }
 
 function animate (state, config) {
@@ -172,7 +178,8 @@ function animate (state, config) {
         if (state.projectile === false) {
             state.projectile = undefined;
             waitPromise = state.redrawJob
-                .then((animation) => animation.play())
+                .then((animation) => (animation.play()
+                    .onend.then(() => setTurn(state, true)), null))
                 .then(() => config.display.copyCanvas("background", config.display.worker.cache.blastBackground.image))
                 .then(() => state.terrain.apply(state.blastTerrain))
                 .then(() => {
@@ -190,7 +197,8 @@ function animate (state, config) {
         });
     }
     waitPromise.then(() => {
-        handleInput(state, config);
+        if (state.isTurn)
+            handleInput(state, config);
         requestAnimationFrame(() => animate(state, config));
     });
 }
@@ -209,7 +217,7 @@ async function load() {
 }
 
 const FPS = 60;
-const GROUND = 300;
+const GROUND = 350;
 const GLOBAL_RESOLUTION = Math.floor((1/3) * 10) / 10;
 const CLICK_DURATION_MS = 90;
 const INPUT_MAP = {
@@ -282,6 +290,7 @@ function main(...loaded) {
         polygons: {},
         geometry: new GeometryWorker(),
         interface: UIInterface,
+        isTurn: Inputs.pointer.enabled,
         
         // uncertain about these. will likely refactor out in near future don't implement too much that relies on these
         projectile: undefined,
