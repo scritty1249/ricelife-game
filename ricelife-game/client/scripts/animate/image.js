@@ -6,7 +6,9 @@ export class LoadImage extends TrackableObject {
     #loadPromise;
     #ready = false;
     #size = new Vector();
+    #origin = new Vector();
     #scale = new Vector(1, 1);
+    rotation = 0; // radians
     constructor (src) {
         super();
         if (src?.isLoadImage) { // use as reference
@@ -37,10 +39,15 @@ export class LoadImage extends TrackableObject {
     }
 
     draw (cursor, dx, dy, normalize = false) {
+        cursor.save();
+        cursor.translate(dx, dy);
+        cursor.rotate(-this.rotation);        
         normalize
-            ? cursor.drawImage(this.img, 0, 0, this.#size.x, this.#size.y, dx, cursor.normalizeY(dy), this.size.x, this.size.y)
-            : cursor.drawImage(this.img, 0, 0, this.#size.x, this.#size.y, dx, dy, this.size.x, this.size.y);
-        }
+            ? cursor.drawImage(this.img, 0, 0, this.#size.x, this.#size.y, this.origin.x, cursor.normalizeY(this.origin.y), this.size.x, this.size.y)
+            : cursor.drawImage(this.img, 0, 0, this.#size.x, this.#size.y, this.origin.x, this.origin.y, this.size.x, this.size.y);
+        cursor.restore();
+    }
+        
     clone () { return new LoadImage(this) }
 
     get isLoadImage () { return true }
@@ -68,4 +75,5 @@ export class LoadImage extends TrackableObject {
         this.scale.apply(scale);
         return pixels;
     }
+    get origin () { return this.#origin }
 }

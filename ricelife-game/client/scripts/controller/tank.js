@@ -1,5 +1,5 @@
 import { Vector, Direction } from "../geometry/geometry.js";
-import { deg2rad, TrackableObject } from "../utils/utils.js";
+import { deg2rad, rad2deg, TrackableObject } from "../utils/utils.js";
 
 export class TankController extends TrackableObject {
     #source;
@@ -11,36 +11,37 @@ export class TankController extends TrackableObject {
             barrel: barrelImage
         };
         this.rotation = {
-            body: 0,
-            barrel: 0,
+            get body () { return rad2deg(bodyImage.rotation) },
+            get barrel () { return rad2deg(barrelImage.rotation) },
+            set body (degrees) {
+                bodyImage.rotation = deg2rad(degrees);
+                return degrees;
+            },
+            set barrel (degrees) {
+                barrelImage.rotation = deg2rad(degrees);
+                return degrees;
+            }
         };
         this.offset = {
             barrel: new Vector(0, bodyImage.height / 2),
             body: new Vector(0, bodyImage.height / 2)
         }
         this.position = position;
+
+        bodyImage.origin.apply(-bodyImage.width / 2, -bodyImage.height / 2);
+        barrelImage.origin.apply(-barrelImage.width / 2, 0);
     }
 
     #drawBarrel (cursor) { // barrel assumed to be pointed UP
         const { barrel } = this.#source;
-        cursor.save();
-        cursor.translate(this.position.add(this.offset.barrel));
-        cursor.rotate(-deg2rad(this.rotation.barrel % 360));
-
-        barrel.draw(cursor, -barrel.width / 2, 0);
-        // cursor.drawImage(barrel.img, -barrel.size.x / 2, 0, barrel.size.x, barrel.size.y); // pivot around bottom-center of image
-        cursor.restore();
+        const position = this.position.add(this.offset.barrel);
+        barrel.draw(cursor, position.x, position.y);
     }
 
     #drawBody (cursor) { // [!] repetitive?
         const { body } = this.#source;
-        cursor.save();
-        cursor.translate(this.position.add(this.offset.body));
-        cursor.rotate(-deg2rad(this.rotation.body));
-        body.draw(cursor, -body.width / 2, -body.height / 2);
-
-        // cursor.drawImage(body.img, -body.width / 2, -body.height / 2, body.size.x, body.size.y); // pivot around center-center of image
-        cursor.restore();
+        const position = this.position.add(this.offset.body);
+        body.draw(cursor, position.x, position.y);
     }
 
     draw (cursor) {
