@@ -20,6 +20,7 @@ async function fireProjectile (shot, state, config) { // [!} laziness
     if (state.landing) {
         const shotConfig = state.projectile.config;
         const blasts = state.projectile.blast.shapesAt(state.landing.point);
+        const blastDelays = state.projectile.blast.delay;
         state.redrawJob = state.geometry.cut("blastTerrain", state.terrain, ...blasts)
             .then((polygon) => state.blastTerrain.apply(polygon))
             .then((polygon) => config.display.drawTerrain("blastBackground", state.blastTerrain, config.terrain.fill, config.terrain.edge))
@@ -31,9 +32,10 @@ async function fireProjectile (shot, state, config) { // [!} laziness
                 ss.width = (shotConfig.blastRadius * 2) * 20;
                 for (let i = 0; i < blasts.length; i++) {
                     const blast = blasts[i];
+                    const delay = i < blastDelays.length ? blastDelays[i] : 0;
                     const ani = new Animation(blast.position, ss, state.blastAnimationFps);
                     ani.speed = 1.25;
-                    ani.delay = (i * 50) * ani.speed;
+                    ani.delay = delay * ani.speed;
                     aniList.push(ani);
                 }
                 aniList.pause();

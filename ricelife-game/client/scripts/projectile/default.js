@@ -120,6 +120,7 @@ export class BasicShot extends Projectile {
         const currentPosition = this.current.position;
         this.#shape = new Circle(currentPosition, config.radius, resolution);
         this.#blast = {
+            delay: [0], // milliseconds. delay.length != _shapes.length, delay should default to 0 for every [i of _shapes.length where i > delay.length]
             color: new Color("#FFD300"),
             _shapes: [new Circle(new Vector(), config.blastRadius, resolution)],
             get shapes () {
