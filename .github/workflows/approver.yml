@@ -29,4 +29,4 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh pr review ${{ github.event.pull_request.number }} --approve --body "Auto-approved by GitHub Actions workflow condition."
+          gh pr review ${{ github.event.pull_request.number }} --approve --body "Auto-approved by GitHub Actions workflow condition." --repo ${{ github.repository }}
