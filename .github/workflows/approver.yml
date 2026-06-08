@@ -16,7 +16,8 @@ jobs:
         uses: dorny/paths-filter@v3
         id: changes
         with:
-          ref: ${{ github.event.pull_request.base.ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          base: ${{ github.event.pull_request.base.ref }}
           filters: |
             doc_changes:
               - 'docs/**/*.md'
