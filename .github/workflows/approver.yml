@@ -2,7 +2,7 @@ name: Automatically Approve Labels
 
 on:
   pull_request_target:
-    types: [opened, synchronized, labeled]
+    types: [opened, synchronized, labeled, reopened]
 
 jobs:
   auto-approve:
