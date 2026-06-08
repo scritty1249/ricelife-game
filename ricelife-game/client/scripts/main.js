@@ -12,6 +12,7 @@ const DEBUG_ENABLED = () => window?.debugTools || (URL_PARAMS.get("debug") === "
 
 async function fireProjectile (shot, state, config) { // [!} laziness
     setTurn(state, false);
+    drawFrame(state, config); // draw one last frame so the game doesn't look like it just froze
     state.projectile = new shot(state.tanks[config.playerTank].barrelPos, state.aimer.rotation + (3 * (Math.PI / 2)), state.aimer.power);
     state.tracer = state.projectile.tracer;
     state.blastTerrain = state.terrain.clone();
