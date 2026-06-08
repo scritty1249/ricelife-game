@@ -29,9 +29,11 @@ async function fireProjectile (shot, state, config) { // [!} laziness
                 const aniList = new AnimationList();
                 const ss = state.blastAnimationFrames.clone();
                 ss.width = (shotConfig.blastRadius * 2) * 20;
-                for (const blast of blasts) {
+                for (let i = 0; i < blasts.length; i++) {
+                    const blast = blasts[i];
                     const ani = new Animation(blast.position, ss, state.blastAnimationFps);
                     ani.speed = 1.25;
+                    ani.delay = (i * 50) * ani.speed;
                     aniList.push(ani);
                 }
                 aniList.pause();
@@ -46,6 +48,7 @@ async function fireProjectile (shot, state, config) { // [!} laziness
         ss.rotation = state.aimer.rotation + Math.PI;
         const ani = new Animation(state.tanks[config.playerTank].barrelPos, ss, state.muzzleFlashAnimationFps);
         ani.speed = 2.3;
+        ani.play();
         state.animations.push(ani);
     }
 }
