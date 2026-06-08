@@ -45,6 +45,9 @@ function setTurn (state, toggle) {
 function handleInput (state, config) {
     const player = state.tanks[config.playerTank];
     const { keyboard, pointer } = state.input;
+    if (keyboard.keyActive("esc")) {
+
+    }
     if (state.isTurn) {
         // [!] most pointer logic handled by callbacks
         if (pointer.isActive) {
@@ -87,9 +90,6 @@ function handleInput (state, config) {
                     .slice(0, 0) // only parse inputs for specific layers with the menu buttons (currently not implemented)
                     .onhold(pointer.position);
         }
-    }
-    if (keyboard.keyActive("esc")) {
-
     }
 }
 
