@@ -4,7 +4,9 @@ canvas {
     max-width: max-content;
     height: 100dvh;
     margin: 0;
-    -webkit-user-select: none; /* Safari */
+    touch-action: none;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
     user-select: none;
 }
 body {
