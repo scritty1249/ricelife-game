@@ -41,7 +41,7 @@ async function fireProjectile (shot, state, config) { // [!} laziness
     {
         // play muzzle flash
         const ss = state.muzzleFlashAnimationFrames.clone();
-        ss.width = 300; //(state.tanks[config.playerTank].width) + (state.projectile.config.radius * 2 * state.aimer.power);
+        ss.width = 400 * (state.aimer.power**3);
         ss.rotation = state.aimer.rotation + Math.PI;
         const ani = new Animation(state.tanks[config.playerTank].barrelPos, ss, state.muzzleFlashAnimationFps);
         ani.speed = 2.3;
@@ -282,10 +282,9 @@ function main(...loaded) {
         );
     }
     {
-        const offset = testMuzzleFlash.frameSize.mul(testMuzzleFlash.scale);
-        testMuzzleFlash.offset.apply(
-            -offset.x / 2,
-            offset.y
+        testMuzzleFlash.origin.apply(
+            testMuzzleFlash.rawSize.x / 2,
+            testMuzzleFlash.rawSize.y
         );
     }
 
