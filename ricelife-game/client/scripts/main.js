@@ -79,6 +79,9 @@ function handleInput (state, config) {
         if (keyboard.keyActive("aim-")) {
             state.aimer.rotation--;
         }
+        if (keyboard.keyActive("esc")) {
+            
+        }
     } else {
         // only handle input related to menus (main menu, settings, exit button, etc.) - KT
         if (pointer.isActive) {
@@ -88,7 +91,7 @@ function handleInput (state, config) {
                     .onhold(pointer.position);
         }
         if (keyboard.keyActive("esc")) {
-            
+
         }
     }
 }
