@@ -18,14 +18,19 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.base.ref }}
           filters: |
-            doc_dir:
-              - "docs/**/*.md"
-              - "*.md"
+            doc_changes:
+              - 'docs/**/*.md'
+              - '*.md'
+            outside_changes:
+              - '!docs/**/*.md'
+              - '!*.md'
 
       - name: Native Auto Approve
         if: |
           contains(github.event.pull_request.labels.*.name, 'force') ||
-          (contains(github.event.pull_request.labels.*.name, 'documentation') && steps.changes.outputs.doc_dir == 'true')
+          (contains(github.event.pull_request.labels.*.name, 'documentation') && 
+            steps.changes.outputs.doc_changes == 'true' && 
+            steps.changes.outputs.outside_changes == 'false')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
