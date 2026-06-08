@@ -23,8 +23,8 @@ jobs:
               - "/*.md"
       - name: Auto Approve
         if: |
-          contains(github.event.pull_request.labels.*.name, "force") ||
-          (contains(github.event.pull_request.labels.*.name, "documentation") && steps.changes.outputs.doc_dir == "true")
+          contains(github.event.pull_request.labels.*.name, 'force') ||
+          (contains(github.event.pull_request.labels.*.name, 'documentation') && steps.changes.outputs.doc_dir == 'true')
         uses: hmarr/auto-approve-action@v4
         with:
           review-message: "Auto-approved via GitHub Actions condition."
