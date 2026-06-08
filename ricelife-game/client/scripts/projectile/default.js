@@ -133,7 +133,7 @@ export class BasicShot extends Projectile {
                     }
                     newBlast.shape.position.add(position, true);
                     return newBlast;
-                });
+                }).sort((a, b) => a.delay - b.delay);
             }
         };
     }
