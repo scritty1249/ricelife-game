@@ -19,12 +19,14 @@ jobs:
           ref: ${{ github.event.pull_request.base.ref }}
           filters: |
             doc_dir:
-              - "/docs/**/*.md"
-              - "/*.md"
-      - name: Auto Approve
+              - "docs/**/*.md"
+              - "*.md"
+
+      - name: Native Auto Approve
         if: |
           contains(github.event.pull_request.labels.*.name, 'force') ||
           (contains(github.event.pull_request.labels.*.name, 'documentation') && steps.changes.outputs.doc_dir == 'true')
-        uses: hmarr/auto-approve-action@v4
-        with:
-          review-message: "Auto-approved via GitHub Actions condition."
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr review ${{ github.event.pull_request.number }} --approve --body "Auto-approved by GitHub Actions workflow condition."
