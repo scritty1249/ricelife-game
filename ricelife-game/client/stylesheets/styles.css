@@ -6,7 +6,6 @@ canvas {
     margin: 0;
     -webkit-user-select: none; /* Safari */
     user-select: none;
-    pointer-events: none; /* pointer event listeners still fire */
 }
 body {
     margin: 0;
