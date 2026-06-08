@@ -356,27 +356,25 @@ function main(...loaded) {
         selectImage.height = 100;
         rightImage.height = 100;
         leftImage.height = 100;
-        const fireButton = new Menu.DispatchButton(fireImage, Display.canvas, "FIRE");
+        const fireButton = new Menu.Button(fireImage);
         fireButton.position.apply(75, 150);
-        const selectButton = new Menu.DispatchButton(selectImage, Display.canvas, "SELECT");
+        const selectButton = new Menu.Button(selectImage);
         selectButton.position.apply(300, 150);
-        const rightButton = new Menu.DispatchButton(rightImage, Display.canvas, "RMOVE");
+        const rightButton = new Menu.Button(rightImage);
         rightButton.position.apply(Display.size.x - rightImage.width - 75, 150);
-        const leftButton = new Menu.DispatchButton(leftImage, Display.canvas, "LMOVE");
+        const leftButton = new Menu.Button(leftImage);
         leftButton.position.apply(rightButton.position.x - leftImage.width - 25, 150);
 
         const btns = [fireButton, selectButton, rightButton, leftButton];
 
-        // setting up button listeners
-        Display.canvas.addEventListener("RMOVE_HOLD", () => Mover.move(config.moveIncr));
-        Display.canvas.addEventListener("LMOVE_HOLD", () => Mover.move(-config.moveIncr));
-        Display.canvas.addEventListener("RMOVE_CLICK", () => Mover.move(config.moveIncr));
-        Display.canvas.addEventListener("LMOVE_CLICK", () => Mover.move(-config.moveIncr));
-        Display.canvas.addEventListener("SELECT_CLICK", () => console.info("Select button clicked"));
-        Display.canvas.addEventListener("FIRE_CLICK", () => {
+        // setting up button callbacks
+        rightButton.onclick = rightButton.onhold = () => Mover.move(config.moveIncr);
+        leftButton.onclick = leftButton.onhold = () => Mover.move(-config.moveIncr);
+        selectButton.onclick = () => console.info("Select button clicked");
+        fireButton.onclick = () => {
             if (state.projectile === undefined)
                 fireProjectile(state.projectileTypes.shot1, state, config);
-        });
+        }
 
         UIInterface.insert() // draw layer zero after background but before terrain
             .push(Aimer);

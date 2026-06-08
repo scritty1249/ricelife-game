@@ -3,8 +3,13 @@ import { Vector } from "../geometry/geometry.js";
 
 export class Button extends TrackableObject {
     #img
-    #listeningTo;
-    #boundingBoxSize = new Vector(); // can be crapped
+    #boundingBoxSize = new Vector(); // can be cropped
+    #callback = {
+        // these need to be set as non-functions by default for isSupported checks to work
+        onclick: undefined,
+        onhold: undefined,
+        ondrag: undefined
+    };
     constructor (image) {
         super();
         this.#img = image;
@@ -22,35 +27,16 @@ export class Button extends TrackableObject {
             y >= this.position.y - this.boundingBoxSize.y
         );
     }
-    onclick (point) {
-        console.info(`[Button] ${this.id}: clicked`);
-    }
-    
+
     get isButton () { return true }
     get source () { return this.#img }
     get boundingBoxSize () { return this.#boundingBoxSize }
-    get listeningTo () { return this.#listeningTo }
     get width () { return this.#img.width }
     get height () { return this.#img.height }
-}
-
-export class DispatchButton extends Button {
-    #eventPrefix;
-    #events = {
-        click: undefined,
-        hold: undefined,
-    }
-    #dispatchTo;
-    constructor (image, dispatchTo, elementPrefix = null) {
-        super(image);
-        this.#eventPrefix = elementPrefix === null
-            ? this.id
-            : elementPrefix;
-        this.#dispatchTo = dispatchTo;
-        this.#events.click = new CustomEvent(`${this.#eventPrefix}_CLICK`);
-        this.#events.hold = new CustomEvent(`${this.#eventPrefix}_HOLD`);
-    }
-
-    onclick (point) { this.#dispatchTo.dispatchEvent(this.#events.click) }
-    onhold (point) { if (this.isOver(point)) this.#dispatchTo.dispatchEvent(this.#events.hold) }
+    get onclick () { return this.#callback.onclick }
+    set onclick(callbackFn) { return (this.#callback.onclick = callbackFn) }
+    get onhold () { return this.#callback.onhold }
+    set onhold(callbackFn) { return (this.#callback.onhold = callbackFn) }
+    get ondrag () { return this.#callback.ondrag }
+    set ondrag(callbackFn) { return (this.#callback.ondrag = callbackFn) }
 }
