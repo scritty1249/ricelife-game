@@ -79,9 +79,6 @@ function handleInput (state, config) {
         if (keyboard.keyActive("aim-")) {
             state.aimer.rotation--;
         }
-        if (keyboard.keyActive("esc")) {
-            
-        }
     } else {
         // only handle input related to menus (main menu, settings, exit button, etc.) - KT
         if (pointer.isActive) {
@@ -90,9 +87,9 @@ function handleInput (state, config) {
                     .slice(0, 0) // only parse inputs for specific layers with the menu buttons (currently not implemented)
                     .onhold(pointer.position);
         }
-        if (keyboard.keyActive("esc")) {
+    }
+    if (keyboard.keyActive("esc")) {
 
-        }
     }
 }
 
