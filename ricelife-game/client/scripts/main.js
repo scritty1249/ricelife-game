@@ -45,13 +45,13 @@ function setTurn (state, toggle) {
 function handleInput (state, config) {
     const player = state.tanks[config.playerTank];
     const { keyboard, pointer } = state.input;
-    let pointerActive = pointer.isActive; // pointer inputs take precedence over keyboard inputs. don't "fight" for conflicting controls
-    // [!] most pointer logic handled by callbacks
-    if (pointerActive) {
-        // pointer
-        if (pointer.isHolding)
-            state.interface.onhold(pointer.position);
-    } else {
+    if (state.isTurn) {
+        // [!] most pointer logic handled by callbacks
+        if (pointer.isActive) {
+            // pointer
+            if (pointer.isHolding)
+                state.interface.onhold(pointer.position);
+        }
         // keyboard
         if (state.projectile === undefined) {
             for (const [keyMapping, shotType] of Object.entries(state.projectileTypes))
@@ -78,6 +78,14 @@ function handleInput (state, config) {
         }
         if (keyboard.keyActive("aim-")) {
             state.aimer.rotation--;
+        }
+    } else {
+        // only handle input related to menus (main menu, settings, exit button, etc.) - KT
+        if (pointer.isActive) {
+            if (pointer.isHolding)
+                state.interface
+                    .slice(0, 0) // only parse inputs for specific layers with the menu buttons (currently not implemented)
+                    .onhold(pointer.position);
         }
     }
 }
@@ -197,8 +205,7 @@ function animate (state, config) {
         });
     }
     waitPromise.then(() => {
-        if (state.isTurn)
-            handleInput(state, config);
+        handleInput(state, config);
         requestAnimationFrame(() => animate(state, config));
     });
 }
