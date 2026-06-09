@@ -3,6 +3,7 @@ import { Circle, Vector, Direction, Color, Path } from "../geometry/geometry.js"
 
 export class Projectile extends TrackableObject {
     #tracer;
+    #time = 0;
     constructor (origin, velocity, acceleration, drag) {
         super();
         this.origin = origin.clone();
@@ -50,12 +51,14 @@ export class Projectile extends TrackableObject {
         this.#tracer.push(position.clone());
         position.add(velocity.mul(seconds), true);
         velocity.add(acceleration.add(v).mul(seconds), true);
+        this.#time += seconds;
         return position;
     }
 
     reset () {
         this.current.position.apply(this.origin);
         this.current.velocity.apply(this.velocity);
+        this.#time = 0;
     }
 
     // [!] broken
@@ -81,6 +84,7 @@ export class Projectile extends TrackableObject {
     }
 
     get tracer () { return this.#tracer }
+    get time () { return this.#time }
     *tracerAt () { }
     clone () { return new Projectile(this.origin, this.velocity, this.acceleration, this.drag) }
 }
