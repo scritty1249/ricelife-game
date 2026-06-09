@@ -12,13 +12,13 @@ export class TankController extends TrackableObject {
         };
         this.rotation = {
             get body () { return bodyImage.rotation },
-            get barrel () { return barrelImage.rotation },
+            get barrel () { return barrelImage.rotation - (Math.PI) },
             set body (radians) {
                 bodyImage.rotation = radians;
                 return radians;
             },
             set barrel (radians) {
-                barrelImage.rotation = radians;
+                barrelImage.rotation = radians + (Math.PI);
                 return radians;
             }
         };
@@ -29,7 +29,7 @@ export class TankController extends TrackableObject {
         this.position = position;
 
         bodyImage.origin.apply(bodyImage.rawSize.x / 2, bodyImage.rawSize.y / 2); // pivot around middle-center of image
-        barrelImage.origin.apply(barrelImage.rawSize.x / 2, 0); // pivot around bottom-center of image
+        barrelImage.origin.apply(barrelImage.rawSize.x / 2, barrelImage.rawSize.y); // pivot around bottom-center of image
     }
 
     #drawBarrel (cursor) { // barrel assumed to be pointed UP
