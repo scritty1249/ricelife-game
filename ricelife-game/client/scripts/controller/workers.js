@@ -6,6 +6,7 @@ export class WorkerManager extends TrackableObject {
     #transaction;
     #transactionProxy;
     #cacheProxy;
+    #lastTransaction = undefined; // ID of the last transaction called. Transaction is only guarenteed to exist from when this value is set.
     constructor (src) {
         super();
         this.#cache = {}; // storing persistant values from worker
@@ -51,12 +52,13 @@ export class WorkerManager extends TrackableObject {
             }
         });
     }
-
+    exists (id) { return (id in this.#transaction) }
     async post (type, payload, transfer = [], key = undefined, cache = []) { // cache here is a list of keys from the return payload to store at the specified key. If nothing is cached the transaction will be deleted immedately after resolving
         const transaction = Transaction();
         const id = transaction.id;
         this.#transaction[id] = transaction;
         this.#worker.postMessage({type, payload, id}, transfer);
+        this.#lastTransaction = id;
         return transaction.promise
             .then((data) => {
                 if (key && cache.length) {
@@ -71,6 +73,7 @@ export class WorkerManager extends TrackableObject {
     }
     get transaction () { return this.#transactionProxy }
     get cache () { return this.#cacheProxy }
+    get lastTransaction () { return this.#lastTransaction }
 }
 
 function Transaction () {
