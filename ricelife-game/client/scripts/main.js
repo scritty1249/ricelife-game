@@ -16,14 +16,20 @@ async function fireProjectile (shot, state, config) { // [!} laziness
     state.projectile = new shot(state.tanks[config.playerTank].barrelPos, state.aimer.rotation + (3 * (Math.PI / 2)), state.aimer.power);
     state.tracer = state.projectile.tracer;
     state.blastTerrain = state.terrain.clone();
-    state.landing = state.projectile.intersectAt(state.blastTerrain, 1/config.fps, config.fps * 2 * 60); // [!] for testing
+    state.landing = {
+        ready: false,
+        data: state.projectile.intersectAt(state.blastTerrain, 1/config.fps, config.fps * 2 * 60), // [!] for testing, this can be put into a worker
+    };
     if (state.landing) {
         const shotConfig = state.projectile.config;
-        const blasts = state.projectile.blast.blastsAt(state.landing.point);
+        const blasts = state.projectile.blast.blastsAt(state.landing.data.point);
         const blastDelays = state.projectile.blast.delay;
         state.redrawJob = state.geometry.cut("blastTerrain", state.terrain, ...blasts.map(({shape}) => shape))
-            .then((polygon) => state.blastTerrain.apply(polygon))
-            .then((polygon) => config.display.drawTerrain("blastBackground", state.blastTerrain, config.terrain.fill, config.terrain.edge))
+            .then((polygon) => {
+                const redrawJob = config.display.drawTerrain("blastBackground", polygon, config.terrain.fill, config.terrain.edge);
+                state.blastTerrain.apply(polygon);
+                return redrawJob;
+            })
             // [!] temporary
             .then(() => {
                 // return the blast animation
@@ -38,8 +44,11 @@ async function fireProjectile (shot, state, config) { // [!} laziness
                 }
                 aniList.pause();
                 state.animations.push(...aniList);
+                state.landing.ready = true; // flag that redraw job is done
                 return aniList;
             });
+    } else {
+        state.redrawJob = Promise.resolve();
     }
     {
         // play muzzle flash
@@ -48,8 +57,8 @@ async function fireProjectile (shot, state, config) { // [!} laziness
         ss.rotation = state.aimer.rotation + Math.PI;
         const ani = new Animation(state.tanks[config.playerTank].barrelPos, ss, state.muzzleFlashAnimationFps);
         ani.speed = 2.3;
-        ani.play();
         state.animations.push(ani);
+        state.redrawJob.then(() => ani.play());
     }
 }
 
@@ -151,11 +160,11 @@ function drawDebugOverlay (state, config) {
         for (const { shape } of state.projectile.blast.blastsAt(state.projectile.position))
             shape.path.draw(cursor);
         if (state.landing)
-            for (const { shape } of state.projectile.blast.blastsAt(state.landing.point))
+            for (const { shape } of state.projectile.blast.blastsAt(state.landing.data.point))
                 shape.path.draw(cursor);
         cursor.stroke(); 
         cursor.restore();
-        if (state.landing) drawCircle(cursor, state.landing.point, state.projectile.config.radius, "orange"); // draw landing point
+        if (state.landing) drawCircle(cursor, state.landing.data.point, state.projectile.config.radius, "orange"); // draw landing point
     } else state.landing = undefined;
 
     [...state.interface].forEach(({items}) => [...items].forEach((item) => {
@@ -179,12 +188,7 @@ function drawFrame (state, config) {
     for (const tank of Object.values(state.tanks))
         tank.draw(cursor);
     cursor.drawImage(config.display.worker.cache.background.image, 0, 0);
-    if (state.projectile) {
-        state.projectile.draw(cursor);
-        if (state.projectile.isProjectile) {
-            state.projectile.update(1 / config.fps);
-        } else state.projectile = false;
-    }
+    if (state.projectile && state.projectile.time > 0) state.projectile.draw(cursor);
     if (state.tracer) state.tracer.draw(cursor);
     state.animations.update(cursor);
     if (state.isTurn) state.interface.draw(cursor, 1);
@@ -197,36 +201,44 @@ function animate (state, config) {
     let waitPromise = config.display.worker.cache.background ? Promise.resolve() : state.redrawJob;
     
     if (elapsed < config.frameInterval) { // run any between-frame logic
+    } else if (state.landing && !state.landing.ready) { // wait for loading to finish before updating game loop
     } else { // redraw frame
         state.lastStamp = nowStamp - (elapsed % config.frameInterval);
         // check if background needs to be updated
         if (state.projectile) {
-            if (state.terrain.isIntersecting(state.projectile.shape)) {
-                state.projectile = false; // set to false to flag background cache for redraw
+            if (state.landing && state.projectile.time >= state.landing.data.at - Number.EPSILON) {
+                // projectile landed, redraw terrain
+                state.projectile = state.landing = undefined;
+                const animationJob = state.redrawJob.then((animation) => {
+                        animation.play()
+                            .onend.then(() =>
+                                setTurn(state, true));
+                        return;
+                    });
+                const redrawJob = state.redrawJob.then(() => {
+                        const redrawJob = config.display.copyCanvas("background", config.display.worker.cache.blastBackground.image);
+                        state.terrain.apply(state.blastTerrain);
+                        return redrawJob;
+                    });
+                const positionJob = state.redrawJob.then(() => {
+                        player.position.round(2);
+                        if (state.terrain.holes.some((hole) => hole.isIntersecting(player.position))) // shallow check
+                            state.move.set(player.position.x); // update positioning - account for "falling"
+                        return;
+                    });
+                waitPromise = waitPromise.then(() => Promise.all([animationJob, redrawJob, positionJob]));
+            } else if (state.projectile?.isProjectile) {
+                state.projectile.update(1 / config.fps);
             }
         }
-        if (state.projectile === false) {
-            state.projectile = undefined;
-            waitPromise = state.redrawJob
-                .then((animation) => (animation.play()
-                    .onend.then(() => setTurn(state, true)), null))
-                .then(() => config.display.copyCanvas("background", config.display.worker.cache.blastBackground.image))
-                .then(() => state.terrain.apply(state.blastTerrain))
-                .then(() => {
-                    player.position.round(2);
-                    if (state.terrain.holes.some((hole) => hole.isIntersecting(player.position))) // shallow check
-                        state.move.set(player.position.x); // update positioning - account for "falling"
-                });
-        }
-        waitPromise = waitPromise.then(() => {
-            // Draw the screen (main game loop - related polygons and images)
-            drawFrame(state, config);
-            if (DEBUG_ENABLED())
-                // [!] testing
-                drawDebugOverlay(state, config);
-        });
+        
     }
     waitPromise.then(() => {
+        // Draw the screen (main game loop - related polygons and images)
+        drawFrame(state, config);
+        if (DEBUG_ENABLED())
+            // [!] testing
+            drawDebugOverlay(state, config);
         handleInput(state, config);
         requestAnimationFrame(() => animate(state, config));
     });
@@ -348,6 +360,7 @@ function main(...loaded) {
             shot4: Projectiles.Digger
         },
         animations: Animations,
+
 
         tanks: {[Tank.id]: Tank},
         terrain: Terrain,
