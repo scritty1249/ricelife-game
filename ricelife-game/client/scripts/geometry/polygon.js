@@ -212,7 +212,7 @@ export class Polygon extends TrackableObject { // points should be ordered clock
     }
 
     Float64 (depth, buffer = true) {
-        const data = {};
+        const data = {depth};
         data.path = this.path.Float64();
         data.holes = depth > 0 ? this.holes.map((hole) => hole.Float64(depth-1, false)) : [];
         if (buffer) {
