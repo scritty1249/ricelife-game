@@ -16,13 +16,10 @@ async function fireProjectile (shot, state, config) { // [!} laziness
     state.projectile = new shot(state.tanks[config.playerTank].barrelPos, state.aimer.rotation + (3 * (Math.PI / 2)), state.aimer.power);
     state.tracer = state.projectile.tracer;
     state.blastTerrain = state.terrain.clone();
-    state.landing = {
-        ready: false,
-        data: state.projectile.intersectAt(state.blastTerrain, 1/config.fps, config.fps * 2 * 60), // [!] for testing, this can be put into a worker
-    };
+    state.landing = state.projectile.intersectAt(state.blastTerrain, 1/config.fps, config.fps * 2 * 60) // [!] for testing, this can be put into a worker
     if (state.landing) {
         const shotConfig = state.projectile.config;
-        const blasts = state.projectile.blast.blastsAt(state.landing.data.point);
+        const blasts = state.projectile.blast.blastsAt(state.landing.point);
         const blastDelays = state.projectile.blast.delay;
         state.redrawJob = state.geometry.cut("blastTerrain", state.terrain, ...blasts.map(({shape}) => shape))
             .then((polygon) => {
@@ -44,7 +41,6 @@ async function fireProjectile (shot, state, config) { // [!} laziness
                 }
                 aniList.pause();
                 state.animations.push(...aniList);
-                state.landing.ready = true; // flag that redraw job is done
                 return aniList;
             });
     } else {
@@ -160,12 +156,12 @@ function drawDebugOverlay (state, config) {
         for (const { shape } of state.projectile.blast.blastsAt(state.projectile.position))
             shape.path.draw(cursor);
         if (state.landing)
-            for (const { shape } of state.projectile.blast.blastsAt(state.landing.data.point))
+            for (const { shape } of state.projectile.blast.blastsAt(state.landing.point))
                 shape.path.draw(cursor);
         cursor.stroke(); 
         cursor.restore();
-        if (state.landing) drawCircle(cursor, state.landing.data.point, state.projectile.config.radius, "orange"); // draw landing point
-    } else state.landing = undefined;
+        if (state.landing) drawCircle(cursor, state.landing.point, state.projectile.config.radius, "orange"); // draw landing point
+    }
 
     [...state.interface].forEach(({items}) => [...items].forEach((item) => {
         if (item?.isButton)
@@ -198,15 +194,15 @@ function animate (state, config) {
     const nowStamp = performance.now();
     const elapsed = nowStamp - state.lastStamp;
     const player = state.tanks[config.playerTank];
-    let waitPromise = config.display.worker.cache.background ? Promise.resolve() : state.redrawJob;
+    let waitPromise = config.display.worker.cache.background && !state.redrawJob ? Promise.resolve() : state.redrawJob;
     
     if (elapsed < config.frameInterval) { // run any between-frame logic
-    } else if (state.landing && !state.landing.ready) { // wait for loading to finish before updating game loop
+    } else if (state.landing && (state.redrawJob?.isWorkerJob && !state.redrawJob.fulfilled)) { // wait for loading to finish before updating game loop
     } else { // redraw frame
         state.lastStamp = nowStamp - (elapsed % config.frameInterval);
         // check if background needs to be updated
         if (state.projectile) {
-            if (state.landing && state.projectile.time >= state.landing.data.at - Number.EPSILON) {
+            if (state.landing && state.projectile.time >= state.landing.at - Number.EPSILON) {
                 // projectile landed, redraw terrain
                 state.projectile = state.landing = undefined;
                 const animationJob = state.redrawJob.then((animation) => {
@@ -226,8 +222,10 @@ function animate (state, config) {
                             state.move.set(player.position.x); // update positioning - account for "falling"
                         return;
                     });
-                waitPromise = waitPromise.then(() => Promise.all([animationJob, redrawJob, positionJob]));
-            } else if (state.projectile?.isProjectile) {
+                waitPromise = waitPromise
+                    .then(() => Promise.all([animationJob, redrawJob, positionJob]))
+                    .then(() => state.redrawJob = undefined);
+            } else {
                 state.projectile.update(1 / config.fps);
             }
         }
@@ -245,17 +243,19 @@ function animate (state, config) {
 }
 
 async function load() {
-    const body = await new LoadImage("./assets/tank/body.png").onload;
-    const barrel = await new LoadImage("./assets/tank/barrel.png").onload;
-    const testExplosion = await new Spritesheet("./assets/blast/explosion_ss_512x512.png", 512, 512).onload;
-    const testMuzzleFlash = await new Spritesheet("./assets/blast/muzzleflash_ss_1626x1882.png", 1626, 1882).onload;
-    const buttons = await Promise.all([
+    const body = new LoadImage("./assets/tank/body.png").onload;
+    const barrel = new LoadImage("./assets/tank/barrel.png").onload;
+    const testExplosion = new Spritesheet("./assets/blast/explosion_ss_512x512.png", 512, 512).onload;
+    const testMuzzleFlash = new Spritesheet("./assets/blast/muzzleflash_ss_1626x1882.png", 1626, 1882).onload;
+    const buttons = Promise.all([
         new LoadImage("./assets/interface/buttons/fire.png").onload,
         new LoadImage("./assets/interface/buttons/select.png").onload,
         new LoadImage("./assets/interface/buttons/right.png").onload,
         new LoadImage("./assets/interface/buttons/left.png").onload
     ]);
-    main(body, barrel, testExplosion, testMuzzleFlash, buttons);
+    const Display = new AppCanvas(document.getElementById("app"), new Vector(1920, 1080));
+    const Geometry = new GeometryWorker();
+    main(Display, Geometry, await body, await barrel, await testExplosion, await testMuzzleFlash, await buttons);
 }
 
 const FPS = 60;
@@ -290,7 +290,7 @@ const POINTER_CALLBACKS = (aimCtrl) => ({
 });
 
 function main(...loaded) {
-    const [tankBodyImage, tankBarrelImage, testExplosion, testMuzzleFlash, buttons] = loaded;
+    const [Display, Geometry, tankBodyImage, tankBarrelImage, testExplosion, testMuzzleFlash, buttons] = loaded;
     tankBodyImage.width = 50;
     tankBarrelImage.scale.apply(tankBodyImage.scale);
     {
@@ -307,7 +307,6 @@ function main(...loaded) {
         );
     }
 
-    const Display = new AppCanvas(document.getElementById("app"), new Vector(1920, 1080));
     const Tank = new TankController(tankBodyImage, tankBarrelImage, new Vector());
     const Aimer = new AimController(Tank, Tank.width * 3);
     // [!] testing
@@ -340,7 +339,7 @@ function main(...loaded) {
         aimer: Aimer,
         move: Mover,
         polygons: {},
-        geometry: new GeometryWorker(),
+        geometry: Geometry,
         interface: UIInterface,
         isTurn: Inputs.pointer.enabled,
         
@@ -409,8 +408,15 @@ function main(...loaded) {
         window._GAME_STATE = state;
         window._GAME_CONFIG = config;
     }
-
-    animate(state, config);
+    if (document.readyState === "complete") {
+        animate(state, config);
+    } else {
+        window.addEventListener("load", () => animate(state, config));
+    }
 }
 
-window.onload = load;
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", load);
+} else {
+    load();
+}
