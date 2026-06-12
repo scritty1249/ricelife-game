@@ -14,48 +14,48 @@ const DEBUG_ENABLED = () => window?.debugTools || (URL_PARAMS.get("debug") === "
 async function fireProjectile (shot, state, config) { // [!} laziness
     setTurn(state, false);
     drawFrame(state, config); // draw one last frame so the game doesn't look like it just froze
-    state.projectile = new shot(state.tanks[config.playerTank].barrelPos, state.aimer.rotation + (3 * (Math.PI / 2)), state.aimer.power);
-    state.tracer = state.projectile.tracer;
-    state.landing = await state.threading.traceProjectile("blastTerrain", state.projectile, 1/config.fps, config.fps * 2 * 60);
-    if (state.landing) {
-        const shotConfig = state.projectile.config;
-        const blasts = state.projectile.blast.blastsAt(state.landing.point);
-        const blastDelays = state.projectile.blast.delay;
-        state.redrawJob = state.threading.cutPolygon(1, "blastTerrain", ...blasts.map(({shape}) => shape))
-            .then((polygon) => {
-                const redrawJob = state.threading.drawTerrain("blastBackground", "blastTerrain", config.terrain.fill, config.terrain.edge);
-                state.blastTerrain = polygon;
-                return redrawJob;
-            })
-            // [!] temporary
-            .then(() => {
-                // return the blast animation
-                const aniList = new AnimationList();
-                const ss = state.blastAnimationFrames.clone();
-                ss.width = (shotConfig.blastRadius * 2) * 20;
-                for (const { shape, delay } of blasts) {
-                    const ani = new Animation(shape.position, ss, state.blastAnimationFps);
-                    ani.speed = 1.25;
-                    ani.delay = delay * ani.speed;
-                    aniList.push(ani);
-                }
-                aniList.pause();
-                state.animations.push(...aniList);
-                return aniList;
-            });
-    } else {
-        state.redrawJob = Promise.resolve();
+    const projectile = new shot(state.tanks[config.playerTank].barrelPos, state.aimer.rotation + (3 * (Math.PI / 2)), state.aimer.power);
+    const muzzleFlash = generateMuzzleFlash(state, config);
+    const landing = await state.threading.traceProjectile("blastTerrain", projectile, 1/config.fps, config.fps * 2 * 60);
+    state.blastTerrain = undefined;
+    if (landing) {
+        const shotConfig = projectile.config;
+        const blasts = projectile.blast.blastsAt(landing.point);
+        const blastDelays = projectile.blast.delay;
+        const blastTerrain = await state.threading.cutPolygon(1, "blastTerrain", ...blasts.map(({shape}) => shape));
+        state.redrawJob = state.threading.drawTerrain("blastBackground", "blastTerrain", config.terrain.fill, config.terrain.edge);
+        state.animations.blast = new AnimationList();
+        const ss = state.blastAnimationFrames.clone();
+        ss.width = (shotConfig.blastRadius * 2) * 20;
+        for (const { shape, delay } of blasts) {
+            const ani = new Animation(shape.position, ss, state.blastAnimationFps);
+            ani.speed = 1.25;
+            ani.delay = delay * ani.speed;
+            state.animations.blast.push(ani);
+        }
+        state.animations.global.push(...state.animations.blast);
+        state.blastTerrain = await blastTerrain;
     }
-    {
-        // play muzzle flash
-        const ss = state.muzzleFlashAnimationFrames.clone();
-        ss.width = 400 * (state.aimer.power**3);
-        ss.rotation = state.aimer.rotation + Math.PI;
-        const ani = new Animation(state.tanks[config.playerTank].barrelPos, ss, state.muzzleFlashAnimationFps);
-        ani.speed = 2.3;
-        state.animations.push(ani);
-        state.redrawJob.then(() => ani.play());
-    }
+    console.log(true);
+    await state.redrawJob;
+    
+    state.landing = landing;
+    state.projectile = projectile;
+    state.tracer = projectile.tracer;
+    muzzleFlash.play();
+    muzzleFlash.pause();
+    muzzleFlash.play();
+    console.log(true);
+}
+
+function generateMuzzleFlash (state, config) { // [!] laziness
+    const ss = state.muzzleFlashAnimationFrames.clone();
+    ss.width = 400 * (state.aimer.power**3);
+    ss.rotation = state.aimer.rotation + Math.PI;
+    const ani = new Animation(state.tanks[config.playerTank].barrelPos, ss, state.muzzleFlashAnimationFps);
+    ani.speed = 2.3;
+    state.animations.global.push(ani);
+    return ani;
 }
 
 function setTurn (state, toggle) {
@@ -186,7 +186,7 @@ function drawFrame (state, config) {
     cursor.drawImage(state.threading.cache.background.canvas, 0, 0);
     if (state.projectile && state.projectile.time > 0) state.projectile.draw(cursor);
     if (state.tracer) state.tracer.draw(cursor);
-    state.animations.update(cursor);
+    state.animations.global.update(cursor);
     if (state.isTurn) state.interface.draw(cursor, 1);
 }
 
@@ -205,15 +205,15 @@ function animate (state, config) {
             if (state.landing && state.projectile.time >= state.landing.at - Number.EPSILON) {
                 // projectile landed, redraw terrain
                 state.projectile = state.landing = undefined;
-                const animationJob = state.redrawJob.then((animation) => {
-                        animation.play()
-                            .onend.then(() =>
-                                setTurn(state, true));
+                const animationJob = state.redrawJob.then(() => {
+                        state.animations.blast.play()
+                            .onend.then(() => setTurn(state, true));
+                        delete state.animations.blast;
                         return;
                     });
                 const canvasJob = state.redrawJob.then(() => {
                         const redrawJob = state.threading.copyCanvas("background", state.threading.cache.blastBackground.canvas.transferToImageBitmap());
-                        state.terrain.apply(state.blastTerrain);
+                        if (state.blastTerrain) state.terrain.apply(state.blastTerrain);
                         return redrawJob;
                     });
                 const positionJob = state.redrawJob.then(() => {
@@ -246,7 +246,7 @@ async function load() {
     const body = new LoadImage("./assets/tank/body.png").onload;
     const barrel = new LoadImage("./assets/tank/barrel.png").onload;
     const testExplosion = new Spritesheet("./assets/blast/explosion_ss_512x512.png", 512, 512).onload;
-    const testMuzzleFlash = new Spritesheet("./assets/blast/muzzleflash_ss_1626x1882.png", 1626, 1882).onload;
+    const testMuzzleFlash = new Spritesheet("./assets/blast/muzzleflash_ss_140x162.png", 140, 162).onload;
     const buttons = Promise.all([
         new LoadImage("./assets/interface/buttons/fire.png").onload,
         new LoadImage("./assets/interface/buttons/select.png").onload,
@@ -358,7 +358,7 @@ async function main(...loaded) {
             shot3: Projectiles.Flower,
             shot4: Projectiles.Digger
         },
-        animations: Animations,
+        animations: { global: Animations },
 
 
         tanks: {[Tank.id]: Tank},
