@@ -84,6 +84,16 @@ export class WorkerPool extends TrackableObject {
             if (entry.id === id) return entry;
         return undefined;
     }
+    async #dropCache (id, worker) {
+        return await this.#postJob(
+            "", 
+            { cache: id }, 
+            [], 
+            "DROPCACHE",
+            worker,
+            true
+        );
+    }
     async #initWorker (entry) {
         const { id, instance: worker } = entry;
         return await new Promise((resolve, reject) => {
@@ -173,31 +183,34 @@ export class WorkerPool extends TrackableObject {
             worker.cache.add(id);
         });
     }
-    async pushCache (type, payload, id = uuid()) {
+    async pushCache (type, payload, id = undefined) {
+        const defaultedId = (id === undefined);
+        const staleCacheWorker = defaultedId ? undefined : this.#cacheAt(id);
+        const cache = defaultedId ? uuid() : id;
         const worker = this.#getWorker();
-        return this.#postJob(
+        let concurrent = Promise.resolve();
+
+        if (staleCacheWorker && worker.id !== staleCacheWorker.id) {
+            // drop cache from old worker, push new cache onto available worker
+            staleCacheWorker.cache.delete(cache);
+            concurrent = this.#dropCache(cache, staleCacheWorker);
+        }
+        const result = this.#postJob(
             "", 
-            { cache: id, type, payload }, 
+            { cache, type, payload }, 
             [], 
             "PUSHCACHE",
             worker,
             true
-        ).then(() => {
-            worker.cache.add(id);
-        });
+        );
+        return new WorkerJob(result, concurrent)
+            .then(() => { worker.cache.add(cache) });
     }
     async dropCache (id) {
-        const worker = this.#getWorker();
-        return this.#postJob(
-            "", 
-            { cache: id }, 
-            [], 
-            "DROPCACHE",
-            worker,
-            true
-        ).then(() => {
-            worker.cache.delete(id);
-        });
+        const worker = this.#cacheAt(id);
+        if (!worker) return;
+        return await this.#dropCache(id, worker)
+            .then(() => { worker.cache.delete(id) });
     }
     async copyCache (cache, target, dest, transfer = true) {
         const worker = this.#workerAt(target);

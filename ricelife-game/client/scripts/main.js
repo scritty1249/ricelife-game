@@ -16,16 +16,15 @@ async function fireProjectile (shot, state, config) { // [!} laziness
     drawFrame(state, config); // draw one last frame so the game doesn't look like it just froze
     state.projectile = new shot(state.tanks[config.playerTank].barrelPos, state.aimer.rotation + (3 * (Math.PI / 2)), state.aimer.power);
     state.tracer = state.projectile.tracer;
-    state.blastTerrain = state.terrain.clone();
-    state.landing = state.projectile.intersectAt(state.blastTerrain, 1/config.fps, config.fps * 2 * 60) // [!] for testing, this can be put into a worker
+    state.landing = await state.threading.traceProjectile("blastTerrain", state.projectile, 1/config.fps, config.fps * 2 * 60);
     if (state.landing) {
         const shotConfig = state.projectile.config;
         const blasts = state.projectile.blast.blastsAt(state.landing.point);
         const blastDelays = state.projectile.blast.delay;
-        state.redrawJob = state.threading.cutPolygon(1, state.terrain, ...blasts.map(({shape}) => shape))
+        state.redrawJob = state.threading.cutPolygon(1, "blastTerrain", ...blasts.map(({shape}) => shape))
             .then((polygon) => {
                 const redrawJob = state.threading.drawTerrain("blastBackground", polygon, config.terrain.fill, config.terrain.edge);
-                state.blastTerrain.apply(polygon);
+                state.blastTerrain = polygon;
                 return redrawJob;
             })
             // [!] temporary
@@ -254,16 +253,10 @@ async function load() {
         new LoadImage("./assets/interface/buttons/right.png").onload,
         new LoadImage("./assets/interface/buttons/left.png").onload
     ]);
-    const Display = new AppCanvas(document.getElementById("app"), new Vector(1920, 1080));
     const WorkerManager = new WorkerPool(new URL("/ricelife-game/client/scripts/workers/web-worker.js", import.meta.url));
     await WorkerManager.initPromise
         .catch(() => console.error("[Main] Error: WorkerPool size is zero"));
-    const Workers = new WorkerController(WorkerManager);
-    await Promise.all([
-        Workers.createCache("blastBackground", "CANVAS", ...Display.size),
-        Workers.createCache("background", "CANVAS", ...Display.size)
-    ]);
-    main(Display, Workers, await body, await barrel, await testExplosion, await testMuzzleFlash, await buttons);
+    main(WorkerManager, await body, await barrel, await testExplosion, await testMuzzleFlash, await buttons);
 }
 
 const FPS = 60;
@@ -297,8 +290,8 @@ const POINTER_CALLBACKS = (aimCtrl) => ({
     onclick: (current) => { if (aimCtrl.isOver(current)) aimCtrl.update(current) }
 });
 
-function main(...loaded) {
-    const [Display, Workers, tankBodyImage, tankBarrelImage, testExplosion, testMuzzleFlash, buttons] = loaded;
+async function main(...loaded) {
+    const [WorkerManager, tankBodyImage, tankBarrelImage, testExplosion, testMuzzleFlash, buttons] = loaded;
     tankBodyImage.width = 50;
     tankBarrelImage.scale.apply(tankBodyImage.scale);
     {
@@ -314,17 +307,23 @@ function main(...loaded) {
             testMuzzleFlash.rawSize.y
         );
     }
+    const Workers = new WorkerController(WorkerManager);
+    const Display = new AppCanvas(document.getElementById("app"), new Vector(1920, 1080));
     const Tank = new TankController(tankBodyImage, tankBarrelImage, new Vector());
     const Aimer = new AimController(Tank, Tank.width * 3);
-    // [!] testing
+    const UIInterface = new Menu.Interface();
+    const Inputs = new InputListener(Display.canvas, CLICK_DURATION_MS, INPUT_MAP, UIInterface);
+    const Animations = new AnimationList();
     const Terrain = URL_PARAMS.get("map") == "flat"
         ? generateTerrain(new Path(new Vector(0, GROUND), new Vector(Display.size.x, GROUND)).smooth(GLOBAL_RESOLUTION), Display.size)
         : generateTerrain(generateWave(Display.size.x, GLOBAL_RESOLUTION, (v) => v.y += GROUND, .03, 40, 1.3, 15), Display.size);
     const Mover = new MovementController(Terrain, Tank, -(Tank.offset.body.y / 10));
-    const UIInterface = new Menu.Interface();
-    const Inputs = new InputListener(Display.canvas, CLICK_DURATION_MS, INPUT_MAP, UIInterface);
-    // [!] testing
-    const Animations = new AnimationList();
+
+    await Promise.all([
+        Workers.createCache("blastBackground", "CANVAS", ...Display.size),
+        Workers.createCache("background", "CANVAS", ...Display.size),
+        Workers.updateCache("blastTerrain", "POLY", Terrain.Float64(1))
+    ]);    
 
     const config = {
         fps: FPS,

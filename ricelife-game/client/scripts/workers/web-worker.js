@@ -63,7 +63,7 @@ const onworkermessage = (e) => {
         if (createCache(payload.cache, payload.type, payload.data)) {
             port.postMessage({command: "ACK", id});
         } else {
-            const err = new Error(`[WebWorker]  (${ID}) Error: Failed to create cache "${payload.cache}"`);
+            const err = new Error(`[WebWorker]  (${ID}): Failed to create cache "${payload.cache}"`);
             postFailure("", err);
             TRANSACTIONS[id]?.reject(err);
         }
@@ -133,7 +133,7 @@ self.onmessage = async (e) => {
         } else if (type === "CUTPOLY") {
             /* Payload expected:
              * {
-             *    callback: Boolean, (send it back)
+             *    callback: Boolean, (send it back, will leave a copy in worker memory)
              *    subject: Polygon64 | UUID,
              *    cuts: [ ...<Polygon64 | UUID> ],
              *    cache?: UUID, (cache result, otherwise mutate original)
@@ -259,7 +259,7 @@ async function processManagerCommand (command, id, payload) {
             */
             const { cache, type, args } = payload;
             if (initCache(cache, type, args)) postSuccess(id);
-            else null; // [!] TODO: post error message
+            else postFailure(id, new Error(`[WebWorker]  (${ID}): Failed to initalize ${type} cache "${cache}"`));
         } else if (command === "PUSHCACHE") {
            /* Payload expected:
             * {
@@ -270,7 +270,7 @@ async function processManagerCommand (command, id, payload) {
             */
             const { cache, type, payload: dataPayload } = payload;
             if (createCache(cache, type, dataPayload)) postSuccess(id);
-            else null; // [!] TODO: post error message
+            else postFailure(id, new Error(`[WebWorker]  (${ID}): Failed to push to ${type} cache "${cache}"`));
         } else if (command === "SENDCACHE") { // [!] Canvas caches are transfer-only.
            /* Payload expected:
             * {

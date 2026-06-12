@@ -23,18 +23,20 @@ export class WorkerController {
         );
         return await this.#pool.pullCache(cache, true);
     }
-    async cutPolygon (depth, subject, ...cuts) {
-        if (cuts.length === 0) return subject;
-        if (!subject.isPolygon || cuts.some((cut) => !cut.isPolygon)) throw new Error(`[${this.constructor.name}]: non-Polygon passed to Polygon-only operation`);
-        const payload = { callback: true, subject: subject.Float64(depth), cuts: []};
-        const transfer = payload.subject.buffers;
-        for (const cut of cuts) {
-            const data = cut.Float64(depth);
-            payload.cuts.push(data);
-            transfer.push(...data.buffers);
+    async cutPolygon (depth, subjectid, ...cuts) {
+        let data;
+        if (cuts.length === 0) {
+            data = await this.#pool.pullCache(subjectid, false);
+        } else {
+            const payload = { callback: true, subject: subjectid, cuts: []};
+            const transfer = [];
+            for (const cut of cuts) {
+                const data = cut.Float64(depth);
+                payload.cuts.push(data);
+                transfer.push(...data.buffers);
+            }
+            data = await this.#pool.post("CUTPOLY", payload, transfer, [subjectid]);
         }
-        // don't bother caching
-        const data = await this.#pool.post("CUTPOLY", payload, transfer);
         return Polygon.fromObject(data.polygon, depth);
     }
     async copyCanvas (cache, image) { // duplicates image data
@@ -53,7 +55,26 @@ export class WorkerController {
         );
         return await this.#pool.pullCache(cache, true);
     }
+    async traceProjectile (polygonid, projectile, increment, limit) {
+        const { origin, velocity, acceleration, drag, shape } = projectile;
+        const payload = {
+            origin, velocity, acceleration, drag, increment, limit,
+            target: polygonid
+        };
+        const transfer = [];
+        let type = "INTERSECTPROJ";
+        if (shape.isCircle) {
+            payload.radius = shape.radius;
+            payload.resolution = shape.resolution;
+            type = "INTERSECTCIRCLEPROJ";
+        } else {
+            payload.hitbox = shape.Float64(1);
+            transfer.push(...payload.hitbox.buffers);
+        }
+        return await this.#pool.post(type, payload, transfer, [polygonid]);
+    }
     async createCache (id, type, ...args) { return await this.#pool.initCache(type, args, id) }
+    async updateCache (id, type, payload) { return await this.#pool.pushCache(type, payload, id) }
     async destroyCache (id) { return await this.#pool.dropCache(id) }
 
     get cache() { return this.#pool.cache }
