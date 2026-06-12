@@ -248,7 +248,7 @@ async function load() {
         new LoadImage("./assets/interface/buttons/right.png").onload,
         new LoadImage("./assets/interface/buttons/left.png").onload
     ]);
-    const WorkerManager = new WorkerPool(new URL("/ricelife-game/client/scripts/workers/web-worker.js", import.meta.url));
+    const WorkerManager = new WorkerPool(new URL(`./workers/web-worker.js`, import.meta.url));
     await WorkerManager.initPromise
         .catch(() => console.error("[Main] Error: WorkerPool size is zero"));
     main(WorkerManager, await body, await barrel, await testExplosion, await testMuzzleFlash, await buttons);
