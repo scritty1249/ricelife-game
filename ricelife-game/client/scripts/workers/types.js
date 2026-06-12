@@ -53,4 +53,4 @@ export const CACHE_TYPES = {
         }
     },
 };
-
+Object.freeze(CACHE_TYPES);

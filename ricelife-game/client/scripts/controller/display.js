@@ -1,9 +1,6 @@
 import { Vector } from "../geometry/geometry.js";
-import { WorkerManager } from "./workers.js";
-import { uuid } from "../utils/utils.js";
 
 export class AppCanvas {
-    worker;
     #cursor;
     #size;
     constructor (canvas, size = new Vector(1920, 1080)) {
@@ -13,46 +10,7 @@ export class AppCanvas {
         this.#cursor = Canvas2DContextCursorFactory(this.canvas);
     }
 
-    async drawTerrain (key, terrain, fillColor, edgeColor, gradientWidth = 150, resolution = 1) {
-        const { path, holes, depth, buffers } = terrain.Float64(1);
-        return this.worker.post(
-            "DRAWTERRAIN", 
-            {
-                canvas: key,
-                polygon: { path, holes, depth },
-                edgeColor: edgeColor.toString(),
-                fillColor: fillColor.toString(),
-                gradientWidth: gradientWidth,
-                resolution: resolution
-            },
-            buffers,
-            [key]
-        ).then(() => this.worker.pullCache(key, true));
-    }
-
-    async copyCanvas (key, image) { // duplicates image data
-        const transfer = image instanceof ImageBitmap ? [image] : [];
-        return this.worker.post(
-            "DRAWIMG",
-            {
-                subject: image,
-                target: key,
-                x: 0,
-                y: 0,
-                callback: false
-            },
-            transfer, 
-            [key]
-        ).then(() => this.worker.pullCache(key, true));
-    }
-
-    async createCache (key) { 
-        return this.worker.initCache("CANVAS", [this.canvas.width, this.canvas.height], key); 
-    }
-
-    async destroyCache (key) { 
-        return this.worker.dropCache(key); 
-    }
+    
     get cursor () { return this.#cursor }
     get size () { return this.#size }
 }

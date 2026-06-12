@@ -1,6 +1,8 @@
 import { TrackableObject, uuid } from "../utils/utils.js";
 import { CACHE_TYPES } from "./types.js";
 
+const cacheTypes = Object.keys(CACHE_TYPES);
+Object.freeze(cacheTypes);
 export class WorkerPool extends TrackableObject {
     #cache = {};  // storing persistant values from workers
     #transaction = {}; // partially automatic garbage collection on resolved transactions
@@ -10,6 +12,7 @@ export class WorkerPool extends TrackableObject {
     #cacheProxy;
     #src;
     #initPromise = Promise.resolve();
+    #CACHE_TYPES = cacheTypes;
     constructor (src, defaultPoolSize = 4) {
         super();
         this.#src = new URL(src);
@@ -63,7 +66,7 @@ export class WorkerPool extends TrackableObject {
         const w = worker || this.#getWorker();
         w.instance.postMessage({type, payload, id, command}, transfer);
         w.jobs.add(id);
-        console.debug(`[${this.constructor.name}]: Transaction ${id} posted to Worker ${w.id}\n`, command ? {command, payload} : {type, payload});
+        console.debug(`[${this.constructor.name}]: Transaction ${id} posted to Worker ${w.id}\n\t${command ? command : type}: `,  payload);
         return dispose
         // always return a Job, not Transaction
             ? transaction.finally(() => {
@@ -148,7 +151,8 @@ export class WorkerPool extends TrackableObject {
         }
         await Promise.all(transfers)
             .catch(() => { throw new Error(`[${this.constructor.name}]: Failed to transfer cache(s) specified for worker job`)});
-        return this.#postJob(type, payload, transfer, "", worker); // don't dispose of transaction
+        return this.#postJob(type, payload, transfer, "", worker) // don't dispose of transaction
+            .then(({payload}) => payload);
     }
     terminate () {
         for (const { instance } of this.#workers) instance.terminate();
@@ -156,6 +160,7 @@ export class WorkerPool extends TrackableObject {
         this.#queue.splice(0, this.#queue.length);
     }
     async initCache (type, args = [], id = uuid()) {
+        if (!(type in CACHE_TYPES)) throw new Error(`[${this.constructor.name}]: ${type} is not a valid cache type`);
         const worker = this.#getWorker();
         return this.#postJob(
             "", 
@@ -237,6 +242,7 @@ export class WorkerPool extends TrackableObject {
     get idleCount () { return this.#queue.length }
     get transaction () { return this.#transactionProxy }
     get cache () { return this.#cacheProxy }
+    get CACHE_TYPES () { return this.#CACHE_TYPES }
     get initPromise () { return this.#initPromise }
 
     static #workerMessageHandler (entry, event) {

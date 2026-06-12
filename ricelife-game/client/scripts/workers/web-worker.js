@@ -58,10 +58,9 @@ function createCache (id, type, payload, reference = false) { // create from pay
 const onworkermessage = (e) => {
     const { command, id, payload } = e.data;
     const port = e.target;
-    console.debug(`[WebWorker] (${ID}): Transaction ${id} receieved from peer\n`, {command, payload});
+    console.debug(`[WebWorker] (${ID}): Transaction ${id} receieved from peer\n\t${command}: `,  payload);
     if (command === "CACHE") {
         if (createCache(payload.cache, payload.type, payload.data)) {
-            console.info(`[WebWorker] (${ID}) Info: Received ${payload.type} cache transfer "${payload.cache}"`);
             port.postMessage({command: "ACK", id});
         } else {
             const err = new Error(`[WebWorker]  (${ID}) Error: Failed to create cache "${payload.cache}"`);
@@ -83,7 +82,7 @@ self.onmessage = async (e) => {
         payload
     } = e.data;
     try {
-        console.debug(`[WebWorker] (${ID}): Transaction ${id} receieved from parent\n`,  command ? {command, payload} : {type, payload});
+        console.debug(`[WebWorker] (${ID}): Transaction ${id} receieved from parent\n\t${command ? command : type}: `,  payload);
         if (command) {
             processManagerCommand(command, id, payload);
         } else if (type === "INTERSECTPROJ") {
