@@ -379,14 +379,17 @@ async function main(...loaded) {
         leftButton.position.apply(rightButton.position.x - leftImage.width - 25, 150);
 
         const btns = [fireButton, selectButton, rightButton, leftButton];
-
+        let shotIdx = 0;
+        const shotMax = 4;
         // setting up button callbacks
         rightButton.onclick = rightButton.onhold = () => Mover.move(config.moveIncr);
         leftButton.onclick = leftButton.onhold = () => Mover.move(-config.moveIncr);
-        selectButton.onclick = () => console.info("Select button clicked");
+        selectButton.onclick = () => {
+            shotIdx = (shotIdx+1)%shotMax;
+        };
         fireButton.onclick = () => {
             if (state.projectile === undefined)
-                fireProjectile(state.projectileTypes.shot1, state, config);
+                fireProjectile(state.projectileTypes[`shot${shotIdx+1}`], state, config);
         }
 
         UIInterface.insert() // draw layer zero after background but before terrain
