@@ -271,7 +271,7 @@ export class Polygon extends TrackableObject { // points should be ordered clock
         poly.holes.apply(...this.holes.map(hole => hole.clone(deep)));
         return poly;
     }
-    static fromObject (data, depth) {        
+    static fromObject (data, depth) {
         const polygon = new Polygon(Path.fromArray(data.path));
         if (depth)
             for (const hole of data.holes)
