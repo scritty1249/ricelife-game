@@ -84,6 +84,21 @@ export class WorkerPool extends TrackableObject {
             if (entry.id === id) return entry;
         return undefined;
     }
+    #isWorkerFree (worker) {
+        for (const { id } of this.#queue)
+            if (id === worker.id) return true;
+        return false;
+    }
+    #getPrioritizedWorker (cachesUsed = []) {
+        for (let i = 0; i < this.#queue.length; i++) {
+            const worker = this.#queue[i];
+            if (cachesUsed.some((cache) => worker.cache.has(cache))) {
+                this.#queue.splice(i, 1);
+                return worker;
+            }
+        }            
+        return this.#getWorker();
+    }
     async #dropCache (id, worker) {
         return await this.#postJob(
             "", 
@@ -148,7 +163,8 @@ export class WorkerPool extends TrackableObject {
         return this.#initWorker(entry);
     }
     async post (type, payload, transfer = [], cachesUsed = []) {
-        const worker = this.#getWorker();
+        const worker = this.#getPrioritizedWorker(cachesUsed);
+        const ownedCaches = worker.cache.intersection(new Set(cachesUsed)).size;
         const transfers = [];
         for (const peer of this.#workers) {
             if (peer.id === worker.id) continue;
@@ -156,7 +172,7 @@ export class WorkerPool extends TrackableObject {
                 if (peer.cache.has(cache))
                     transfers.push(this.copyCache(cache, peer.id, worker.id, true));
         }
-        if (transfers.length !== cachesUsed.length) {
+        if (transfers.length !== cachesUsed.length - ownedCaches) {
             throw new Error(`[${this.constructor.name}]: Failed to gather cache(s) specified for worker job`);
         }
         await Promise.all(transfers)

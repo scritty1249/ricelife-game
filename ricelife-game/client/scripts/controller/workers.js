@@ -6,20 +6,19 @@ export class WorkerController {
         this.#pool = workerPool;
     }
 
-    async drawTerrain (cache, terrain, fillColor, edgeColor, gradientWidth = 150, resolution = 1) {
-        const { path, holes, depth, buffers } = terrain.Float64(1);
+    async drawTerrain (cache, polygonid, fillColor, edgeColor, gradientWidth = 150, resolution = 1) {
         await this.#pool.post(
             "DRAWTERRAIN", 
             {
                 canvas: cache,
-                polygon: { path, holes, depth },
+                polygon: polygonid,
                 edgeColor: edgeColor.toString(),
                 fillColor: fillColor.toString(),
                 gradientWidth: gradientWidth,
                 resolution: resolution
             },
-            buffers,
-            [cache]
+            [],
+            [cache, polygonid]
         );
         return await this.#pool.pullCache(cache, true);
     }

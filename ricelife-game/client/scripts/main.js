@@ -23,7 +23,7 @@ async function fireProjectile (shot, state, config) { // [!} laziness
         const blastDelays = state.projectile.blast.delay;
         state.redrawJob = state.threading.cutPolygon(1, "blastTerrain", ...blasts.map(({shape}) => shape))
             .then((polygon) => {
-                const redrawJob = state.threading.drawTerrain("blastBackground", polygon, config.terrain.fill, config.terrain.edge);
+                const redrawJob = state.threading.drawTerrain("blastBackground", "blastTerrain", config.terrain.fill, config.terrain.edge);
                 state.blastTerrain = polygon;
                 return redrawJob;
             })
@@ -285,10 +285,6 @@ const INPUT_MAP = {
     Digit9: "shot9",
     Digit0: "shot10"
 };
-const POINTER_CALLBACKS = (aimCtrl) => ({
-    ondrag: (current, origin) => { if (aimCtrl.isOver(origin)) aimCtrl.update(current) },
-    onclick: (current) => { if (aimCtrl.isOver(current)) aimCtrl.update(current) }
-});
 
 async function main(...loaded) {
     const [WorkerManager, tankBodyImage, tankBarrelImage, testExplosion, testMuzzleFlash, buttons] = loaded;
@@ -368,7 +364,7 @@ async function main(...loaded) {
         tanks: {[Tank.id]: Tank},
         terrain: Terrain,
         lastStamp: performance.now(),
-        redrawJob: Workers.drawTerrain("background", Terrain, config.terrain.fill, config.terrain.edge)
+        redrawJob: Workers.drawTerrain("background", "blastTerrain", config.terrain.fill, config.terrain.edge)
     };
 
     {
