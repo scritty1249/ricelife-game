@@ -36,16 +36,11 @@ async function fireProjectile (shot, state, config) { // [!} laziness
         state.animations.global.push(...state.animations.blast);
         state.blastTerrain = await blastTerrain;
     }
-    console.log(true);
     await state.redrawJob;
-    
     state.landing = landing;
     state.projectile = projectile;
     state.tracer = projectile.tracer;
     muzzleFlash.play();
-    muzzleFlash.pause();
-    muzzleFlash.play();
-    console.log(true);
 }
 
 function generateMuzzleFlash (state, config) { // [!] laziness
