@@ -136,7 +136,7 @@ self.onmessage = async (e) => {
              *    callback: Boolean, (send it back, will leave a copy in worker memory)
              *    subject: Polygon64 | UUID,
              *    cuts: [ ...<Polygon64 | UUID> ],
-             *    cache?: UUID, (cache result, otherwise mutate original)
+             *    cache: UUID, (cache result, can be used to mutate original)
              * }
              */
             const { subject, cuts, callback, cache } = payload;
@@ -145,7 +145,7 @@ self.onmessage = async (e) => {
                 ? CACHE[subject]?.data?.depth
                 : subject.depth;
             const polygon = isUuid
-                ? cache
+                ? cache !== subject
                     ? CACHE[subject]?.data?.poly?.clone(true)
                     : CACHE[subject]?.data?.poly
                 : Polygon.fromObject(subject, depth);

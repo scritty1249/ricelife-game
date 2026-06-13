@@ -22,12 +22,12 @@ export class WorkerController {
         );
         return await this.#pool.pullCache(cache, true);
     }
-    async cutPolygon (depth, subjectid, ...cuts) {
+    async cutPolygon (depth, subjectid, destid, ...cuts) {
         let data;
         if (cuts.length === 0) {
             data = await this.#pool.pullCache(subjectid, false);
         } else {
-            const payload = { callback: true, subject: subjectid, cuts: []};
+            const payload = { callback: true, subject: subjectid, cache: destid, cuts: []};
             const transfer = [];
             for (const cut of cuts) {
                 const data = cut.Float64(depth);

@@ -22,7 +22,7 @@ async function fireProjectile (shot, state, config) { // [!} laziness
         const shotConfig = projectile.config;
         const blasts = projectile.blast.blastsAt(landing.point);
         const blastDelays = projectile.blast.delay;
-        const blastTerrain = await state.threading.cutPolygon(1, "blastTerrain", ...blasts.map(({shape}) => shape));
+        const blastTerrain = await state.threading.cutPolygon(1, "blastTerrain", "blastTerrain", ...blasts.map(({shape}) => shape));
         state.redrawJob = state.threading.drawTerrain("blastBackground", "blastTerrain", config.terrain.fill, config.terrain.edge);
         state.animations.blast = new AnimationList();
         const ss = state.blastAnimationFrames.clone();
