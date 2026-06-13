@@ -63,7 +63,6 @@ export class WorkerPool extends TrackableObject {
         const transaction = new WorkerTransaction();
         const { id } = transaction;
         this.#transaction[id] = transaction;
-        const w = worker || this.#getWorker();
         w.instance.postMessage({type, payload, id, command}, transfer);
         w.jobs.add(id);
         console.debug(`[${this.constructor.name}]: Transaction ${id} posted to Worker ${w.id}\n\t${command ? command : type}: `,  payload);
@@ -161,6 +160,9 @@ export class WorkerPool extends TrackableObject {
             cache: new Set() // keep a record of what cache ids this worker owns, pool manager needs to make sure this mirrors worker state while avoiding polling/querying
         };
         return this.#initWorker(entry);
+    }
+    getTransactionWorker (transactionid) {
+        return this.#transaction[transactionid]?.worker;
     }
     async post (type, payload, transfer = [], cachesUsed = []) {
         const worker = this.#getPrioritizedWorker(cachesUsed);
@@ -300,10 +302,12 @@ class WorkerTransaction extends TrackableObject {
     #promise;
     #resolve;
     #reject;
+    #workerid;
     #fulfilled = false;
-    constructor () {
+    constructor (workerid) {
         super();
         const { promise, resolve, reject } = Promise.withResolvers();
+        this.#workerid = workerid;
         this.#promise = promise;
         this.#resolve = (value) => {
             this.#fulfilled = true;
@@ -327,6 +331,7 @@ class WorkerTransaction extends TrackableObject {
     get fulfilled () { return this.#fulfilled }
     get resolve () { return this.#resolve }
     get reject () { return this.#reject }
+    get worker () { return this.#workerid }
     get id () { return super.id }
 }
 
