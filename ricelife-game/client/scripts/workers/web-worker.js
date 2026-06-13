@@ -278,12 +278,12 @@ async function processManagerCommand (command, id, payload) {
             *    cache: UUID,
             *    transfer: Boolean,
             *    worker?: UUID
-            *    reference?: Boolean (false) when trasnferring payload, leave a key with blank data of type in this worker's cache for future use
+            *    preserveKey?: Boolean (false) when trasnferring payload, leave a key with blank data of type in this worker's cache for future use
             * }
             */
-            const { worker, cache, manager, transfer, reference = false } = payload;
+            const { worker, cache, manager, transfer, preserveKey = false } = payload;
             const { type, data } = CACHE[cache];
-            const { payload: dataPayload, buffers, reference: ref } = CACHE_TYPES[type].decode(data, transfer && reference);
+            const { payload: dataPayload, buffers, reference } = CACHE_TYPES[type].decode(data, transfer && preserveKey);
             const isCavnas = type === "CANVAS";
             const buf = (transfer || isCavnas ? buffers : []); // [!] canvases cannot be cloned once a context is bound to them. Receiving worker will copy Canvas content onto a new instance and toss it
             if (manager) {
@@ -299,7 +299,7 @@ async function processManagerCommand (command, id, payload) {
                 delete TRANSACTIONS[tid];
             }
             if (transfer)
-                if (reference) createCache(cache, type, ref, true);
+                if (preserveKey) createCache(cache, type, reference, true);
                 else delete CACHE[cache];
             if (!manager) postSuccess(id);
         } else if (command === "DROPCACHE") {

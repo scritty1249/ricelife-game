@@ -245,18 +245,18 @@ export class WorkerPool extends TrackableObject {
             receiver.cache.add(cache);
         });
     }
-    async pullCache (cache, transfer = true, transferReference = false) {
+    async pullCache (cache, transfer = true, preserveKey = true) {
         const worker = this.#cacheAt(cache);
         if (worker === undefined) return null; // signal something went wrong
         const { type, payload } = await this.#postJob(
             "", 
-            { manager: true, reference: !transferReference, transfer, cache }, 
+            { manager: true, reference: preserveKey, transfer, cache }, 
             [],
             "SENDCACHE",
             worker,
             true
         );
-        if (transfer && transferReference) worker.cache.delete(cache);
+        if (transfer && !preserveKey) worker.cache.delete(cache);
         if (type in CACHE_TYPES) {
             this.cache[cache] = CACHE_TYPES[type].encode(payload);
             return this.cache[cache];
