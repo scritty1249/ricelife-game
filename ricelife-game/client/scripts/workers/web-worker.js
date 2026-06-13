@@ -145,9 +145,9 @@ self.onmessage = async (e) => {
                 ? CACHE[subject]?.data?.depth
                 : subject.depth;
             const polygon = isUuid
-                ? cache !== subject
-                    ? CACHE[subject]?.data?.poly?.clone(true)
-                    : CACHE[subject]?.data?.poly
+                ? (cache === subject)
+                    ? CACHE[subject]?.data?.poly
+                    : CACHE[subject]?.data?.poly?.clone(true)
                 : Polygon.fromObject(subject, depth);
             for (const cut of cuts) {
                 polygon.cut(
@@ -157,7 +157,7 @@ self.onmessage = async (e) => {
                     true
                 );
             }
-            if (cache) createCache(cache, "POLY", polygon);
+            if (subject !== cache) createCache(cache, "POLY", polygon);
             const result = {};
             let bufs = [];
             if (callback) {
@@ -191,7 +191,7 @@ self.onmessage = async (e) => {
              * {
              *    callback: Boolean,
              *    subject: Canvas | Bitmap | UUID,
-             *    target: UUID,
+             *    cache: UUID,
              *    x: Number,
              *    y: Number,
              *    width?: Number,
@@ -199,20 +199,21 @@ self.onmessage = async (e) => {
              *    duplicate?: Boolean (false) (keep a copy of the image cached when transferring the result back)
              * }
              */
-            const { subject, target, x, y, width, height, duplicate, callback = false } = payload;
+            const { subject, cache, x, y, width, height, duplicate, callback = false } = payload;
             const from = typeof subject === "string"
                 ? CACHE[subject]?.data?.canvas
                 : subject;
-            const { canvas, cursor } = CACHE[target]?.data;
+            const { canvas, cursor } = CACHE[cache]?.data;
             if (width === undefined || height === undefined) cursor.drawImage(from, x, y);
             else cursor.drawImage(from, x, y, width, height);
+            subject.close?.();
             if (callback) {
                 let image;
                 if (duplicate) {
                     image = await createImageBitmap(canvas);
                 } else {
                     image = canvas.transferToImageBitmap();
-                    delete CACHE[target];
+                    delete CACHE[cache];
                 }
                 postResponse(id, {image}, [image]);
             } else postSuccess(id);

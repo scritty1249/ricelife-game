@@ -15,11 +15,9 @@ export const CACHE_TYPES = {
                 payload: { path, holes, depth },
             };
         },
-        encode: (payload) => {
-            return {
-                poly: Polygon.fromObject(payload, payload.depth),
-                depth: payload.depth
-            };
+        encode: (payload, peer = true) => {
+            const poly = Polygon.fromObject(payload, payload.depth);
+            return peer ? { poly, depth: payload.depth } : poly;
         },
         encodeReference: (reference) => {
             return {
@@ -39,12 +37,16 @@ export const CACHE_TYPES = {
             const img = canvas.transferToImageBitmap();
             return {reference, payload: img, buffers: [img]};
         },
-        encode: (payload) => {
-            const canvas = new OffscreenCanvas(payload?.width, payload?.height); // [!] inefficient but Contexts are non-transferrable and permanently linked to each Canvas
-            const cursor = Canvas2DContextCursorFactory(canvas);
-            cursor.drawImage(payload, 0, 0);
-            payload?.close?.();
-            return { canvas, cursor };
+        encode: (payload, peer = true) => {
+            if (peer) {
+                const canvas = new OffscreenCanvas(payload?.width, payload?.height); // [!] inefficient but Contexts are non-transferrable and permanently linked to each Canvas
+                const cursor = Canvas2DContextCursorFactory(canvas);
+                cursor.drawImage(payload, 0, 0);
+                payload?.close?.();
+                return { canvas, cursor };
+            } else {
+                return payload;
+            }
         },
         encodeReference: (reference) => {
             const canvas = new OffscreenCanvas(reference.width, reference.height);

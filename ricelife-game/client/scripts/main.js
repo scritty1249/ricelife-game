@@ -23,7 +23,8 @@ async function fireProjectile (shot, state, config) { // [!} laziness
         const blasts = projectile.blast.blastsAt(landing.point);
         const blastDelays = projectile.blast.delay;
         const blastTerrain = await state.threading.cutPolygon(1, "blastTerrain", "blastTerrain", ...blasts.map(({shape}) => shape));
-        state.redrawJob = state.threading.drawTerrain("blastBackground", "blastTerrain", config.terrain.fill, config.terrain.edge);
+        state.redrawJob = state.threading.drawTerrain("blastBackground", "blastTerrain", config.terrain.fill, config.terrain.edge)
+            .then(() => state.threading.updateCache("blastBackground", true));
         state.animations.blast = new AnimationList();
         const ss = state.blastAnimationFrames.clone();
         ss.width = (shotConfig.blastRadius * 2) * 20;
@@ -178,7 +179,7 @@ function drawFrame (state, config) {
     if (state.isTurn) state.interface.draw(cursor, 0, 1);
     for (const tank of Object.values(state.tanks))
         tank.draw(cursor);
-    cursor.drawImage(state.threading.cache.background.canvas, 0, 0);
+    cursor.drawImage(state.threading.cache.background, 0, 0);
     if (state.projectile && state.projectile.time > 0) state.projectile.draw(cursor);
     if (state.tracer) state.tracer.draw(cursor);
     state.animations.global.update(cursor);
@@ -207,7 +208,8 @@ function animate (state, config) {
                         return;
                     });
                 const canvasJob = state.redrawJob.then(() => {
-                        const redrawJob = state.threading.copyCanvas("background", state.threading.cache.blastBackground.canvas.transferToImageBitmap());
+                        const redrawJob = state.threading.copyCanvas("background", state.threading.cache.blastBackground)
+                            .then(() => state.threading.updateCache("background"));
                         if (state.blastTerrain) state.terrain.apply(state.blastTerrain);
                         return redrawJob;
                     });
@@ -313,7 +315,7 @@ async function main(...loaded) {
     await Promise.all([
         Workers.createCache("blastBackground", "CANVAS", ...Display.size),
         Workers.createCache("background", "CANVAS", ...Display.size),
-        Workers.updateCache("blastTerrain", "POLY", Terrain.Float64(1))
+        Workers.insertCache("blastTerrain", "POLY", Terrain.Float64(1))
     ]);    
 
     const config = {
@@ -360,6 +362,7 @@ async function main(...loaded) {
         terrain: Terrain,
         lastStamp: performance.now(),
         redrawJob: Workers.drawTerrain("background", "blastTerrain", config.terrain.fill, config.terrain.edge)
+            .then(() => Workers.updateCache("background"))
     };
 
     {
