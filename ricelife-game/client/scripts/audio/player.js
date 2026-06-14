@@ -195,6 +195,7 @@ class AudioLayer extends TrackableObject {
     }
 
     play () { for (const item of this.#items) item.play() }
+    pause () { for (const item of this.#items) item.pause() }
     stop () { for (const item of this.#items) item.stop() }
     add (audio) { // can accept AudioInstance or AudioLayer
         audio.connect(this.#input);
