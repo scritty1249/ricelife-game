@@ -130,7 +130,6 @@ export class WorkerController {
         const frames = await Promise.all(frameJobs);
         const finalKey = await polygonKeys.at(-1);
         await this.#pool.copyCache(finalKey, polygonid, true, false);
-        console.log(polygon.holes.length);
         return { polygon, frames };
     }
     async createCache (id, type, ...args) { return await this.#pool.initCache(type, args, id) }
