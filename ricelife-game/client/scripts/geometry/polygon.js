@@ -4,7 +4,7 @@ import { TrackableObject } from "../utils/utils.js";
 
 export class Polygon extends TrackableObject { // points should be ordered clockwise (in positioning)
     #path;
-    #holes
+    #holes;
     constructor (...points) {
         super();
         this.#holes = []; // hole paths must be reordered to counter clockwise positioning
@@ -225,6 +225,11 @@ export class Polygon extends TrackableObject { // points should be ordered clock
     get isPolygon () { return true }
     get path () { return this.#path }
     get holes () { return this.#holes }
+    get depth () { // [!] can be dangerously expensive
+        const holes = this.holes;
+        if (!holes.length) return 0;
+        return 1 + Math.max(...holes.map(({depth}) => depth));
+    }
     get center () { // mostly for debugging
         if (this.path.length === 0) return null;
         const total = this.path.points.reduce((acc, pt) => acc.add(pt, true), new Vector());
