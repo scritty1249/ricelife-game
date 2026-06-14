@@ -9,14 +9,14 @@ export class WorkerController {
 
     // Optimized versions of public methods, used for substeps in specific operations
     async #cutPolygon (depth, subject, dest, cuts) {
-        const payload = { callback: false, subject: subjectid, cache: dest, cuts: []};
+        const payload = { callback: false, cache: dest, cuts: [], subject};
         const transfer = [];
         for (const cut of cuts) {
             const data = cut.Float64(depth);
             payload.cuts.push(data);
             transfer.push(...data.buffers);
         }
-        await this.#pool.post("CUTPOLY", payload, transfer, [subjectid]);
+        await this.#pool.post("CUTPOLY", payload, transfer, [subject, dest]);
     }
 
     async drawTerrain (cache, polygonid, fillColor, edgeColor, gradientWidth = 150, resolution = 1) {
@@ -83,29 +83,52 @@ export class WorkerController {
         }
         return await this.#pool.post(type, payload, transfer, [polygonid]);
     }
-    async drawBlastedTerrains (depth, polygonid, canvasSize, ...blasts) {
+    async drawBlastedTerrains (depth, polygonid, canvasSize, terrainConfig, ...blasts) {
         // cuts blasts, and returns a Promise<Array> of image data, for each state of the terrain after the blasts (in order)
         // blast structure: { shape: Polygon, delay: Number (milliseconds) }
         const allCuts = blasts.toSorted((a, b) => a.delay - b.delay).map(({shape}) => shape);
-        const subKeys = Array.from(allCuts, () => polygonid + uuid());
-
-        const frames = [];
-
+        const frameJobs = [];
+        const polygonJobs = [];
+        const polygonKeys = Array.from(allCuts, (_, i) => {
+            const key = `${polygonid}_p${i}_${uuid()}`
+            return this.#pool.initCache("POLY", [[], [], 1], key)
+                .then(() => key);
+        });
+        polygonKeys.unshift(Promise.resolve(polygonid));
+        const canvasKeys = Array.from(allCuts, (_, i) => {
+            const key = `${polygonid}_c${i}_${uuid()}`
+            return this.#pool.initCache("CANVAS", [canvasSize.x, canvasSize.y], key)
+                .then(() => key);
+        });
+        const jobs = [];
+        let drawJob = Promise.resolve();
+        let cutJob = Promise.resolve();
         // do cut operations, and seperate the caches into different workers (load balancing)
-        for (let i = 0; i < cuts.length; i++) {
+        for (let i = 0; i < allCuts.length; i++) {
             const cuts = allCuts.slice(0, i+1);
-            const polyKey = subKeys[i];
-            const canvasKey = uuid();
-            const canvasJob = this.#pool.initCache("CANVAS", [canvasSize.x, canvasSize.y], canvasKey);            
-            const forked = this.#pool.getTransactionWorker(canvasJob.id);
-
-            this.#cutPolygon(depth, polygonid, polyKey, cuts)
-                .then(() => this.#pool.copyCache(polyKey, forked, true, false))
+            const prevPolyKey = await polygonKeys[i];
+            const polyKey = await polygonKeys[i+1];
+            const canvasKey = await canvasKeys[i];
+            const cj = cutJob
+                .then(() => this.#cutPolygon(depth, prevPolyKey, polyKey, cuts))
+                //.then(() => { if (i >= 1) this.#pool.dropCache(subKeys[i]) });
+            const dj = cj
                 // pool should assign the worker we want
-                .then(() => this.drawTerrain(/* [!] args here, keepCache = false */))
-                .then((frame) => frames.push(frame));
+                .then(() => this.drawTerrain(canvasKey, polyKey, terrainConfig.fill, terrainConfig.edge));
+            polygonJobs.push(cj
+                .then(() => this.#pool.pullCache(polyKey, false, false))
+                .then(() => this.#pool.cache[polyKey]));
+            frameJobs.push(dj
+                .then(() => this.#pool.pullCache(canvasKey, true, false))
+                .then(() => this.#pool.cache[canvasKey]));
+            cutJob = cj;
+            drawJob = dj;
         }
-
+        const polygons = await Promise.all(polygonJobs);
+        const frames = await Promise.all(frameJobs);
+        const finalKey = await polygonKeys.at(-1);
+        await this.#pool.copyCache(finalKey, polygonid, true, false);
+        return { polygons, frames };
     }
     async createCache (id, type, ...args) { return await this.#pool.initCache(type, args, id) }
     async insertCache (id, type, payload) { return await this.#pool.pushCache(type, payload, id) }

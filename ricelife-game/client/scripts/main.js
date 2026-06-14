@@ -20,22 +20,29 @@ async function fireProjectile (shot, state, config) { // [!} laziness
     state.blastTerrain = undefined;
     if (landing) {
         const shotConfig = projectile.config;
-        const blasts = projectile.blast.blastsAt(landing.point);
+        const blasts = projectile.blast.blastsAt(landing.point); // should be sorted
         const blastDelays = projectile.blast.delay;
-        const blastTerrain = await state.threading.cutPolygon(1, "blastTerrain", "blastTerrain", ...blasts.map(({shape}) => shape));
-        state.redrawJob = state.threading.drawTerrain("blastBackground", "blastTerrain", config.terrain.fill, config.terrain.edge)
-            .then(() => state.threading.updateCache("blastBackground", true));
+        state.redrawJob = state.threading.drawBlastedTerrains(1, "blastTerrain", config.display.size, config.terrain, ...blasts);
+        await state.redrawJob;
+        //const blastTerrain = state.threading.cutPolygon(1, "blastTerrain", "blastTerrain", ...blasts.map(({shape}) => shape));
+        const { frames: blastedTerrainFrames, polygons: blastTerrain } = await state.redrawJob;
         state.animations.blast = new AnimationList();
         const ss = state.blastAnimationFrames.clone();
         ss.width = (shotConfig.blastRadius * 2) * 20;
-        for (const { shape, delay } of blasts) {
+        for (let i = 0; i < blasts.length; i++) {
+            const frame = blastedTerrainFrames.at(i);
+            const { shape, delay } = blasts[i];
             const ani = new Animation(shape.position, ss, state.blastAnimationFps);
             ani.speed = 1.25;
             ani.delay = delay * ani.speed;
+            ani.onstart.then(() => {
+                state.threading.cache.background?.close?.();
+                state.threading.cache.background = frame;
+            });
             state.animations.blast.push(ani);
         }
         state.animations.global.push(...state.animations.blast);
-        state.blastTerrain = await blastTerrain;
+        state.blastTerrain = await blastTerrain.at(-1);
     }
     await state.redrawJob;
     state.landing = landing;
@@ -201,17 +208,13 @@ function animate (state, config) {
             if (state.landing && state.projectile.time >= state.landing.at - Number.EPSILON) {
                 // projectile landed, redraw terrain
                 state.projectile = state.landing = undefined;
+                state.redrawJob.then(() => { if (state.blastTerrain) state.terrain.apply(state.blastTerrain) });
+
                 const animationJob = state.redrawJob.then(() => {
                         state.animations.blast.play()
                             .onend.then(() => setTurn(state, true));
                         delete state.animations.blast;
                         return;
-                    });
-                const canvasJob = state.redrawJob.then(() => {
-                        const redrawJob = state.threading.copyCanvas("background", state.threading.cache.blastBackground)
-                            .then(() => state.threading.updateCache("background"));
-                        if (state.blastTerrain) state.terrain.apply(state.blastTerrain);
-                        return redrawJob;
                     });
                 const positionJob = state.redrawJob.then(() => {
                         player.position.round(2);
@@ -220,8 +223,8 @@ function animate (state, config) {
                         return;
                     });
                 waitPromise = waitPromise
-                    .then(() => Promise.all([animationJob, canvasJob, positionJob]))
-                    .then(() => state.redrawJob = undefined);
+                    .then(() => Promise.all([animationJob, positionJob]))
+                    .then(() => state.redrawJob = Promise.resolve());
             } else {
                 state.projectile.update(1 / config.fps);
             }
@@ -250,7 +253,7 @@ async function load() {
         new LoadImage("./assets/interface/buttons/right.png").onload,
         new LoadImage("./assets/interface/buttons/left.png").onload
     ]);
-    const WorkerManager = new WorkerPool(new URL(`./workers/web-worker.js`, import.meta.url));
+    const WorkerManager = new WorkerPool(new URL(`./workers/web-worker.js`, import.meta.url), 4, 3);
     await WorkerManager.initPromise
         .catch(() => console.error("[Main] Error: WorkerPool size is zero"));
     main(WorkerManager, await body, await barrel, await testExplosion, await testMuzzleFlash, await buttons);
@@ -316,7 +319,7 @@ async function main(...loaded) {
         Workers.createCache("blastBackground", "CANVAS", ...Display.size),
         Workers.createCache("background", "CANVAS", ...Display.size),
         Workers.insertCache("blastTerrain", "POLY", Terrain.Float64(1))
-    ]);    
+    ]);
 
     const config = {
         fps: FPS,

@@ -16,7 +16,7 @@ export const CACHE_TYPES = {
             };
         },
         encode: (payload, peer = true) => {
-            const poly = Polygon.fromObject(payload, payload.depth);
+            const poly = payload?.isPolygon ? payload : Polygon.fromObject(payload, payload.depth);
             return peer ? { poly, depth: payload.depth } : poly;
         },
         encodeReference: (reference) => {

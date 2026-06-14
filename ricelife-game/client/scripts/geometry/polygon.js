@@ -274,8 +274,11 @@ export class Polygon extends TrackableObject { // points should be ordered clock
     static fromObject (data, depth) {
         const polygon = new Polygon(Path.fromArray(data.path));
         if (depth)
-            for (const hole of data.holes)
-                polygon.holes.push(this.fromObject(hole, depth-1));
+            for (const hole of data.holes) {
+                const poly = this.fromObject(hole, depth-1);
+                if (poly.path.isClockwise) poly.path.points.reverse();
+                polygon.holes.push(poly);
+            }
         return polygon;
     }
 }

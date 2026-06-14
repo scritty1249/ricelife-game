@@ -14,7 +14,7 @@ import { CACHE_TYPES } from "./types.js";
 const _queryString = self.location.search;
 const _urlParams = new URLSearchParams(_queryString);
 const ID = _urlParams.get("id");
-
+const LOG_LEVEL = _urlParams.get("logLevel");
 const CACHE = {};
 const CHANNELS = {};
 const TRANSACTIONS = {};
@@ -58,10 +58,11 @@ function createCache (id, type, payload, reference = false) { // create from pay
 const onworkermessage = (e) => {
     const { command, id, payload } = e.data;
     const port = e.target;
-    console.debug(`[WebWorker] (${ID}): Transaction ${id} receieved from peer\n\t${command}: `,  payload);
+    if (LOG_LEVEL >= 2) console.debug(`[WebWorker] (${ID}): Transaction ${id} receieved from peer\n\t${command}: `,  payload);
     if (command === "CACHE") {
         if (createCache(payload.cache, payload.type, payload.data)) {
             port.postMessage({command: "ACK", id});
+            postSuccess("CACHEUPDATE_" + id);
         } else {
             const err = new Error(`[WebWorker]  (${ID}): Failed to create cache "${payload.cache}"`);
             postFailure("", err);
@@ -82,7 +83,7 @@ self.onmessage = async (e) => {
         payload
     } = e.data;
     try {
-        console.debug(`[WebWorker] (${ID}): Transaction ${id} receieved from parent\n\t${command ? command : type}: `,  payload);
+        if (LOG_LEVEL >= 2) console.debug(`[WebWorker] (${ID}): Transaction ${id} receieved from parent\n\t${command ? command : type}: `,  payload);
         if (command) {
             processManagerCommand(command, id, payload);
         } else if (type === "INTERSECTPROJ") {
@@ -278,30 +279,32 @@ async function processManagerCommand (command, id, payload) {
             *    manager: Boolean,
             *    cache: UUID,
             *    transfer: Boolean,
-            *    worker?: UUID
+            *    newCache?: UUID, new cache id to store at. If undefined, will reuse original cache key
+            *    worker?: UUID,
             *    preserveKey?: Boolean (false) when trasnferring payload, leave a key with blank data of type in this worker's cache for future use
             * }
             */
-            const { worker, cache, manager, transfer, preserveKey = false } = payload;
+            const { worker, cache, manager, transfer, newCache, preserveKey = false } = payload;
             const { type, data } = CACHE[cache];
             const { payload: dataPayload, buffers, reference } = CACHE_TYPES[type].decode(data, transfer && preserveKey);
             const isCavnas = type === "CANVAS";
-            const buf = (transfer || isCavnas ? buffers : []); // [!] canvases cannot be cloned once a context is bound to them. Receiving worker will copy Canvas content onto a new instance and toss it
+            const buf = ((transfer || isCavnas) ? buffers : []); // [!] canvases cannot be cloned once a context is bound to them. Receiving worker will copy Canvas content onto a new instance and toss it
             if (manager) {
                 self.postMessage({id, type, payload: dataPayload}, buf);
             } else {
-                const tid = id + performance.now().toString();
+                const tid = id + "_" + performance.now().toString();
                 TRANSACTIONS[tid] = Promise.withResolvers();
                 CHANNELS[worker].postMessage(
-                    { id: tid, command: "CACHE", payload: { type, cache, data: dataPayload }},
+                    { id: tid, command: "CACHE", payload: { type, cache: newCache || cache, data: dataPayload }},
                     buf
                 );
                 await TRANSACTIONS[tid].promise;
                 delete TRANSACTIONS[tid];
             }
-            if (transfer)
+            if (transfer) {
                 if (preserveKey) createCache(cache, type, reference, true);
                 else delete CACHE[cache];
+            }
             if (!manager) postSuccess(id);
         } else if (command === "DROPCACHE") {
            /* Payload expected:
