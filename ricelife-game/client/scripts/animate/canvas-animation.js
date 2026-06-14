@@ -8,9 +8,8 @@ export class Animation {
     #frames = [];
     #prevFrame = undefined;
     #promise = {
-        promise: undefined,
-        resolve: undefined,
-        reject: undefined
+        onend: {},
+        onstart: {} // resolves when played and delay has passed
     };
     loop = false;
     paused = true;
@@ -21,22 +20,28 @@ export class Animation {
         this.#position.apply(position);
         this.#framerateMs = 1000 / framerate;
         this.#frames = frames;
-        this.#newPromise();
+        this.#newPromise(this.#promise.onend);
+        this.#newPromise(this.#promise.onstart);
     }
 
-    #newPromise () {
-        const { promise: oldPromise, resolve: oldResolve, reject: oldReject } = this.#promise;
-        ({ promise: this.#promise.promise, resolve: this.#promise.resolve, reject: this.#promise.reject } = Promise.withResolvers());
+    #newPromise (container) {
+        const { promise: oldPromise, resolve: oldResolve, reject: oldReject } = container;
+        ({ promise: container.promise, resolve: container.resolve, reject: container.reject } = Promise.withResolvers());
+        container.isResolved = false;
+        container.promise
+            .finally(() => container.isResolved = true);
         // maintain previous promises
         if (oldPromise !== undefined) // assume all are populated if promise exists
-            this.#promise.promise
+            container.promise
                 .then((e) => oldResolve(e))
                 .catch((e) => oldReject(e));
     }
 
     draw (cursor) {
-        if (this.hasNext) this.next().draw(cursor, this.position);
-        else if (this.#prevFrame) this.#prevFrame.draw(cursor, this.position);
+        if (this.hasNext) {
+            this.next().draw(cursor, this.position);
+            if (!this.#promise.onstart.isResolved) this.#promise.onstart.resolve();
+        } else if (this.#prevFrame) this.#prevFrame.draw(cursor, this.position);
     }
     intervalElapsed () { return performance.now() - this.#lastAtTime }
     next () {
@@ -66,11 +71,11 @@ export class Animation {
     get hasNext () { return this.intervalElapsed() >= this.#framerateMs / this.speed && !this.ended && !this.paused }
     get ended () {
         const result = this.frame >= this.#frames.length  && !this.loop;
-        if (result)
-            this.#promise.resolve(); // [!] might cause bloat by repeatedly resolving an already resolved Promise
+        if (result && !this.#promise.onend.isResolved) this.#promise.onend.resolve();
         return result;
     }
-    get onend () { return this.#promise.promise }
+    get onend () { return this.#promise.onend.promise }
+    get onstart () { return this.#promise.onstart.promise }
     get frame () { return this.#frame }
     get progress () { return this.#frame / this.#frames.length }
     set frame (value) { return this.#frame = (this.loop ? value % this.#frames.length : value) }

@@ -83,14 +83,39 @@ export class Projectile extends TrackableObject {
         return position;
     }
 
+    get isProjectile () { return true }
     get tracer () { return this.#tracer }
     get time () { return this.#time }
     *tracerAt () { }
     clone () { return new Projectile(this.origin, this.velocity, this.acceleration, this.drag) }
 }
 
-export class BasicShot extends Projectile {
+export class Shot extends Projectile {
     #shape;
+    constructor (origin, velocity, acceleration, drag, shape) {
+        super(origin, velocity, acceleration, drag);
+        this.#shape = shape;
+    }
+
+    // expensive but accurate. we should only be calling this ONCE when a shot is fired anyways
+    // returns the projectiles position when it's shape intersects with the given terrain
+    intersectAt (polygon, increment = 1/60, limit = 1000) {
+        if (!polygon.isPolygon) throw new Error(`[${this.constructor.name}] Error: Cannot perform intersection operation with non-Polygon`);
+        const proj = this.clone(true);
+        for (let t = 0; t < limit; t += increment) {
+            if (proj.shape.isIntersecting(polygon)) return { point: proj.position.clone(), at: t };
+            proj.update(increment);
+        }
+        return undefined;
+    }
+
+    update (seconds = 1) { this.shape.position.apply(super.update(seconds)) }
+    clone (deep = false) { return new Shot(this.origin, this.velocity, this.acceleration, this.drag, this.shape.clone(deep)) }
+
+    get shape () { return this.#shape }
+}
+
+export class BasicShot extends Shot {
     #blast;
     #tail = new Array();
     config;
@@ -118,11 +143,10 @@ export class BasicShot extends Projectile {
             ? {...defualtConfig, ...new.target.config}
             : defualtConfig;
         const direction = Direction(angle, false).mul(config.initalSpeed * power);
-        super(origin, direction, config.acceleration, config.drag);
+        super(origin, direction, config.acceleration, config.drag, new Circle(origin, config.radius, resolution));
         this.direction = direction; // make accessible for later calculations
         this.config = config;
         const currentPosition = this.current.position;
-        this.#shape = new Circle(currentPosition, config.radius, resolution);
         this.#blast = {
             blasts: [{
                 shape: new Circle(new Vector(), config.blastRadius, resolution),
@@ -145,7 +169,7 @@ export class BasicShot extends Projectile {
     update (seconds = 1) {
         if (this.#tail.length >= this.config.tail.length) this.#tail.shift();
         this.#tail.push(this.shape.clone());
-        this.#shape.position.apply(super.update(seconds));
+        super.update(seconds);
     }
 
     draw (cursor) {
@@ -203,20 +227,5 @@ export class BasicShot extends Projectile {
         cursor.restore();
     }
 
-    // expensive but accurate. we should only be calling this ONCE when a shot is fired anyways
-    // returns the projectiles position when it's shape intersects with the given terrain
-    intersectAt (polygon, increment = 1/60, limit = 1000) {
-        if (!polygon.isPolygon) throw new Error(`[${this.constructor.name}] Error: Cannot perform intersection operation with non-Polygon`);
-        const hitbox = this.shape.clone();
-        const proj = this.clone();
-        for (let t = 0; t < limit; t += increment) {
-            hitbox.position.apply(proj.position);
-            if (polygon.isIntersecting(hitbox)) return { point: proj.position.clone(), at: t };
-            proj.update(increment);
-        }
-        return undefined;
-    }
-
-    get shape () { return this.#shape }
     get blast () { return this.#blast }
 }

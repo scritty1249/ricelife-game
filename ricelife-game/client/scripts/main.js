@@ -1,8 +1,9 @@
-import { InputListener, MovementController, TankController, AppCanvas, AimController } from "./controller/controller.js";
-import { Vector, Direction, Color, Polygon, GeometryWorker, Ray, Path } from "./geometry/geometry.js";
+import { InputListener, MovementController, TankController, AppCanvas, AimController, WorkerController } from "./controller/controller.js";
+import { Vector, Direction, Color, Polygon, Ray, Path } from "./geometry/geometry.js";
 import { drawCircle, drawMarker, drawLine, rad2deg, roundTo, floatEqual, normalizeAngle, drawText, outlineImage } from "./utils/utils.js";
 import { drawTerrain, generateTerrain, generateWave } from "./terrain/terrain.js";
 import { LoadImage, Spritesheet, Animation, AnimationList } from "./animate/animate.js";
+import { WorkerPool } from "./workers/pool.js";
 import * as Menu from "./menu/menu.js"
 import * as Projectiles from "./projectile/projectile.js";
 
@@ -13,49 +14,51 @@ const DEBUG_ENABLED = () => window?.debugTools || (URL_PARAMS.get("debug") === "
 async function fireProjectile (shot, state, config) { // [!} laziness
     setTurn(state, false);
     drawFrame(state, config); // draw one last frame so the game doesn't look like it just froze
-    state.projectile = new shot(state.tanks[config.playerTank].barrelPos, state.aimer.rotation + (3 * (Math.PI / 2)), state.aimer.power);
-    state.tracer = state.projectile.tracer;
-    state.blastTerrain = state.terrain.clone();
-    state.landing = state.projectile.intersectAt(state.blastTerrain, 1/config.fps, config.fps * 2 * 60) // [!] for testing, this can be put into a worker
-    if (state.landing) {
-        const shotConfig = state.projectile.config;
-        const blasts = state.projectile.blast.blastsAt(state.landing.point);
-        const blastDelays = state.projectile.blast.delay;
-        state.redrawJob = state.geometry.cut("blastTerrain", state.terrain, ...blasts.map(({shape}) => shape))
-            .then((polygon) => {
-                const redrawJob = config.display.drawTerrain("blastBackground", polygon, config.terrain.fill, config.terrain.edge);
-                state.blastTerrain.apply(polygon);
-                return redrawJob;
-            })
-            // [!] temporary
-            .then(() => {
-                // return the blast animation
-                const aniList = new AnimationList();
-                const ss = state.blastAnimationFrames.clone();
-                ss.width = (shotConfig.blastRadius * 2) * 20;
-                for (const { shape, delay } of blasts) {
-                    const ani = new Animation(shape.position, ss, state.blastAnimationFps);
-                    ani.speed = 1.25;
-                    ani.delay = delay * ani.speed;
-                    aniList.push(ani);
-                }
-                aniList.pause();
-                state.animations.push(...aniList);
-                return aniList;
+    const projectile = new shot(state.tanks[config.playerTank].barrelPos, state.aimer.rotation + (3 * (Math.PI / 2)), state.aimer.power);
+    const muzzleFlash = generateMuzzleFlash(state, config);
+    const landing = await state.threading.traceProjectile("blastTerrain", projectile, 1/config.fps, config.fps * 2 * 60);
+    state.blastTerrain = undefined;
+    if (landing) {
+        const shotConfig = projectile.config;
+        const blasts = projectile.blast.blastsAt(landing.point); // should be sorted
+        const blastDelays = projectile.blast.delay;
+        state.redrawJob = state.threading.drawBlastedTerrains(1, "blastTerrain", config.display.size, config.terrain, ...blasts);
+        await state.redrawJob;
+        //const blastTerrain = state.threading.cutPolygon(1, "blastTerrain", "blastTerrain", ...blasts.map(({shape}) => shape));
+        const { frames: blastedTerrainFrames, polygon: blastTerrain } = await state.redrawJob;
+        state.animations.blast = new AnimationList();
+        const ss = state.blastAnimationFrames.clone();
+        ss.width = (shotConfig.blastRadius * 2) * 20;
+        for (let i = 0; i < blasts.length; i++) {
+            const frame = blastedTerrainFrames.at(i);
+            const { shape, delay } = blasts[i];
+            const ani = new Animation(shape.position, ss, state.blastAnimationFps);
+            ani.speed = 1.25;
+            ani.delay = delay * ani.speed;
+            ani.onstart.then(() => {
+                state.threading.cache.background?.close?.();
+                state.threading.cache.background = frame;
             });
-    } else {
-        state.redrawJob = Promise.resolve();
+            state.animations.blast.push(ani);
+        }
+        state.animations.global.push(...state.animations.blast);
+        state.blastTerrain = await blastTerrain;
     }
-    {
-        // play muzzle flash
-        const ss = state.muzzleFlashAnimationFrames.clone();
-        ss.width = 400 * (state.aimer.power**3);
-        ss.rotation = state.aimer.rotation + Math.PI;
-        const ani = new Animation(state.tanks[config.playerTank].barrelPos, ss, state.muzzleFlashAnimationFps);
-        ani.speed = 2.3;
-        state.animations.push(ani);
-        state.redrawJob.then(() => ani.play());
-    }
+    await state.redrawJob;
+    state.landing = landing;
+    state.projectile = projectile;
+    state.tracer = projectile.tracer;
+    muzzleFlash.play();
+}
+
+function generateMuzzleFlash (state, config) { // [!] laziness
+    const ss = state.muzzleFlashAnimationFrames.clone();
+    ss.width = 400 * (state.aimer.power**3);
+    ss.rotation = state.aimer.rotation + Math.PI;
+    const ani = new Animation(state.tanks[config.playerTank].barrelPos, ss, state.muzzleFlashAnimationFps);
+    ani.speed = 2.3;
+    state.animations.global.push(ani);
+    return ani;
 }
 
 function setTurn (state, toggle) {
@@ -183,10 +186,10 @@ function drawFrame (state, config) {
     if (state.isTurn) state.interface.draw(cursor, 0, 1);
     for (const tank of Object.values(state.tanks))
         tank.draw(cursor);
-    cursor.drawImage(config.display.worker.cache.background.image, 0, 0);
+    cursor.drawImage(state.threading.cache.background, 0, 0);
     if (state.projectile && state.projectile.time > 0) state.projectile.draw(cursor);
     if (state.tracer) state.tracer.draw(cursor);
-    state.animations.update(cursor);
+    state.animations.global.update(cursor);
     if (state.isTurn) state.interface.draw(cursor, 1);
 }
 
@@ -194,7 +197,7 @@ function animate (state, config) {
     const nowStamp = performance.now();
     const elapsed = nowStamp - state.lastStamp;
     const player = state.tanks[config.playerTank];
-    let waitPromise = config.display.worker.cache.background && !state.redrawJob ? Promise.resolve() : state.redrawJob;
+    let waitPromise = state.threading.cache.background && !state.redrawJob ? Promise.resolve() : state.redrawJob;
     
     if (elapsed < config.frameInterval) { // run any between-frame logic
     } else if (state.landing && (state.redrawJob?.isWorkerJob && !state.redrawJob.fulfilled)) { // wait for loading to finish before updating game loop
@@ -205,16 +208,13 @@ function animate (state, config) {
             if (state.landing && state.projectile.time >= state.landing.at - Number.EPSILON) {
                 // projectile landed, redraw terrain
                 state.projectile = state.landing = undefined;
-                const animationJob = state.redrawJob.then((animation) => {
-                        animation.play()
-                            .onend.then(() =>
-                                setTurn(state, true));
+                state.redrawJob.then(() => { if (state.blastTerrain) state.terrain.apply(state.blastTerrain) });
+
+                const animationJob = state.redrawJob.then(() => {
+                        state.animations.blast.play()
+                            .onend.then(() => setTurn(state, true));
+                        delete state.animations.blast;
                         return;
-                    });
-                const redrawJob = state.redrawJob.then(() => {
-                        const redrawJob = config.display.copyCanvas("background", config.display.worker.cache.blastBackground.image);
-                        state.terrain.apply(state.blastTerrain);
-                        return redrawJob;
                     });
                 const positionJob = state.redrawJob.then(() => {
                         player.position.round(2);
@@ -223,8 +223,8 @@ function animate (state, config) {
                         return;
                     });
                 waitPromise = waitPromise
-                    .then(() => Promise.all([animationJob, redrawJob, positionJob]))
-                    .then(() => state.redrawJob = undefined);
+                    .then(() => Promise.all([animationJob, positionJob]))
+                    .then(() => state.redrawJob = Promise.resolve());
             } else {
                 state.projectile.update(1 / config.fps);
             }
@@ -246,16 +246,17 @@ async function load() {
     const body = new LoadImage("./assets/tank/body.png").onload;
     const barrel = new LoadImage("./assets/tank/barrel.png").onload;
     const testExplosion = new Spritesheet("./assets/blast/explosion_ss_512x512.png", 512, 512).onload;
-    const testMuzzleFlash = new Spritesheet("./assets/blast/muzzleflash_ss_1626x1882.png", 1626, 1882).onload;
+    const testMuzzleFlash = new Spritesheet("./assets/blast/muzzleflash_ss_140x162.png", 140, 162).onload;
     const buttons = Promise.all([
         new LoadImage("./assets/interface/buttons/fire.png").onload,
         new LoadImage("./assets/interface/buttons/select.png").onload,
         new LoadImage("./assets/interface/buttons/right.png").onload,
         new LoadImage("./assets/interface/buttons/left.png").onload
     ]);
-    const Display = new AppCanvas(document.getElementById("app"), new Vector(1920, 1080));
-    const Geometry = new GeometryWorker();
-    main(Display, Geometry, await body, await barrel, await testExplosion, await testMuzzleFlash, await buttons);
+    const WorkerManager = new WorkerPool(new URL(`./workers/web-worker.js`, import.meta.url), 4, 3);
+    await WorkerManager.initPromise
+        .catch(() => console.error("[Main] Error: WorkerPool size is zero"));
+    main(WorkerManager, await body, await barrel, await testExplosion, await testMuzzleFlash, await buttons);
 }
 
 const FPS = 60;
@@ -284,13 +285,9 @@ const INPUT_MAP = {
     Digit9: "shot9",
     Digit0: "shot10"
 };
-const POINTER_CALLBACKS = (aimCtrl) => ({
-    ondrag: (current, origin) => { if (aimCtrl.isOver(origin)) aimCtrl.update(current) },
-    onclick: (current) => { if (aimCtrl.isOver(current)) aimCtrl.update(current) }
-});
 
-function main(...loaded) {
-    const [Display, Geometry, tankBodyImage, tankBarrelImage, testExplosion, testMuzzleFlash, buttons] = loaded;
+async function main(...loaded) {
+    const [WorkerManager, tankBodyImage, tankBarrelImage, testExplosion, testMuzzleFlash, buttons] = loaded;
     tankBodyImage.width = 50;
     tankBarrelImage.scale.apply(tankBodyImage.scale);
     {
@@ -306,20 +303,23 @@ function main(...loaded) {
             testMuzzleFlash.rawSize.y
         );
     }
-
+    const Workers = new WorkerController(WorkerManager);
+    const Display = new AppCanvas(document.getElementById("app"), new Vector(1920, 1080));
     const Tank = new TankController(tankBodyImage, tankBarrelImage, new Vector());
     const Aimer = new AimController(Tank, Tank.width * 3);
-    // [!] testing
+    const UIInterface = new Menu.Interface();
+    const Inputs = new InputListener(Display.canvas, CLICK_DURATION_MS, INPUT_MAP, UIInterface);
+    const Animations = new AnimationList();
     const Terrain = URL_PARAMS.get("map") == "flat"
         ? generateTerrain(new Path(new Vector(0, GROUND), new Vector(Display.size.x, GROUND)).smooth(GLOBAL_RESOLUTION), Display.size)
         : generateTerrain(generateWave(Display.size.x, GLOBAL_RESOLUTION, (v) => v.y += GROUND, .03, 40, 1.3, 15), Display.size);
     const Mover = new MovementController(Terrain, Tank, -(Tank.offset.body.y / 10));
-    const UIInterface = new Menu.Interface();
-    const Inputs = new InputListener(Display.canvas, CLICK_DURATION_MS, INPUT_MAP, UIInterface);
-    Display.createCache("blastBackground");
-    Display.createCache("background");
-    // [!] testing
-    const Animations = new AnimationList();
+
+    await Promise.all([
+        Workers.createCache("blastBackground", "CANVAS", ...Display.size),
+        Workers.createCache("background", "CANVAS", ...Display.size),
+        Workers.insertCache("blastTerrain", "POLY", Terrain.Float64(1))
+    ]);
 
     const config = {
         fps: FPS,
@@ -339,7 +339,7 @@ function main(...loaded) {
         aimer: Aimer,
         move: Mover,
         polygons: {},
-        geometry: Geometry,
+        threading: Workers,
         interface: UIInterface,
         isTurn: Inputs.pointer.enabled,
         
@@ -358,13 +358,14 @@ function main(...loaded) {
             shot3: Projectiles.Flower,
             shot4: Projectiles.Digger
         },
-        animations: Animations,
+        animations: { global: Animations },
 
 
         tanks: {[Tank.id]: Tank},
         terrain: Terrain,
         lastStamp: performance.now(),
-        redrawJob: Display.drawTerrain("background", Terrain, config.terrain.fill, config.terrain.edge)
+        redrawJob: Workers.drawTerrain("background", "blastTerrain", config.terrain.fill, config.terrain.edge)
+            .then(() => Workers.updateCache("background"))
     };
 
     {
@@ -384,14 +385,17 @@ function main(...loaded) {
         leftButton.position.apply(rightButton.position.x - leftImage.width - 25, 150);
 
         const btns = [fireButton, selectButton, rightButton, leftButton];
-
+        let shotIdx = 0;
+        const shotMax = 4;
         // setting up button callbacks
         rightButton.onclick = rightButton.onhold = () => Mover.move(config.moveIncr);
         leftButton.onclick = leftButton.onhold = () => Mover.move(-config.moveIncr);
-        selectButton.onclick = () => console.info("Select button clicked");
+        selectButton.onclick = () => {
+            shotIdx = (shotIdx+1)%shotMax;
+        };
         fireButton.onclick = () => {
             if (state.projectile === undefined)
-                fireProjectile(state.projectileTypes.shot1, state, config);
+                fireProjectile(state.projectileTypes[`shot${shotIdx+1}`], state, config);
         }
 
         UIInterface.insert() // draw layer zero after background but before terrain
