@@ -137,6 +137,18 @@ export class Circle extends Shape {
         circle.scale.apply(this.scale);
         return circle;
     }
+    isIntersecting (value, ignoreholes = false) {
+        if (value?.isVector) {
+            return this.position.distance(value) <= this.radius && (ignoreholes || !this.holes.some((hole) => hole.isIntersecting(value)));
+        } else if (value?.isPolygon) {
+            return value.path.points.some((point) =>
+                this.position.distance(point) <= this.radius && (ignoreholes || !this.holes.some((hole) => hole.isIntersecting(value))));
+        } else if (value?.isPath) {
+            return value.points.some((point) =>
+                this.position.distance(point) <= this.radius && (ignoreholes || !this.holes.some((hole) => hole.isIntersecting(value))));
+        } else
+            return super.isIntersecting(value, ignoreholes);
+    }
 
     get isCircle () { return true } // [!] may be redundant, depending on how specific we get with geometry later on...
     get radius () { return this.#radius }

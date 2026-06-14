@@ -191,6 +191,7 @@ export class Vector {
     clone () { return new Vector(this.x, this.y) }
     toString () { return `(${this.x.toFixed(3)}, ${this.y.toFixed(3)})` }
     toJSON () { return {x: this.x, y: this.y} }
+    static fromObject (object) { return new Vector(object?.x, object?.y) }
 }
 
 export class Color {
