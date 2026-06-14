@@ -258,7 +258,7 @@ async function load() {
     window.addEventListener("pointerdown", AudioCtx.wake);
     window.addEventListener("pointerup", AudioCtx.wake);
     // setting global audio
-    AudioPlayer.volume = 0.65;
+    AudioPlayer.volume = 0.35;
     
     const buttons = Promise.all([
         new LoadImage("./assets/interface/buttons/fire.png").onload,
