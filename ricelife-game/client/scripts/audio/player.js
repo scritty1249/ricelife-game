@@ -120,13 +120,24 @@ class AudioInstance extends TrackableObject {
     #start = 0;
     #offset = 0;
     #playing = false;
+    #connected = {}; // reconnect to all nodes when regenerating source node
     constructor (source) {
+        super();
         this.#source = source;
         this.#newNode();
     }
 
+    #connect (audio) {
+        this.#node.connect(audio?.isAudioLayer ? audio.input : audio);
+    }
     #newNode () {
         this.#node = this.#source.bufferNode();
+        this.#node.onend.then(() => {
+            this.#playing = false;
+            this.reset();
+        });
+        for (const node of Object.values(this.#connected))
+            this.#connect(node);
     }
     
     play () {
@@ -158,6 +169,12 @@ class AudioInstance extends TrackableObject {
         this.#start = 0;
         if (this.#playing) this.stop();
         return this; // for chaining
+    }
+    connect (audio) {
+        // can accept AudioLayer or base AudioNode
+        this.#connected[audio.id || uuid()] = audio;
+        this.#connect(audio);
+        return audio; // for chaining
     }
 
     get isAudioInstance () { return true }
@@ -205,8 +222,8 @@ class AudioLayer extends TrackableObject {
         audio.onend.then(() => delete this.#items[id]);
         return audio; // for chaining
     }
-    connect (audio) { // can accept AudioInstance or AudioLayer
-        this.#output.connect(audio);
+    connect (audio) { // can accept AudioLayer or base AudioNode
+        this.#output.connect(audio?.isAudioLayer ? audio.input : audio);
         return audio; // for chaining
     }
     Layer (filters = []) {
