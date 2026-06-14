@@ -2,7 +2,7 @@ import { TrackableObject, uuid } from "../utils/utils.js";
 
 export class AudioContext extends TrackableObject {
     static #INSTANCES = new Array();
-    static MAX_INSTANCES = 1;
+    static #MAX_INSTANCES = 1;
     #context;
     #sources = {}; // store a master copy of all audio buffers
     constructor () {
@@ -25,7 +25,7 @@ export class AudioContext extends TrackableObject {
     }
     newNode () {
         if (this.isClosed) throw new Error(`[${this.constructor.name}]: Failed to create node, instance is closed`);
-        return new AudioNode(this.#context);
+        return new GainNode(this.#context);
     }
     newBufferNode () {
         if (this.isClosed) throw new Error(`[${this.constructor.name}]: Failed to create node, instance is closed`);
@@ -42,7 +42,7 @@ export class AudioContext extends TrackableObject {
         this.#sources[source.id] = source;
         return source;
     }
-    Layer (filter = []) {
+    Layer (filters = []) {
         if (this.isClosed) throw new Error(`[${this.constructor.name}]: Failed to create audio layer, instance is closed`);
         const layer = new AudioLayer(this, filters);
         layer.connect(this.input);
@@ -56,12 +56,14 @@ export class AudioContext extends TrackableObject {
         AudioContext.#INSTANCES.splice(thisIdx, 1);
         return true;
     }
+    wake () { if (this.isSuspended) this.#context.resume() }
 
     get isAudioContext () { return true }
     get time () { return this.#context.currentTime }
     get sources () { return Object.entries(this.#sources).map(([id, {name}]) => {id, name}) }
     get input () { return this.#context.destination }
-    get isClosed () { return this.#context.state === "closed" } // allows for "running" and "suspended" states
+    get isClosed () { return this.#context.state === "closed" }
+    get isSuspended () { return this.#context.state === "suspended" }
 }
 
 // functionally different from similar classes (LoadImage), these classes exist as a master key - only one should exist per source/file
@@ -78,6 +80,7 @@ class AudioSource extends TrackableObject {
     };
     constructor (name, src, ctx) {
         super();
+        this.#name = name;
         ({promise: this.#state.promise, resolve: this.#state.resolve, reject: this.#state.reject} = Promise.withResolvers());
         this.#src = src;
         if (!ctx?.isAudioContext) throw new Error(`[${this.constructor.name}]: Bad parameter, no ${AudioContext.name} given`);
@@ -93,7 +96,7 @@ class AudioSource extends TrackableObject {
             this.#state.resolve(this); // for chaining
         } catch (error) {
             this.#state.ready = false; // extra redundancy
-            this.#promise.reject(new Error(`[${this.constructor.name}]: Failed to load audio file ${this.#src}\n\t${error?.message}\n\tFile: ${error?.filename}\n\tLine: ${error?.lineno}`));
+            this.#state.reject(new Error(`[${this.constructor.name}]: Failed to load audio file ${this.#src}\n\t${error?.message}\n\tFile: ${error?.filename}\n\tLine: ${error?.lineno}`));
         }
     }
 
@@ -144,7 +147,7 @@ class AudioInstance extends TrackableObject {
     play () {
         this.#playing = true;
         this.#start = this.#source.time;
-        this.#node.play(this.#start + this.#offset);
+        this.#node.start(this.#start + this.#offset);
         this.#offset = 0;
         return this; // for chaining
     }
@@ -179,7 +182,6 @@ class AudioInstance extends TrackableObject {
     }
 
     get isAudioInstance () { return true }
-    get onend () { return Promise.all(this.#items.map(({onend}) => onend)) }
     get playing () { return this.#playing }
     set playing (value) {
         if (value) this.play();
@@ -208,7 +210,7 @@ class AudioLayer extends TrackableObject {
             for (let i = 0; i < filters.length; i++)
                 (i === 0 ? this.#gain : filters[i-1]).connect(filters[i]);
             filters.at(-1).connect(this.#output);
-        } else this.#gain.connect(this.#ouput);
+        } else this.#gain.connect(this.#output);
         this.#input.connect(this.#gain);
     }
 
@@ -216,11 +218,12 @@ class AudioLayer extends TrackableObject {
     pause () { for (const item of this.#items) item.pause() }
     stop () { for (const item of this.#items) item.stop() }
     reset () { for (const item of this.#items) item.reset() }
-    add (audio) { // can accept AudioInstance or AudioLayer
+    add (audio, ephemeral = false) { // ephemeral will delete the audio after it is finished playing
+        // can accept AudioInstance or AudioLayer
         audio.connect(this.#input);
         const id = uuid(); // allow for duplicates to be inserted, determine ID in layer class upon addition - KT
         this.#items[id] = audio;
-        audio.onend.then(() => delete this.#items[id]);
+        if (ephemeral) audio.onend.then(() => delete this.#items[id]);
         return audio; // for chaining
     }
     connect (audio) { // can accept AudioLayer or base AudioNode
@@ -237,6 +240,6 @@ class AudioLayer extends TrackableObject {
     get onend () { return Promise.all(this.#items.map(({onend}) => onend)) }
     get input () { return this.#input }
     get output () { return this.#output }
-    get volume () { return this.#gain.value }
-    set volume (value) { return (this.#gain.value = value) }
+    get volume () { return this.#gain.gain.value }
+    set volume (value) { return (this.#gain.gain.value = value) }
 }
