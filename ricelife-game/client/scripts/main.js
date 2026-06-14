@@ -17,7 +17,7 @@ async function fireProjectile (shot, state, config) { // [!} laziness
     drawFrame(state, config); // draw one last frame so the game doesn't look like it just froze
     const projectile = new shot(state.tanks[config.playerTank].barrelPos, state.aimer.rotation + (3 * (Math.PI / 2)), state.aimer.power);
     const muzzleFlash = generateMuzzleFlash(state, config);
-    const landing = await state.threading.traceProjectile("blastTerrain", projectile, 1/config.fps, config.fps * 2 * 60);
+    const landing = await state.threading.traceProjectile("blastTerrain", projectile, 1/config.fps, config.fps * 30);
     state.blastTerrain = undefined;
     if (landing) {
         const blastRadius = projectile.blastRadius;
@@ -167,7 +167,7 @@ function drawDebugOverlay (state, config) {
                 shape.path.draw(cursor);
         cursor.stroke(); 
         cursor.restore();
-        if (state.landing) drawCircle(cursor, state.landing.point, state.projectile.config.radius, "orange"); // draw landing point
+        if (state.landing) drawCircle(cursor, state.landing.point, state.projectile.radius, "orange"); // draw landing point
     }
 
     [...state.interface].forEach(({items}) => [...items].forEach((item) => {

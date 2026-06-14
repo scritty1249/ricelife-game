@@ -207,7 +207,9 @@ export class Shot extends Projectile {
             }
             if (intersecting?.isPolygon) {
                 const position = this.current.position;
-                const ray = Ray(this.#lastPosition, Direction(this.#lastPosition.angle(position), false), this.#lastPosition.distance(position) * 2);
+                const direction = Direction(this.#lastPosition.angle(position), false);
+                const distance = this.#lastPosition.distance(position);
+                const ray = Ray(this.#lastPosition, direction, distance * 2);
                 const hits = intersecting.raycast(ray)
                     ?.filter?.(({entering}) => entering)
                     ?.sort?.((a, b) => position.distance(a.point) - position.distance(b.point));
@@ -215,7 +217,8 @@ export class Shot extends Projectile {
                     const { point, angle } = hits?.at?.(0);
                     this.#colliding = this.collisionBehavior(point, angle, intersecting);
                 } else {
-                    console.warn(`[${this.constructor.name}]: Collision detected but failed to find intersection`);
+                    console.warn(`[${this.constructor.name}]: Failed to find intersection for collision. Collision behavior ignored`);
+                    this.#colliding = true;
                 }
             }
             this.#lastPosition.apply(this.current.position);

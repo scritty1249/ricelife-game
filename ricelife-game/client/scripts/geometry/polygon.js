@@ -172,7 +172,6 @@ export class Polygon extends TrackableObject { // points should be ordered clock
         for (const inter of ray.intersections(this.path))
             if (!holes.some(hole => hole.isIntersecting(inter.point)) && !hits.some(({point}) => point.eq(inter.point)))
                 hits.push({ point: inter.point, distance: inter.coeff.other * distance, angle: inter.angle, entering: inter.entering });
-
         for (let idx = 0; idx < holes.length; idx++) {
             holes[idx].raycast(ray).filter((hit) => {
                 hit.entering = !hit.entering;

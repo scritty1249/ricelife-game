@@ -19,6 +19,8 @@ export class Spreader extends BasicShot {
         this.blast.push(new Circle(new Vector(-this.blastRadius * 1.75, 0), this.blastRadius, this.resolution), 250);
         this.blast.push(new Circle(new Vector(this.blastRadius * 1.75, 0), this.blastRadius, this.resolution), 500);
     }
+
+    clone () { return new Spreader(this.origin, this.angle, this.power, this.resolution) }
 }
 
 export class Flower extends BasicShot {
@@ -39,6 +41,8 @@ export class Flower extends BasicShot {
             return new Circle(new Vector(Math.cos(rad), Math.sin(rad)).mul(this.radius + (this.blastRadius * 1.75)), this.blastRadius, this.resolution)})
             .forEach((shape, i) => this.blast.push(shape, i * 100));
     }
+
+    clone () { return new Flower(this.origin, this.angle, this.power, this.resolution) }
 }
 
 export class Digger extends BasicShot {
@@ -58,21 +62,26 @@ export class Digger extends BasicShot {
         this.blast.push(new Circle(new Vector(0, -this.blastRadius * 1.75 * 2), this.blastRadius, this.resolution), 800);
         this.blast.push(new Circle(new Vector(0, -this.blastRadius * 1.75 * 3), this.blastRadius, this.resolution), 1200);
     }
+
+    clone () { return new Digger(this.origin, this.angle, this.power, this.resolution) }
 }
 
 export class Bouncer extends BasicShot {
     static collisionBehavior = function (point, angle, polygon) {
-        if (bounces) {
-            this.velocity.rotate(angle, true);
-            bounces--;
-            this.updatePosition(1);
+        if (this.bounces) {
+            console.log(`[${this.constructor.name}]: Bounced at ${point.toString()}`);
+            this.velocity.rotate(2 * angle, true);
+            this.bounces--;
+            this.updatePosition(1/60);
             return false;
         }
         return true;
     }
     static glowColor = new Color(128, 0, 128);
-    bounces = 3;
+    bounces = 1;
     constructor (origin, angle, power = 1, resolution = 1) {
         super(origin, angle, power, resolution);
     }
+    
+    clone () { return new Bouncer(this.origin, this.angle, this.power, this.resolution) }
 }
