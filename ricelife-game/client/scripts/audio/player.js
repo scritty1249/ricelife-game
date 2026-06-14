@@ -114,6 +114,7 @@ class AudioSource extends TrackableObject {
     get time () { return this.#ctx.time }
 }
 
+// replayable audio node
 class AudioInstance extends TrackableObject {
     #source;
     #node;
