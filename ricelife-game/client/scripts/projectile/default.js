@@ -1,5 +1,5 @@
 import { TrackableObject, floatEqual } from "../utils/utils.js";
-import { Circle, Vector, Direction, Color, Path } from "../geometry/geometry.js";
+import { Circle, Vector, Direction, Color, Path, Ray } from "../geometry/geometry.js";
 
 export class Projectile extends TrackableObject {
     #tracer;
@@ -98,7 +98,7 @@ export class Shot extends Projectile {
     static glowResolution = 5;
     static glowColor = new Color(255, 0, 0, 100);
     static mainColor = new Color(255, 255, 255);
-    static collisionBehavior = function (intersection) {
+    static collisionBehavior = function (point, angle, polygon) {
         this.velocity.mul(0, true);
         this.#colliding = true;
     }
@@ -111,6 +111,7 @@ export class Shot extends Projectile {
     mainColor;
     collisionBehavior;
     // other instance variables
+    #lastPosition = new Vector(); // used for drawing raycaster when finding collision angles
     #shape;
     #colliding = false;
     #tail = new Array();
@@ -125,6 +126,7 @@ export class Shot extends Projectile {
         this.mainColor = new.target.mainColor || Shot.mainColor;
         this.collisionBehavior = (new.target.collisionBehavior || Shot.collisionBehavior).bind(this);
 
+        this.#lastPosition.apply(this.current.position);
         this.#shape = shape;
     }
 
@@ -194,11 +196,20 @@ export class Shot extends Projectile {
         const shape = this.shape;
         for (const polygon of collisions) {
             if (shape.isIntersecting(polygon)) {
-                intersecting = true;
+                intersecting = polygon;
                 break;
             }
         }
-        if (intersecting) this.collisionBehavior();
+        if (intersecting) {
+            const position = this.current.position;
+            const ray = Ray(this.#lastPosition, Direction(this.#lastPosition.angle(position), false), this.#lastPosition.distance(position) * 2);
+            const { point, angle } = intersecting.raycast(ray)
+                ?.filter?.(({entering}) => entering)
+                ?.sort?.((a, b) => position.distance(a.point) - position.distance(b.point))
+                ?.at?.(0);
+            this.collisionBehavior(point, angle, intersecting);
+        }
+        this.#lastPosition.apply(this.current.position);
         if (this.tail.length >= this.tailLength) this.tail.shift();
         this.tail.push(this.shape.clone());
         this.shape.position.apply(super.update(seconds));
