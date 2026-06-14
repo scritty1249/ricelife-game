@@ -91,12 +91,52 @@ export class Projectile extends TrackableObject {
 }
 
 export class Shot extends Projectile {
+    // configuration
+    static tailLength = 10;
+    static tailColor = new Color(255, 255, 255, 160);
+    static glowRadius = 25;
+    static glowResolution = 5;
+    static glowColor = new Color(255, 0, 0, 100);
+    static mainColor = new Color(255, 255, 255);
+    // instance
+    tailLength;
+    tailColor;
+    glowRadius;
+    glowResolution;
+    glowColor;
+    mainColor;
+    // other instance variables
     #shape;
+    #tail = new Array();
     constructor (origin, velocity, acceleration, drag, shape) {
         super(origin, velocity, acceleration, drag);
+        // config overrides
+        this.tailLength = new.target.tailLength || Shot.tailLength;
+        this.tailColor = new.target.tailColor || Shot.tailColor;
+        this.glowRadius = new.target.glowRadius || Shot.glowRadius;
+        this.glowResolution = new.target.glowResolution || Shot.glowResolution;
+        this.glowColor = new.target.glowColor || Shot.glowColor;
+        this.mainColor = new.target.mainColor || Shot.mainColor;
+
         this.#shape = shape;
     }
 
+    #drawGlow (cursor, shape) {
+        cursor.save();
+        shape.draw(cursor);
+        for (let i = 0; i <= this.glowRadius; i += this.glowResolution) {
+            const color = this.glowColor.clone();
+            color.a *= (1 - (i / this.glowRadius)).toFixed(2);
+            cursor.strokeStyle = color.toString();
+            cursor.lineWidth = i;
+            cursor.stroke();
+        }
+        // mask out projectile space itself
+        cursor.globalCompositeOperation = "destination-out";
+        cursor.fill();
+        cursor.globalCompositeOperation = "source-over";
+        cursor.restore();
+    }
     // expensive but accurate. we should only be calling this ONCE when a shot is fired anyways
     // returns the projectiles position when it's shape intersects with the given terrain
     intersectAt (polygon, increment = 1/60, limit = 1000) {
@@ -108,16 +148,53 @@ export class Shot extends Projectile {
         }
         return undefined;
     }
-
-    update (seconds = 1) { this.shape.position.apply(super.update(seconds)) }
+    draw (cursor) {
+        this.drawGlow(cursor);
+        this.drawTail(cursor);
+        this.drawShot(cursor);
+    }
+    drawShot (cursor) {
+        cursor.save();
+        cursor.fillStyle = this.mainColor.toString();
+        this.shape.draw(cursor);
+        cursor.fill();
+        cursor.restore();
+    }
+    drawTail (cursor) {
+        cursor.save();
+        cursor.fillStyle = this.tailColor.toString();
+        const minScale = 1 / this.tail.length;
+        const scales = [];
+        for (let i = 0; i < this.tail.length; i++) {
+            const tail = this.tail[i];
+            scales.push(tail.scale.clone());
+            tail.scale.apply(minScale + (i / this.tail.length));
+            this.#drawGlow(cursor, tail);
+        }
+        for (let i = 0; i < this.tail.length; i++) {
+            const tail = this.tail[i];
+            tail.draw(cursor);
+            tail.scale.apply(scales[i]);
+            cursor.fill();
+        }
+        cursor.restore();
+    }
+    drawGlow (cursor) {
+        this.#drawGlow(cursor, this.shape);
+    }
+    update (seconds = 1) {
+        if (this.tail.length >= this.tailLength) this.tail.shift();
+        this.tail.push(this.shape.clone());
+        this.shape.position.apply(super.update(seconds));
+    }
     clone (deep = false) { return new Shot(this.origin, this.velocity, this.acceleration, this.drag, this.shape.clone(deep)) }
 
     get shape () { return this.#shape }
+    get tail () { return this.#tail }
 }
 
 export class BasicShot extends Shot {
     #blast;
-    #tail = new Array();
     config;
     constructor (origin, angle, power = 1, resolution = 1) {
         const defualtConfig = {
@@ -125,19 +202,7 @@ export class BasicShot extends Shot {
             acceleration: new Vector(20, -200),
             drag: 0.001,
             radius: 7,
-            blastRadius: 30,
-            color: {
-                main: new Color(255, 255, 255),
-                tail: new Color(255, 255, 255, 160),
-                glow: new Color(255, 0, 0, 100)
-            },
-            glow: {
-                radius: 25,
-                resolution: 5
-            },
-            tail: {
-                length: 10
-            }
+            blastRadius: 30
         };
         const config = new.target.config
             ? {...defualtConfig, ...new.target.config}
@@ -164,67 +229,6 @@ export class BasicShot extends Shot {
                 }).sort((a, b) => a.delay - b.delay);
             }
         };
-    }
-
-    update (seconds = 1) {
-        if (this.#tail.length >= this.config.tail.length) this.#tail.shift();
-        this.#tail.push(this.shape.clone());
-        super.update(seconds);
-    }
-
-    draw (cursor) {
-        this.drawGlow(cursor);
-        this.drawTail(cursor);
-        this.drawShot(cursor);
-    }
-
-    drawShot (cursor) {
-        cursor.save();
-        cursor.fillStyle = this.config.color.main.toString();
-        this.shape.draw(cursor);
-        cursor.fill();
-        cursor.restore();
-    }
-
-    drawTail (cursor) {
-        cursor.save();
-        cursor.fillStyle = this.config.color.tail.toString();
-        const minScale = 1 / this.#tail.length;
-        const scales = [];
-        for (let i = 0; i < this.#tail.length; i++) {
-            const tail = this.#tail[i];
-            scales.push(tail.scale.clone());
-            tail.scale.apply(minScale + (i / this.#tail.length));
-            this.#drawGlow(cursor, tail);
-        }
-        for (let i = 0; i < this.#tail.length; i++) {
-            const tail = this.#tail[i];
-            tail.draw(cursor);
-            tail.scale.apply(scales[i]);
-            cursor.fill();
-        }
-        cursor.restore();
-    }
-
-    drawGlow (cursor) {
-        this.#drawGlow(cursor, this.shape);
-    }
-
-    #drawGlow (cursor, shape) {
-        cursor.save();
-        shape.draw(cursor);
-        for (let i = 0; i <= this.config.glow.radius; i += this.config.glow.resolution) {
-            const color = this.config.color.glow.clone();
-            color.a *= (1 - (i / this.config.glow.radius)).toFixed(2);
-            cursor.strokeStyle = color.toString();
-            cursor.lineWidth = i;
-            cursor.stroke();
-        }
-        // mask out projectile space itself
-        cursor.globalCompositeOperation = "destination-out";
-        cursor.fill();
-        cursor.globalCompositeOperation = "source-over";
-        cursor.restore();
     }
 
     get blast () { return this.#blast }
