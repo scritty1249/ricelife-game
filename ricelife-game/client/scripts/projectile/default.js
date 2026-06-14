@@ -39,7 +39,7 @@ export class Projectile extends TrackableObject {
         return true
     }
 
-    update (seconds = 1) {
+    updatePosition (seconds) {
         const position = this.current.position;
         const velocity = this.current.velocity;
         const acceleration = this.acceleration.clone();
@@ -48,11 +48,15 @@ export class Projectile extends TrackableObject {
             acceleration.x *= -1;
         else if (floatEqual(velocity.x, 0))
             acceleration.x *= 0;
-        this.#tracer.push(position.clone());
         position.add(velocity.mul(seconds), true);
         velocity.add(acceleration.add(v).mul(seconds), true);
+    }
+
+    update (seconds = 1) {
+        this.#tracer.push(this.current.position.clone());
+        this.updatePosition(seconds);
         this.#time += seconds;
-        return position;
+        return this.current.position;
     }
 
     reset () {
@@ -62,26 +66,26 @@ export class Projectile extends TrackableObject {
     }
 
     // [!] broken
-    positionAt (seconds, resolution = 0.01) {
-        const position = this.origin.clone();
-        if (seconds <= 0) return position;
-        const velocity = this.velocity.clone();
-        const acceleration = this.acceleration.clone();
-        let t = 0;
-        while (t < seconds) {
-            const dt = Math.min(resolution, seconds - t);            
-            const v = velocity.mul(-this.drag * Math.sqrt(velocity.pow(2).sum()));
-            const acc = acceleration.clone();
-            if (v.x < 0)
-                acc.x *= -1;
-            else if (floatEqual(v.x, 0))
-                acc.x *= 0;
-            velocity.add(acc.add(v).mul(dt), true);
-            position.add(velocity.mul(dt), true);
-            t += dt;
-        }
-        return position;
-    }
+    // positionAt (seconds, resolution = 0.01) {
+    //     const position = this.origin.clone();
+    //     if (seconds <= 0) return position;
+    //     const velocity = this.velocity.clone();
+    //     const acceleration = this.acceleration.clone();
+    //     let t = 0;
+    //     while (t < seconds) {
+    //         const dt = Math.min(resolution, seconds - t);            
+    //         const v = velocity.mul(-this.drag * Math.sqrt(velocity.pow(2).sum()));
+    //         const acc = acceleration.clone();
+    //         if (v.x < 0)
+    //             acc.x *= -1;
+    //         else if (floatEqual(v.x, 0))
+    //             acc.x *= 0;
+    //         velocity.add(acc.add(v).mul(dt), true);
+    //         position.add(velocity.mul(dt), true);
+    //         t += dt;
+    //     }
+    //     return position;
+    // }
 
     get isProjectile () { return true }
     get tracer () { return this.#tracer }
@@ -100,7 +104,7 @@ export class Shot extends Projectile {
     static mainColor = new Color(255, 255, 255);
     static collisionBehavior = function (point, angle, polygon) {
         this.velocity.mul(0, true);
-        this.#colliding = true;
+        return true;
     }
     // instance
     tailLength;
@@ -192,27 +196,33 @@ export class Shot extends Projectile {
         this.#drawGlow(cursor, this.shape);
     }
     update (seconds = 1, collisions = []) {
-        let intersecting = false;
-        const shape = this.shape;
-        for (const polygon of collisions) {
-            if (shape.isIntersecting(polygon)) {
-                intersecting = polygon;
-                break;
+        if (!this.isColliding) {
+            let intersecting;
+            const shape = this.shape;
+            for (const polygon of collisions) {
+                if (shape.isIntersecting(polygon)) {
+                    intersecting = polygon;
+                    break;
+                }
             }
+            if (intersecting?.isPolygon) {
+                const position = this.current.position;
+                const ray = Ray(this.#lastPosition, Direction(this.#lastPosition.angle(position), false), this.#lastPosition.distance(position) * 2);
+                const hits = intersecting.raycast(ray)
+                    ?.filter?.(({entering}) => entering)
+                    ?.sort?.((a, b) => position.distance(a.point) - position.distance(b.point));
+                if (hits.length) {
+                    const { point, angle } = hits?.at?.(0);
+                    this.#colliding = this.collisionBehavior(point, angle, intersecting);
+                } else {
+                    console.warn(`[${this.constructor.name}]: Collision detected but failed to find intersection`);
+                }
+            }
+            this.#lastPosition.apply(this.current.position);
         }
-        if (intersecting) {
-            const position = this.current.position;
-            const ray = Ray(this.#lastPosition, Direction(this.#lastPosition.angle(position), false), this.#lastPosition.distance(position) * 2);
-            const { point, angle } = intersecting.raycast(ray)
-                ?.filter?.(({entering}) => entering)
-                ?.sort?.((a, b) => position.distance(a.point) - position.distance(b.point))
-                ?.at?.(0);
-            this.collisionBehavior(point, angle, intersecting);
-        }
-        this.#lastPosition.apply(this.current.position);
         if (this.tail.length >= this.tailLength) this.tail.shift();
         this.tail.push(this.shape.clone());
-        this.shape.position.apply(super.update(seconds));
+        if (!this.isColliding) this.shape.position.apply(super.update(seconds));
     }
     clone (deep = false) { return new Shot(this.origin, this.velocity, this.acceleration, this.drag, this.shape.clone(deep)) }
 
@@ -246,7 +256,10 @@ export class BasicShot extends Shot {
 
         const direction = Direction(angle, false).mul(initalSpeed * power);
         super(origin, direction, acceleration, drag, new Circle(origin, radius, resolution));
-        this.direction = direction; // make accessible for later calculations
+        // make accessible for later calculations
+        this.direction = direction;
+        this.angle = angle;
+        this.power = power;
         // config overrrides
         this.acceleration = acceleration;
         this.initalSpeed = initalSpeed;

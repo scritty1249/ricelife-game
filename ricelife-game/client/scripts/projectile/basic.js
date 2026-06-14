@@ -36,7 +36,7 @@ export class Flower extends BasicShot {
         this.blast.blasts.splice(0, this.blast.blasts.length);
         Array.from([0, 360/7, 720/7, 1080/7, 1440/7, 1800/7, 2160/7], (angle, i) => {
             const rad = deg2rad(angle);
-            return new Circle(new Vector(Math.cos(rad), Math.sin(rad)).mul(this.config.radius + (this.blastRadius * 1.75)), this.blastRadius, this.resolution)})
+            return new Circle(new Vector(Math.cos(rad), Math.sin(rad)).mul(this.radius + (this.blastRadius * 1.75)), this.blastRadius, this.resolution)})
             .forEach((shape, i) => this.blast.push(shape, i * 100));
     }
 }
@@ -57,5 +57,22 @@ export class Digger extends BasicShot {
         this.blast.push(new Circle(new Vector(0, -this.blastRadius * 1.75), this.blastRadius, this.resolution), 400);
         this.blast.push(new Circle(new Vector(0, -this.blastRadius * 1.75 * 2), this.blastRadius, this.resolution), 800);
         this.blast.push(new Circle(new Vector(0, -this.blastRadius * 1.75 * 3), this.blastRadius, this.resolution), 1200);
+    }
+}
+
+export class Bouncer extends BasicShot {
+    static collisionBehavior = function (point, angle, polygon) {
+        if (bounces) {
+            this.velocity.rotate(angle, true);
+            bounces--;
+            this.updatePosition(1);
+            return false;
+        }
+        return true;
+    }
+    static glowColor = new Color(128, 0, 128);
+    bounces = 3;
+    constructor (origin, angle, power = 1, resolution = 1) {
+        super(origin, angle, power, resolution);
     }
 }

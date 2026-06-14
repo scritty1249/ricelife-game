@@ -375,7 +375,8 @@ async function main(...loaded) {
             shot1: Projectiles.BasicShot,
             shot2: Projectiles.Spreader,
             shot3: Projectiles.Flower,
-            shot4: Projectiles.Digger
+            shot4: Projectiles.Digger,
+            shot5: Projectiles.Bouncer
         },
         animations: { global: Animations },
 
@@ -405,7 +406,7 @@ async function main(...loaded) {
 
         const btns = [fireButton, selectButton, rightButton, leftButton];
         let shotIdx = 0;
-        const shotMax = 4;
+        const shotMax = Object.keys(state.projectileTypes).length;
         // setting up button callbacks
         rightButton.onclick = rightButton.onhold = () => Mover.move(config.moveIncr);
         leftButton.onclick = leftButton.onhold = () => Mover.move(-config.moveIncr);

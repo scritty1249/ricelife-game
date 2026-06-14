@@ -66,22 +66,13 @@ export class WorkerController {
         );
     }
     async traceProjectile (polygonid, projectile, increment, limit) {
-        const { origin, velocity, acceleration, drag, shape } = projectile;
+        const { origin, velocity, acceleration, angle, resolution, power } = projectile;
         const payload = {
-            origin, velocity, acceleration, drag, increment, limit,
-            target: polygonid
+            origin, angle, power, resolution, increment, limit,
+            shot: projectile.constructor.name,
+            collisions: [polygonid]
         };
-        const transfer = [];
-        let type = "INTERSECTPROJ";
-        if (shape.isCircle) {
-            payload.radius = shape.radius;
-            payload.resolution = shape.resolution;
-            type = "INTERSECTCIRCLEPROJ";
-        } else {
-            payload.hitbox = shape.Float64(1);
-            transfer.push(...payload.hitbox.buffers);
-        }
-        return await this.#pool.post(type, payload, transfer, [polygonid]);
+        return await this.#pool.post("INTERSECTPROJ", payload, [], [polygonid]);
     }
     async drawBlastedTerrains (depth, polygonid, canvasSize, terrainConfig, ...blasts) {
         // cuts blasts, and returns a Promise<Array> of image data, for each state of the terrain after the blasts (in order)

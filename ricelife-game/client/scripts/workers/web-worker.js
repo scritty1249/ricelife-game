@@ -3,6 +3,7 @@ import { Polygon, Color, Vector, Circle } from "../geometry/geometry.js";
 import { drawTerrain } from "../terrain/terrain.js";
 import { Shot } from "../projectile/projectile.js";
 import { CACHE_TYPES } from "./types.js";
+import * as ShotType from "../projectile/basic.js";
 
 /* Polygon64: 
  * {
@@ -89,47 +90,23 @@ self.onmessage = async (e) => {
         } else if (type === "INTERSECTPROJ") {
             /* Payload expected:
              * {
-             *    hitbox: Polygon64 | UUID,
-             *    target: Polygon64 | UUID,
+             *    shot: String,
+             *    collisions: [...Polygon64 | UUID],
              *    origin: Vector,
-             *    velocity: Vector,
-             *    acceleration: Vector,
-             *    drag: Number,
-             *    increment: Number,
-             *    limit: Number
-             * }
-             */
-            const { hitbox, target, origin, velocity, acceleration, drag, increment, limit } = payload;
-            const targetPoly = typeof target === "string"
-                ? CACHE[target]?.data?.poly
-                : Polygon.fromObject(target, target.depth);
-            const hitboxPoly = typeof hitbox === "string"
-                ? CACHE[hitbox]?.data?.poly
-                : Polygon.fromObject(hitbox, hitbox.depth);
-            const proj = new Shot(Vector.fromObject(origin), Vector.fromObject(velocity), Vector.fromObject(acceleration), drag, hitboxPoly);
-            const result = proj.intersectAt([targetPoly], increment, limit);
-            postResponse(id, result);
-        } else if (type === "INTERSECTCIRCLEPROJ") { // specificlly optimized, basically the same as INTERSECTPROJ
-            /* Payload expected:
-             * {
-             *    target: Polygon64 | UUID,
-             *    radius: Number,
+             *    angle: Number, (radians)
+             *    power: Number,
              *    resolution: Number,
-             *    origin: Vector,
-             *    velocity: Vector,
-             *    acceleration: Vector,
-             *    drag: Number,
              *    increment: Number,
              *    limit: Number
              * }
              */
-            const { target, radius, resolution, origin, velocity, acceleration, drag, increment, limit } = payload;
-            const targetPoly = typeof target === "string"
-                ? CACHE[target]?.data?.poly
-                : Polygon.fromObject(target, target.depth);
-            const hitboxPoly = new Circle(Vector.fromObject(origin), radius, resolution);
-            const proj = new Shot(Vector.fromObject(origin), Vector.fromObject(velocity), Vector.fromObject(acceleration), drag, hitboxPoly);
-            const result = proj.intersectAt([targetPoly], increment, limit);
+            const { shot, collisions, origin, angle, power, resolution, increment, limit } = payload;
+            const targetPolys = collisions.map((target) =>
+                typeof target === "string"
+                    ? CACHE[target]?.data?.poly
+                    : Polygon.fromObject(target, target.depth));
+            const proj = new ShotType[shot](Vector.fromObject(origin), angle, power, resolution);
+            const result = proj.intersectAt(targetPolys, increment, limit);
             postResponse(id, result);
         } else if (type === "CUTPOLY") {
             /* Payload expected:
