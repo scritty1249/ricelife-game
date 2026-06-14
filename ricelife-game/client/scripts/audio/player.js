@@ -197,6 +197,7 @@ class AudioLayer extends TrackableObject {
     play () { for (const item of this.#items) item.play() }
     pause () { for (const item of this.#items) item.pause() }
     stop () { for (const item of this.#items) item.stop() }
+    reset () { for (const item of this.#items) item.reset() }
     add (audio) { // can accept AudioInstance or AudioLayer
         audio.connect(this.#input);
         const id = uuid(); // allow for duplicates to be inserted, determine ID in layer class upon addition - KT
