@@ -107,7 +107,7 @@ self.onmessage = async (e) => {
                 ? CACHE[hitbox]?.data?.poly
                 : Polygon.fromObject(hitbox, hitbox.depth);
             const proj = new Shot(Vector.fromObject(origin), Vector.fromObject(velocity), Vector.fromObject(acceleration), drag, hitboxPoly);
-            const result = proj.intersectAt(targetPoly, increment, limit);
+            const result = proj.intersectAt([targetPoly], increment, limit);
             postResponse(id, result);
         } else if (type === "INTERSECTCIRCLEPROJ") { // specificlly optimized, basically the same as INTERSECTPROJ
             /* Payload expected:
@@ -129,7 +129,7 @@ self.onmessage = async (e) => {
                 : Polygon.fromObject(target, target.depth);
             const hitboxPoly = new Circle(Vector.fromObject(origin), radius, resolution);
             const proj = new Shot(Vector.fromObject(origin), Vector.fromObject(velocity), Vector.fromObject(acceleration), drag, hitboxPoly);
-            const result = proj.intersectAt(targetPoly, increment, limit);
+            const result = proj.intersectAt([targetPoly], increment, limit);
             postResponse(id, result);
         } else if (type === "CUTPOLY") {
             /* Payload expected:

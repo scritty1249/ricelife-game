@@ -98,6 +98,10 @@ export class Shot extends Projectile {
     static glowResolution = 5;
     static glowColor = new Color(255, 0, 0, 100);
     static mainColor = new Color(255, 255, 255);
+    static collisionBehavior = function (intersection) {
+        this.velocity.mul(0, true);
+        this.#colliding = true;
+    }
     // instance
     tailLength;
     tailColor;
@@ -105,8 +109,10 @@ export class Shot extends Projectile {
     glowResolution;
     glowColor;
     mainColor;
+    collisionBehavior;
     // other instance variables
     #shape;
+    #colliding = false;
     #tail = new Array();
     constructor (origin, velocity, acceleration, drag, shape) {
         super(origin, velocity, acceleration, drag);
@@ -117,6 +123,7 @@ export class Shot extends Projectile {
         this.glowResolution = new.target.glowResolution || Shot.glowResolution;
         this.glowColor = new.target.glowColor || Shot.glowColor;
         this.mainColor = new.target.mainColor || Shot.mainColor;
+        this.collisionBehavior = (new.target.collisionBehavior || Shot.collisionBehavior).bind(this);
 
         this.#shape = shape;
     }
@@ -139,12 +146,12 @@ export class Shot extends Projectile {
     }
     // expensive but accurate. we should only be calling this ONCE when a shot is fired anyways
     // returns the projectiles position when it's shape intersects with the given terrain
-    intersectAt (polygon, increment = 1/60, limit = 1000) {
-        if (!polygon.isPolygon) throw new Error(`[${this.constructor.name}] Error: Cannot perform intersection operation with non-Polygon`);
+    intersectAt (polygons, increment = 1/60, limit = 1000) {
+        if (polygons.some(({isPolygon}) => !isPolygon)) throw new Error(`[${this.constructor.name}] Error: Cannot perform intersection operation with non-Polygon`);
         const proj = this.clone(true);
         for (let t = 0; t < limit; t += increment) {
-            if (proj.shape.isIntersecting(polygon)) return { point: proj.position.clone(), at: t };
-            proj.update(increment);
+            proj.update(increment, polygons);
+            if (proj.isColliding) return { point: proj.position.clone(), at: t };
         }
         return undefined;
     }
@@ -182,13 +189,23 @@ export class Shot extends Projectile {
     drawGlow (cursor) {
         this.#drawGlow(cursor, this.shape);
     }
-    update (seconds = 1) {
+    update (seconds = 1, collisions = []) {
+        let intersecting = false;
+        const shape = this.shape;
+        for (const polygon of collisions) {
+            if (shape.isIntersecting(polygon)) {
+                intersecting = true;
+                break;
+            }
+        }
+        if (intersecting) this.collisionBehavior();
         if (this.tail.length >= this.tailLength) this.tail.shift();
         this.tail.push(this.shape.clone());
         this.shape.position.apply(super.update(seconds));
     }
     clone (deep = false) { return new Shot(this.origin, this.velocity, this.acceleration, this.drag, this.shape.clone(deep)) }
 
+    get isColliding () { return this.#colliding }
     get shape () { return this.#shape }
     get tail () { return this.#tail }
 }

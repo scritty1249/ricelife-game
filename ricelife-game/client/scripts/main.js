@@ -230,7 +230,7 @@ function animate (state, config) {
                     .then(() => Promise.all([animationJob, positionJob]))
                     .then(() => state.redrawJob = Promise.resolve());
             } else {
-                state.projectile.update(1 / config.fps);
+                state.projectile.update(1 / config.fps, [state.terrain]);
             }
         }
         
