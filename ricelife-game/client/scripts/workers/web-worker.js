@@ -161,9 +161,10 @@ self.onmessage = async (e) => {
             if (subject !== cache) createCache(cache, "POLY", polygon);
             const result = {};
             let bufs = [];
+            console.log(polygon.holes.length); // [!] testing
             if (callback) {
-                const { path, holes, buffers } = polygon.Float64(depth); // [!] We are not expecting our holes to have more goddamn holes, but ffs JUST IN CASE...
-                result.polygon = {path, holes};
+                const { path, holes, buffers } = polygon.Float64(depth+1); // [!] We are not expecting our holes to have more goddamn holes, but ffs JUST IN CASE...
+                result.polygon = {path, holes, depth: depth + 1};
                 bufs = buffers;
             }
             postResponse(id, result, bufs);

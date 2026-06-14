@@ -25,7 +25,7 @@ async function fireProjectile (shot, state, config) { // [!} laziness
         state.redrawJob = state.threading.drawBlastedTerrains(1, "blastTerrain", config.display.size, config.terrain, ...blasts);
         await state.redrawJob;
         //const blastTerrain = state.threading.cutPolygon(1, "blastTerrain", "blastTerrain", ...blasts.map(({shape}) => shape));
-        const { frames: blastedTerrainFrames, polygons: blastTerrain } = await state.redrawJob;
+        const { frames: blastedTerrainFrames, polygon: blastTerrain } = await state.redrawJob;
         state.animations.blast = new AnimationList();
         const ss = state.blastAnimationFrames.clone();
         ss.width = (shotConfig.blastRadius * 2) * 20;
@@ -42,7 +42,7 @@ async function fireProjectile (shot, state, config) { // [!} laziness
             state.animations.blast.push(ani);
         }
         state.animations.global.push(...state.animations.blast);
-        state.blastTerrain = await blastTerrain.at(-1);
+        state.blastTerrain = await blastTerrain;
     }
     await state.redrawJob;
     state.landing = landing;

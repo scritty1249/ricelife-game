@@ -124,11 +124,14 @@ export class WorkerController {
             cutJob = cj;
             drawJob = dj;
         }
-        const polygons = await Promise.all(polygonJobs);
+        
+        const polygon = await Promise.all(polygonJobs)
+            .then((p) => p.at(-1));
         const frames = await Promise.all(frameJobs);
         const finalKey = await polygonKeys.at(-1);
         await this.#pool.copyCache(finalKey, polygonid, true, false);
-        return { polygons, frames };
+        console.log(polygon.holes.length);
+        return { polygon, frames };
     }
     async createCache (id, type, ...args) { return await this.#pool.initCache(type, args, id) }
     async insertCache (id, type, payload) { return await this.#pool.pushCache(type, payload, id) }

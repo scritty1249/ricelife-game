@@ -72,8 +72,9 @@ export class WorkerPool extends TrackableObject {
         if (this.#LOG_LEVEL >= 1) console.debug(`[${this.constructor.name}]: Transaction ${id} posted to Worker ${w.id}\n\t${command ? command : type}: `,  payload);
         return dispose
         // always return a Job, not Transaction
-            ? transaction.finally(() => {
+            ? transaction.finally((d) => {
                 delete this.transaction[transaction.id];
+                return d;
             })
             : new WorkerJob(transaction);
     }
