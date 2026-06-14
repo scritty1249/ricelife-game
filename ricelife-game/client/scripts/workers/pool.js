@@ -173,20 +173,16 @@ export class WorkerPool extends TrackableObject {
         const transfers = [];
         for (const cache of unownedCaches) transfers.push(this.copyCache(cache, worker.id, true, false));
         await Promise.all(transfers)
-            .catch(() => { throw new Error(`[${this.constructor.name}]: Failed to transfer cache(s) specified for worker job`)});
+            .catch((e) => { console.warn(`[${this.constructor.name}]: Failed to transfer cache(s) specified for worker job\n`, e)});
         return this.#postJob(type, payload, transfer, "", worker) // don't dispose of transaction
-            .then(({payload, state}) => {
-                worker.cache.clear();
-                for (const cache of state.cache) worker.cache.add(cache);
-                return payload;
-            });
+            .then(({payload}) => payload);
     }
     terminate () {
         for (const { instance } of this.#workers) instance.terminate();
         this.#workers.splice(0, this.#workers.length);
         this.#queue.splice(0, this.#queue.length);
     }
-    async initCache (type, args = [], id = uuid()) {
+    initCache (type, args = [], id = uuid()) {
         if (!(type in CACHE_TYPES)) throw new Error(`[${this.constructor.name}]: ${type} is not a valid cache type`);
         const worker = this.#getWorker();
         return this.#postJob(
@@ -196,11 +192,9 @@ export class WorkerPool extends TrackableObject {
             "INITCACHE",
             worker,
             true
-        ).then(() => {
-            worker.cache.add(id);
-        });
+        );
     }
-    async pushCache (type, payload, id = undefined) {
+    pushCache (type, payload, id = undefined) {
         const defaultedId = (id === undefined);
         const staleCacheWorker = defaultedId ? undefined : this.#cacheAt(id);
         const cache = defaultedId ? uuid() : id;
@@ -209,7 +203,6 @@ export class WorkerPool extends TrackableObject {
 
         if (staleCacheWorker && worker.id !== staleCacheWorker.id) {
             // drop cache from old worker, push new cache onto available worker
-            staleCacheWorker.cache.delete(cache);
             concurrent = this.#dropCache(cache, staleCacheWorker);
         }
         const result = this.#postJob(
@@ -220,19 +213,17 @@ export class WorkerPool extends TrackableObject {
             worker,
             true
         );
-        return new WorkerJob(result, concurrent)
-            .then(() => { worker.cache.add(cache) });
+        return new WorkerJob(result, concurrent);
     }
-    async dropCache (id) {
+    dropCache (id) {
         const worker = this.#cacheAt(id);
         if (!worker) return;
-        return await this.#dropCache(id, worker)
-            .then(() => { worker.cache.delete(id) });
+        return this.#dropCache(id, worker);
     }
-    async copyCache (cache, dest, transfer = true, preserveKey = true) {
+    copyCache (cache, dest, transfer = true, preserveKey = true) {
         const worker = this.#cacheAt(cache);
         const receiver = this.#workerAt(dest);
-        if (worker === undefined) throw new Error(`[${this.constructor.name}]: Cache ${target} does not exist`);
+        if (worker === undefined) throw new Error(`[${this.constructor.name}]: Cache ${cache} does not exist`);
         if (receiver === undefined) throw new Error(`[${this.constructor.name}]: Worker ${dest} does not exist`);
         if (worker.id === receiver.id) return;
         return this.#postJob(
@@ -242,10 +233,7 @@ export class WorkerPool extends TrackableObject {
             "SENDCACHE",
             worker,
             true
-        ).then(() => {
-            if (transfer && !preserveKey) worker.cache.delete(cache);
-            receiver.cache.add(cache);
-        });
+        );
     }
     async pullCache (cache, transfer = true, preserveKey = true) {
         const worker = this.#cacheAt(cache);
@@ -258,7 +246,6 @@ export class WorkerPool extends TrackableObject {
             worker,
             true
         );
-        if (transfer && !preserveKey) worker.cache.delete(cache);
         if (type in CACHE_TYPES) {
             this.cache[cache] = CACHE_TYPES[type].encode(payload, false);
         } else {
@@ -276,13 +263,20 @@ export class WorkerPool extends TrackableObject {
     get initPromise () { return this.#initPromise }
 
     static #workerMessageHandler (entry, event) {
-        const { id, error } = event.data;
+        const { id, error, state } = event.data;
+        if (state?.cache) {
+            entry.cache.clear();
+            for (const cache of state.cache) entry.cache.add(cache);
+        }
         if (id in this.#transaction) {
             if (entry.jobs.has(id)) entry.jobs.delete(id); // update running job queue
             else console.warn(`[${this.constructor.name}] Warning: Web worker ${entry.id} replied to an unregistered job\n`, event?.data);
             if (!this.#queue.includes(entry)) this.#queue.push(entry); // push onto top of queue if it doesnt already exist there
             if (error) this.#transaction[id].reject(event.data);
-            else this.#transaction[id].resolve(event.data);
+            else {
+                this.#transaction[id].resolve(event.data);
+                console.debug(`[${this.constructor.name}]: Wrker ${entry.id} completed Transaction ${id}\n\tState: `, state);
+            }
         } else if (error) {
             console.error(`[${this.constructor.name}]: Wrker ${entry.id} caught an Error\n`, event?.data);
         } else {
