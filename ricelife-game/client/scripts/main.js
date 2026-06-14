@@ -4,6 +4,7 @@ import { drawCircle, drawMarker, drawLine, rad2deg, roundTo, floatEqual, normali
 import { drawTerrain, generateTerrain, generateWave } from "./terrain/terrain.js";
 import { LoadImage, Spritesheet, Animation, AnimationList } from "./animate/animate.js";
 import { WorkerPool } from "./workers/pool.js";
+import { AudioContext } from "./audio/audio.js";
 import * as Menu from "./menu/menu.js"
 import * as Projectiles from "./projectile/projectile.js";
 
@@ -24,7 +25,6 @@ async function fireProjectile (shot, state, config) { // [!} laziness
         const blastDelays = projectile.blast.delay;
         state.redrawJob = state.threading.drawBlastedTerrains(1, "blastTerrain", config.display.size, config.terrain, ...blasts);
         await state.redrawJob;
-        //const blastTerrain = state.threading.cutPolygon(1, "blastTerrain", "blastTerrain", ...blasts.map(({shape}) => shape));
         const { frames: blastedTerrainFrames, polygon: blastTerrain } = await state.redrawJob;
         state.animations.blast = new AnimationList();
         const ss = state.blastAnimationFrames.clone();
@@ -36,8 +36,11 @@ async function fireProjectile (shot, state, config) { // [!} laziness
             ani.speed = 1.25;
             ani.delay = delay * ani.speed;
             ani.onstart.then(() => {
+                // update canvas
                 state.threading.cache.background?.close?.();
                 state.threading.cache.background = frame;
+                // play sfx
+                config.audio.add(config.sfx.blast.Instance().play(), true);
             });
             state.animations.blast.push(ani);
         }
@@ -49,6 +52,7 @@ async function fireProjectile (shot, state, config) { // [!} laziness
     state.projectile = projectile;
     state.tracer = projectile.tracer;
     muzzleFlash.play();
+    config.audio.add(config.sfx.fire.Instance().play(), true);
 }
 
 function generateMuzzleFlash (state, config) { // [!] laziness
@@ -247,16 +251,29 @@ async function load() {
     const barrel = new LoadImage("./assets/tank/barrel.png").onload;
     const testExplosion = new Spritesheet("./assets/blast/explosion_ss_512x512.png", 512, 512).onload;
     const testMuzzleFlash = new Spritesheet("./assets/blast/muzzleflash_ss_140x162.png", 140, 162).onload;
+    const AudioCtx = new AudioContext();
+    const AudioPlayer = AudioCtx.Layer();
+    // resume audio context on inputs
+    window.addEventListener("pointermove", AudioCtx.wake);
+    window.addEventListener("pointerdown", AudioCtx.wake);
+    window.addEventListener("pointerup", AudioCtx.wake);
+    // setting global audio
+    AudioPlayer.volume = 0.65;
+    
     const buttons = Promise.all([
         new LoadImage("./assets/interface/buttons/fire.png").onload,
         new LoadImage("./assets/interface/buttons/select.png").onload,
         new LoadImage("./assets/interface/buttons/right.png").onload,
         new LoadImage("./assets/interface/buttons/left.png").onload
     ]);
+    const sfx = Promise.all([
+        AudioCtx.Source("fire", "./assets/sfx/fire.mp3").onload,
+        AudioCtx.Source("blast", "./assets/sfx/blast.mp3").onload
+    ]);
     const WorkerManager = new WorkerPool(new URL(`./workers/web-worker.js`, import.meta.url), 4, 3);
     await WorkerManager.initPromise
         .catch(() => console.error("[Main] Error: WorkerPool size is zero"));
-    main(WorkerManager, await body, await barrel, await testExplosion, await testMuzzleFlash, await buttons);
+    main(WorkerManager, AudioPlayer, await body, await barrel, await testExplosion, await testMuzzleFlash, await buttons, await sfx);
 }
 
 const FPS = 60;
@@ -287,7 +304,7 @@ const INPUT_MAP = {
 };
 
 async function main(...loaded) {
-    const [WorkerManager, tankBodyImage, tankBarrelImage, testExplosion, testMuzzleFlash, buttons] = loaded;
+    const [WorkerManager, AudioPlayer, tankBodyImage, tankBarrelImage, testExplosion, testMuzzleFlash, buttons, sfx] = loaded;
     tankBodyImage.width = 50;
     tankBarrelImage.scale.apply(tankBodyImage.scale);
     {
@@ -325,6 +342,8 @@ async function main(...loaded) {
         fps: FPS,
         frameInterval: 1000 / FPS,
         display: Display,
+        audio: AudioPlayer,
+        sfx: Object.fromEntries(sfx.map((fx) => [fx.name, fx])), // audio sources
         playerTank: Tank.id,
         moveIncr: 1,
         aimIncr: (Math.PI / 180),
