@@ -211,27 +211,42 @@ export class Shot extends Projectile {
 }
 
 export class BasicShot extends Shot {
+    // config
+    static acceleration = new Vector(20, -200);
+    static initalSpeed = 400;
+    static drag = 0.001;
+    static radius = 7;
+    static blastRadius = 30;
+    // instance
+    acceleration;
+    initalSpeed;
+    drag;
+    radius;
+    blastRadius;
+    // other instance variables
     #blast;
     config;
     constructor (origin, angle, power = 1, resolution = 1) {
-        const defualtConfig = {
-            initalSpeed: 400,
-            acceleration: new Vector(20, -200),
-            drag: 0.001,
-            radius: 7,
-            blastRadius: 30
-        };
-        const config = new.target.config
-            ? {...defualtConfig, ...new.target.config}
-            : defualtConfig;
-        const direction = Direction(angle, false).mul(config.initalSpeed * power);
-        super(origin, direction, config.acceleration, config.drag, new Circle(origin, config.radius, resolution));
+        const acceleration = (new.target.acceleration || BasicShot.acceleration).clone();
+        const initalSpeed = new.target.initalSpeed || BasicShot.initalSpeed;
+        const drag = new.target.drag || BasicShot.drag;
+        const radius = new.target.radius || BasicShot.radius;
+        const blastRadius = new.target.blastRadius || BasicShot.blastRadius;
+
+        const direction = Direction(angle, false).mul(initalSpeed * power);
+        super(origin, direction, acceleration, drag, new Circle(origin, radius, resolution));
         this.direction = direction; // make accessible for later calculations
-        this.config = config;
+        // config overrrides
+        this.acceleration = acceleration;
+        this.initalSpeed = initalSpeed;
+        this.drag = drag;
+        this.radius = radius;
+        this.blastRadius = blastRadius;
+
         const currentPosition = this.current.position;
         this.#blast = {
             blasts: [{
-                shape: new Circle(new Vector(), config.blastRadius, resolution),
+                shape: new Circle(new Vector(), this.blastRadius, resolution),
                 delay: 0 // milliseconds
             }],
             push: function (shape, delayMs) { this.blasts.push({ shape, delay: delayMs }) },

@@ -20,7 +20,7 @@ async function fireProjectile (shot, state, config) { // [!} laziness
     const landing = await state.threading.traceProjectile("blastTerrain", projectile, 1/config.fps, config.fps * 2 * 60);
     state.blastTerrain = undefined;
     if (landing) {
-        const shotConfig = projectile.config;
+        const blastRadius = projectile.blastRadius;
         const blasts = projectile.blast.blastsAt(landing.point); // should be sorted
         const blastDelays = projectile.blast.delay;
         state.redrawJob = state.threading.drawBlastedTerrains(1, "blastTerrain", config.display.size, config.terrain, ...blasts);
@@ -28,7 +28,7 @@ async function fireProjectile (shot, state, config) { // [!} laziness
         const { frames: blastedTerrainFrames, polygon: blastTerrain } = await state.redrawJob;
         state.animations.blast = new AnimationList();
         const ss = state.blastAnimationFrames.clone();
-        ss.width = (shotConfig.blastRadius * 2) * 20;
+        ss.width = (blastRadius * 2) * 20;
         for (let i = 0; i < blasts.length; i++) {
             const frame = blastedTerrainFrames.at(i);
             const { shape, delay } = blasts[i];
