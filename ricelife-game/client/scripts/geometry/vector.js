@@ -182,6 +182,13 @@ export class Vector {
         }
         return this; // for chaining
     }
+    normalize (mutate = false) {
+        const vec = mutate ? this : this.clone();
+        const mag = vec.magnitude();
+        vec.x /= mag;
+        vec.y /= mag;
+        return vec;
+    }
     // overload / basic operations
     *[Symbol.iterator]() {
         yield this.x;
