@@ -19,6 +19,12 @@ export class AudioContext extends TrackableObject {
         return await this.#context.decodeAudioData(buffer);
     }
 
+    newBassNode () {
+        if (this.isClosed) throw new Error(`[${this.constructor.name}]: Failed to create node, instance is closed`);
+        const node = new BiquadFilterNode(this.#context);
+        node.type = "lowshelf";
+        return node;
+    }
     newVolumeNode () {
         if (this.isClosed) throw new Error(`[${this.constructor.name}]: Failed to create node, instance is closed`);
         return new GainNode(this.#context);
@@ -195,6 +201,7 @@ class AudioInstance extends TrackableObject {
 
 class AudioLayer extends TrackableObject {
     #items = {};
+    #filters = []; // [!] adding new nodes to this after initalization won't do anything
     #input;
     #output;
     #gain;
@@ -207,6 +214,7 @@ class AudioLayer extends TrackableObject {
         this.#output = ctx.newNode();
         this.#gain = ctx.newVolumeNode();
         if (filters.length) {
+            this.#filters.push(...filters);
             for (let i = 0; i < filters.length; i++)
                 (i === 0 ? this.#gain : filters[i-1]).connect(filters[i]);
             filters.at(-1).connect(this.#output);
@@ -242,4 +250,5 @@ class AudioLayer extends TrackableObject {
     get output () { return this.#output }
     get volume () { return this.#gain.gain.value }
     set volume (value) { return (this.#gain.gain.value = value) }
+    get filters () { return this.#filters }
 }

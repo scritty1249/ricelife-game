@@ -20,13 +20,15 @@ async function fireProjectile (shot, state, config) { // [!} laziness
     const landing = await state.threading.traceProjectile("blastTerrain", projectile, config.traceIncrement, config.traceLimit);
     state.blastTerrain = undefined;
     if (landing.intersect) {
-        const blastRadius = projectile.blastRadius;
         const blasts = landing.blasts; // should be sorted
         const blastDelays = projectile.blast.delay;
         state.redrawJob = state.threading.drawBlastedTerrains(1, "blastTerrain", config.display.size, config.terrain, ...blasts);
         await state.redrawJob;
         const { frames: blastedTerrainFrames, polygon: blastTerrain } = await state.redrawJob;
         state.animations.blast = new AnimationList();
+        const bassFilter = config.audioLayers.blast.filters[0];
+        const relative = Math.max(config.display.size.x, config.display.size.y);
+        bassFilter.gain.value = 50 * ((blasts[0].radius / (relative / 4))**2); // base bass filter of explosion off of the blast radius' size in relation to total screen size (should be varied for different clients)
         for (let i = 0; i < blasts.length; i++) {
             const ss = state.blastAnimationFrames.clone();
             const frame = blastedTerrainFrames.at(i);
@@ -40,7 +42,7 @@ async function fireProjectile (shot, state, config) { // [!} laziness
                 state.threading.cache.background?.close?.();
                 state.threading.cache.background = frame;
                 // play sfx
-                config.audio.add(config.sfx.blast.Instance().play(), true);
+                config.audioLayers.blast.add(config.sfx.blast.Instance().play(), true);
             });
             state.animations.blast.push(ani);
         }
@@ -290,6 +292,13 @@ async function load() {
     const testMuzzleFlash = new Spritesheet("./assets/blast/muzzleflash_ss_140x162.png", 140, 162).onload;
     const AudioCtx = new AudioContext();
     const AudioPlayer = AudioCtx.Layer();
+    const audioLayers = {};
+    {
+        // setting up filtered audio layers
+        const bassNode = AudioCtx.newBassNode();
+        bassNode.frequency.value = 200;
+        audioLayers.blast = AudioPlayer.Layer([bassNode]);
+    }
     // resume audio context on inputs
     window.addEventListener("pointermove", AudioCtx.wake);
     window.addEventListener("pointerdown", AudioCtx.wake);
@@ -312,7 +321,7 @@ async function load() {
     const WorkerManager = new WorkerPool(new URL(`./workers/web-worker.js`, import.meta.url), 4, 3);
     await WorkerManager.initPromise
         .catch(() => console.error("[Main] Error: WorkerPool size is zero"));
-    main(WorkerManager, AudioPlayer, await body, await barrel, await testExplosion, await testMuzzleFlash, await buttons, await sfx);
+    main(WorkerManager, AudioPlayer, audioLayers, await body, await barrel, await testExplosion, await testMuzzleFlash, await buttons, await sfx);
 }
 
 const MAX_SHOT_TRACE_SECONDS = 15; // will trigger a landing early if timeout is exceeded- however a landing will only be traced within this time frame so early landings shouldn't be happening... -KT
@@ -344,7 +353,7 @@ const INPUT_MAP = {
 };
 
 async function main(...loaded) {
-    const [WorkerManager, AudioPlayer, tankBodyImage, tankBarrelImage, testExplosion, testMuzzleFlash, buttons, sfx] = loaded;
+    const [WorkerManager, AudioPlayer, audioLayers, tankBodyImage, tankBarrelImage, testExplosion, testMuzzleFlash, buttons, sfx] = loaded;
     tankBodyImage.width = 50;
     tankBarrelImage.scale.apply(tankBodyImage.scale);
     {
@@ -383,6 +392,7 @@ async function main(...loaded) {
         frameInterval: 1000 / FPS,
         display: Display,
         audio: AudioPlayer,
+        audioLayers: audioLayers,
         sfx: Object.fromEntries(sfx.map((fx) => [fx.name, fx])), // audio sources
         playerTank: Tank.id,
         moveIncr: 1,
