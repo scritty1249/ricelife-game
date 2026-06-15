@@ -40,7 +40,13 @@ export class Path extends TrackableObject { // points should be ordered clockwis
         for (let i = 1; i < this.length; i++)
             yield new Path(this.slice(i-1, i+1));
     }
-
+    normal () { // gets the accumulated normal vector of all points
+        const points = this.points;
+        const clockwise = this.isClockwise;
+        if (points.length < 2) throw new Error(`[${this.constructor.name}]: Cannot calculate normal of less than 2 Vectors`);
+        const sumVectors = points.slice(1).reduce((acc, curr, i) => acc.add(points[i].normal(curr, clockwise).normalize()), new Vector());
+        return sumVectors.normalize();
+    }
     intersections (path) { // returns the CLOCKWISE details of all intersections from this Path to the given Path ("this" points into "that"). !! This can return points that are not inside of the Path, if the resolution is large enough!
         if (!path?.isPath) throw new Error(`[${this.constructor.name}] Error: Cannot find intersection with non-Path object ${typeof path}`);
         const intersections = [],
