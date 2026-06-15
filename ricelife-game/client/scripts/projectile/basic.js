@@ -103,6 +103,7 @@ export class Bouncer extends BasicShot {
                 return false;
             } else {
                 // if there are no overlapping segments, projectile is stuck INSIDE of a colliding polygon. Don't bounce
+                console.warn(`[${this.constructor.name}]: Collided with inside of Polygon - stopping bounces`);
                 return true;
             }
         }
