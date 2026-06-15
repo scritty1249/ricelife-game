@@ -151,7 +151,9 @@ export class Vector {
 
     }
     angle (...vectors) { // returns average angle between all given vectors, from this vector (in radians)
-        if (vectors.length === 1) {
+        if (vectors.length === 0) { // return angle of self
+            return Math.atan2(this.y, this.x); 
+        } else if (vectors.length === 1) {
             const vector = vectors[0].sub(this);
             return Math.atan2(vector.y, vector.x);
         } else {
