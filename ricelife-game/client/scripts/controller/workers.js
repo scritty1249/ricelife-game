@@ -76,8 +76,12 @@ export class WorkerController {
         // encode data
         if (landing) {
             if (landing.bounces?.length)
-                for (let i = 0; i < landing.bounces.length; i++)
+                for (let i = 0; i < landing.bounces.length; i++) {
                     landing.bounces[i].point = Vector.fromObject(landing.bounces[i].point);
+                    landing.bounces[i].normal = Vector.fromObject(landing.bounces[i].normal);
+                    landing.bounces[i].reflection = Vector.fromObject(landing.bounces[i].reflection);
+                    landing.bounces[i].direction = Vector.fromObject(landing.bounces[i].direction);
+                }
         }
         return landing;
     }
