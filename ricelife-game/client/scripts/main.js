@@ -74,7 +74,7 @@ function handleInput (state, config) {
     const player = state.tanks[config.playerTank];
     const { keyboard, pointer } = state.input;
     if (keyboard.keyActive("esc")) {
-
+        // pause menu logic
     }
     if (state.isTurn) {
         // [!] most pointer logic handled by callbacks
@@ -85,11 +85,14 @@ function handleInput (state, config) {
         }
         // keyboard
         if (state.projectile === undefined) {
-            for (const [keyMapping, shotType] of Object.entries(state.projectileTypes))
-                if (keyboard.keyActive(keyMapping)) {
-                    fireProjectile(shotType, state, config);
-                    break;
-                }
+            if (keyboard.keyActive("shootActive"))
+                fireProjectile(state.activeShot, state, config);
+            else
+                for (const [keyMapping, shotType] of Object.entries(state.projectileTypes))
+                    if (keyboard.keyActive(keyMapping)) {
+                        fireProjectile(shotType, state, config);
+                        break;
+                    }
         }
         player.position.round(1/GLOBAL_RESOLUTION);
         if (keyboard.keyActive("mv+")) {
@@ -298,7 +301,8 @@ async function load() {
         new LoadImage("./assets/interface/buttons/fire.png").onload,
         new LoadImage("./assets/interface/buttons/select.png").onload,
         new LoadImage("./assets/interface/buttons/right.png").onload,
-        new LoadImage("./assets/interface/buttons/left.png").onload
+        new LoadImage("./assets/interface/buttons/left.png").onload,
+        new LoadImage("./assets/interface/buttons/shot-type.png").onload
     ]);
     const sfx = Promise.all([
         AudioCtx.Source("fire", "./assets/sfx/fire.mp3").onload,
@@ -326,7 +330,7 @@ const INPUT_MAP = {
     ArrowLeft: "aim+", // clockwise
     ArrowUp: "shot+", // increment shot power
     ArrowDown: "shot-", // deincrement shot power
-    Space: "shot1",
+    Space: "shootActive",
     Digit1: "shot1",
     Digit2: "shot2",
     Digit3: "shot3",
@@ -400,6 +404,7 @@ async function main(...loaded) {
         threading: Workers,
         interface: UIInterface,
         isTurn: Inputs.pointer.enabled,
+        activeShot: Projectiles.BasicShot,
         
         // uncertain about these. will likely refactor out in near future don't implement too much that relies on these
         projectile: undefined,
@@ -436,11 +441,12 @@ async function main(...loaded) {
 
     {
         // setting up UI
-        const [fireImage, selectImage, rightImage, leftImage] = buttons;
+        const [fireImage, selectImage, rightImage, leftImage, shotTypeImage] = buttons;
         fireImage.height = 100;
         selectImage.height = 100;
         rightImage.height = 100;
         leftImage.height = 100;
+        shotTypeImage.height = 75;
         const fireButton = new Menu.Button(fireImage);
         fireButton.position.apply(75, 150);
         const selectButton = new Menu.Button(selectImage);
@@ -450,7 +456,11 @@ async function main(...loaded) {
         const leftButton = new Menu.Button(leftImage);
         leftButton.position.apply(rightButton.position.x - leftImage.width - 25, 150);
 
-        const btns = [fireButton, selectButton, rightButton, leftButton];
+        const shotTypeIcon = new Menu.Icon(shotTypeImage);
+        shotTypeIcon.position.apply(520, 150);
+        shotTypeIcon.text = "1";
+
+        const btns = [fireButton, selectButton, rightButton, leftButton, shotTypeIcon];
         let shotIdx = 0;
         const shotMax = Object.keys(state.projectileTypes).length;
         // setting up button callbacks
@@ -458,10 +468,12 @@ async function main(...loaded) {
         leftButton.onclick = leftButton.onhold = () => Mover.move(-config.moveIncr);
         selectButton.onclick = () => {
             shotIdx = (shotIdx+1)%shotMax;
+            shotTypeIcon.text = shotIdx + 1;
+            state.activeShot = state.projectileTypes[`shot${shotIdx+1}`];
         };
         fireButton.onclick = () => {
             if (state.projectile === undefined)
-                fireProjectile(state.projectileTypes[`shot${shotIdx+1}`], state, config);
+                fireProjectile(state.activeShot, state, config);
         }
 
         UIInterface.insert() // draw layer zero after background but before terrain
