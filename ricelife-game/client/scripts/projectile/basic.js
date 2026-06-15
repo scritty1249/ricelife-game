@@ -77,8 +77,9 @@ export class Bouncer extends BasicShot {
             if (segments.length > 1) {
                 const direction = this.current.velocity.clone();
                 const normal = segments.normal();
-                const reflection = direction.sub(normal.mul(2 * direction.dot(normal)));
-
+                const reflection = direction
+                    .sub(normal.mul(2 * direction.dot(normal)))
+                    .mul(this.bounceVelocityMultiplier);
                 // debugging, record last bounce calculations
                 const state = this.bounceState;
                 state.normal.apply(normal);
@@ -86,7 +87,7 @@ export class Bouncer extends BasicShot {
                 state.reflection.apply(reflection);
                 state.point.apply(this.position);
                 // apply cosmetic updates
-                const reduce = this.glowReduction / this.#maxBounces;
+                const reduce = this.bounceGlowReduction / this.#maxBounces;
                 this.glowColor.r -= reduce;
                 this.glowColor.g -= reduce;
                 this.glowColor.b -= reduce;
@@ -101,7 +102,8 @@ export class Bouncer extends BasicShot {
         }
         return true;
     }
-    static glowReduction = 50;
+    static bounceGlowReduction = 50;
+    static bounceVelocityMultiplier = new Vector(.9, .9);
     static glowColor = new Color(128, 0, 128);
     static maxBounces = 3;
     bounceState = { // [!] mainly for debugging
@@ -118,13 +120,15 @@ export class Bouncer extends BasicShot {
             }
         }
     };
-    glowReduction;
+    bounceGlowReduction;
+    bounceVelocityMultiplier;
     #maxBounces;
     #bounces = 0;
     constructor (origin, angle, power = 1, resolution = 1) {
         super(origin, angle, power, resolution);
         this.#maxBounces = new.target.maxBounces || Bouncer.maxBounces;
-        this.glowReduction = new.target.glowReduction || Bouncer.glowReduction;
+        this.bounceGlowReduction = new.target.bounceGlowReduction || Bouncer.bounceGlowReduction;
+        this.bounceVelocityMultiplier = (new.target.bounceVelocityMultiplier || Bouncer.bounceVelocityMultiplier).clone();
     }
 
     // [!] overrided mainly for debugging
