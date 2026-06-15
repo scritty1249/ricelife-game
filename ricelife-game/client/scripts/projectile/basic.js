@@ -78,7 +78,7 @@ export class Bouncer extends BasicShot {
                 const direction = this.current.velocity.clone();
                 const normal = segments.normal();
                 // check for errors- invert normal if current position is on the wrong segment "side"
-                if (direction.dot(normal) <= 0) normal.mul(-1, true);
+                if (direction.dot(normal) > 0) normal.mul(-1, true);
 
                 const reflection = direction
                     .sub(normal.mul(2 * direction.dot(normal)))
