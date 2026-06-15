@@ -231,11 +231,12 @@ export class Color {
     }
     toJSON () { return {r: this.r, g: this.g, b: this.b, a: this.a} }
     toString () { return "#"
-        + this.r.toString(16).padStart(2, "0")
-        + this.g.toString(16).padStart(2, "0")
-        + this.b.toString(16).padStart(2, "0")
+        + Math.floor(this.r).toString(16).padStart(2, "0")
+        + Math.floor(this.g).toString(16).padStart(2, "0")
+        + Math.floor(this.b).toString(16).padStart(2, "0")
         + (this.a < 255 ? Math.floor(this.a).toString(16).padStart(2, "0") : "");
     }
+    toRGBA () { return `rgba(${this.r}, ${this.g}, ${this.b}, ${this.a})` }
     clone () { return new Color(this.r, this.g, this.b, this.a) }
 
     get isColor () { return true }
