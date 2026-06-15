@@ -180,7 +180,7 @@ export class WorkerPool extends TrackableObject {
         await Promise.all(transfers)
             .catch((e) => { console.warn(`[${this.constructor.name}]: Failed to transfer cache(s) specified for worker job\n`, e)});
         return this.#postJob(type, payload, transfer, "", worker) // don't dispose of transaction
-            .then(({payload}) => payload);
+            .then(({payload}) => Object.keys(payload).length === 0 ? undefined : payload ); // [!] getting empty objects instead of undefined for some reason on webworker response??
     }
     terminate () {
         for (const { instance } of this.#workers) instance.terminate();

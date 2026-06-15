@@ -31,7 +31,7 @@ function postFailure (id, err) {
 }
 
 function postResponse (id, payload = {}, transfer = []) {
-    self.postMessage({payload, id, state: currentState()}, transfer);
+    self.postMessage({id, payload: payload, state: currentState()}, transfer);
 }
 
 function currentState () {
