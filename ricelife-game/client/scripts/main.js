@@ -297,7 +297,7 @@ async function load() {
         const bassNode = AudioCtx.newBassNode();
         bassNode.frequency.value = 200;
         audioLayers.blast = AudioPlayer.Layer([bassNode]);
-        audioLayers.blast.volume = .4;
+        audioLayers.blast.volume = .55;
     }
     // resume audio context on inputs
     window.addEventListener("pointermove", AudioCtx.wake);
