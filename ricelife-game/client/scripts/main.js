@@ -438,6 +438,9 @@ async function main(...loaded) {
         Projectiles.Bouncer.onBounceCallback = function () {
             config.audio.add(config.sfx.bouncer.Instance().play(), true);
         }
+        Projectiles.MegaBouncer.onBounceCallback = function () {
+            config.audio.add(config.sfx.bouncer.Instance().play(), true);
+        }
     }
 
     {

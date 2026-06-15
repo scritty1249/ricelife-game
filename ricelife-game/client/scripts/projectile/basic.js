@@ -154,8 +154,6 @@ export class MegaBouncer extends Bouncer {
         // functional updates
         const blast = this.bounceBlastRadiusLimit / this.maxBounces;
         this.blastRadius += blast;
-        const drag = this.bounceDragLimit / this.maxBounces;
-        this.drag += drag;
         const tail = this.bounceTailLengthLimit / this.maxBounces;
         this.tailLength += tail;
         const acceleration = this.bounceAccelerationLimit.div(this.maxBounces);
@@ -168,9 +166,8 @@ export class MegaBouncer extends Bouncer {
     static maxBounces = 3;
     static radius = 15;
     static blastRadius = 30;
-    bounceAccelerationLimit = new Vector(0, -75);
+    bounceAccelerationLimit = new Vector(-10, -75);
     bounceTailLengthLimit = 15;
-    bounceDragLimit = 0.002;
     bounceGlowLimit = 40;
     bounceGlowAlphaMultiplier = .7;
     bounceGlowRadiusLimit = 50;
