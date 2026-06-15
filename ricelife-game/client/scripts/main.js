@@ -21,18 +21,18 @@ async function fireProjectile (shot, state, config) { // [!} laziness
     state.blastTerrain = undefined;
     if (landing.intersect) {
         const blastRadius = projectile.blastRadius;
-        const blasts = projectile.blast.blastsAt(landing.point); // should be sorted
+        const blasts = landing.blasts; // should be sorted
         const blastDelays = projectile.blast.delay;
         state.redrawJob = state.threading.drawBlastedTerrains(1, "blastTerrain", config.display.size, config.terrain, ...blasts);
         await state.redrawJob;
         const { frames: blastedTerrainFrames, polygon: blastTerrain } = await state.redrawJob;
         state.animations.blast = new AnimationList();
-        const ss = state.blastAnimationFrames.clone();
-        ss.width = (blastRadius * 2) * 20;
         for (let i = 0; i < blasts.length; i++) {
+            const ss = state.blastAnimationFrames.clone();
             const frame = blastedTerrainFrames.at(i);
-            const { shape, delay } = blasts[i];
-            const ani = new Animation(shape.position, ss, state.blastAnimationFps);
+            const { shape, delay, position, radius } = blasts[i];
+            ss.width = (radius * 2) * 20;
+            const ani = new Animation(position, ss, state.blastAnimationFps);
             ani.speed = 1.25;
             ani.delay = delay * ani.speed;
             ani.onstart.then(() => {
@@ -420,7 +420,8 @@ async function main(...loaded) {
             shot2: Projectiles.Spreader,
             shot3: Projectiles.Flower,
             shot4: Projectiles.Digger,
-            shot5: Projectiles.Bouncer
+            shot5: Projectiles.Bouncer,
+            shot6: Projectiles.MegaBouncer
         },
         animations: { global: Animations },
 

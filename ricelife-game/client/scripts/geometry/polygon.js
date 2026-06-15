@@ -232,6 +232,7 @@ export class Polygon extends TrackableObject { // points should be ordered clock
             for (const hole of data.holes.flat(depth))
                 data.buffers.push(hole.path.buffer);
         }
+        data.type = this.constructor.name;
         return data;
     }
     get isPolygon () { return true }

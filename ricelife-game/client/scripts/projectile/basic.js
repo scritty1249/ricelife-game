@@ -68,7 +68,7 @@ export class Digger extends BasicShot {
 
 export class Bouncer extends BasicShot {
     static collisionBehavior = function (intersections) {
-        if (this.#bounces < this.#maxBounces) {
+        if (this.#bounces < this.maxBounces) {
             // reflection calculation
             const segments = new Path();
             for (const { overlap } of intersections)
@@ -83,17 +83,9 @@ export class Bouncer extends BasicShot {
                 const reflection = direction
                     .sub(normal.mul(2 * direction.dot(normal)))
                     .mul(this.bounceVelocityMultiplier);
-                // debugging, record last bounce calculations
-                const state = this.bounceState;
-                state.normal.apply(normal);
-                state.direction.apply(direction);
-                state.reflection.apply(reflection);
-                state.point.apply(this.position);
-                // apply cosmetic updates
-                const reduce = this.bounceGlowReduction / this.#maxBounces;
-                this.glowColor.r -= reduce;
-                this.glowColor.g -= reduce;
-                this.glowColor.b -= reduce;
+                this.onBounce();
+                // debugging, record bounce calculations
+                this.previousBounces.push({ direction, normal, reflection, point: this.position.clone() });
                 // update projectile
                 this.position.add(normal, true);
                 this.current.velocity.apply(reflection);
@@ -109,61 +101,71 @@ export class Bouncer extends BasicShot {
         }
         return true;
     }
-    static bounceGlowReduction = 50;
+    static onBounce = function () {
+        // apply cosmetic updates
+        const reduce = this.bounceGlowReduction / this.maxBounces;
+        this.glowColor.r -= reduce;
+        this.glowColor.g -= reduce;
+        this.glowColor.b -= reduce;
+    }
+    static onBounceCallback = function () {} // this does not apply to Projectile tracing performed by web workers. Operations done in this callback should be cosmetic-only: should NOT change projectile movement or hitbox
     static bounceVelocityMultiplier = new Vector(.9, .9);
     static glowColor = new Color(128, 0, 128);
     static mainColor = new Color(255, 240, 255);
     static maxBounces = 5;
-    static onBounceCallback = function () {} // this does not apply to Projectile tracing performed by web workers. Operations done in this callback should be cosmetic-only: should NOT change projectile movement or hitbox
-    bounceState = { // [!] mainly for debugging
-        normal: new Vector(),
-        direction: new Vector(),
-        reflection: new Vector(),
-        point: new Vector(),
-        clone: function () {
-            return {
-                normal: this.normal.clone(),
-                direction: this.direction.clone(),
-                reflection: this.reflection.clone(),
-                point: this.point.clone()
-            }
-        }
-    };
-    bounceGlowReduction;
-    bounceVelocityMultiplier;
     #maxBounces;
     #bounces = 0;
+    previousBounces = new Array();
+    bounceGlowReduction = 50;
+    bounceVelocityMultiplier;
     onBounceCallback;
+    onBounce;
     constructor (origin, angle, power = 1, resolution = 1) {
         super(origin, angle, power, resolution);
         this.#maxBounces = new.target.maxBounces || Bouncer.maxBounces;
-        this.bounceGlowReduction = new.target.bounceGlowReduction || Bouncer.bounceGlowReduction;
         this.bounceVelocityMultiplier = (new.target.bounceVelocityMultiplier || Bouncer.bounceVelocityMultiplier).clone();
         this.onBounceCallback = (new.target.onBounceCallback || Bouncer.onBounceCallback).bind(this);
+        this.onBounce = (new.target.onBounce || Bouncer.onBounce).bind(this);
     }
 
     // [!] overrided mainly for debugging
     intersectAt (polygons, increment = 1/60, limit = 1000) {
-        if (polygons.some(({isPolygon}) => !isPolygon)) throw new Error(`[${this.constructor.name}] Error: Cannot perform intersection operation with non-Polygon`);
-        const proj = this.clone(true);
-        const result = { intersect: false, bounces: [] };
-        const state = proj.bounceState;
-        let bounceCount;
-        for (let t = 0; t < limit && !result.intersect; t += increment) {
-            bounceCount = proj.bounces;
-            proj.update(increment, polygons);
-            if (bounceCount != proj.bounces)
-                result.bounces.push(state.clone());
-            if (proj.isColliding) {
-                result.point = proj.position.clone()
-                result.at = t;
-                result.intersect = true;
-            }
-        }
+        const result = super.intersectAt(polygons, increment, limit);
+        result.bounces = result.state.previousBounces;
         return result;
     }
     
     clone () { return new Bouncer(this.origin, this.angle, this.power, this.resolution) }
 
     get bounces () { return this.#bounces }
+    get maxBounces () { return this.#maxBounces }
+}
+
+export class MegaBouncer extends Bouncer {
+    static onBounce = function () {
+        // apply cosmetic updates
+        const brighten = this.bounceGlowIncrease / this.maxBounces;
+        this.glowColor.r += brighten;
+        this.glowColor.g += brighten;
+        this.glowColor.b += brighten;
+        const grow = this.bounceGlowRadiusIncrease / this.maxBounces;
+        this.glowRadius += grow;
+        this.glowColor.a *= this.bounceGlowAlphaMultiplier;
+        // functional updates
+        const blast = this.bounceBlastRadiusIncrease / this.maxBounces;
+        this.blastRadius += blast;
+    }
+    static maxBounces = 3;
+    static radius = 15;
+    static blastRadius = 30; 
+    bounceGlowIncrease = 40;
+    bounceGlowAlphaMultiplier = .7;
+    bounceGlowRadiusIncrease = 100;
+    bounceBlastRadiusIncrease = 30;
+    constructor (origin, angle, power = 1, resolution = 1) {
+        super(origin, angle, power, resolution);
+        this.glowColor.a = 100;
+    }
+
+    clone () { return new MegaBouncer(this.origin, this.angle, this.power, this.resolution) }
 }

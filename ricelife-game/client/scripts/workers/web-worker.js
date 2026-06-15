@@ -107,6 +107,10 @@ self.onmessage = async (e) => {
                     : Polygon.fromObject(target, target.depth));
             const proj = new ShotType[shot](Vector.fromObject(origin), angle, power, resolution);
             const result = proj.intersectAt(targetPolys, increment, limit);
+            if ("blasts" in result)
+                for (const blast of result.blasts)
+                    blast.shape = blast.shape.Float64(1);
+            delete result.state;
             postResponse(id, result);
         } else if (type === "CUTPOLY") {
             /* Payload expected:

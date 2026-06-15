@@ -134,6 +134,7 @@ export class Shot extends Projectile {
         for (let t = 0; t < limit && !result.intersect; t += increment) {
             proj.update(increment, polygons);
             if (proj.isColliding) {
+                result.state = proj; // [!] this is deleted before being passed back through web worker- children should intercept and record important state values before passing back to main thread
                 result.point = proj.position.clone();
                 result.at = t;
                 result.intersect = true;   
@@ -217,7 +218,7 @@ export class BasicShot extends Shot {
     initalSpeed;
     drag;
     radius;
-    blastRadius;
+    #blastRadius;
     // other instance variables
     #blast;
     config;
@@ -239,7 +240,7 @@ export class BasicShot extends Shot {
         this.initalSpeed = initalSpeed;
         this.drag = drag;
         this.radius = radius;
-        this.blastRadius = blastRadius;
+        this.#blastRadius = blastRadius;
 
         const currentPosition = this.current.position;
         this.#blast = {
@@ -261,5 +262,27 @@ export class BasicShot extends Shot {
         };
     }
 
+    intersectAt (polygons, increment = 1/60, limit = 1000) {
+        const result = super.intersectAt(polygons, increment, limit);
+        result.blasts = result.intersect
+            ? result.state.blast.blastsAt(result.point)
+            : [];
+        // storing data to be passed from web workers
+        for (const blast of result.blasts) {
+            blast.position = blast.shape.position.clone();
+            blast.radius = blast.shape.radius;
+        }
+        return result;
+    }
+
+    clone () { return new BasicShot(this.origin, this.angle, this.power, this.resolution) }
+
+    get blastRadius () { return this.#blastRadius }
+    set blastRadius (value) {
+        const result = (this.#blastRadius = value);
+        for (const { shape } of this.#blast.blasts)
+            shape.radius = value;
+        return result;
+    }
     get blast () { return this.#blast }
 }

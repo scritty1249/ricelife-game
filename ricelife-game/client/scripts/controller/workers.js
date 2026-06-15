@@ -75,6 +75,11 @@ export class WorkerController {
         const landing = await this.#pool.post("INTERSECTPROJ", payload, [], [polygonid]);
         // encode data
         if (landing) {
+            if (landing.blasts?.length)
+                for (const blast of landing.blasts) {
+                    blast.shape = Polygon.fromObject(blast.shape, blast.shape.depth);
+                    blast.position = Vector.fromObject(blast.position);
+                }
             if (landing.bounces?.length)
                 for (let i = 0; i < landing.bounces.length; i++) {
                     landing.bounces[i].point = Vector.fromObject(landing.bounces[i].point);
