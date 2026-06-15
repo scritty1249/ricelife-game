@@ -46,7 +46,7 @@ export class Projectile extends TrackableObject {
         const v = velocity.mul(-this.drag * Math.sqrt(velocity.pow(2).sum()));
         if (velocity.x < 0)
             acceleration.x *= -1;
-        else if (floatEqual(velocity.x, 0))
+        else if (floatEqual(velocity.x, 0)) 
             acceleration.x *= 0;
         position.add(velocity.mul(seconds), true);
         velocity.add(acceleration.add(v).mul(seconds), true);
@@ -65,28 +65,6 @@ export class Projectile extends TrackableObject {
         this.#time = 0;
     }
 
-    // [!] broken
-    // positionAt (seconds, resolution = 0.01) {
-    //     const position = this.origin.clone();
-    //     if (seconds <= 0) return position;
-    //     const velocity = this.velocity.clone();
-    //     const acceleration = this.acceleration.clone();
-    //     let t = 0;
-    //     while (t < seconds) {
-    //         const dt = Math.min(resolution, seconds - t);            
-    //         const v = velocity.mul(-this.drag * Math.sqrt(velocity.pow(2).sum()));
-    //         const acc = acceleration.clone();
-    //         if (v.x < 0)
-    //             acc.x *= -1;
-    //         else if (floatEqual(v.x, 0))
-    //             acc.x *= 0;
-    //         velocity.add(acc.add(v).mul(dt), true);
-    //         position.add(velocity.mul(dt), true);
-    //         t += dt;
-    //     }
-    //     return position;
-    // }
-
     get isProjectile () { return true }
     get tracer () { return this.#tracer }
     get time () { return this.#time }
@@ -102,7 +80,7 @@ export class Shot extends Projectile {
     static glowResolution = 5;
     static glowColor = new Color(255, 0, 0, 100);
     static mainColor = new Color(255, 255, 255);
-    static collisionBehavior = function (point, angle, polygon) {
+    static collisionBehavior = function (intersections =[ ]) { // expects each intersection to be: {point, angle, polygon}
         this.velocity.mul(0, true);
         return true;
     }
@@ -115,7 +93,6 @@ export class Shot extends Projectile {
     mainColor;
     collisionBehavior;
     // other instance variables
-    #lastPosition = new Vector(); // used for drawing raycaster when finding collision angles
     #shape;
     #colliding = false;
     #tail = new Array();
@@ -123,14 +100,13 @@ export class Shot extends Projectile {
         super(origin, velocity, acceleration, drag);
         // config overrides
         this.tailLength = new.target.tailLength || Shot.tailLength;
-        this.tailColor = new.target.tailColor || Shot.tailColor;
+        this.tailColor = (new.target.tailColor || Shot.tailColor).clone();
         this.glowRadius = new.target.glowRadius || Shot.glowRadius;
         this.glowResolution = new.target.glowResolution || Shot.glowResolution;
-        this.glowColor = new.target.glowColor || Shot.glowColor;
-        this.mainColor = new.target.mainColor || Shot.mainColor;
+        this.glowColor = (new.target.glowColor || Shot.glowColor).clone();
+        this.mainColor = (new.target.mainColor || Shot.mainColor).clone();
         this.collisionBehavior = (new.target.collisionBehavior || Shot.collisionBehavior).bind(this);
 
-        this.#lastPosition.apply(this.current.position);
         this.#shape = shape;
     }
 
@@ -207,21 +183,22 @@ export class Shot extends Projectile {
             }
             if (intersecting?.isPolygon) {
                 const position = this.current.position;
-                const direction = Direction(this.#lastPosition.angle(position), false);
-                const distance = this.#lastPosition.distance(position);
-                const ray = Ray(this.#lastPosition, direction, distance * 2);
+                const collisionPoint = intersecting.path.nearestTo(position);
+
+                const direction = Direction(position.angle(collisionPoint), false);
+                const distance = position.distance(collisionPoint);
+                const ray = Ray(position, direction, distance + 1); // [!] extra point for leniency, shouldn't need it though - KT
                 const hits = intersecting.raycast(ray)
                     ?.filter?.(({entering}) => entering)
                     ?.sort?.((a, b) => position.distance(a.point) - position.distance(b.point));
                 if (hits.length) {
-                    const { point, angle } = hits?.at?.(0);
-                    this.#colliding = this.collisionBehavior(point, angle, intersecting);
+                    const intersections = hits.map(({point, angle}) => ({point, angle, polygon: intersecting}));
+                    this.#colliding = this.collisionBehavior(intersections);
                 } else {
                     console.warn(`[${this.constructor.name}]: Failed to find intersection for collision. Collision behavior ignored`);
                     this.#colliding = true;
                 }
             }
-            this.#lastPosition.apply(this.current.position);
         }
         if (this.tail.length >= this.tailLength) this.tail.shift();
         this.tail.push(this.shape.clone());
