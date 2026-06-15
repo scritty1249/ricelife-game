@@ -95,6 +95,7 @@ export class Bouncer extends BasicShot {
                 this.glowColor.g -= reduce;
                 this.glowColor.b -= reduce;
                 // update projectile
+                this.position.add(normal, true);
                 this.current.velocity.apply(reflection);
                 this.#bounces++;
                 // callback
