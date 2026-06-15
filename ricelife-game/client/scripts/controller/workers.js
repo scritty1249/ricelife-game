@@ -1,4 +1,4 @@
-import { Polygon } from "../geometry/geometry.js";
+import { Polygon, Vector } from "../geometry/geometry.js";
 import { uuid } from "../utils/utils.js";
 
 export class WorkerController {
@@ -66,13 +66,20 @@ export class WorkerController {
         );
     }
     async traceProjectile (polygonid, projectile, increment, limit) {
+        const shot = projectile.constructor.name;
         const { origin, velocity, acceleration, angle, resolution, power } = projectile;
         const payload = {
-            origin, angle, power, resolution, increment, limit,
-            shot: projectile.constructor.name,
+            origin, angle, power, resolution, increment, limit, shot,
             collisions: [polygonid]
         };
-        return await this.#pool.post("INTERSECTPROJ", payload, [], [polygonid]);
+        const landing = await this.#pool.post("INTERSECTPROJ", payload, [], [polygonid]);
+        // encode data
+        if (landing) {
+            if (landing.bounces?.length)
+                for (let i = 0; i < landing.bounces.length; i++)
+                    landing.bounces[i].point = Vector.fromObject(landing.bounces[i].point);
+        }
+        return landing;
     }
     async drawBlastedTerrains (depth, polygonid, canvasSize, terrainConfig, ...blasts) {
         // cuts blasts, and returns a Promise<Array> of image data, for each state of the terrain after the blasts (in order)
