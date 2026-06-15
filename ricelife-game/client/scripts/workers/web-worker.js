@@ -22,6 +22,12 @@ const TRANSACTIONS = {};
 
 function postSuccess (id) { postResponse(id) }
 
+function getCache (id) {
+    // accesses cache and throws an error if it doesn't exist
+    if (id in CACHE && CACHE[id] !== undefined) return CACHE[id];
+    throw new Error(`[WebWorker] (${ID}): Cache ${id} does not exist in this Worker`);
+}
+
 function postFailure (id, err) {
     self.postMessage({id, error: {
         message: err?.message,
@@ -41,15 +47,21 @@ function currentState () {
 function initCache (id, type, args) { // create new
     if (type in CACHE_TYPES) {
         const TYPE = CACHE_TYPES[type];
+        if (id in CACHE) {
+            if (LOG_LEVEL >= 3) console.debug(`[WebWorker] (${ID}): Overwriting cache ${id} - INIT`);
+        }
         CACHE[id] = { type, data: TYPE.create(...args) };
         return true;
     }
     return false;
 }
 
-function createCache (id, type, payload, reference = false) { // create from payload
+function createCache (id, type, payload, reference = false, isTransfer = false) { // create from payload
     if (type in CACHE_TYPES) {
         const TYPE = CACHE_TYPES[type];
+        if (id in CACHE) {
+            if (LOG_LEVEL >= 3) console.debug(`[WebWorker] (${ID}): Overwriting cache ${id} - ${isTransfer ? "TRANSFER" : "CREATE"}`);
+        }
         CACHE[id] = { type, data: reference ? TYPE.encodeReference(payload) : TYPE.encode(payload) };
         return true;
     }
@@ -61,7 +73,7 @@ const onworkermessage = (e) => {
     const port = e.target;
     if (LOG_LEVEL >= 2) console.debug(`[WebWorker] (${ID}): Transaction ${id} receieved from peer\n\t${command}: `,  payload);
     if (command === "CACHE") {
-        if (createCache(payload.cache, payload.type, payload.data)) {
+        if (createCache(payload.cache, payload.type, payload.data, false, true)) {
             port.postMessage({command: "ACK", id});
             postSuccess("CACHEUPDATE_" + id);
         } else {
@@ -103,7 +115,7 @@ self.onmessage = async (e) => {
             const { shot, collisions, origin, angle, power, resolution, increment, limit } = payload;
             const targetPolys = collisions.map((target) =>
                 typeof target === "string"
-                    ? CACHE[target]?.data?.poly
+                    ? getCache(target).data?.poly
                     : Polygon.fromObject(target, target.depth));
             const proj = new ShotType[shot](Vector.fromObject(origin), angle, power, resolution);
             const result = proj.intersectAt(targetPolys, increment, limit);
@@ -124,17 +136,17 @@ self.onmessage = async (e) => {
             const { subject, cuts, callback, cache } = payload;
             const isUuid = typeof subject === "string";
             const depth = isUuid
-                ? CACHE[subject]?.data?.depth
+                ? getCache(subject).data?.depth
                 : subject.depth;
             const polygon = isUuid
                 ? (cache === subject)
-                    ? CACHE[subject]?.data?.poly
-                    : CACHE[subject]?.data?.poly?.clone(true)
+                    ? getCache(subject).data?.poly
+                    : getCache(subject).data?.poly?.clone(true)
                 : Polygon.fromObject(subject, depth);
             for (const cut of cuts) {
                 polygon.cut(
                     typeof cut === "string"
-                        ? CACHE[cut]?.data?.poly
+                        ? getCache(cut).data?.poly
                         : Polygon.fromObject(cut, depth),
                     true
                 );
@@ -163,7 +175,7 @@ self.onmessage = async (e) => {
             const { canvas, cursor } = CACHE[payload.canvas]?.data;
             const isUuid = typeof polygon === "string";
             const terrain = isUuid
-                ? CACHE[polygon]?.data?.poly
+                ? getCache(polygon).data?.poly
                 : Polygon.fromObject(polygon, polygon.depth);
             cursor.clear();
             drawTerrain(cursor, terrain, new Color(fillColor), new Color(edgeColor), gradientWidth, resolution);
@@ -183,9 +195,9 @@ self.onmessage = async (e) => {
              */
             const { subject, cache, x, y, width, height, duplicate, callback = false } = payload;
             const from = typeof subject === "string"
-                ? CACHE[subject]?.data?.canvas
+                ? getCache(subject).data?.canvas
                 : subject;
-            const { canvas, cursor } = CACHE[cache]?.data;
+            const { canvas, cursor } = getCache(cache).data;
             if (width === undefined || height === undefined) cursor.drawImage(from, x, y);
             else cursor.drawImage(from, x, y, width, height);
             subject.close?.();
@@ -205,7 +217,7 @@ self.onmessage = async (e) => {
              *    cache: UUID
              * }
              */
-            const { cursor } = CACHE[payload.cache]?.data;
+            const { cursor } = getCache(payload.cache).data;
             cursor.clear();
             postSuccess(id);
         } else {
@@ -266,17 +278,19 @@ async function processManagerCommand (command, id, payload) {
             * }
             */
             const { worker, cache, manager, transfer, newCache, preserveKey = false } = payload;
-            const { type, data } = CACHE[cache];
+            const { type, data } = getCache(cache);
             const { payload: dataPayload, buffers, reference } = CACHE_TYPES[type].decode(data, transfer && preserveKey);
             const isCavnas = type === "CANVAS";
             const buf = ((transfer || isCavnas) ? buffers : []); // [!] canvases cannot be cloned once a context is bound to them. Receiving worker will copy Canvas content onto a new instance and toss it
             if (manager) {
                 self.postMessage({id, type, payload: dataPayload}, buf);
+            } else if (worker === ID) {
+                CACHE[newCache || cache] = CACHE[cache];
             } else {
                 const tid = id + "_" + performance.now().toString();
                 TRANSACTIONS[tid] = Promise.withResolvers();
                 CHANNELS[worker].postMessage(
-                    { id: tid, command: "CACHE", payload: { type, cache: newCache || cache, data: dataPayload }},
+                    { id: tid, command: "CACHE", payload: { type, cache: (newCache || cache), data: dataPayload }},
                     buf
                 );
                 await TRANSACTIONS[tid].promise;
