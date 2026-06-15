@@ -15,7 +15,7 @@ The demo is available on Github Pages at: https://scritty1249.github.io/ricelife
 
 #### Controls
 - **W,A,S,D:** Forward, Left, Backward, Right
-- **Space:** Shoot ammo type 1
+- **Space:** Shoot currently selected ammo type
 - **1-9,0:** Shoot ammo type 1-10
 - **Arrow Up:** Increase shot power
 - **Arrow Down:** Decrease shot power
