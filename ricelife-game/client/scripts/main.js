@@ -27,8 +27,7 @@ async function fireProjectile (shot, state, config) { // [!} laziness
         const { frames: blastedTerrainFrames, polygon: blastTerrain } = await state.redrawJob;
         state.animations.blast = new AnimationList();
         const bassFilter = config.audioLayers.blast.filters[0];
-        const relative = Math.max(config.display.size.x, config.display.size.y);
-        bassFilter.gain.value = 50 * ((blasts[0].radius / (relative / 4))**2); // base bass filter of explosion off of the blast radius' size in relation to total screen size (should be varied for different clients)
+        bassFilter.gain.value = 15 * ((blasts[0].radius / 50)**3);
         for (let i = 0; i < blasts.length; i++) {
             const ss = state.blastAnimationFrames.clone();
             const frame = blastedTerrainFrames.at(i);
