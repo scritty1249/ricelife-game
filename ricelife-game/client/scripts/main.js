@@ -17,7 +17,7 @@ async function fireProjectile (shot, state, config) { // [!} laziness
     drawFrame(state, config); // draw one last frame so the game doesn't look like it just froze
     const projectile = new shot(state.tanks[config.playerTank].barrelPos, state.aimer.rotation + (3 * (Math.PI / 2)), state.aimer.power);
     const muzzleFlash = generateMuzzleFlash(state, config);
-    const landing = await state.threading.traceProjectile("blastTerrain", projectile, 1/config.fps, config.fps * 30);
+    const landing = await state.threading.traceProjectile("blastTerrain", projectile, config.traceIncrement, config.traceLimit);
     state.blastTerrain = undefined;
     if (landing) {
         const blastRadius = projectile.blastRadius;
@@ -167,7 +167,20 @@ function drawDebugOverlay (state, config) {
                 shape.path.draw(cursor);
         cursor.stroke(); 
         cursor.restore();
-        if (state.landing) drawCircle(cursor, state.landing.point, state.projectile.radius, "orange"); // draw landing point
+        if (state.landing) {
+            // draw landing point
+            drawCircle(cursor, state.landing.point, state.projectile.radius, "orange");
+            // draw custom properties, if any
+            if (state.landing.bounces) {
+                const _lineLength = 35;
+                state.landing.bounces.forEach(({point, angle, reflection, direction, normal}) => {
+                    drawMarker(cursor, point, Direction(angle, false), 3, _lineLength, "orange"); // reflection
+                    drawLine(cursor, point, point.add(normal.normalize().mul(_lineLength)), 3, "green"); // normal
+                    drawLine(cursor, point, point.add(direction.normalize().mul(_lineLength)), 3, "blue"); // direction
+                    drawLine(cursor, point, point.add(reflection.normalize().mul(_lineLength)), 3, "red"); // direction
+                });
+            }
+        }
     }
 
     [...state.interface].forEach(({items}) => [...items].forEach((item) => {
@@ -209,14 +222,34 @@ function animate (state, config) {
         state.lastStamp = nowStamp - (elapsed % config.frameInterval);
         // check if background needs to be updated
         if (state.projectile) {
-            if (state.landing && state.projectile.time >= state.landing.at - Number.EPSILON) {
+            const endProjectileEarly =
+                (state.projectile.time >= config.traceMaxTime) // time out shots even if a landing exists
+                || state.projectile.isColliding // safety/sanity check
+                || (!state.landing && (
+                    // time out early if theres no landing and it flew offscreen
+                    state.projectile.current.position.x > config.display.size.x
+                    || state.projectile.current.position.x < 0
+                    || state.projectile.current.position.y > config.display.size.y
+                    || state.projectile.current.position.y < 0
+                ));
+            const isTimedout =
+                !(state.landing && state.projectile.time >= state.landing.at - Number.EPSILON)
+                && endProjectileEarly;
+            if (
+                (state.landing && state.projectile.time >= state.landing.at - Number.EPSILON)
+                || endProjectileEarly
+            ) {
+                if (isTimedout) {
+                    // timed out
+                    console.info("Projectile timed out early");
+                }
                 // projectile landed, redraw terrain
                 state.projectile = state.landing = undefined;
                 state.redrawJob.then(() => { if (state.blastTerrain) state.terrain.apply(state.blastTerrain) });
 
                 const animationJob = state.redrawJob.then(() => {
-                        state.animations.blast.play()
-                            .onend.then(() => setTurn(state, true));
+                        (state.animations.blast?.play()?.onend || Promise.resolve())
+                            .then(() => setTurn(state, true));
                         delete state.animations.blast;
                         return;
                     });
@@ -276,6 +309,7 @@ async function load() {
     main(WorkerManager, AudioPlayer, await body, await barrel, await testExplosion, await testMuzzleFlash, await buttons, await sfx);
 }
 
+const MAX_SHOT_TRACE_SECONDS = 15; // will trigger a landing early if timeout is exceeded- however a landing will only be traced within this time frame so early landings shouldn't be happening... -KT
 const FPS = 60;
 const GROUND = 350;
 const GLOBAL_RESOLUTION = Math.floor((1/3) * 10) / 10;
@@ -348,6 +382,9 @@ async function main(...loaded) {
         moveIncr: 1,
         aimIncr: (Math.PI / 180),
         powerIncr: .005,
+        traceIncrement: 1 / FPS,
+        traceMaxTime: MAX_SHOT_TRACE_SECONDS,
+        traceLimit: MAX_SHOT_TRACE_SECONDS * FPS,
         terrain: {
             edge: new Color("#00e8f0"),
             fill: new Color("#0098eb")
@@ -423,7 +460,6 @@ async function main(...loaded) {
         UIInterface.insert()
             .push(...btns);
     }
-
     Mover.set(Math.floor(Display.size.x / 4));
     Aimer.update(Tank.position.add({x: 0, y: Display.size.y})); // aim straight up and set power to 100% (1)
     Display.canvas.focus();
