@@ -3,7 +3,7 @@ import { Circle, Vector, Direction, Color, Path, Ray } from "../geometry/geometr
 
 export class Projectile extends TrackableObject {
     #tracer;
-    #time = 0;
+    #time = 0; // in seconds
     constructor (origin, velocity, acceleration, drag) {
         super();
         this.origin = origin.clone();
@@ -173,26 +173,24 @@ export class Shot extends Projectile {
     }
     update (seconds = 1, collisions = []) {
         if (!this.isColliding) {
-            let intersecting;
+            const intersecting = [];
             const shape = this.shape;
-            for (const polygon of collisions) {
-                if (shape.isIntersecting(polygon)) {
-                    intersecting = polygon;
-                    break;
+            for (const polygon of collisions)
+                if (shape.isIntersecting(polygon)) intersecting.push(polygon);
+            if (intersecting.length) {
+                const intersections = [];
+                for (const polygon of intersecting) {
+                    const position = this.current.position;
+                    const collisionPoint = polygon.path.nearestTo(position);
+                    const direction = Direction(position.angle(collisionPoint), false);
+                    const distance = position.distance(collisionPoint);
+                    const ray = Ray(position, direction, distance + 1); // [!] extra point for leniency, shouldn't need it though - KT
+                    polygon.raycast(ray)
+                        ?.filter?.(({entering}) => entering)
+                        ?.forEach?.(({point, angle}) =>
+                            intersections.push({point, angle, polygon}));
                 }
-            }
-            if (intersecting?.isPolygon) {
-                const position = this.current.position;
-                const collisionPoint = intersecting.path.nearestTo(position);
-
-                const direction = Direction(position.angle(collisionPoint), false);
-                const distance = position.distance(collisionPoint);
-                const ray = Ray(position, direction, distance + 1); // [!] extra point for leniency, shouldn't need it though - KT
-                const hits = intersecting.raycast(ray)
-                    ?.filter?.(({entering}) => entering)
-                    ?.sort?.((a, b) => position.distance(a.point) - position.distance(b.point));
-                if (hits.length) {
-                    const intersections = hits.map(({point, angle}) => ({point, angle, polygon: intersecting}));
+                if (intersections.length) {
                     this.#colliding = this.collisionBehavior(intersections);
                 } else {
                     console.warn(`[${this.constructor.name}]: Failed to find intersection for collision. Collision behavior ignored`);
