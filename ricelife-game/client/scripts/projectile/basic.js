@@ -144,24 +144,37 @@ export class Bouncer extends BasicShot {
 export class MegaBouncer extends Bouncer {
     static onBounce = function () {
         // apply cosmetic updates
-        const brighten = this.bounceGlowIncrease / this.maxBounces;
+        const brighten = this.bounceGlowLimit / this.maxBounces;
         this.glowColor.r += brighten;
         this.glowColor.g += brighten;
         this.glowColor.b += brighten;
-        const grow = this.bounceGlowRadiusIncrease / this.maxBounces;
+        const grow = this.bounceGlowRadiusLimit / this.maxBounces;
         this.glowRadius += grow;
         this.glowColor.a *= this.bounceGlowAlphaMultiplier;
         // functional updates
-        const blast = this.bounceBlastRadiusIncrease / this.maxBounces;
+        const blast = this.bounceBlastRadiusLimit / this.maxBounces;
         this.blastRadius += blast;
+        const drag = this.bounceDragLimit / this.maxBounces;
+        this.drag += drag;
+        const tail = this.bounceTailLengthLimit / this.maxBounces;
+        this.tailLength += tail;
+        const acceleration = this.bounceAccelerationLimit.div(this.maxBounces);
+        this.acceleration.add(acceleration);
     }
+    static bounceVelocityMultiplier = new Vector(1.1, 1.3);
+    static initalSpeed = 500;
+    static acceleration = new Vector(30, -200);
+    static drag = 0.002;
     static maxBounces = 3;
     static radius = 15;
-    static blastRadius = 30; 
-    bounceGlowIncrease = 40;
+    static blastRadius = 30;
+    bounceAccelerationLimit = new Vector(0, -75);
+    bounceTailLengthLimit = 15;
+    bounceDragLimit = 0.002;
+    bounceGlowLimit = 40;
     bounceGlowAlphaMultiplier = .7;
-    bounceGlowRadiusIncrease = 100;
-    bounceBlastRadiusIncrease = 30;
+    bounceGlowRadiusLimit = 50;
+    bounceBlastRadiusLimit = 30;
     constructor (origin, angle, power = 1, resolution = 1) {
         super(origin, angle, power, resolution);
         this.glowColor.a = 100;
