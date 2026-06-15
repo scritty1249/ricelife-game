@@ -92,14 +92,13 @@ export class Bouncer extends BasicShot {
                 this.#bounces++;
                 // callback
                 this.onBounceCallback?.();
-                return false;
+                return;
             } else {
                 // if there are no overlapping segments, projectile is stuck INSIDE of a colliding polygon. Don't bounce
                 console.warn(`[${this.constructor.name}]: Collided with inside of Polygon - stopping bounces`);
-                return true;
             }
         }
-        return true;
+        this.current.velocity.mul(0, true);
     }
     static onBounce = function () {
         // apply cosmetic updates

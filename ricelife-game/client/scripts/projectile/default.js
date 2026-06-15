@@ -1,6 +1,9 @@
 import { TrackableObject, floatEqual } from "../utils/utils.js";
 import { Circle, Vector, Direction, Color, Path, Ray } from "../geometry/geometry.js";
 
+const ZERO_VEC = new Vector(0, 0);
+Object.freeze(ZERO_VEC);
+
 export class Projectile extends TrackableObject {
     #tracer;
     #time = 0; // in seconds
@@ -68,6 +71,7 @@ export class Projectile extends TrackableObject {
     get isProjectile () { return true }
     get tracer () { return this.#tracer }
     get time () { return this.#time }
+    get isStopped () { return this.current.velocity.eq(ZERO_VEC) }
     clone () { return new Projectile(this.origin, this.velocity, this.acceleration, this.drag) }
 }
 
@@ -80,8 +84,7 @@ export class Shot extends Projectile {
     static glowColor = new Color(255, 0, 0, 100);
     static mainColor = new Color(255, 255, 255);
     static collisionBehavior = function (intersections = []) { // expects each intersection to be: {polygon, overlap: [...Path]}
-        this.velocity.mul(0, true);
-        return true;
+        this.current.velocity.mul(0, true);
     }
     // instance
     tailLength;
@@ -93,7 +96,6 @@ export class Shot extends Projectile {
     collisionBehavior;
     // other instance variables
     #shape;
-    #colliding = false;
     #tail = new Array();
     constructor (origin, velocity, acceleration, drag, shape) {
         super(origin, velocity, acceleration, drag);
@@ -133,7 +135,7 @@ export class Shot extends Projectile {
         const result = { intersect: false };
         for (let t = 0; t < limit && !result.intersect; t += increment) {
             proj.update(increment, polygons);
-            if (proj.isColliding) {
+            if (proj.isStopped) {
                 result.state = proj; // [!] this is deleted before being passed back through web worker- children should intercept and record important state values before passing back to main thread
                 result.point = proj.position.clone();
                 result.at = t;
@@ -177,7 +179,7 @@ export class Shot extends Projectile {
         this.#drawGlow(cursor, this.shape);
     }
     update (seconds = 1, collisions = []) {
-        if (!this.isColliding) {
+        if (!this.isStopped) {
             const intersecting = [];
             const shape = this.shape;
             const position = this.position.clone();
@@ -188,20 +190,19 @@ export class Shot extends Projectile {
                 for (const polygon of intersecting)
                     intersections.push({polygon, overlap: polygon.overlap(shape)});
                 if (intersections.length) {
-                    this.#colliding = this.collisionBehavior(intersections);
+                    this.collisionBehavior(intersections);
                 } else {
                     console.warn(`[${this.constructor.name}]: Failed to find intersection for collision. Collision behavior ignored`);
-                    this.#colliding = true;
+                    this.current.velocity.mul(0, true);
                 }
             }
         }
         if (this.tail.length >= this.tailLength) this.tail.shift();
         this.tail.push(this.shape.clone());
-        if (!this.isColliding) this.shape.position.apply(super.update(seconds));
+        if (!this.isStopped) this.shape.position.apply(super.update(seconds));
     }
     clone (deep = false) { return new Shot(this.origin, this.velocity, this.acceleration, this.drag, this.shape.clone(deep)) }
 
-    get isColliding () { return this.#colliding }
     get shape () { return this.#shape }
     get tail () { return this.#tail }
 }

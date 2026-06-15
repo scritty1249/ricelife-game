@@ -229,7 +229,7 @@ function animate (state, config) {
         if (state.projectile) {
             const endProjectileEarly =
                 (state.projectile.time >= config.traceMaxTime) // time out shots even if a landing exists
-                || state.projectile.isColliding // safety/sanity check
+                || state.projectile.isStopped // safety/sanity check
                 || (!state.landing?.intersect && (
                     // time out early if theres no landing and it flew offscreen
                     state.projectile.current.position.x > config.display.size.x
