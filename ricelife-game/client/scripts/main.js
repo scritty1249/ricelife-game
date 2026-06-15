@@ -446,7 +446,7 @@ async function main(...loaded) {
         selectImage.height = 100;
         rightImage.height = 100;
         leftImage.height = 100;
-        shotTypeImage.height = 75;
+        shotTypeImage.height = 80;
         const fireButton = new Menu.Button(fireImage);
         fireButton.position.apply(75, 150);
         const selectButton = new Menu.Button(selectImage);
@@ -458,7 +458,8 @@ async function main(...loaded) {
 
         const shotTypeIcon = new Menu.Icon(shotTypeImage);
         shotTypeIcon.position.apply(520, 150);
-        shotTypeIcon.text = "1";
+        shotTypeIcon.fontSize = 16;
+        shotTypeIcon.text = state.activeShot.name;
 
         const btns = [fireButton, selectButton, rightButton, leftButton, shotTypeIcon];
         let shotIdx = 0;
@@ -468,8 +469,8 @@ async function main(...loaded) {
         leftButton.onclick = leftButton.onhold = () => Mover.move(-config.moveIncr);
         selectButton.onclick = () => {
             shotIdx = (shotIdx+1)%shotMax;
-            shotTypeIcon.text = shotIdx + 1;
             state.activeShot = state.projectileTypes[`shot${shotIdx+1}`];
+            shotTypeIcon.text = state.activeShot.name;
         };
         fireButton.onclick = () => {
             if (state.projectile === undefined)
