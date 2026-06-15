@@ -1,4 +1,4 @@
-import { deg2rad, floatEqual, roundTo } from "../utils/utils.js";
+import { deg2rad, floatEqual, roundTo, clamp } from "../utils/utils.js";
 
 export class Vector {
     constructor(x = 0, y = null) {
@@ -196,6 +196,10 @@ export class Vector {
 
 export class Color {
     static #hexPattern = /^#([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})?$/;
+    #r;
+    #g;
+    #b;
+    #a;
     constructor (value, g = undefined, b = undefined, a = 255) {
         this.apply(value, g, b, a);
     }
@@ -226,7 +230,16 @@ export class Color {
     clone () { return new Color(this.r, this.g, this.b, this.a) }
 
     get isColor () { return true }
+    get r () { return this.#r }
+    get g () { return this.#g }
+    get b () { return this.#b }
+    get a () { return this.#a }
+    set r (number) { return (this.#r = Color.#setValue(number)) }
+    set g (number) { return (this.#g = Color.#setValue(number)) }
+    set b (number) { return (this.#b = Color.#setValue(number)) }
+    set a (number) { return (this.#a = Color.#setValue(number)) }
 
+    static #setValue (value) { return clamp(value, 0, 255) }
 }
 
 export function Direction (angle, degrees = true) {
