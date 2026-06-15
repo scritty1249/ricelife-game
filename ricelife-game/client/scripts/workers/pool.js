@@ -21,12 +21,16 @@ export class WorkerPool extends TrackableObject {
         this.#LOG_LEVEL = logLevel;
         // setup workers
         const createWorkerPromises = [];
-        for (let i = 0; i < (window.navigator.hardwareConcurrency || defaultPoolSize); i++) createWorkerPromises.push(this.createWorker(i));
+        const targetSize = (window.navigator.hardwareConcurrency || defaultPoolSize);
+        for (let i = 0; i < targetSize; i++) createWorkerPromises.push(this.createWorker(i));
         this.#initPromise = Promise.all(createWorkerPromises)
             .finally(() => {
-                console.info(`[${this.constructor.name}]: ${this.size} workers initalized`);
+                if (this.size >= targetSize)
+                    console.info(`[${this.constructor.name}]: ${this.size} workers initalized`);
+                else
+                    console.error(`[${this.constructor.name}]: Failed to initalize ${targetSize - this.size} workers. ${this.size} workers initalized`);
                 if (this.size < this.constructor.OPTIMAL_THREAD_COUNT)
-                    console.warn(`[${this.constructor.name}]: Worker pool size is lower than the minimum amount (${this.constructor.OPTIMAL_THREAD_COUNT}). Performance may be impacted`);
+                    console.warn(`[${this.constructor.name}]: Worker pool size (${this.size}) is lower than the minimum (${this.constructor.OPTIMAL_THREAD_COUNT}). Performance may be impacted`);
             });
 
         // setup proxies
