@@ -19,7 +19,7 @@ async function fireProjectile (shot, state, config) { // [!} laziness
     const muzzleFlash = generateMuzzleFlash(state, config);
     const landing = await state.threading.traceProjectile("blastTerrain", projectile, config.traceIncrement, config.traceLimit);
     state.blastTerrain = undefined;
-    if (landing) {
+    if (landing.intersect) {
         const blastRadius = projectile.blastRadius;
         const blasts = projectile.blast.blastsAt(landing.point); // should be sorted
         const blastDelays = projectile.blast.delay;
@@ -162,22 +162,23 @@ function drawDebugOverlay (state, config) {
         cursor.lineWidth = 2;
         for (const { shape } of state.projectile.blast.blastsAt(state.projectile.position))
             shape.path.draw(cursor);
-        if (state.landing)
+        if (state.landing?.intersect)
             for (const { shape } of state.projectile.blast.blastsAt(state.landing.point))
                 shape.path.draw(cursor);
         cursor.stroke(); 
         cursor.restore();
         if (state.landing) {
-            // draw landing point
-            drawCircle(cursor, state.landing.point, state.projectile.radius, "orange");
+            // draw landing point, if exists
+            if (state.landing?.intersect) {
+                drawCircle(cursor, state.landing.point, state.projectile.radius, "orange");
+            }
             // draw custom properties, if any
             if (state.landing.bounces) {
                 const _lineLength = 35;
-                state.landing.bounces.forEach(({point, angle, reflection, direction, normal}) => {
-                    drawMarker(cursor, point, Direction(angle, false), 3, _lineLength, "orange"); // reflection
+                state.landing.bounces.forEach(({point, reflection, direction, normal}) => {
                     drawLine(cursor, point, point.add(normal.normalize().mul(_lineLength)), 3, "green"); // normal
-                    drawLine(cursor, point, point.add(direction.normalize().mul(_lineLength)), 3, "blue"); // direction
-                    drawLine(cursor, point, point.add(reflection.normalize().mul(_lineLength)), 3, "red"); // direction
+                    drawLine(cursor, point, point.add(direction.normalize().mul(_lineLength)), 3, "blue"); // direction (incoming)
+                    drawLine(cursor, point, point.add(reflection.normalize().mul(_lineLength)), 3, "red"); // reflection
                 });
             }
         }
@@ -217,7 +218,7 @@ function animate (state, config) {
     let waitPromise = state.threading.cache.background && !state.redrawJob ? Promise.resolve() : state.redrawJob;
     
     if (elapsed < config.frameInterval) { // run any between-frame logic
-    } else if (state.landing && (state.redrawJob?.isWorkerJob && !state.redrawJob.fulfilled)) { // wait for loading to finish before updating game loop
+    } else if (state.landing?.intersect && (state.redrawJob?.isWorkerJob && !state.redrawJob.fulfilled)) { // wait for loading to finish before updating game loop
     } else { // redraw frame
         state.lastStamp = nowStamp - (elapsed % config.frameInterval);
         // check if background needs to be updated
@@ -225,7 +226,7 @@ function animate (state, config) {
             const endProjectileEarly =
                 (state.projectile.time >= config.traceMaxTime) // time out shots even if a landing exists
                 || state.projectile.isColliding // safety/sanity check
-                || (!state.landing && (
+                || (!state.landing?.intersect && (
                     // time out early if theres no landing and it flew offscreen
                     state.projectile.current.position.x > config.display.size.x
                     || state.projectile.current.position.x < 0
@@ -233,10 +234,10 @@ function animate (state, config) {
                     || state.projectile.current.position.y < 0
                 ));
             const isTimedout =
-                !(state.landing && state.projectile.time >= state.landing.at - Number.EPSILON)
+                !(state.landing?.intersect && state.projectile.time >= state.landing.at - Number.EPSILON)
                 && endProjectileEarly;
             if (
-                (state.landing && state.projectile.time >= state.landing.at - Number.EPSILON)
+                (state.landing?.intersect && state.projectile.time >= state.landing.at - Number.EPSILON)
                 || endProjectileEarly
             ) {
                 if (isTimedout) {

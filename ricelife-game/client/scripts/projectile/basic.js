@@ -1,6 +1,6 @@
 import { Projectile, BasicShot } from "./default.js";
-import { Circle, Vector, Direction, Color } from "../geometry/geometry.js";
-import { deg2rad } from "../utils/utils.js";
+import { Circle, Vector, Direction, Color, Path } from "../geometry/geometry.js";
+import { deg2rad, averageAngle } from "../utils/utils.js";
 
 export { BasicShot } from "./default.js";
 
@@ -67,21 +67,88 @@ export class Digger extends BasicShot {
 }
 
 export class Bouncer extends BasicShot {
-    static collisionBehavior = function (point, angle, polygon) {
-        if (this.bounces) {
-            console.log(`[${this.constructor.name}]: Bounced at ${point.toString()}`);
-            this.velocity.rotate(2 * angle, true);
-            this.bounces--;
-            this.updatePosition(1/60);
-            return false;
+    static collisionBehavior = function (intersections) {
+        if (this.#bounces < this.#maxBounces) {
+            // reflection calculation
+            const segments = new Path();
+            for (const { overlap } of intersections)
+                for (const segment of overlap)
+                    segments.push(...segment); // flatten array
+            if (segments.length > 1) {
+                const direction = this.current.velocity.clone();
+                const normal = segments.normal();
+                const reflection = direction.sub(normal.mul(2 * direction.dot(normal)));
+
+                // debugging, record last bounce calculations
+                const state = this.bounceState;
+                state.normal.apply(normal);
+                state.direction.apply(direction);
+                state.reflection.apply(reflection);
+                state.point.apply(this.position);
+                // apply cosmetic updates
+                const reduce = this.glowReduction / this.#maxBounces;
+                this.glowColor.r -= reduce;
+                this.glowColor.g -= reduce;
+                this.glowColor.b -= reduce;
+                // update projectile
+                this.current.velocity.apply(reflection);
+                this.#bounces++;
+                return false;
+            } else {
+                // if there are no overlapping segments, projectile is stuck INSIDE of a colliding polygon. Don't bounce
+                return true;
+            }
         }
         return true;
     }
+    static glowReduction = 50;
     static glowColor = new Color(128, 0, 128);
-    bounces = 1;
+    static maxBounces = 3;
+    bounceState = { // [!] mainly for debugging
+        normal: new Vector(),
+        direction: new Vector(),
+        reflection: new Vector(),
+        point: new Vector(),
+        clone: function () {
+            return {
+                normal: this.normal.clone(),
+                direction: this.direction.clone(),
+                reflection: this.reflection.clone(),
+                point: this.point.clone()
+            }
+        }
+    };
+    glowReduction;
+    #maxBounces;
+    #bounces = 0;
     constructor (origin, angle, power = 1, resolution = 1) {
         super(origin, angle, power, resolution);
+        this.#maxBounces = new.target.maxBounces || Bouncer.maxBounces;
+        this.glowReduction = new.target.glowReduction || Bouncer.glowReduction;
+    }
+
+    // [!] overrided mainly for debugging
+    intersectAt (polygons, increment = 1/60, limit = 1000) {
+        if (polygons.some(({isPolygon}) => !isPolygon)) throw new Error(`[${this.constructor.name}] Error: Cannot perform intersection operation with non-Polygon`);
+        const proj = this.clone(true);
+        const result = { intersect: false, bounces: [] };
+        const state = proj.bounceState;
+        let bounceCount;
+        for (let t = 0; t < limit && !result.intersect; t += increment) {
+            bounceCount = proj.bounces;
+            proj.update(increment, polygons);
+            if (bounceCount != proj.bounces)
+                result.bounces.push(state.clone());
+            if (proj.isColliding) {
+                result.point = proj.position.clone()
+                result.at = t;
+                result.intersect = true;
+            }
+        }
+        return result;
     }
     
     clone () { return new Bouncer(this.origin, this.angle, this.power, this.resolution) }
+
+    get bounces () { return this.#bounces }
 }

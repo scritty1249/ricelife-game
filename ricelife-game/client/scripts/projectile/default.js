@@ -68,7 +68,6 @@ export class Projectile extends TrackableObject {
     get isProjectile () { return true }
     get tracer () { return this.#tracer }
     get time () { return this.#time }
-    *tracerAt () { }
     clone () { return new Projectile(this.origin, this.velocity, this.acceleration, this.drag) }
 }
 
@@ -80,7 +79,7 @@ export class Shot extends Projectile {
     static glowResolution = 5;
     static glowColor = new Color(255, 0, 0, 100);
     static mainColor = new Color(255, 255, 255);
-    static collisionBehavior = function (intersections =[ ]) { // expects each intersection to be: {point, angle, polygon}
+    static collisionBehavior = function (intersections = []) { // expects each intersection to be: {polygon, overlap: [...Path]}
         this.velocity.mul(0, true);
         return true;
     }
@@ -131,11 +130,16 @@ export class Shot extends Projectile {
     intersectAt (polygons, increment = 1/60, limit = 1000) {
         if (polygons.some(({isPolygon}) => !isPolygon)) throw new Error(`[${this.constructor.name}] Error: Cannot perform intersection operation with non-Polygon`);
         const proj = this.clone(true);
-        for (let t = 0; t < limit; t += increment) {
+        const result = { intersect: false };
+        for (let t = 0; t < limit && !result.intersect; t += increment) {
             proj.update(increment, polygons);
-            if (proj.isColliding) return { point: proj.position.clone(), at: t };
+            if (proj.isColliding) {
+                result.point = proj.position.clone();
+                result.at = t;
+                result.intersect = true;   
+            }
         }
-        return undefined;
+        return result;
     }
     draw (cursor) {
         this.drawGlow(cursor);
@@ -175,21 +179,13 @@ export class Shot extends Projectile {
         if (!this.isColliding) {
             const intersecting = [];
             const shape = this.shape;
+            const position = this.position.clone();
             for (const polygon of collisions)
                 if (shape.isIntersecting(polygon)) intersecting.push(polygon);
-            if (intersecting.length) {
+            if (intersecting.length > 0) {
                 const intersections = [];
-                for (const polygon of intersecting) {
-                    const position = this.current.position;
-                    const collisionPoint = polygon.path.nearestTo(position);
-                    const direction = Direction(position.angle(collisionPoint), false);
-                    const distance = position.distance(collisionPoint);
-                    const ray = Ray(position, direction, distance + 1); // [!] extra point for leniency, shouldn't need it though - KT
-                    polygon.raycast(ray)
-                        ?.filter?.(({entering}) => entering)
-                        ?.forEach?.(({point, angle}) =>
-                            intersections.push({point, angle, polygon}));
-                }
+                for (const polygon of intersecting)
+                    intersections.push({polygon, overlap: polygon.overlap(shape)});
                 if (intersections.length) {
                     this.#colliding = this.collisionBehavior(intersections);
                 } else {
