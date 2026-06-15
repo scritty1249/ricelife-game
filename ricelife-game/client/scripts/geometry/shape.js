@@ -139,13 +139,14 @@ export class Circle extends Shape {
     }
     isIntersecting (value, ignoreholes = false) {
         if (value?.isVector) {
-            return this.position.distance(value) <= this.radius && (ignoreholes || !this.holes.some((hole) => hole.isIntersecting(value)));
+            return this.position.distance(value) <= this.radius && (ignoreholes || !this.holes.some((hole) => hole.isIntersecting(value, !ignoreholes)));
         } else if (value?.isPolygon) {
             return value.path.points.some((point) =>
-                this.position.distance(point) <= this.radius && (ignoreholes || !this.holes.some((hole) => hole.isIntersecting(value))));
+                this.position.distance(point) <= this.radius && (ignoreholes || !this.holes.some((hole) => hole.isIntersecting(value, !ignoreholes))))
+                && this.path.points.some((point) => value.isIntersecting(point, ignoreholes));
         } else if (value?.isPath) {
             return value.points.some((point) =>
-                this.position.distance(point) <= this.radius && (ignoreholes || !this.holes.some((hole) => hole.isIntersecting(value))));
+                this.position.distance(point) <= this.radius && (ignoreholes || !this.holes.some((hole) => hole.isIntersecting(value, !ignoreholes))));
         } else
             return super.isIntersecting(value, ignoreholes);
     }

@@ -169,7 +169,7 @@ export class Polygon extends TrackableObject { // points should be ordered clock
                     && (x < (pj.x - pi.x) * (y - pi.y) / (pj.y - pi.y) + pi.x);
                 if (intersect) inside = !inside;
             }
-            return inside && (ignoreholes || !this.holes.some((hole) => hole.isIntersecting(value)));
+            return inside && (ignoreholes || !this.holes.some((hole) => hole.isIntersecting(value, !ignoreholes)));
         } else if (value?.isPolygon) {
             return value.path.points.some((point) => this.isIntersecting(point));
         } else if (value?.isPath) { // counts surface contact/collision as intersection
