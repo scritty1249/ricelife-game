@@ -302,7 +302,8 @@ async function load() {
     ]);
     const sfx = Promise.all([
         AudioCtx.Source("fire", "./assets/sfx/fire.mp3").onload,
-        AudioCtx.Source("blast", "./assets/sfx/blast.mp3").onload
+        AudioCtx.Source("blast", "./assets/sfx/blast.mp3").onload,
+        AudioCtx.Source("bouncer", "./assets/sfx/bouncer-collision.wav").onload
     ]);
     const WorkerManager = new WorkerPool(new URL(`./workers/web-worker.js`, import.meta.url), 4, 3);
     await WorkerManager.initPromise
@@ -425,6 +426,13 @@ async function main(...loaded) {
         redrawJob: Workers.drawTerrain("background", "blastTerrain", config.terrain.fill, config.terrain.edge)
             .then(() => Workers.updateCache("background"))
     };
+
+    {
+        // setup functions that required loaded assets
+        Projectiles.Bouncer.onBounceCallback = function () {
+            config.audio.add(config.sfx.bouncer.Instance().play(), true);
+        }
+    }
 
     {
         // setting up UI

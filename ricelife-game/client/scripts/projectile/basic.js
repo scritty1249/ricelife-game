@@ -77,6 +77,9 @@ export class Bouncer extends BasicShot {
             if (segments.length > 1) {
                 const direction = this.current.velocity.clone();
                 const normal = segments.normal();
+                // check for errors- invert normal if current position is on the wrong segment "side"
+                if (direction.dot(normal) <= 0) normal.mul(-1, true);
+
                 const reflection = direction
                     .sub(normal.mul(2 * direction.dot(normal)))
                     .mul(this.bounceVelocityMultiplier);
@@ -94,6 +97,8 @@ export class Bouncer extends BasicShot {
                 // update projectile
                 this.current.velocity.apply(reflection);
                 this.#bounces++;
+                // callback
+                this.onBounceCallback?.();
                 return false;
             } else {
                 // if there are no overlapping segments, projectile is stuck INSIDE of a colliding polygon. Don't bounce
@@ -105,7 +110,8 @@ export class Bouncer extends BasicShot {
     static bounceGlowReduction = 50;
     static bounceVelocityMultiplier = new Vector(.9, .9);
     static glowColor = new Color(128, 0, 128);
-    static maxBounces = 3;
+    static maxBounces = 5;
+    static onBounceCallback = function () {} // this does not apply to Projectile tracing performed by web workers. Operations done in this callback should be cosmetic-only: should NOT change projectile movement or hitbox
     bounceState = { // [!] mainly for debugging
         normal: new Vector(),
         direction: new Vector(),
@@ -124,11 +130,13 @@ export class Bouncer extends BasicShot {
     bounceVelocityMultiplier;
     #maxBounces;
     #bounces = 0;
+    onBounceCallback;
     constructor (origin, angle, power = 1, resolution = 1) {
         super(origin, angle, power, resolution);
         this.#maxBounces = new.target.maxBounces || Bouncer.maxBounces;
         this.bounceGlowReduction = new.target.bounceGlowReduction || Bouncer.bounceGlowReduction;
         this.bounceVelocityMultiplier = (new.target.bounceVelocityMultiplier || Bouncer.bounceVelocityMultiplier).clone();
+        this.onBounceCallback = (new.target.onBounceCallback || Bouncer.onBounceCallback).bind(this);
     }
 
     // [!] overrided mainly for debugging
