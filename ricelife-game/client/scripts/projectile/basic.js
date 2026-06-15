@@ -112,6 +112,7 @@ export class Bouncer extends BasicShot {
     static bounceGlowReduction = 50;
     static bounceVelocityMultiplier = new Vector(.9, .9);
     static glowColor = new Color(128, 0, 128);
+    static mainColor = new Color(255, 240, 255);
     static maxBounces = 5;
     static onBounceCallback = function () {} // this does not apply to Projectile tracing performed by web workers. Operations done in this callback should be cosmetic-only: should NOT change projectile movement or hitbox
     bounceState = { // [!] mainly for debugging
