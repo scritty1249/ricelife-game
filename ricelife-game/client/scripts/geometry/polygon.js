@@ -32,11 +32,24 @@ export class Polygon extends TrackableObject { // points should be ordered clock
             hole.smooth(resolution);
     }
 
+    overlap (poly) { // returns an array of Path segments that are overlapping with the given polygon
+        if (!poly?.isPolygon) throw new Error(`[${this.constructor.name}] Error: Cannot overlap with non-Polygon type ${typeof poly}`);
+        const segments = [];
+        let segment = new Path();
+        for (const point of this.path.points) {
+            if (poly.isIntersecting(point)) segment.push(point);
+            else {
+                if (segment.length > 0) segments.push(segment);
+                segment = new Path();
+            }
+        }
+        if (segment.length > 0) segments.push(segment);
+        return segments;
+    }
+
     // [!] I have no idea what I'm doing!
     cut (poly, mutate = false) { // https://en.wikipedia.org/wiki/Greiner%E2%80%93Hormann_clipping_algorithm
-        if (!poly?.isPolygon) {
-            throw new Error(`[${this.constructor.name}] Error: Cannot cut with non-Polygon type ${typeof poly}`);
-        }
+        if (!poly?.isPolygon) throw new Error(`[${this.constructor.name}] Error: Cannot cut with non-Polygon type ${typeof poly}`);
         const newPolygon = mutate ? this : this.clone();
 
         // FUCKIN LINKED LISTS?
