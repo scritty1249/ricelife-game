@@ -4,79 +4,15 @@ import { deg2rad, averageAngle } from "../utils/utils.js";
 
 export { BasicShot } from "./default.js";
 
-export class Spreader extends BasicShot {
-    static initalSpeed = 400;
-    static acceleration = new Vector(20, -200);
-    static drag = 0.001;
-    static radius =  7.5;
-    static blastRadius = 25;
-    static glowColor = new Color(0, 212, 255);
-    constructor (origin, angle, power = 1, resolution = 1) {
-        super(origin, angle, power, resolution);
-
-        const blastRadius = 25;
-        this.hitbox.splice(0, this.hitbox.length);
-        this.hitbox.push(new Blast(new Circle(new Vector(), blastRadius, this.resolution), 0));
-        this.hitbox.push(new Blast(new Circle(new Vector(-blastRadius * 1.75, 0), blastRadius, this.resolution), 250));
-        this.hitbox.push(new Blast(new Circle(new Vector(blastRadius * 1.75, 0), blastRadius, this.resolution), 500));
-    }
-
-    clone () { return new Spreader(this.origin, this.angle, this.power, this.resolution) }
-}
-
-export class Flower extends BasicShot {
-    static initalSpeed = 400;
-    static acceleration = new Vector(20, -200);
-    static drag = 0.001;
-    static radius =  7.5;
-    static glowColor = new Color(255, 215, 0);
-    static glowRadius = 20;
-    static glowResolution = 3;
-    constructor (origin, angle, power = 1, resolution = 1) {
-        super(origin, angle, power, resolution);
-
-        const blastRadius = 35;
-        this.hitbox.splice(0, this.hitbox.length);
-        Array.from([0, 360/7, 720/7, 1080/7, 1440/7, 1800/7, 2160/7], (angle, i) => {
-            const rad = deg2rad(angle);
-            return new Circle(new Vector(Math.cos(rad), Math.sin(rad)).mul(this.radius + (blastRadius * 1.75)), blastRadius, this.resolution)})
-            .forEach((shape, i) => this.hitbox.push(new Blast(shape, i * 100)));
-    }
-
-    clone () { return new Flower(this.origin, this.angle, this.power, this.resolution) }
-}
-
-export class Digger extends BasicShot {
-    static initalSpeed = 500;
-    static acceleration = new Vector(10, -300);
-    static drag = 0.003;
-    static radius =  8;
-    static glowColor = new Color(210, 165, 0);
-    static mainColor = new Color(200, 90, 0);
-    constructor (origin, angle, power = 1, resolution = 1) {
-        super(origin, angle, power, resolution);
-
-        const blastRadius = 30;
-        this.hitbox.splice(0, this.hitbox.length);
-        this.hitbox.push(new Blast(new Circle(new Vector(), blastRadius, this.resolution), 0));
-        // this.hitbox.push(new Blast(new Circle(new Vector(-blastRadius * 1.75), blastRadius, this.resolution), 400));
-        // this.hitbox.push(new Blast(new Circle(new Vector(-blastRadius * 1.75 * 2), blastRadius, this.resolution), 800));
-        // this.hitbox.push(new Blast(new Circle(new Vector(-blastRadius * 1.75 * 3), blastRadius, this.resolution), 1200));
-
-        for (let i = 1; i < 4; i++) {
-            const blast = this.hitbox.at(0).clone(true);
-            blast.delay = 400 * i;
-            blast.shape.position.y = -blastRadius * 1.75 * i;
-            this.hitbox.push(blast);
-        }
-    }
-
-    clone () { return new Digger(this.origin, this.angle, this.power, this.resolution) }
-}
-
 export class Bouncer extends BasicShot {
     static collisionBehavior (intersections) {
-        if (this.#bounces < this.maxBounces) {
+        if (intersections.every(({overlap}) =>
+                overlap.every((path) =>
+                    path.points.every((point) =>
+                        this.blasts.some(({shape}) =>
+                            shape.isIntersecting(point)
+        ))))) return; // don't collide with something that's already affected by a blast
+        if (this.bounces < this.maxBounces) {
             // reflection calculation
             const segments = new Path();
             for (const { overlap } of intersections)
@@ -91,7 +27,6 @@ export class Bouncer extends BasicShot {
                 const reflection = direction
                     .sub(normal.mul(2 * direction.dot(normal)))
                     .mul(this.bounceVelocityMultiplier);
-                this.onBounce();
                 // debugging, record bounce calculations
                 this.previousBounces.push({ direction, normal, reflection, point: this.position.clone() });
                 // update projectile
@@ -99,6 +34,7 @@ export class Bouncer extends BasicShot {
                 this.current.velocity.apply(reflection);
                 this.#bounces++;
                 // callback
+                this.onBounce();
                 this.onBounceCallback?.();
                 return;
             } else {
@@ -146,6 +82,74 @@ export class Bouncer extends BasicShot {
     get bounces () { return this.#bounces }
     get maxBounces () { return this.#maxBounces }
 }
+export class Spreader extends BasicShot {
+    static initalSpeed = 400;
+    static acceleration = new Vector(20, -200);
+    static drag = 0.001;
+    static radius =  7.5;
+    static blastRadius = 25;
+    static glowColor = new Color(0, 212, 255);
+    constructor (origin, angle, power = 1, resolution = 1) {
+        super(origin, angle, power, resolution);
+
+        const blastRadius = 25;
+        this.hitbox.splice(0, this.hitbox.length);
+        this.hitbox.push(new Blast(new Circle(new Vector(), blastRadius, this.resolution), 0));
+        this.hitbox.push(new Blast(new Circle(new Vector(-blastRadius * 1.75, 0), blastRadius, this.resolution), 250));
+        this.hitbox.push(new Blast(new Circle(new Vector(blastRadius * 1.75, 0), blastRadius, this.resolution), 500));
+    }
+
+    clone () { return new Spreader(this.origin, this.angle, this.power, this.resolution) }
+}
+
+export class Flower extends BasicShot {
+    static initalSpeed = 400;
+    static acceleration = new Vector(20, -200);
+    static drag = 0.001;
+    static radius =  7.5;
+    static glowColor = new Color(255, 215, 0);
+    static glowRadius = 20;
+    static glowResolution = 3;
+    constructor (origin, angle, power = 1, resolution = 1) {
+        super(origin, angle, power, resolution);
+
+        const blastRadius = 35;
+        this.hitbox.splice(0, this.hitbox.length);
+        Array.from([0, 360/7, 720/7, 1080/7, 1440/7, 1800/7, 2160/7], (angle, i) => {
+            const rad = deg2rad(angle);
+            return new Circle(new Vector(Math.cos(rad), Math.sin(rad)).mul(this.radius + (blastRadius * 1.75)), blastRadius, this.resolution)})
+            .forEach((shape, i) => this.hitbox.push(new Blast(shape, i * 100)));
+    }
+
+    clone () { return new Flower(this.origin, this.angle, this.power, this.resolution) }
+}
+
+export class Digger extends Bouncer {
+    static onBounce () { // [!] broken
+        this.applyBlast();
+        this.current.position.y -= this.radius;
+        this.current.velocity.apply(0, 150);
+        this.acceleration.y = -100;
+        console.log(this.current.velocity.toString());
+    }
+    static onBounceCallback () {} // override, don't play bounce sfx
+    static maxBounces = 2;
+    static initalSpeed = 500;
+    static acceleration = new Vector(10, -300);
+    static drag = 0.003;
+    static radius =  8;
+    static glowColor = new Color(210, 165, 0);
+    static mainColor = new Color(200, 90, 0);
+    constructor (origin, angle, power = 1, resolution = 1) {
+        super(origin, angle, power, resolution);
+
+        const blastRadius = 30;
+        this.hitbox.splice(0, this.hitbox.length);
+        this.hitbox.push(new Blast(new Circle(new Vector(), blastRadius, this.resolution), 0));
+    }
+
+    clone () { return new Digger(this.origin, this.angle, this.power, this.resolution) }
+}
 
 export class MegaBouncer extends Bouncer {
     static onBounce () {
@@ -191,6 +195,7 @@ export class MegaBouncer2 extends MegaBouncer {
         this.applyBlast();
         super.onBounce();
     }
+    static onBounceCallback () {} // override, don't play bounce sfx
     constructor (origin, angle, power = 1, resolution = 1) {
         super(origin, angle, power, resolution);
     }

@@ -17,7 +17,7 @@ async function fireProjectile (shot, state, config) { // [!} laziness
     drawFrame(state, config); // draw one last frame so the game doesn't look like it just froze
     const projectile = new shot(state.tanks[config.playerTank].barrelPos, state.aimer.rotation + (3 * (Math.PI / 2)), state.aimer.power);
     const muzzleFlash = generateMuzzleFlash(state, config);
-    const landing = await state.threading.traceProjectile("blastTerrain", projectile, config.traceIncrement, config.traceLimit);
+    const landing = await state.threading.traceProjectile("blastTerrain", projectile, config.traceIncrement, config.traceMaxTime);
     state.blastTerrain = undefined;
     state.impactData = [];
     if (landing.blasts.length) {
@@ -238,7 +238,7 @@ function animate (state, config) {
     const elapsed = nowStamp - state.lastStamp;
     const player = state.tanks[config.playerTank];
     let waitPromise = state.threading.cache.background && !state.redrawJob ? Promise.resolve() : state.redrawJob;
-    
+
     if (elapsed < config.frameInterval) { // run any between-frame logic
     } else if (state.landing?.intersect && (state.redrawJob?.isWorkerJob && !state.redrawJob.fulfilled)) { // wait for loading to finish before updating game loop
     } else { // redraw frame
@@ -252,7 +252,7 @@ function animate (state, config) {
                 if (impact.time <= state.projectile.time) impact.play();
             }
             // update projectile
-            state.projectile.update(1 / config.fps, [state.terrain]);
+            state.projectile.update(config.traceIncrement, [state.terrain]);
             // are we done with projectile?
             const endProjectileEarly =
                 (state.projectile.time >= config.traceMaxTime) // time out shots even if a landing exists
@@ -349,7 +349,7 @@ async function load() {
     main(WorkerManager, AudioCtx, AudioPlayer, audioLayers, await body, await barrel, await testExplosion, await testMuzzleFlash, await buttons, await sfx);
 }
 
-const MAX_SHOT_TRACE_SECONDS = 15; // will trigger a landing early if timeout is exceeded- however a landing will only be traced within this time frame so early landings shouldn't be happening... -KT
+const MAX_SHOT_TRACE_SECONDS = 30; // will trigger a landing early if timeout is exceeded- however a landing will only be traced within this time frame so early landings shouldn't be happening... -KT
 const FPS = 60;
 const GROUND = 350;
 const GLOBAL_RESOLUTION = Math.floor((1/3) * 10) / 10;
@@ -428,7 +428,6 @@ async function main(...loaded) {
         powerIncr: .005,
         traceIncrement: 1 / FPS,
         traceMaxTime: MAX_SHOT_TRACE_SECONDS,
-        traceLimit: MAX_SHOT_TRACE_SECONDS * FPS,
         terrain: {
             edge: new Color("#00e8f0"),
             fill: new Color("#0098eb")

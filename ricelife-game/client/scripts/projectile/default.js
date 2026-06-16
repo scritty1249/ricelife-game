@@ -125,7 +125,7 @@ export class Shot extends Projectile {
     }
     // expensive but accurate. we should only be calling this ONCE when a shot is fired anyways
     // returns the projectiles position when it's shape intersects with the given terrain
-    intersectAt (polygons, increment = 1/60, limit = 1000) {
+    intersectAt (polygons, increment = 1/60, limit = 60) {
         if (polygons.some(({isPolygon}) => !isPolygon)) throw new Error(`[${this.constructor.name}] Error: Cannot perform intersection operation with non-Polygon`);
         const proj = this.clone(true);
         const result = {
@@ -133,11 +133,11 @@ export class Shot extends Projectile {
             point: undefined,
             at: undefined
         };
-        for (let t = 0; t < limit && result.point === undefined; t += increment) {
+        while (result.at === undefined && proj.time < limit) {
             proj.update(increment, polygons);
             if (proj.isStopped) {
                 result.point = proj.position.clone();
-                result.at = t;
+                result.at = proj.time;
             }
         }
         return result;
@@ -294,7 +294,7 @@ export class BasicShot extends Shot {
         const currentPosition = this.current.position;
     }
 
-    intersectAt (polygons, increment = 1/60, limit = 1000, float64 = false) {
+    intersectAt (polygons, increment = 1/60, limit = 60, float64 = false) {
         const result = super.intersectAt(polygons, increment, limit);
         // storing data to be passed from web workers
         const blasts = [...result.state.blasts]; // dereference
