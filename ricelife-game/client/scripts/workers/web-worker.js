@@ -118,12 +118,9 @@ self.onmessage = async (e) => {
                     ? getCache(target).data?.poly
                     : Polygon.fromObject(target, target.depth));
             const proj = new ShotType[shot](Vector.fromObject(origin), angle, power, resolution);
-            const result = proj.intersectAt(targetPolys, increment, limit);
-            if ("blasts" in result)
-                for (const blast of result.blasts)
-                    blast.shape = blast.shape.Float64(1);
+            const result = proj.intersectAt(targetPolys, increment, limit, true);
             delete result.state;
-            postResponse(id, result);
+            postResponse(id, result, (result?.buffers || []));
         } else if (type === "CUTPOLY") {
             /* Payload expected:
              * {

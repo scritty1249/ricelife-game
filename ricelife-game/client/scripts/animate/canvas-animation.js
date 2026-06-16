@@ -11,8 +11,8 @@ export class Animation {
         onend: {},
         onstart: {} // resolves when played and delay has passed
     };
+    #paused = true;
     loop = false;
-    paused = true;
     speed = 1;
     delay = 0; // milliseconds, and is affected by speed
     // framerate in frames per second
@@ -46,7 +46,7 @@ export class Animation {
     intervalElapsed () { return performance.now() - this.#lastAtTime }
     next () {
         if (this.ended) return undefined;
-        if (this.paused) return this.#prevFrame;
+        if (this.#paused) return this.#prevFrame;
         this.#lastAtTime = performance.now();
         this.#prevFrame = this.#frames.at(this.frame++);
         return this.#prevFrame;
@@ -54,26 +54,27 @@ export class Animation {
     play () {
         if (this.#frame === 0)
             this.#lastAtTime = performance.now() + this.delay;
-        this.paused = false;
+        this.#paused = false;
         return this; // for chaining
     }
     pause () {
-        this.paused = true;
+        this.#paused = true;
         return this; // for chaining
     }
     clone () { // Clones by reference
         const ani = new Animation (this.position, this.#frames.clone(), this.#framerateMs * 1000);
         ani.speed = this.speed;
-        ani.paused = this.paused;
+        if (this.playing) ani.play();
     }
 
     get isAnimation () { return true }
-    get hasNext () { return this.intervalElapsed() >= this.#framerateMs / this.speed && !this.ended && !this.paused }
+    get hasNext () { return this.intervalElapsed() >= this.#framerateMs / this.speed && !this.ended && !this.#paused }
     get ended () {
         const result = this.frame >= this.#frames.length  && !this.loop;
         if (result && !this.#promise.onend.isResolved) this.#promise.onend.resolve();
         return result;
     }
+    get playing () { return !this.#paused }
     get onend () { return this.#promise.onend.promise }
     get onstart () { return this.#promise.onstart.promise }
     get frame () { return this.#frame }
@@ -119,7 +120,8 @@ export class AnimationList {
     }
 
     get isAnimationList () { return true }
+    get playing () { return this.#animations.some((ani) => ani.playing) }
     get length () { return this.#animations.length }
     get onend () { return Promise.all(this.#animations.map((ani) => ani.onend)) }
-    get ended () { return this.#animations.every((ani) => ani.ended) }
+    get ended () { return this.#animations.every((ani) => ani.ended) || !this.length }
 }

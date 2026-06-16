@@ -88,10 +88,11 @@ export class Shape extends Polygon {
             .pivot(rotation, translation, true));
         return this; // for chaining
     }
-    clone () {
-        const shape = new Shape(this.position.clone());
-        for (const point of this.path)
-            shape.path.push(point.clone());
+    clone (deep = false) {
+        const position = deep ? this.position.clone(true) : this.position;
+        const shape = new Shape(position);
+        const path = deep ? this.path.clone(true) : this.path;
+        for (const point of path) shape.path.push(point);
         return shape;
     }
 
@@ -103,6 +104,17 @@ export class Shape extends Polygon {
         if (!floatEqual(radians, this.#rotation))
             this.#applyRotationChange(radians - this.#rotation);
         return (this.#rotation = radians);
+    }
+
+    static fromObject (position, polyData) { // only converts topmost path to Shape. Holes are still polygons
+        const shape = new Shape(Vector.fromObject(position), Path.fromArray(polyData.path))
+        if (polyData.depth)
+            for (const hole of polyData.holes) {
+                const poly = super.fromObject(hole, polyData.depth - 1);
+                if (poly.path.isClockwise) poly.path.points.reverse();
+                shape.holes.push(poly);
+            }
+        return shape;
     }
 }
 
