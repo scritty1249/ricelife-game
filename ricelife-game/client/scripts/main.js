@@ -19,42 +19,52 @@ async function fireProjectile (shot, state, config) { // [!} laziness
     const muzzleFlash = generateMuzzleFlash(state, config);
     const landing = await state.threading.traceProjectile("blastTerrain", projectile, config.traceIncrement, config.traceLimit);
     state.blastTerrain = undefined;
+    state.impactData = [];
     if (landing.blasts.length) {
         const blasts = landing.blasts; // should be sorted
         state.redrawJob = state.threading.drawBlastedTerrains(1, "blastTerrain", config.display.size, config.terrain, ...blasts);
         const { intervals: blastIntervals, polygon: blastTerrain } = await state.redrawJob;
         state.animations.blast = new AnimationList();
         const blastAudioLayer = config.audio.layers.blast;
-        const impactData = [];
         for (const blastInterval of blastIntervals) {
             const { frame, delay, blasts } = blastInterval;
-            let firstAnimation;
+            // bundle callbacks to trigger later
+            const impact = {
+                triggered: false,
+                frame: frame,
+                time: delay / 1000,
+                blasts: blasts,
+                animations: new AnimationList(),
+                play: function () {
+                    // update canvas
+                    state.threading.cache.background?.close?.();
+                    state.threading.cache.background = this.frame;
+                    this.animations.play();
+                    this.triggered = true;
+                }
+            };
             for (let i = 0; i < blasts.length; i++) {
                 const spritesheet = state.blastAnimationFrames.clone();
                 const blast = blasts.at(i);
-                console.log(delay, blast.delay);
                 // sound effects
                 const bassNode = config.audio.ctx.newBassNode();
                 bassNode.frequency.value = 200;
-                bassNode.gain.value = 15 * ((blast.radius / 50)**3);
                 const sfxLayer = config.audio.layers.blast.Layer([bassNode], true);
+                const sfxNode = config.audio.sources.blast.Instance();
+                sfxLayer.add(sfxNode); // [!] whole layer is already ephemeral so no need to apply to the instance
                 // visual effects
                 spritesheet.width = (blast.radius * 2) * 20;
                 const ani = new Animation(blast.position, spritesheet, state.blastAnimationFps);
                 ani.speed = 1.25;
-                ani.delay = blast.delay * ani.speed;
                 ani.onstart.then(() => {
                     // play sfx
-                    sfxLayer.add(config.audio.sources.blast.Instance().play()); // [!] whole layer is already ephemeral so no need to apply to the instance
+                    bassNode.gain.value = 15 * ((blast.radius / 50)**3);
+                    sfxNode.play();
                 });
-                state.animations.blast.push(ani);
-                if (!i) firstAnimation = ani;
+                impact.animations.push(ani);
             }
-            firstAnimation.onstart.then(() => {
-                // update canvas
-                state.threading.cache.background?.close?.();
-                state.threading.cache.background = frame;
-            });
+            state.animations.blast.push(...impact.animations);
+            state.impactData.push(impact);
         }
         state.animations.global.push(...state.animations.blast);
         state.blastTerrain = await blastTerrain;
@@ -65,7 +75,6 @@ async function fireProjectile (shot, state, config) { // [!} laziness
     state.tracer = projectile.tracer;
     muzzleFlash.play();
     config.audio.player.add(config.audio.sources.fire.Instance().play(), true);
-    state.animations.blast.play();
 }
 
 function generateMuzzleFlash (state, config) { // [!] laziness
@@ -218,7 +227,7 @@ function drawFrame (state, config) {
     for (const tank of Object.values(state.tanks))
         tank.draw(cursor);
     cursor.drawImage(state.threading.cache.background, 0, 0);
-    if (state.projectile && state.projectile.time > 0) state.projectile.draw(cursor);
+    if (state.projectile && state.projectile.time > 0 && state.drawProjectile) state.projectile.draw(cursor);
     if (state.tracer) state.tracer.draw(cursor);
     state.animations.global.update(cursor);
     if (state.isTurn) state.interface.draw(cursor, 1);
@@ -235,11 +244,19 @@ function animate (state, config) {
     } else { // redraw frame
         state.lastStamp = nowStamp - (elapsed % config.frameInterval);
         // check if background needs to be updated
+        const blastAnimationsFinished = (!state.animations.blast || state.animations.blast.ended);
         if (state.projectile) {
+            // trigger blast animations
+            for (const impact of state.impactData) {
+                if (impact.triggered) continue;
+                if (impact.time <= state.projectile.time) impact.play();
+            }
+            // update projectile
+            state.projectile.update(1 / config.fps, [state.terrain]);
+            // are we done with projectile?
             const endProjectileEarly =
                 (state.projectile.time >= config.traceMaxTime) // time out shots even if a landing exists
-                || state.projectile.isStopped // safety/sanity check
-                || (!state.landing?.intersect && (
+                || (!state.landing?.point && (
                     // time out early if theres no landing and it flew offscreen
                     state.projectile.current.position.x > config.display.size.x
                     || state.projectile.current.position.x < 0
@@ -249,38 +266,39 @@ function animate (state, config) {
             const isTimedout =
                 !(state.landing?.intersect && state.projectile.time >= state.landing.at - Number.EPSILON)
                 && endProjectileEarly;
-            if (
-                (state.landing?.intersect && state.projectile.time >= state.landing.at - Number.EPSILON)
-                || endProjectileEarly
-            ) {
-                if (isTimedout) {
-                    // timed out
-                    console.info("Projectile timed out early");
+            
+            if (endProjectileEarly) {
+                if (!blastAnimationsFinished) {
+                    // play any paused blast animations prematurely
+                    // shouldn't restart already playing animations
+                    state.animations.blast?.play();
                 }
-                // projectile landed, redraw terrain
-                state.projectile = state.landing = undefined;
-                state.redrawJob.then(() => { if (state.blastTerrain) state.terrain.apply(state.blastTerrain) });
-
-                const animationJob = state.redrawJob.then(() => {
-                        (state.animations.blast?.play()?.onend || Promise.resolve())
-                            .then(() => setTurn(state, true));
-                        delete state.animations.blast;
-                        return;
-                    });
-                const positionJob = state.redrawJob.then(() => {
-                        player.position.round(2);
-                        if (state.terrain.holes.some((hole) => hole.isIntersecting(player.position))) // shallow check
-                            state.move.set(player.position.x); // update positioning - account for "falling"
-                        return;
-                    });
+                if (isTimedout) console.info("Projectile timed out");
+                state.projectile = undefined;
+            } else if (state.projectile.isStopped && !blastAnimationsFinished) {
+                state.drawProjectile = false;
+            }
+            if (state.animations.blast?.ended) {
                 waitPromise = waitPromise
-                    .then(() => Promise.all([animationJob, positionJob]))
-                    .then(() => state.redrawJob = Promise.resolve());
-            } else {
-                state.projectile.update(1 / config.fps, [state.terrain]);
+                    .then(() => state.redrawJob)
+                    .then(() => {
+                        if (state.blastTerrain) state.terrain.apply(state.blastTerrain);
+                        // reset projectile related state info
+                        state.projectile = state.landing = undefined;
+                        state.drawProjectile = true;
+                        state.impactData = [];
+                        delete state.animations.blast;
+                        // update positioning - account for "falling"
+                        player.position.round(2);
+                        // [!] hack solution
+                        state.move.move(0.0001); 
+                        state.move.move(-0.0001);
+                        // unlock player
+                        setTurn(state, true);
+                        return (state.redrawJob = Promise.resolve());
+                    });
             }
         }
-        
     }
     waitPromise.then(() => {
         // Draw the screen (main game loop - related polygons and images)
@@ -445,6 +463,8 @@ async function main(...loaded) {
             shot7: Projectiles.MegaBouncer2
         },
         animations: { global: Animations },
+        impactData: [],
+        drawProjectile: true,
 
 
         tanks: {[Tank.id]: Tank},
