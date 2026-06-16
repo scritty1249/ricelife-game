@@ -1,9 +1,6 @@
 import { TrackableObject, floatEqual } from "../utils/utils.js";
 import { Circle, Vector, Direction, Color, Path, Ray } from "../geometry/geometry.js";
 
-const ZERO_VEC = new Vector(0, 0);
-Object.freeze(ZERO_VEC);
-
 export class Projectile extends TrackableObject {
     #tracer;
     #time = 0; // in seconds
@@ -71,7 +68,7 @@ export class Projectile extends TrackableObject {
     get isProjectile () { return true }
     get tracer () { return this.#tracer }
     get time () { return this.#time }
-    get isStopped () { return this.current.velocity.eq(ZERO_VEC) }
+    get isStopped () { return floatEqual(this.current.velocity.x, 0) && floatEqual(this.current.velocity.y, 0) }
     clone () { return new Projectile(this.origin, this.velocity, this.acceleration, this.drag) }
 }
 
@@ -132,14 +129,16 @@ export class Shot extends Projectile {
     intersectAt (polygons, increment = 1/60, limit = 1000) {
         if (polygons.some(({isPolygon}) => !isPolygon)) throw new Error(`[${this.constructor.name}] Error: Cannot perform intersection operation with non-Polygon`);
         const proj = this.clone(true);
-        const result = { intersect: false };
+        const result = {
+            state: proj, // [!] this is deleted before being passed back through web worker- children should intercept and record important state values before passing back to main thread
+            point: undefined,
+            at: undefined
+        };
         for (let t = 0; t < limit && !result.intersect; t += increment) {
             proj.update(increment, polygons);
             if (proj.isStopped) {
-                result.state = proj; // [!] this is deleted before being passed back through web worker- children should intercept and record important state values before passing back to main thread
                 result.point = proj.position.clone();
                 result.at = t;
-                result.intersect = true;   
             }
         }
         return result;
@@ -207,28 +206,76 @@ export class Shot extends Projectile {
     get tail () { return this.#tail }
 }
 
+// [!] can be passed safely between web workers
+export class Blast { // only intended to record information, properties should be extracted before manipulating data
+    #shape;
+    #delay;
+    constructor (shape, delay = 0) {
+        if (!shape?.isShape) throw new Error(`[${this.constructor.name}]: Invalid argument - Shape expected, got ${typeof shape}`);
+        if (delay < 0) throw new Error(`[${this.constructor.name}]: Invalid argument - delay must be a non-negative numeric value, got ${delay}`);
+        this.#shape = shape;
+        this.#delay = delay;
+    }
+
+    toJSON () {
+        return {
+            shape: this.shape,
+            delay: this.delay,
+            position: this.position,
+        };
+    }
+    Float64 () {
+        const data = this.toJSON();
+        const shape = data.shape.Float64(data.shape.depth);
+        const buffers = shape.buffers;
+        delete shape.buffers;
+        data.position = data.position.toJSON();
+        data.shape = shape;
+        return { data, buffers };
+    }
+    clone (deep = false) {
+        return new Blast(this.shape.clone(deep), this.delay);
+    }
+
+    get isBlast () { return true }
+    get shape () { return this.#shape }
+    get delay () { return this.#delay }
+    set delay (value) {
+        if (value < 0) throw new Error(`[${this.constructor.name}]: Invalid value - delay must be a non-negative numeric value, got ${value}`);
+        return (this.#delay = value);
+    }
+    get position () { return this.#shape.position }
+
+    static fromObject (payload) {
+        const shape = Shape.fromObject(payload.position, payload.shape)
+        const blast = new Blast(shape, payload.delay);
+        return blast;
+    }
+}
+
 export class BasicShot extends Shot {
     // config
+    static collisionBehavior = function (intersections = []) {
+        this.current.velocity.mul(0, true);
+        this.applyBlast();
+    }
     static acceleration = new Vector(20, -200);
     static initalSpeed = 400;
     static drag = 0.001;
     static radius = 7;
-    static blastRadius = 30;
     // instance
     acceleration;
     initalSpeed;
     drag;
     radius;
-    #blastRadius;
     // other instance variables
-    #blast;
-    config;
+    #blasts = new Array();
+    #hitbox = new Array();
     constructor (origin, angle, power = 1, resolution = 1) {
         const acceleration = (new.target.acceleration || BasicShot.acceleration).clone();
         const initalSpeed = new.target.initalSpeed || BasicShot.initalSpeed;
         const drag = new.target.drag || BasicShot.drag;
         const radius = new.target.radius || BasicShot.radius;
-        const blastRadius = new.target.blastRadius || BasicShot.blastRadius;
 
         const direction = Direction(angle, false).mul(initalSpeed * power);
         super(origin, direction, acceleration, drag, new Circle(origin, radius, resolution));
@@ -241,49 +288,45 @@ export class BasicShot extends Shot {
         this.initalSpeed = initalSpeed;
         this.drag = drag;
         this.radius = radius;
-        this.#blastRadius = blastRadius;
+        this.#hitbox.push(new Blast(new Circle(new Vector(), 30, resolution), 0));
 
         const currentPosition = this.current.position;
-        this.#blast = {
-            blasts: [{
-                shape: new Circle(new Vector(), this.blastRadius, resolution),
-                delay: 0 // milliseconds
-            }],
-            push: function (shape, delayMs) { this.blasts.push({ shape, delay: delayMs }) },
-            blastsAt: function (position) {
-                return Array.from(this.blasts, ({shape, delay}) => {
-                    const newBlast = {
-                        delay,
-                        shape: shape.clone(),
-                    }
-                    newBlast.shape.position.add(position, true);
-                    return newBlast;
-                }).sort((a, b) => a.delay - b.delay);
-            }
-        };
     }
 
-    intersectAt (polygons, increment = 1/60, limit = 1000) {
+    intersectAt (polygons, increment = 1/60, limit = 1000, float64 = false) {
         const result = super.intersectAt(polygons, increment, limit);
-        result.blasts = result.intersect
-            ? result.state.blast.blastsAt(result.point)
-            : [];
         // storing data to be passed from web workers
-        for (const blast of result.blasts) {
-            blast.position = blast.shape.position.clone();
-            blast.radius = blast.shape.radius;
+        const blasts = [...result.state.blasts]; // dereference
+        if (float64) {
+            result.buffers = [];
+            result.blasts = [];
+            for (const blast of blasts) {
+                const { data, buffers } = blast.Float64();
+                for (const buffer of buffers) result.buffers.push(buffer);
+                result.blasts.push(data);
+            }
+        } else {
+            result.blasts = blasts;
         }
         return result;
     }
-
+    reset () {
+        super.reset();
+        // dereference old values, don't wipe them
+        this.#blasts = new Array();
+    }
+    applyBlast () {
+        const blasts = this.blasts;
+        const { time } = this;
+        for (const blast of this.hitbox) {
+            const b = blast.clone(true);
+            b.position.apply(this.position);
+            b.delay += time;
+            blasts.push(b);
+        }
+    }
     clone () { return new BasicShot(this.origin, this.angle, this.power, this.resolution) }
 
-    get blastRadius () { return this.#blastRadius }
-    set blastRadius (value) {
-        const result = (this.#blastRadius = value);
-        for (const { shape } of this.#blast.blasts)
-            shape.radius = value;
-        return result;
-    }
-    get blast () { return this.#blast }
+    get hitbox () { return this.#hitbox }
+    get blasts () { return this.#blasts }
 }

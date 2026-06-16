@@ -128,8 +128,8 @@ export class Bouncer extends BasicShot {
     }
 
     // [!] overrided mainly for debugging
-    intersectAt (polygons, increment = 1/60, limit = 1000) {
-        const result = super.intersectAt(polygons, increment, limit);
+    intersectAt (polygons, increment = 1/60, limit = 1000, float64 = false) {
+        const result = super.intersectAt(polygons, increment, limit, float64);
         result.bounces = result.state.previousBounces;
         return result;
     }

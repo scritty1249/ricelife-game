@@ -1,4 +1,5 @@
 import { Polygon, Vector } from "../geometry/geometry.js";
+import { Blast } from "../projectile/projectile.js";
 import { uuid } from "../utils/utils.js";
 
 export class WorkerController {
@@ -76,17 +77,18 @@ export class WorkerController {
         // encode data
         if (landing) {
             if (landing.blasts?.length)
-                for (const blast of landing.blasts) {
-                    blast.shape = Polygon.fromObject(blast.shape, blast.shape.depth);
-                    blast.position = Vector.fromObject(blast.position);
-                }
-            if (landing.bounces?.length)
-                for (let i = 0; i < landing.bounces.length; i++) {
-                    landing.bounces[i].point = Vector.fromObject(landing.bounces[i].point);
-                    landing.bounces[i].normal = Vector.fromObject(landing.bounces[i].normal);
-                    landing.bounces[i].reflection = Vector.fromObject(landing.bounces[i].reflection);
-                    landing.bounces[i].direction = Vector.fromObject(landing.bounces[i].direction);
-                }
+                landing.blasts = landing.blasts.map((blast) =>
+                    Blast.fromObject(blast));
+            for (const blast of landing.blasts) {
+                blast.shape = Polygon.fromObject(blast.shape, blast.shape.depth);
+                blast.position = Vector.fromObject(blast.position);
+            }
+            for (let i = 0; i < landing.bounces?.length; i++) {
+                landing.bounces[i].point = Vector.fromObject(landing.bounces[i].point);
+                landing.bounces[i].normal = Vector.fromObject(landing.bounces[i].normal);
+                landing.bounces[i].reflection = Vector.fromObject(landing.bounces[i].reflection);
+                landing.bounces[i].direction = Vector.fromObject(landing.bounces[i].direction);
+            }
         }
         return landing;
     }

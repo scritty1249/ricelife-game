@@ -31,7 +31,7 @@ async function fireProjectile (shot, state, config) { // [!} laziness
         for (let i = 0; i < blasts.length; i++) {
             const ss = state.blastAnimationFrames.clone();
             const frame = blastedTerrainFrames.at(i);
-            const { shape, delay, position, radius } = blasts[i];
+            const { delay, position, radius } = blasts[i];
             ss.width = (radius * 2) * 20;
             const ani = new Animation(position, ss, state.blastAnimationFps);
             ani.speed = 1.25;
@@ -160,21 +160,18 @@ function drawDebugOverlay (state, config) {
         .forEach(({point, angle, entering}, i) => drawMarker(cursor, point, Direction((angle + Math.PI) % (2 * Math.PI), false), 4, 20, entering ? "purple" : "white"));
 
     if (state.projectile) {
-        // draw blast radius while in flight
-        cursor.save();
-        cursor.strokeStyle = "orange";
-        cursor.lineWidth = 2;
-        for (const { shape } of state.projectile.blast.blastsAt(state.projectile.position))
-            shape.path.draw(cursor);
-        if (state.landing?.intersect)
-            for (const { shape } of state.projectile.blast.blastsAt(state.landing.point))
-                shape.path.draw(cursor);
-        cursor.stroke(); 
-        cursor.restore();
         if (state.landing) {
             // draw landing point, if exists
             if (state.landing?.intersect) {
                 drawCircle(cursor, state.landing.point, state.projectile.radius, "orange");
+                cursor.save();
+                cursor.strokeStyle = "orange";
+                cursor.lineWidth = 2;
+                for (const { shape } of state.landing.blasts) {
+                    shape.path.draw(cursor); // [!] inefficient, but for debugging so we don't care?
+                }
+                cursor.stroke();
+                cursor.restore();
             }
             // draw custom properties, if any
             if (state.landing.bounces) {
