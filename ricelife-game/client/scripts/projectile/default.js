@@ -133,7 +133,7 @@ export class Shot extends Projectile {
             point: undefined,
             at: undefined
         };
-        for (let t = 0; t < limit && !result.intersect; t += increment) {
+        for (let t = 0; t < limit && result.point === undefined; t += increment) {
             proj.update(increment, polygons);
             if (proj.isStopped) {
                 result.point = proj.position.clone();
