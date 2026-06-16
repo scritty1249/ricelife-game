@@ -80,7 +80,7 @@ export class Shot extends Projectile {
     static glowResolution = 5;
     static glowColor = new Color(255, 0, 0, 100);
     static mainColor = new Color(255, 255, 255);
-    static collisionBehavior = function (intersections = []) { // expects each intersection to be: {polygon, overlap: [...Path]}
+    static collisionBehavior (intersections = []) { // expects each intersection to be: {polygon, overlap: [...Path]}
         this.current.velocity.mul(0, true);
     }
     // instance
@@ -90,7 +90,6 @@ export class Shot extends Projectile {
     glowResolution;
     glowColor;
     mainColor;
-    collisionBehavior;
     // other instance variables
     #shape;
     #tail = new Array();
@@ -209,9 +208,9 @@ export class Shot extends Projectile {
 // [!] can be passed safely between web workers
 export class Blast { // only intended to record information, properties should be extracted before manipulating data
     #shape;
-    #delay;
+    #delay; // MILLISECONDS
     constructor (shape, delay = 0) {
-        if (!shape?.isShape) throw new Error(`[${this.constructor.name}]: Invalid argument - Shape expected, got ${typeof shape}`);
+        if (!shape?.isCircle) throw new Error(`[${this.constructor.name}]: Invalid argument - Circle expected, got ${typeof shape}`);
         if (delay < 0) throw new Error(`[${this.constructor.name}]: Invalid argument - delay must be a non-negative numeric value, got ${delay}`);
         this.#shape = shape;
         this.#delay = delay;
@@ -222,16 +221,16 @@ export class Blast { // only intended to record information, properties should b
             shape: this.shape,
             delay: this.delay,
             position: this.position,
-        };
+            radius: this.radius
+        }
     }
-    Float64 () {
-        const data = this.toJSON();
-        const shape = data.shape.Float64(data.shape.depth);
-        const buffers = shape.buffers;
-        delete shape.buffers;
-        data.position = data.position.toJSON();
-        data.shape = shape;
-        return { data, buffers };
+    decode () {
+        return {
+            delay: this.delay,
+            position: this.shape.position.toJSON(),
+            radius: this.shape.radius,
+            resolution: this.shape.resolution
+        }
     }
     clone (deep = false) {
         return new Blast(this.shape.clone(deep), this.delay);
@@ -239,6 +238,8 @@ export class Blast { // only intended to record information, properties should b
 
     get isBlast () { return true }
     get shape () { return this.#shape }
+    get radius () { return this.#shape.radius }
+    set radius (value) { return (this.#shape.radius = value) }
     get delay () { return this.#delay }
     set delay (value) {
         if (value < 0) throw new Error(`[${this.constructor.name}]: Invalid value - delay must be a non-negative numeric value, got ${value}`);
@@ -247,7 +248,7 @@ export class Blast { // only intended to record information, properties should b
     get position () { return this.#shape.position }
 
     static fromObject (payload) {
-        const shape = Shape.fromObject(payload.position, payload.shape)
+        const shape = new Circle(Vector.fromObject(payload.position), payload.radius, payload.resolution);
         const blast = new Blast(shape, payload.delay);
         return blast;
     }
@@ -255,7 +256,7 @@ export class Blast { // only intended to record information, properties should b
 
 export class BasicShot extends Shot {
     // config
-    static collisionBehavior = function (intersections = []) {
+    static collisionBehavior (intersections = []) {
         this.current.velocity.mul(0, true);
         this.applyBlast();
     }
@@ -298,13 +299,7 @@ export class BasicShot extends Shot {
         // storing data to be passed from web workers
         const blasts = [...result.state.blasts]; // dereference
         if (float64) {
-            result.buffers = [];
-            result.blasts = [];
-            for (const blast of blasts) {
-                const { data, buffers } = blast.Float64();
-                for (const buffer of buffers) result.buffers.push(buffer);
-                result.blasts.push(data);
-            }
+            result.blasts = blasts.map((blast) => blast.decode());
         } else {
             result.blasts = blasts;
         }
@@ -317,10 +312,11 @@ export class BasicShot extends Shot {
     }
     applyBlast () {
         const blasts = this.blasts;
-        const { time } = this;
+        const position = this.position;
+        const time = this.time * 1000;
         for (const blast of this.hitbox) {
             const b = blast.clone(true);
-            b.position.apply(this.position);
+            b.position.add(position, true);
             b.delay += time;
             blasts.push(b);
         }

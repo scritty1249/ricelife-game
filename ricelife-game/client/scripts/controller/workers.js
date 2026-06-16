@@ -1,6 +1,6 @@
 import { Polygon, Vector } from "../geometry/geometry.js";
 import { Blast } from "../projectile/projectile.js";
-import { uuid } from "../utils/utils.js";
+import { uuid, floatEqual } from "../utils/utils.js";
 
 export class WorkerController {
     #pool;
@@ -79,10 +79,6 @@ export class WorkerController {
             if (landing.blasts?.length)
                 landing.blasts = landing.blasts.map((blast) =>
                     Blast.fromObject(blast));
-            for (const blast of landing.blasts) {
-                blast.shape = Polygon.fromObject(blast.shape, blast.shape.depth);
-                blast.position = Vector.fromObject(blast.position);
-            }
             for (let i = 0; i < landing.bounces?.length; i++) {
                 landing.bounces[i].point = Vector.fromObject(landing.bounces[i].point);
                 landing.bounces[i].normal = Vector.fromObject(landing.bounces[i].normal);
@@ -117,23 +113,36 @@ export class WorkerController {
                 .then(() => this.#pool.cache[key]);
             return {polygon: await poly, frames: [await frame]};
         } else {
-            const allCuts = blasts.toSorted((a, b) => a.delay - b.delay).map(({shape}) => shape);
+            // group blasts that occur at the same time, draw these onto the same canvas
+            const uniq = [];
+            const blastIntervals = Array.from(Map.groupBy(blasts, ({delay}) => {
+                const value = uniq.find((key) => floatEqual(key, delay))
+                if (value !== undefined) return value;
+                uniq.push(delay);
+                return delay;
+            }).entries())
+            .sort((a, b) => a[0] - b[0])
+            .map(([_, blast]) => blast);
+            // init promise arrays
             const frameJobs = [];
             const polygonJobs = [];
-            const polygonKeys = Array.from(allCuts, (_, i) => `${polygonid}_p${i}_${uuid()}`);
+            const intervalDelays = [];
+            // generate temp cache ids and create needed caches
+            const polygonKeys = Array.from(blastIntervals, (_, i) => `${polygonid}_p${i}_${uuid()}`);
             polygonKeys.unshift(polygonid);
-            const canvasKeys = Array.from(allCuts, (_, i) => {
+            const canvasKeys = Array.from(blastIntervals, (_, i) => {
                 const key = `${polygonid}_c${i}_${uuid()}`;
                 return this.#pool.initCache("CANVAS", [canvasSize.x, canvasSize.y], key)
                     .then(() => key);
             });
-            const jobs = [];
+            // setup promise chains
             let drawJob = Promise.resolve();
             let cutJob = Promise.resolve();
             let polyJob = Promise.resolve();
             // do cut operations, and seperate the caches into different workers (load balancing)
-            for (let i = 0; i < allCuts.length; i++) {
-                const cuts = allCuts.slice(0, i+1);
+            for (let i = 0; i < blastIntervals.length; i++) {
+                const interval = blastIntervals[i];
+                const cuts = interval.map(({shape}) => shape);
                 const prevPolyKey = polygonKeys[i];
                 const polyKey = polygonKeys[i+1];
                 const canvasKey = await canvasKeys[i];
@@ -147,18 +156,31 @@ export class WorkerController {
                     .then(() => this.#pool.cache[canvasKey]));
                 cutJob = dj;
                 drawJob = dj;
-                if (i === allCuts.length - 1)
+                if (i === blastIntervals.length - 1)
                     polyJob = cj
                         .then(() => this.#pool.pullCache(polyKey, false, false))
                         .then(() => this.#pool.cache[polyKey]);
             }
             
+            // syncronize everything
             const polygon = await polyJob;
             const frames = await Promise.all(frameJobs);
             const finalKey = await polygonKeys.at(-1);
             await polyJob;
+            // apply final cut polygon to original cache
             await this.#pool.copyCache(finalKey, polygonid, true, false);
-            return { polygon, frames };
+            // package object into easier to parse structure
+            const intervals = [];
+            for (let i = 0; i < blastIntervals.length; i++) {
+                const interval = blastIntervals[i];
+                const frame = frames[i];
+                intervals.push({
+                    frame: frame,
+                    blasts: interval,
+                    delay: interval[0].delay
+                });
+            }
+            return { polygon, intervals };
         }
     }
     async createCache (id, type, ...args) { return await this.#pool.initCache(type, args, id) }

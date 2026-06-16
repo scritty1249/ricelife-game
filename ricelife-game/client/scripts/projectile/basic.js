@@ -1,4 +1,4 @@
-import { Projectile, BasicShot } from "./default.js";
+import { Projectile, BasicShot, Blast } from "./default.js";
 import { Circle, Vector, Direction, Color, Path } from "../geometry/geometry.js";
 import { deg2rad, averageAngle } from "../utils/utils.js";
 
@@ -28,18 +28,18 @@ export class Flower extends BasicShot {
     static acceleration = new Vector(20, -200);
     static drag = 0.001;
     static radius =  7.5;
-    static blastRadius = 35;
     static glowColor = new Color(255, 215, 0);
     static glowRadius = 20;
     static glowResolution = 3;
     constructor (origin, angle, power = 1, resolution = 1) {
         super(origin, angle, power, resolution);
 
-        this.blast.blasts.splice(0, this.blast.blasts.length);
+        const blastRadius = 35;
+        this.hitbox.splice(0, this.hitbox.length);
         Array.from([0, 360/7, 720/7, 1080/7, 1440/7, 1800/7, 2160/7], (angle, i) => {
             const rad = deg2rad(angle);
-            return new Circle(new Vector(Math.cos(rad), Math.sin(rad)).mul(this.radius + (this.blastRadius * 1.75)), this.blastRadius, this.resolution)})
-            .forEach((shape, i) => this.blast.push(shape, i * 100));
+            return new Circle(new Vector(Math.cos(rad), Math.sin(rad)).mul(this.radius + (blastRadius * 1.75)), blastRadius, this.resolution)})
+            .forEach((shape, i) => this.hitbox.push(new Blast(shape, i * 100)));
     }
 
     clone () { return new Flower(this.origin, this.angle, this.power, this.resolution) }
@@ -50,24 +50,31 @@ export class Digger extends BasicShot {
     static acceleration = new Vector(10, -300);
     static drag = 0.003;
     static radius =  8;
-    static blastRadius = 30;
     static glowColor = new Color(210, 165, 0);
     static mainColor = new Color(200, 90, 0);
     constructor (origin, angle, power = 1, resolution = 1) {
         super(origin, angle, power, resolution);
 
-        this.blast.blasts.splice(0, this.blast.blasts.length);
-        this.blast.push(new Circle(new Vector(), this.blastRadius, this.resolution), 0);
-        this.blast.push(new Circle(new Vector(0, -this.blastRadius * 1.75), this.blastRadius, this.resolution), 400);
-        this.blast.push(new Circle(new Vector(0, -this.blastRadius * 1.75 * 2), this.blastRadius, this.resolution), 800);
-        this.blast.push(new Circle(new Vector(0, -this.blastRadius * 1.75 * 3), this.blastRadius, this.resolution), 1200);
+        const blastRadius = 30;
+        this.hitbox.splice(0, this.hitbox.length);
+        this.hitbox.push(new Blast(new Circle(new Vector(), blastRadius, this.resolution), 0));
+        // this.hitbox.push(new Blast(new Circle(new Vector(-blastRadius * 1.75), blastRadius, this.resolution), 400));
+        // this.hitbox.push(new Blast(new Circle(new Vector(-blastRadius * 1.75 * 2), blastRadius, this.resolution), 800));
+        // this.hitbox.push(new Blast(new Circle(new Vector(-blastRadius * 1.75 * 3), blastRadius, this.resolution), 1200));
+
+        for (let i = 1; i < 4; i++) {
+            const blast = this.hitbox.at(0).clone(true);
+            blast.delay = 400 * i;
+            blast.shape.position.y = -blastRadius * 1.75 * i;
+            this.hitbox.push(blast);
+        }
     }
 
     clone () { return new Digger(this.origin, this.angle, this.power, this.resolution) }
 }
 
 export class Bouncer extends BasicShot {
-    static collisionBehavior = function (intersections) {
+    static collisionBehavior (intersections) {
         if (this.#bounces < this.maxBounces) {
             // reflection calculation
             const segments = new Path();
@@ -99,15 +106,16 @@ export class Bouncer extends BasicShot {
             }
         }
         this.current.velocity.mul(0, true);
+        this.applyBlast();
     }
-    static onBounce = function () {
+    static onBounce () {
         // apply cosmetic updates
         const reduce = this.bounceGlowReduction / this.maxBounces;
         this.glowColor.r -= reduce;
         this.glowColor.g -= reduce;
         this.glowColor.b -= reduce;
     }
-    static onBounceCallback = function () {} // this does not apply to Projectile tracing performed by web workers. Operations done in this callback should be cosmetic-only: should NOT change projectile movement or hitbox
+    static onBounceCallback () {} // this does not apply to Projectile tracing performed by web workers. Operations done in this callback should be cosmetic-only: should NOT change projectile movement or hitbox
     static bounceVelocityMultiplier = new Vector(.9, .9);
     static glowColor = new Color(128, 0, 128);
     static mainColor = new Color(255, 240, 255);
@@ -117,8 +125,6 @@ export class Bouncer extends BasicShot {
     previousBounces = new Array();
     bounceGlowReduction = 50;
     bounceVelocityMultiplier;
-    onBounceCallback;
-    onBounce;
     constructor (origin, angle, power = 1, resolution = 1) {
         super(origin, angle, power, resolution);
         this.#maxBounces = new.target.maxBounces || Bouncer.maxBounces;
@@ -141,7 +147,7 @@ export class Bouncer extends BasicShot {
 }
 
 export class MegaBouncer extends Bouncer {
-    static onBounce = function () {
+    static onBounce () {
         // apply cosmetic updates
         const brighten = this.bounceGlowLimit / this.maxBounces;
         this.glowColor.r += brighten;
@@ -151,8 +157,8 @@ export class MegaBouncer extends Bouncer {
         this.glowRadius += grow;
         this.glowColor.a *= this.bounceGlowAlphaMultiplier;
         // functional updates
-        const blast = this.bounceBlastRadiusLimit / this.maxBounces;
-        this.blastRadius += blast;
+        const radius = this.bounceBlastRadiusLimit / this.maxBounces;
+        this.hitbox.forEach((blast) => blast.radius += radius);
         const tail = this.bounceTailLengthLimit / this.maxBounces;
         this.tailLength += tail;
         const acceleration = this.bounceAccelerationLimit.div(this.maxBounces);
@@ -164,7 +170,6 @@ export class MegaBouncer extends Bouncer {
     static drag = 0.002;
     static maxBounces = 3;
     static radius = 15;
-    static blastRadius = 30;
     bounceAccelerationLimit = new Vector(-10, -75);
     bounceTailLengthLimit = 15;
     bounceGlowLimit = 40;
@@ -173,8 +178,21 @@ export class MegaBouncer extends Bouncer {
     bounceBlastRadiusLimit = 30;
     constructor (origin, angle, power = 1, resolution = 1) {
         super(origin, angle, power, resolution);
+        this.hitbox.at(0).radius = 30;
         this.glowColor.a = 100;
     }
 
     clone () { return new MegaBouncer(this.origin, this.angle, this.power, this.resolution) }
+}
+
+export class MegaBouncer2 extends MegaBouncer {
+    static onBounce () {
+        this.applyBlast();
+        super.onBounce();
+    }
+    constructor (origin, angle, power = 1, resolution = 1) {
+        super(origin, angle, power, resolution);
+    }
+
+    clone () { return new MegaBouncer2(this.origin, this.angle, this.power, this.resolution) }
 }

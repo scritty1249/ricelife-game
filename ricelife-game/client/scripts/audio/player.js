@@ -238,14 +238,14 @@ class AudioLayer extends TrackableObject {
         this.#output.connect(audio?.isAudioLayer ? audio.input : audio);
         return audio; // for chaining
     }
-    Layer (filters = []) {
+    Layer (filters = [], ephemeral = false) {
         const layer = new AudioLayer(this.#ctx, filters);
-        return this.add(layer);
+        return this.add(layer, ephemeral);
     }
 
     get isAudioLayer () { return true }
     get items () { return Object.values(this.#items) }
-    get onend () { return Promise.all(this.#items.map(({onend}) => onend)) }
+    get onend () { return Promise.all(Object.values(this.#items).map(({onend}) => onend)) }
     get input () { return this.#input }
     get output () { return this.#output }
     get volume () { return this.#gain.gain.value }
