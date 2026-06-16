@@ -94,24 +94,23 @@ export class WorkerController {
         if (blasts.length === 0) {
             const poly = this.#pool.pullCache(polygonid, false, false)
                 .then(() => this.#pool.cache[polygonid]);
-            const key = `${polygonid}_c0_${uuid()}`;
-            const canvasKey = this.#pool.initCache("CANVAS", [canvasSize.x, canvasSize.y], key)
-                    .then(() => key);
-            await poly;
-            const frame = await this.drawTerrain(await canvasKey, polygonid, terrainConfig.fill, terrainConfig.edge)
-                .then(() => this.#pool.pullCache(canvasKey, true, false))
-                .then(() => this.#pool.cache[canvasKey]);
-            return {polygon: await poly, frames: [frame]};
+            return {polygon: await poly, intervals: []};
         } else if (blasts.length === 1) {
             const poly = this.cutPolygon(depth, polygonid, polygonid, blasts[0].shape);
             const key = `${polygonid}_c0_${uuid()}`;
             const canvas = this.#pool.initCache("CANVAS", [canvasSize.x, canvasSize.y], key);
             await poly;
             await canvas;
-            const frame = this.drawTerrain(key, polygonid, terrainConfig.fill, terrainConfig.edge)
+            const frame = await this.drawTerrain(key, polygonid, terrainConfig.fill, terrainConfig.edge)
                 .then(() => this.#pool.pullCache(key, true, false))
                 .then(() => this.#pool.cache[key]);
-            return {polygon: await poly, frames: [await frame]};
+            return {polygon: await poly,
+                intervals: [{
+                    frame: frame,
+                    blasts: blasts,
+                    delay: blasts[0].delay
+                }]
+            };
         } else {
             // group blasts that occur at the same time, draw these onto the same canvas
             const uniq = [];

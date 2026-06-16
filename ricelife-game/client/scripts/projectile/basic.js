@@ -14,10 +14,11 @@ export class Spreader extends BasicShot {
     constructor (origin, angle, power = 1, resolution = 1) {
         super(origin, angle, power, resolution);
 
-        this.blast.blasts.splice(0, this.blast.blasts.length);
-        this.blast.push(new Circle(new Vector(), this.blastRadius, this.resolution), 0);
-        this.blast.push(new Circle(new Vector(-this.blastRadius * 1.75, 0), this.blastRadius, this.resolution), 250);
-        this.blast.push(new Circle(new Vector(this.blastRadius * 1.75, 0), this.blastRadius, this.resolution), 500);
+        const blastRadius = 25;
+        this.hitbox.splice(0, this.hitbox.length);
+        this.hitbox.push(new Blast(new Circle(new Vector(), blastRadius, this.resolution), 0));
+        this.hitbox.push(new Blast(new Circle(new Vector(-blastRadius * 1.75, 0), blastRadius, this.resolution), 250));
+        this.hitbox.push(new Blast(new Circle(new Vector(blastRadius * 1.75, 0), blastRadius, this.resolution), 500));
     }
 
     clone () { return new Spreader(this.origin, this.angle, this.power, this.resolution) }

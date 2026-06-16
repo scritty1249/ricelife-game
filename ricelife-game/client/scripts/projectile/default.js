@@ -54,7 +54,7 @@ export class Projectile extends TrackableObject {
 
     update (seconds = 1) {
         this.#tracer.push(this.current.position.clone());
-        this.updatePosition(seconds);
+        if (!this.isStopped) this.updatePosition(seconds);
         this.#time += seconds;
         return this.current.position;
     }
@@ -197,7 +197,7 @@ export class Shot extends Projectile {
         }
         if (this.tail.length >= this.tailLength) this.tail.shift();
         this.tail.push(this.shape.clone());
-        if (!this.isStopped) this.shape.position.apply(super.update(seconds));
+        this.shape.position.apply(super.update(seconds));
     }
     clone (deep = false) { return new Shot(this.origin, this.velocity, this.acceleration, this.drag, this.shape.clone(deep)) }
 
