@@ -130,7 +130,7 @@ class AudioSource extends TrackableObject {
         const instance = new AudioInstance(this);
         instance.onstart.then(() => {
             if (this.#ctx.isClosed) console.warn(`[${instance.constructor.name}]: Played audio will not be audible, ${this.#ctx.constructor.name} is closed.`);
-            else if (this.#ctx.isSuspended) this.#ctx.resume(); // [!] could cause performance bloat
+            else if (this.#ctx.isSuspended) this.#ctx.wake(); // [!] could cause performance bloat
         });
         return instance;
     }
