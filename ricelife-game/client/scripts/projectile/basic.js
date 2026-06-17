@@ -66,7 +66,7 @@ export class Bouncer extends BasicShot {
     static bounceVelocityMultiplier = new Vector(.9, .9);
     static glowColor = new Color(128, 0, 128);
     static mainColor = new Color(255, 240, 255);
-    static maxBounces = 5;
+    static maxBounces = 3;
     #maxBounces;
     #bounces = 0;
     previousBounces = new Array();
@@ -150,7 +150,7 @@ export class Digger extends Bouncer {
         this.previousBounces.push(oldBounce);
     }
     static onBounceCallback () {} // override, don't play bounce sfx
-    static maxBounces = 2;
+    static maxBounces = 4;
     static initalSpeed = 500;
     static acceleration = new Vector(10, -300);
     static drag = 0.003;
@@ -210,9 +210,10 @@ export class MegaBouncer extends Bouncer {
 export class MegaBouncer2 extends MegaBouncer {
     static onBounce () {
         this.applyBlast();
-        super.onBounce();
+        //super.onBounce();
     }
     static onBounceCallback () {} // override, don't play bounce sfx
+    static maxBounces = 2;
     constructor (origin, angle, power = 1, resolution = 1) {
         super(origin, angle, power, resolution);
     }
