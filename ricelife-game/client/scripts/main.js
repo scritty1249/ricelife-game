@@ -279,7 +279,10 @@ function animate (state, config) {
             } else if (state.projectile.isStopped && !blastAnimationsFinished) {
                 state.drawProjectile = false;
             }
-            if (state.animations.blast?.ended) {
+            if ( // [!] could be written better
+                state.animations.blast?.ended
+                || (!state.animations.blast && isTimedout)
+            ) {
                 waitPromise = waitPromise
                     .then(() => state.redrawJob)
                     .then(() => {
