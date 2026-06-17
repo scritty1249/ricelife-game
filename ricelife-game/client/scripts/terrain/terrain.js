@@ -1,6 +1,7 @@
 import { Vector, Path, Polygon } from "../geometry/geometry.js";
 
 export function drawTerrain (cursor, polygon, fillColor, edgeColor, gradientWidth, resolution) { // fill and edge colors are expected to be Color objects
+    cursor.save();
     cursor.lineCap = "round";
     cursor.lineJoin = "round";
     polygon.draw(cursor);
@@ -59,6 +60,7 @@ export function drawTerrain (cursor, polygon, fillColor, edgeColor, gradientWidt
             openHoleEdge.draw(cursor);
     }
     cursor.restore();
+    cursor.save();
 }
 
 export function generateTerrain (path, maxSize) {
