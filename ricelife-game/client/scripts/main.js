@@ -328,10 +328,6 @@ async function load() {
         audioLayers.blast = AudioPlayer.Layer();
         audioLayers.blast.volume = .55;
     }
-    // resume audio context on inputs
-    window.addEventListener("pointermove", AudioCtx.wake);
-    window.addEventListener("pointerdown", AudioCtx.wake);
-    window.addEventListener("pointerup", AudioCtx.wake);
     // setting global audio
     AudioPlayer.volume = 0.35;
     

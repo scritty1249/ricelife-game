@@ -37,9 +37,22 @@ export class AudioContext extends TrackableObject {
         if (this.isClosed) throw new Error(`[${this.constructor.name}]: Failed to create node, instance is closed`);
         const node = new AudioBufferSourceNode(this.#context);
         // add promise support
-        const { promise, resolve, reject } = Promise.withResolvers();
-        node.onended = () => { resolve() }
-        node.onend = promise;
+        {
+            // onend (Promise) = onended (Function)
+            const { promise, resolve, reject } = Promise.withResolvers();
+            node.onended = () => { resolve() }
+            node.onend = promise;
+        }
+        {
+            // onstart (Promise)
+            const { promise, resolve, reject } = Promise.withResolvers();
+            const oldStart = node.start.bind(node);
+            node.start = function (...args) {
+                resolve();
+                oldStart(...args);
+            }
+            node.onstart = promise;
+        }
         return node;
     }
     Source (name, src) {
@@ -114,7 +127,12 @@ class AudioSource extends TrackableObject {
     }
     Instance () {
         if (!this.#state.ready) throw new Error(`[${this.constructor.name}]: Failed to create new audio instance, buffer not ready`);
-        return new AudioInstance(this);
+        const instance = new AudioInstance(this);
+        instance.onstart.then(() => {
+            if (this.#ctx.isClosed) console.warn(`[${instance.constructor.name}]: Played audio will not be audible, ${this.#ctx.constructor.name} is closed.`);
+            else if (this.#ctx.isSuspended) this.#ctx.resume(); // [!] could cause performance bloat
+        });
+        return instance;
     }
 
     get isAudioSource () { return true }
@@ -197,6 +215,7 @@ class AudioInstance extends TrackableObject {
     set offset (value) { return  (this.#offset = value) }
     get name () { return this.#source.name }
     get onend () { return this.#node.onend }
+    get onstart () { return this.#node.onstart }
 }
 
 class AudioLayer extends TrackableObject {
