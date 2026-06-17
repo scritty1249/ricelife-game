@@ -60,7 +60,7 @@ export function drawTerrain (cursor, polygon, fillColor, edgeColor, gradientWidt
             openHoleEdge.draw(cursor);
     }
     cursor.restore();
-    cursor.save();
+    cursor.restore();
 }
 
 export function generateTerrain (path, maxSize) {
