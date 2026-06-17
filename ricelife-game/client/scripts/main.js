@@ -183,8 +183,9 @@ function drawDebugOverlay (state, config) {
     if (state.projectile) {
         if (state.landing) {
             // draw landing point, if exists
-            if (state.landing?.blasts.length) {
+            if (state.landing.point)
                 drawCircle(cursor, state.landing.point, state.projectile.radius, "orange");
+            if (state.landing?.blasts.length) {
                 cursor.save();
                 cursor.strokeStyle = "orange";
                 cursor.lineWidth = 2;

@@ -208,7 +208,7 @@ export class Polygon extends TrackableObject { // points should be ordered clock
     }
 
     translate (translate, mutate = false) {
-        const poly = mutate ? this : this.clone();
+        const poly = mutate ? this : this.clone(true);
         poly.path.translate(translate, mutate);
         poly.holes.forEach((hole) => hole.translate(translate, mutuate));
         return poly;

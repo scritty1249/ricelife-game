@@ -182,7 +182,7 @@ export class Shot extends Projectile {
             const shape = this.shape;
             const position = this.position.clone();
             for (const polygon of collisions)
-                if (shape.isIntersecting(polygon)) intersecting.push(polygon);
+                if (polygon.isIntersecting(shape)) intersecting.push(polygon);
             if (intersecting.length > 0) {
                 const intersections = [];
                 for (const polygon of intersecting)

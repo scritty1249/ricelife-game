@@ -6,12 +6,10 @@ export { BasicShot } from "./default.js";
 
 export class Bouncer extends BasicShot {
     static collisionBehavior (intersections) {
-        if (intersections.every(({overlap}) =>
-                overlap.every((path) =>
-                    path.points.every((point) =>
-                        this.blasts.some(({shape}) =>
-                            shape.isIntersecting(point)
-        ))))) return; // don't collide with something that's already affected by a blast
+        if (this.shape.path.points.every((point) =>
+            this.blasts.some(({shape}) =>
+                shape.isIntersecting(point)
+        ))) return; // don't collide with something that's already affected by a blast
         if (this.bounces < this.maxBounces) {
             // reflection calculation
             const segments = new Path();
@@ -38,8 +36,20 @@ export class Bouncer extends BasicShot {
                 this.onBounceCallback?.();
                 return;
             } else {
-                // if there are no overlapping segments, projectile is stuck INSIDE of a colliding polygon. Don't bounce
-                console.warn(`[${this.constructor.name}]: Collided with inside of Polygon - stopping bounces`);
+                if (this.shape.path.points.some((point) =>
+                        this.blasts.some(({shape}) =>
+                            shape.isIntersecting(point)))) {
+                    // if there are no overlapping segements, find if we're exiting a blast...
+                    const overlaps = [];
+                    for (const { shape } of this.blasts) {
+                        overlaps.push(...shape.overlap(this.shape));
+                    }
+                    this.collisionBehavior([{polygon: intersections[0].polygon, overlap: overlaps}]);
+                    return;
+                } else {
+                    // if there are no overlapping segments or blasts, projectile is stuck INSIDE of a colliding polygon.
+                    console.warn(`[${this.constructor.name}]: Collided with inside of Polygon`);
+                }
             }
         }
         this.current.velocity.mul(0, true);
@@ -80,6 +90,7 @@ export class Bouncer extends BasicShot {
     clone () { return new Bouncer(this.origin, this.angle, this.power, this.resolution) }
 
     get bounces () { return this.#bounces }
+    set bounces (value) { return (this.#bounces = value) }
     get maxBounces () { return this.#maxBounces }
 }
 export class Spreader extends BasicShot {
@@ -125,12 +136,18 @@ export class Flower extends BasicShot {
 }
 
 export class Digger extends Bouncer {
-    static onBounce () { // [!] broken
+    static onBounce () {
         this.applyBlast();
-        this.current.position.y -= this.radius;
-        this.current.velocity.apply(0, 150);
-        this.acceleration.y = -100;
-        console.log(this.current.velocity.toString());
+        this.current.velocity.apply(0,
+            175 * (this.current.velocity.y > 0 ? 1 : -1)
+        );
+        this.drag = 0.002;
+        this.acceleration.y = -200;
+
+        // update debug values
+        const oldBounce = this.previousBounces.pop();
+        oldBounce.reflection = this.current.velocity.clone();
+        this.previousBounces.push(oldBounce);
     }
     static onBounceCallback () {} // override, don't play bounce sfx
     static maxBounces = 2;
