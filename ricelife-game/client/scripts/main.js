@@ -182,9 +182,7 @@ function drawDebugOverlay (state, config) {
 
     if (state.projectile) {
         if (state.landing) {
-            // draw landing point, if exists
-            if (state.landing.point)
-                drawCircle(cursor, state.landing.point, state.projectile.radius, "orange");
+            // draw blasts, if any
             if (state.landing?.blasts.length) {
                 cursor.save();
                 cursor.strokeStyle = "orange";
@@ -257,13 +255,10 @@ function animate (state, config) {
             // are we done with projectile?
             const endProjectileEarly =
                 (state.projectile.time >= config.traceMaxTime) // time out shots even if a landing exists
-                || (!state.landing?.point && (
+                || (state.landing?.at !== undefined  && 
                     // time out early if theres no landing and it flew offscreen
-                    state.projectile.current.position.x > config.display.size.x
-                    || state.projectile.current.position.x < 0
-                    || state.projectile.current.position.y > config.display.size.y
-                    || state.projectile.current.position.y < 0
-                ));
+                    state.projectile.isWithin(config.display.size)
+                );
             const isTimedout =
                 !(state.landing?.intersect && state.projectile.time >= state.landing.at - Number.EPSILON)
                 && endProjectileEarly;
@@ -459,7 +454,8 @@ async function main(...loaded) {
             shot4: Projectiles.Digger,
             shot5: Projectiles.Bouncer,
             shot6: Projectiles.MegaBouncer,
-            shot7: Projectiles.MegaBouncer2
+            shot7: Projectiles.MegaBouncer2,
+            shot8: Projectiles.PineShot
         },
         animations: { global: Animations },
         impactData: [],

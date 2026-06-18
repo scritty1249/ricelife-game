@@ -53,16 +53,26 @@ export class Projectile extends TrackableObject {
     }
 
     update (seconds = 1) {
-        this.#tracer.push(this.current.position.clone());
+        this.#tracer.push(this.position.clone());
         if (!this.isStopped) this.updatePosition(seconds);
         this.#time += seconds;
-        return this.current.position;
+        return this.position;
     }
 
     reset () {
         this.current.position.apply(this.origin);
         this.current.velocity.apply(this.velocity);
         this.#time = 0;
+    }
+
+    isWithin (size) {
+        const { position } = this.current;
+        return (
+            position.x > 0
+            && position.x < size.x
+            && position.y > 0
+            && position.y < size.y
+        );
     }
 
     get isProjectile () { return true }
@@ -80,7 +90,7 @@ export class Shot extends Projectile {
     static glowResolution = 5;
     static glowColor = new Color(255, 0, 0, 100);
     static mainColor = new Color(255, 255, 255);
-    static collisionBehavior (intersections = []) { // expects each intersection to be: {polygon, overlap: [...Path]}
+    static collisionBehavior (intersections = []) { // expects each intersection to be: {polygon, overlap: Path, normal: Vector}
         this.current.velocity.mul(0, true);
     }
     // instance
@@ -130,15 +140,11 @@ export class Shot extends Projectile {
         const proj = this.clone(true);
         const result = {
             state: proj, // [!] this is deleted before being passed back through web worker- children should intercept and record important state values before passing back to main thread
-            point: undefined,
             at: undefined
         };
         while (result.at === undefined && proj.time < limit) {
             proj.update(increment, polygons);
-            if (proj.isStopped) {
-                result.point = proj.position.clone();
-                result.at = proj.time;
-            }
+            if (proj.isStopped) result.at = proj.time;
         }
         return result;
     }
@@ -176,31 +182,45 @@ export class Shot extends Projectile {
     drawGlow (cursor) {
         this.#drawGlow(cursor, this.shape);
     }
+    collision (polygons = []) {
+        const intersecting = [];
+        const intersections = [];
+        const shape = this.shape;
+        const position = this.position.clone();
+        for (const polygon of polygons)
+            if (polygon.isIntersecting(shape)) intersecting.push(polygon);
+        if (intersecting.length > 0) {
+            for (const polygon of intersecting) {
+                const overlap = polygon.overlap(shape, true);
+                intersections.push({
+                    polygon,
+                    overlap,
+                    normal: overlap.length >= 2 ? overlap.normal() : undefined
+                });
+            }
+        } else return undefined; // signal nothing is intersecting
+        return intersections;
+    }
     update (seconds = 1, collisions = []) {
         if (!this.isStopped) {
-            const intersecting = [];
-            const shape = this.shape;
-            const position = this.position.clone();
-            for (const polygon of collisions)
-                if (polygon.isIntersecting(shape)) intersecting.push(polygon);
-            if (intersecting.length > 0) {
-                const intersections = [];
-                for (const polygon of intersecting)
-                    intersections.push({polygon, overlap: polygon.overlap(shape)});
-                if (intersections.length) {
-                    this.collisionBehavior(intersections);
-                } else {
-                    console.warn(`[${this.constructor.name}]: Failed to find intersection for collision. Collision behavior ignored`);
-                    this.current.velocity.mul(0, true);
-                }
+            const intersections = this.collision(collisions);
+            if (intersections === undefined) {
+                // do nothing, not colliding
+            } else if (intersections.length) {
+                this.collisionBehavior(intersections);
+            } else {
+                console.warn(`[${this.constructor.name}]: Failed to find intersection for collision. Collision behavior ignored`);
+                this.current.velocity.mul(0, true);
             }
         }
         if (this.tail.length >= this.tailLength) this.tail.shift();
         this.tail.push(this.shape.clone());
         this.shape.position.apply(super.update(seconds));
+        return this.position; // for chaining
     }
     clone (deep = false) { return new Shot(this.origin, this.velocity, this.acceleration, this.drag, this.shape.clone(deep)) }
 
+    get isShot () { return true }
     get shape () { return this.#shape }
     get tail () { return this.#tail }
 }
@@ -321,8 +341,125 @@ export class BasicShot extends Shot {
             blasts.push(b);
         }
     }
+    overlap (polygons = []) {
+        if (this.shape.path.points.every((point) =>
+            this.blasts.some(({shape}) =>
+                shape.isIntersecting(point)
+        ))) return undefined; // don't return any overlap if we're inside of a blast
+        return super.overlap(polygons);
+    }
     clone () { return new BasicShot(this.origin, this.angle, this.power, this.resolution) }
 
+    get isBasicShot () { return true }
     get hitbox () { return this.#hitbox }
     get blasts () { return this.#blasts }
+}
+
+export class MultiStageShot extends TrackableObject {
+    #shots = {};
+    #blasts = new Array();
+    #time = 0;
+    constructor () {
+        super();
+    }
+
+    #shotCallback (id, position, direction, normal) {
+        const entry = this.#shots[id];
+        if (entry.finished) return;
+        entry.finished = true;
+        const result = entry.callbackFn(position, direction, normal);
+        if (result?.length)
+            for (const { shot, callbackFn } of result)
+                this.#addShot(shot, callbackFn, this.#time, true);
+    }
+    
+    #addShot (shot, callbackFn, at, fromCallback) {
+        // bind blasts for each instance to the collective array
+        const self = this;
+        Object.defineProperty(shot, "blasts", {
+            get () { return self.blasts }
+        });
+        // bind blasts to time local (parent) time to sync blasts
+        Object.defineProperty(shot, "time", {
+            get () { return self.time }
+        });
+        this.#shots[shot.id] = {
+            time: at, // track insertion time for clone to fire in same order
+            shot: shot,
+            callbackFn: callbackFn,
+            finished: false,
+            fromCallback: fromCallback // flag shot added to exclude from cloning
+        };
+    }
+
+    // callback is expected as: (position, direction, normal) => [...{shot, callbackFn}]
+    // can be recursive
+    addShot (shot, callbackFn, at = 0) {
+        this.#addShot(shot, callbackFn, (at || this.#time), false);
+    }
+    update (seconds, collisions = []) {
+        for (const { shot, finished, time } of this.entries) {
+            if (finished || time > this.#time) continue;
+            if (shot.isStopped) {
+                const normals = shot.collision(collisions)
+                    .filter(({normal}) => normal)
+                    .map(({normal}) => normal);
+                this.#shotCallback(
+                    shot.id,
+                    shot.position.clone(),
+                    shot.current.velocity.normalize(),
+                    normals.length
+                        ? Vector
+                            .average(normals)
+                            .normalize(true)
+                        : undefined
+                );
+            }
+            shot.update(seconds, collisions);
+        }
+        this.#time += seconds;
+    }
+    draw (cursor) {
+        for (const { shot, finished } of this.entries) {
+            if (finished) continue;
+            shot.draw(cursor);
+        }
+    }
+    intersectAt (polygons, increment = 1/60, limit = 60, float64 = false) {
+        if (polygons.some(({isPolygon}) => !isPolygon)) throw new Error(`[${this.constructor.name}] Error: Cannot perform intersection operation with non-Polygon`);
+        const multi = this.clone(true);
+        const result = {
+            state: multi, // [!] this is deleted before being passed back through web worker- children should intercept and record important state values before passing back to main thread
+            at: undefined
+        };
+        while (result.at === undefined && multi.time < limit) {
+            multi.update(increment, polygons);
+            if (multi.isFinished) result.at = multi.time;
+        }
+        // storing data to be passed from web workers
+        const blasts = [...result.state.blasts]; // dereference
+        if (float64) {
+            result.blasts = blasts.map((blast) => blast.decode());
+        } else {
+            result.blasts = blasts;
+        }
+        return result;
+    }
+    isWithin (size) {
+        return this.shots.some((shot) => shot.isWithin(size));
+    }
+    clone () { // deep clone always
+        const multi = new MultiStageShot();
+        for (const { fromCallback, shot, callbackFn, time } of this.entries)
+            if (!fromCallback) multi.addShot(shot.clone(true), callbackFn, time); 
+        return multi;
+    }
+
+    get isMultiStageShot () { return true }
+    get blasts () { return this.#blasts }
+    get isFinished () { return this.entries.every(({finished})=>finished) }
+    get isStopped () { return this.isFinished || this.entries.map(({shot})=>shot).every(({isStopped})=>isStopped) }
+    get entries () { return Object.values(this.#shots) }
+    get shots () { return this.entries.filter(({finished})=>!finished).map(({shot})=>shot) }
+    get time () { return this.#time }
 }

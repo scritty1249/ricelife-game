@@ -1,4 +1,4 @@
-import { Projectile, BasicShot, Blast } from "./default.js";
+import { Projectile, BasicShot, Blast, MultiStageShot } from "./default.js";
 import { Circle, Vector, Direction, Color, Path } from "../geometry/geometry.js";
 import { deg2rad, averageAngle } from "../utils/utils.js";
 
@@ -6,19 +6,14 @@ export { BasicShot } from "./default.js";
 
 export class Bouncer extends BasicShot {
     static collisionBehavior (intersections) {
-        if (this.shape.path.points.every((point) =>
-            this.blasts.some(({shape}) =>
-                shape.isIntersecting(point)
-        ))) return; // don't collide with something that's already affected by a blast
         if (this.bounces < this.maxBounces) {
             // reflection calculation
-            const segments = new Path();
-            for (const { overlap } of intersections)
-                for (const segment of overlap)
-                    segments.push(...segment); // flatten array
-            if (segments.length > 1) {
+            const normals = intersections
+                    .filter(({normal}) => normal)
+                    .map(({normal}) => normal);
+            if (normals.length) {
+                const normal = Vector.average(normals).normalize(true);
                 const direction = this.current.velocity.clone();
-                const normal = segments.normal();
                 // check for errors- invert normal if current position is on the wrong segment "side"
                 if (direction.dot(normal) > 0) normal.mul(-1, true);
 
@@ -210,7 +205,6 @@ export class MegaBouncer extends Bouncer {
 export class MegaBouncer2 extends MegaBouncer {
     static onBounce () {
         this.applyBlast();
-        //super.onBounce();
     }
     static onBounceCallback () {} // override, don't play bounce sfx
     static maxBounces = 2;
@@ -219,4 +213,36 @@ export class MegaBouncer2 extends MegaBouncer {
     }
 
     clone () { return new MegaBouncer2(this.origin, this.angle, this.power, this.resolution) }
+}
+
+export class PineShot extends MultiStageShot {
+    constructor (origin, angle, power = 1, resolution = 1) {
+        super();
+        this.origin = origin.clone();
+        this.angle = angle;
+        this.power = power;
+        this.resolution = resolution;
+        const splitterCallback = function (position, direction, normal) {
+            const shots = [];
+            const ang = Math.PI / 2;
+            const incr = ang / 5;
+            const callback = function () {
+                console.warn("TEST: finished");
+            }
+            for (let i = 0; i < 5; i++) {
+                const s = new BasicShot(position.clone(), ang - (incr * i), 1, resolution);
+                shots.push({shot: s, callbackFn: callback});
+            }
+            return shots;
+        }
+        const shot = new BasicShot(origin.clone(), angle, power, resolution);
+        this.addShot(shot, splitterCallback);
+    }
+
+    clone () { // deep clone always
+        const multi = new PineShot(this.origin, this.angle, this.power, this.resolution);
+        for (const { fromCallback, shot, callbackFn, time } of this.entries)
+            if (!fromCallback) multi.addShot(shot.clone(true), callbackFn, time); 
+        return multi;
+    }
 }
