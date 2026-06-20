@@ -39,7 +39,8 @@ export class MegaBouncer extends Basic.Bouncer {
     static bounceBlastRadiusLimit = 30;
     constructor (origin, angle, power = 1, resolution = 1) {
         super(origin, angle, power, resolution);
-            const stage = this.stages[0].stages[0];
+        const stage = this.stages[0].stages[0];
+        throw new Error();
         // adjust cosmetics
         stage.userData.hitbox.at(0).radius = 30;
         stage.shot.glowColor.a = 100;
