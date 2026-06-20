@@ -8,6 +8,7 @@ import { AudioContext } from "./audio/audio.js";
 import * as Menu from "./menu/menu.js"
 import * as Ammo from "./projectile/ammo-types.js";
 
+const BUSY_SECONDS_THRESHOLD = 1.5; // time in seconds before the "busy" screen pops up while tracing shots
 const MAX_SHOT_TRACE_SECONDS = 30; // will trigger a landing early if timeout is exceeded- however a landing will only be traced within this time frame so early landings shouldn't be happening... -KT
 const FPS = 60;
 const GROUND = 350;
@@ -41,6 +42,7 @@ const URL_PARAMS = new URLSearchParams(window?.location?.search);
 const DEBUG_ENABLED = () => window?.debugTools || (URL_PARAMS.get("debug") === "true" && window?.debugTools !== false);
 
 export async function load () {
+    window.appCanvas.dispatchEvent(new Event("APP_loading"));
     const body = new LoadImage("./assets/tank/body.png").onload;
     const barrel = new LoadImage("./assets/tank/barrel.png").onload;
     const testExplosion = new Spritesheet("./assets/blast/explosion_ss_512x512.png", 512, 512).onload;
@@ -108,8 +110,10 @@ async function init (...loaded) {
         Workers.createCache("background", "CANVAS", ...Display.size),
         Workers.insertCache("blastTerrain", "POLY", Terrain.Float64(1))
     ]);
+    let state, config;
 
-    const config = {
+    config = {
+        busyThreshold: 1000 * BUSY_SECONDS_THRESHOLD,
         fps: FPS,
         frameInterval: 1000 / FPS,
         display: Display,
@@ -118,6 +122,18 @@ async function init (...loaded) {
             layers: audioLayers,
             player: AudioPlayer,
             ctx: AudioCtx
+        },
+        dispatchEvent: {
+            ready: function () {
+                window.appCanvas.dispatchEvent(new Event("APP_ready"));
+            },
+            busy: function () {
+                window.appCanvas.dispatchEvent(new Event("APP_busy"));
+            },
+            error: function () {
+                if (state.dispatchBusyTimeout !== undefined) clearTimeout(state.dispatchBusyTimeout);
+                window.appCanvas.dispatchEvent(new Event("APP_error"));
+            }
         },
         playerTank: Tank.id,
         moveIncr: 1,
@@ -130,7 +146,8 @@ async function init (...loaded) {
             fill: new Color("#0098eb")
         }
     };
-    const state = {
+    state = {
+        dispatchBusyTimeout: undefined,
         input: Inputs,
         aimer: Aimer,
         move: Mover,
@@ -216,7 +233,12 @@ async function init (...loaded) {
         };
         fireButton.onclick = () => {
             if (state.projectile === undefined)
-                fireProjectile(state.activeShot, state, config);
+                fireProjectile(state.activeShot, state, config)
+                    .catch((error) => {
+                        console.error("Projectile trace error");
+                        config.dispatchEvent.error();
+                        throw error;
+                    });
         }
 
         UIInterface.insert() // draw layer zero after background but before terrain
@@ -232,6 +254,7 @@ async function init (...loaded) {
         window._GAME_STATE = state;
         window._GAME_CONFIG = config;
     }
+    window.appCanvas.dispatchEvent(new Event("APP_ready"));
     if (document.readyState === "complete") {
         animate(state, config);
     } else {
@@ -241,6 +264,12 @@ async function init (...loaded) {
 
 async function fireProjectile (shot, state, config) { // [!} laziness
     setTurn(state, false);
+    let wasSetBusy = false;
+    state.dispatchBusyTimeout = setTimeout(() => {
+        wasSetBusy = true;
+        config.dispatchEvent.busy();
+    }, config.busyThreshold);
+
     drawFrame(state, config); // draw one last frame so the game doesn't look like it just froze
     const projectile = new shot(state.tanks[config.playerTank].barrelPos, state.aimer.rotation + (3 * (Math.PI / 2)), state.aimer.power);
     projectile.colliders.push(state.terrain);
@@ -301,6 +330,11 @@ async function fireProjectile (shot, state, config) { // [!} laziness
     state.landing = landing;
     state.projectile = projectile;
     state.tracer = projectile.tracer;
+    if (wasSetBusy) {
+        config.dispatchEvent.ready();
+    } else {
+        clearTimeout(state.dispatchBusyTimeout);
+    }
     muzzleFlash.play();
     config.audio.player.add(config.audio.sources.fire.Instance().play(), true);
 }
@@ -340,7 +374,12 @@ function handleInput (state, config) {
             else
                 for (const [keyMapping, shotType] of Object.entries(state.projectileTypes))
                     if (keyboard.keyActive(keyMapping)) {
-                        fireProjectile(shotType, state, config);
+                        fireProjectile(shotType, state, config)
+                            .catch((error) => {
+                                console.error("Projectile trace error");
+                                config.dispatchEvent.error();
+                                throw error;
+                            });
                         break;
                     }
         }
@@ -468,6 +507,7 @@ function animate (state, config) {
 
     if (elapsed < config.frameInterval) { // run any between-frame logic
     } else if (state.landing?.intersect && (state.redrawJob?.isWorkerJob && !state.redrawJob.fulfilled)) { // wait for loading to finish before updating game loop
+        console.log(true);
     } else { // redraw frame
         state.lastStamp = nowStamp - (elapsed % config.frameInterval);
         // check if background needs to be updated
@@ -536,5 +576,9 @@ function animate (state, config) {
             drawDebugOverlay(state, config);
         handleInput(state, config);
         requestAnimationFrame(() => animate(state, config));
+    }).catch((error) => {
+        console.error("Animation loop error");
+        config.dispatchEvent.error();
+        throw error;
     });
 }

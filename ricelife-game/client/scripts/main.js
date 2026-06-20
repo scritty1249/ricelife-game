@@ -1,10 +1,20 @@
 import { load } from "./game/game.js";
+import { init, showErrorScreen } from "./events/loading.js";
 
 if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", () => { hookAppCanvas(); load() });
+    document.addEventListener("DOMContentLoaded", initSequence);
 } else {
-    hookAppCanvas();
-    load();
+    initSequence();
 }
 
 function hookAppCanvas () { window.appCanvas = document.getElementById("app") }
+
+function initSequence () {
+    hookAppCanvas();
+    init();
+    load().catch((error) => {
+        console.error(error);
+        showErrorScreen();
+        throw error;
+    });
+}
