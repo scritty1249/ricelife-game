@@ -1,222 +1,328 @@
-import { Projectile, BasicShot, Blast } from "./default.js";
-import { Circle, Vector, Direction, Color, Path } from "../geometry/geometry.js";
-import { deg2rad, averageAngle } from "../utils/utils.js";
+import { Ammo, Shot, Blast } from "./default.js";
+import { Circle, Vector, Direction, Color } from "../geometry/geometry.js";
+import { deg2rad } from "../utils/utils.js";
+import * as Behaviors from "./behaviors.js";
 
-export { BasicShot } from "./default.js";
+// just for easy Ammo type construction
+class DefaultAmmo extends Ammo {
+    // <this> context will be rebound to ShotStage
+    static collisionCallback (intersections) { // default
+        this.shot.current.velocity.mul(0, true);
+        Behaviors.createBlasts.call(this);
+    }
+    static stageCount = 1;
+    static initalSpeed = 400;
+    static drag = 0.001;
+    static radius = 7;
+    static blastRadius = 30;
+    static acceleration = new Vector(20, -200);
+    constructor (origin, angle, power = 1, resolution = 1) {
+        super();
+        // store params for cloning
+        this.origin = origin.clone();
+        this.angle = angle;
+        this.power = power;
+        this.resolution = resolution;
+        // convert params for Shot(s)
+        this.initalVelocity = Direction(angle, false).mul(400 * power);
+        // setup stages
+        for (let i = 0; i < this.constructor.stageCount; i++) this.newStage();
+    }
 
-export class Bouncer extends BasicShot {
-    static collisionBehavior (intersections) {
-        if (this.shape.path.points.every((point) =>
-            this.blasts.some(({shape}) =>
-                shape.isIntersecting(point)
-        ))) return; // don't collide with something that's already affected by a blast
-        if (this.bounces < this.maxBounces) {
-            // reflection calculation
-            const segments = new Path();
-            for (const { overlap } of intersections)
-                for (const segment of overlap)
-                    segments.push(...segment); // flatten array
-            if (segments.length > 1) {
-                const direction = this.current.velocity.clone();
-                const normal = segments.normal();
-                // check for errors- invert normal if current position is on the wrong segment "side"
-                if (direction.dot(normal) > 0) normal.mul(-1, true);
+    clone (deep = false) {
+        const other = new this.constructor(this.origin.clone(), this.angle, this.power, this.resolution);
+        for (const poly of this.colliders) other.colliders.push(poly); // pass collision references
+        return other;
+    }
+}
 
-                const reflection = direction
-                    .sub(normal.mul(2 * direction.dot(normal)))
-                    .mul(this.bounceVelocityMultiplier);
-                // debugging, record bounce calculations
-                this.previousBounces.push({ direction, normal, reflection, point: this.position.clone() });
-                // update projectile
-                this.position.add(normal, true);
-                this.current.velocity.apply(reflection);
-                this.#bounces++;
-                // callback
-                this.onBounce();
-                this.onBounceCallback?.();
-                return;
-            } else {
-                if (this.shape.path.points.some((point) =>
-                        this.blasts.some(({shape}) =>
-                            shape.isIntersecting(point)))) {
-                    // if there are no overlapping segements, find if we're exiting a blast...
-                    const overlaps = [];
-                    for (const { shape } of this.blasts) {
-                        overlaps.push(...shape.overlap(this.shape));
-                    }
-                    this.collisionBehavior([{polygon: intersections[0].polygon, overlap: overlaps}]);
-                    return;
-                } else {
-                    // if there are no overlapping segments or blasts, projectile is stuck INSIDE of a colliding polygon.
-                    console.warn(`[${this.constructor.name}]: Collided with inside of Polygon`);
-                }
-            }
+export class BasicShot extends DefaultAmmo {
+    constructor (origin, angle, power = 1, resolution = 1) {
+        super(origin, angle, power, resolution);
+        // geometry config
+        const { initalSpeed, drag, radius, blastRadius } = this.constructor;
+        const acceleration = this.constructor.acceleration.clone();
+        // convert params for Shot(s)
+        const velocity = Direction(angle, false).mul(400 * power);
+        // init geometry
+        const shape = new Circle(origin, radius, resolution);
+        const shot = new Shot(origin, velocity, acceleration, drag, shape);
+        const hitbox = [new Blast(new Circle(new Vector(), blastRadius, resolution))];
+        // generate stages
+        const stage = this.stages[0].newStage(shot);
+        stage.userData = { hitbox };
+        stage.collisionCallback = this.constructor.collisionCallback;
+    }
+}
+
+export class Flower extends DefaultAmmo {
+    static radius = 7.5;
+    static blastRadius = 35;
+    constructor (origin, angle, power = 1, resolution = 1) {
+        super(origin, angle, power, resolution);
+        // geometry config        
+        const { initalSpeed, drag, radius, blastRadius } = this.constructor;
+        const acceleration = this.constructor.acceleration.clone();
+        // convert params for Shot(s)
+        const velocity = Direction(angle, false).mul(400 * power);
+        // init geometry
+        const shape = new Circle(origin, radius, resolution);
+        const shot = new Shot(origin, velocity, acceleration, drag, shape);
+        shot.glowColor = new Color(255, 215, 0);
+        shot.glowRadius = 20;
+        shot.glowResolution = 3;
+        const hitbox = [];
+        Array.from([0, 360/7, 720/7, 1080/7, 1440/7, 1800/7, 2160/7], (angle, i) => {
+                const rad = deg2rad(angle);
+                return new Circle(new Vector(Math.cos(rad), Math.sin(rad)).mul(radius + (blastRadius * 1.75)), blastRadius, resolution)})
+            .forEach((shape, i) => hitbox.push(new Blast(shape, (i * 100) / 1000)));
+        // generate stages
+        const stage = this.stages[0].newStage(shot);
+        stage.userData = { hitbox };
+        stage.collisionCallback = this.constructor.collisionCallback;
+    }
+}
+
+export class Bouncer extends DefaultAmmo {
+    static collisionCallback (intersections) {
+        const { shot } = this;
+        const bounceData = Behaviors.computeBounce.call(this);
+        if (this.userData.bounces < this.userData.maxBounces && bounceData) {
+            const { normal, reflection } = bounceData;
+            // log for debugging
+            this.userData.previousBounces.push(bounceData);
+            // update projectile
+            shot.position.add(normal, true);
+            shot.current.velocity.apply(reflection);
+            this.userData.bounces++;
+            // callback
+            this.userData.onBounce();
+            this.userData.onBounceCallback?.();
+        } else {
+            Behaviors.createBlasts.call(this);
+            shot.current.velocity.mul(0, true);
         }
-        this.current.velocity.mul(0, true);
-        this.applyBlast();
     }
     static onBounce () {
+        const { shot } = this;
         // apply cosmetic updates
-        const reduce = this.bounceGlowReduction / this.maxBounces;
-        this.glowColor.r -= reduce;
-        this.glowColor.g -= reduce;
-        this.glowColor.b -= reduce;
+        const reduce = this.userData.bounceGlowReduction / this.userData.maxBounces;
+        shot.glowColor.r -= reduce;
+        shot.glowColor.g -= reduce;
+        shot.glowColor.b -= reduce;
+        shot.current.velocity.mul(this.userData.bounceVelocityMultiplier, true);
     }
     static onBounceCallback () {} // this does not apply to Projectile tracing performed by web workers. Operations done in this callback should be cosmetic-only: should NOT change projectile movement or hitbox
     static bounceVelocityMultiplier = new Vector(.9, .9);
-    static glowColor = new Color(128, 0, 128);
-    static mainColor = new Color(255, 240, 255);
     static maxBounces = 3;
-    #maxBounces;
-    #bounces = 0;
-    previousBounces = new Array();
-    bounceGlowReduction = 50;
-    bounceVelocityMultiplier;
+    static bounceGlowReduction = 50;
+    previousBounces = new Array(); // [!] for debugging
     constructor (origin, angle, power = 1, resolution = 1) {
         super(origin, angle, power, resolution);
-        this.#maxBounces = new.target.maxBounces || Bouncer.maxBounces;
-        this.bounceVelocityMultiplier = (new.target.bounceVelocityMultiplier || Bouncer.bounceVelocityMultiplier).clone();
-        this.onBounceCallback = (new.target.onBounceCallback || Bouncer.onBounceCallback).bind(this);
-        this.onBounce = (new.target.onBounce || Bouncer.onBounce).bind(this);
+        // geometry config
+        const { initalSpeed, drag, radius, blastRadius } = this.constructor;
+        const acceleration = this.constructor.acceleration.clone();
+        // convert params for Shot(s)
+        const velocity = Direction(angle, false).mul(400 * power);
+        // init geometry
+        const shape = new Circle(origin, radius, resolution);
+        const shot = new Shot(origin, velocity, acceleration, drag, shape);
+        shot.glowColor = new Color(128, 0, 128);
+        shot.mainColor = new Color(255, 240, 255);
+        const hitbox = [new Blast(new Circle(new Vector(), blastRadius, resolution))];
+        // generate stages
+        const stage = this.stages[0].newStage(shot);
+        stage.userData = { hitbox,
+            bounces: 0,
+            maxBounces: this.constructor.maxBounces,
+            onBounce: this.constructor.onBounce.bind(stage),
+            onBounceCallback: this.constructor.onBounceCallback.bind(stage),
+            previousBounces: this.previousBounces,
+            bounceVelocityMultiplier: this.constructor.bounceVelocityMultiplier,
+            bounceGlowReduction: this.constructor.bounceGlowReduction
+        };
+        stage.collisionCallback = this.constructor.collisionCallback;
     }
 
-    // [!] overrided mainly for debugging
-    intersectAt (polygons, increment = 1/60, limit = 1000, float64 = false) {
-        const result = super.intersectAt(polygons, increment, limit, float64);
+    trace (...args) { // [!] for debugging
+        const result = super.trace(...args);
         result.bounces = result.state.previousBounces;
         return result;
     }
-    
-    clone () { return new Bouncer(this.origin, this.angle, this.power, this.resolution) }
-
-    get bounces () { return this.#bounces }
-    set bounces (value) { return (this.#bounces = value) }
-    get maxBounces () { return this.#maxBounces }
-}
-export class Spreader extends BasicShot {
-    static initalSpeed = 400;
-    static acceleration = new Vector(20, -200);
-    static drag = 0.001;
-    static radius =  7.5;
-    static blastRadius = 25;
-    static glowColor = new Color(0, 212, 255);
-    constructor (origin, angle, power = 1, resolution = 1) {
-        super(origin, angle, power, resolution);
-
-        const blastRadius = 25;
-        this.hitbox.splice(0, this.hitbox.length);
-        this.hitbox.push(new Blast(new Circle(new Vector(), blastRadius, this.resolution), 0));
-        this.hitbox.push(new Blast(new Circle(new Vector(-blastRadius * 1.75, 0), blastRadius, this.resolution), 250));
-        this.hitbox.push(new Blast(new Circle(new Vector(blastRadius * 1.75, 0), blastRadius, this.resolution), 500));
-    }
-
-    clone () { return new Spreader(this.origin, this.angle, this.power, this.resolution) }
 }
 
-export class Flower extends BasicShot {
-    static initalSpeed = 400;
-    static acceleration = new Vector(20, -200);
-    static drag = 0.001;
-    static radius =  7.5;
-    static glowColor = new Color(255, 215, 0);
-    static glowRadius = 20;
-    static glowResolution = 3;
-    constructor (origin, angle, power = 1, resolution = 1) {
-        super(origin, angle, power, resolution);
-
-        const blastRadius = 35;
-        this.hitbox.splice(0, this.hitbox.length);
-        Array.from([0, 360/7, 720/7, 1080/7, 1440/7, 1800/7, 2160/7], (angle, i) => {
-            const rad = deg2rad(angle);
-            return new Circle(new Vector(Math.cos(rad), Math.sin(rad)).mul(this.radius + (blastRadius * 1.75)), blastRadius, this.resolution)})
-            .forEach((shape, i) => this.hitbox.push(new Blast(shape, i * 100)));
+export class Digger extends DefaultAmmo {
+    static collisionCallback (intersections) {
+        const { shot } = this;
+        const normal = this.lastCollision.normal?.clone();
+        const direction = shot.current.velocity.clone();
+        const doBlast = normal === undefined || normal.y >= 0; // only apply blasts and count bounces if normal is not negative (colliding surface faces up) 
+        if (this.userData.bounces < this.userData.maxBounces && normal) {
+            const point = shot.position.clone();
+            // update projectile
+            const reflection = shot.current.velocity.apply(0,
+                    175 * (doBlast ? 1 : -1)
+                ).clone();
+            shot.drag = 0.002;
+            shot.acceleration.y = -300;
+            if (doBlast) this.userData.bounces++;
+            // log for debugging
+            this.userData.previousBounces.push({ direction, normal, reflection, point });
+            // callback
+            this.userData.onBounce();
+            this.userData.onBounceCallback?.();
+        } else {
+            shot.current.velocity.mul(0, true);
+        }
+        if (doBlast) Behaviors.createBlasts.call(this);
     }
-
-    clone () { return new Flower(this.origin, this.angle, this.power, this.resolution) }
-}
-
-export class Digger extends Bouncer {
-    static onBounce () {
-        this.applyBlast();
-        this.current.velocity.apply(0,
-            175 * (this.current.velocity.y > 0 ? 1 : -1)
-        );
-        this.drag = 0.002;
-        this.acceleration.y = -200;
-
-        // update debug values
-        const oldBounce = this.previousBounces.pop();
-        oldBounce.reflection = this.current.velocity.clone();
-        this.previousBounces.push(oldBounce);
-    }
+    static onBounce () {} // override, don't modify cosmetically
     static onBounceCallback () {} // override, don't play bounce sfx
     static maxBounces = 4;
     static initalSpeed = 500;
-    static acceleration = new Vector(10, -300);
     static drag = 0.003;
-    static radius =  8;
-    static glowColor = new Color(210, 165, 0);
-    static mainColor = new Color(200, 90, 0);
+    static radius = 8;
+    previousBounces = new Array(); // [!] for debugging
     constructor (origin, angle, power = 1, resolution = 1) {
         super(origin, angle, power, resolution);
-
-        const blastRadius = 30;
-        this.hitbox.splice(0, this.hitbox.length);
-        this.hitbox.push(new Blast(new Circle(new Vector(), blastRadius, this.resolution), 0));
+        // geometry config
+        const { initalSpeed, drag, radius, blastRadius } = this.constructor;
+        const acceleration = this.constructor.acceleration.clone();
+        // convert params for Shot(s)
+        const velocity = Direction(angle, false).mul(400 * power);
+        // init geometry
+        const shape = new Circle(origin, radius, resolution);
+        const shot = new Shot(origin, velocity, acceleration, drag, shape);
+        shot.glowColor = new Color(210, 165, 0);
+        shot.mainColor = new Color(200, 90, 0);
+        const hitbox = [new Blast(new Circle(new Vector(), blastRadius, resolution))];
+        // generate stages
+        const stage = this.newStage().newStage(shot);
+        stage.userData = { hitbox,
+            bounces: 0,
+            maxBounces: this.constructor.maxBounces,
+            onBounce: this.constructor.onBounce.bind(stage),
+            onBounceCallback: this.constructor.onBounceCallback.bind(stage),
+            previousBounces: this.previousBounces,
+            bounceVelocityMultiplier: this.constructor.bounceVelocityMultiplier,
+            bounceGlowReduction: this.constructor.bounceGlowReduction
+        };
+        stage.collisionCallback = this.constructor.collisionCallback;
     }
 
-    clone () { return new Digger(this.origin, this.angle, this.power, this.resolution) }
+    trace (...args) { // [!] for debugging
+        const result = super.trace(...args);
+        result.bounces = result.state.previousBounces;
+        return result;
+    }
 }
 
-export class MegaBouncer extends Bouncer {
-    static onBounce () {
-        // apply cosmetic updates
-        const brighten = this.bounceGlowLimit / this.maxBounces;
-        this.glowColor.r += brighten;
-        this.glowColor.g += brighten;
-        this.glowColor.b += brighten;
-        const grow = this.bounceGlowRadiusLimit / this.maxBounces;
-        this.glowRadius += grow;
-        this.glowColor.a *= this.bounceGlowAlphaMultiplier;
-        // functional updates
-        const radius = this.bounceBlastRadiusLimit / this.maxBounces;
-        this.hitbox.forEach((blast) => blast.radius += radius);
-        const tail = this.bounceTailLengthLimit / this.maxBounces;
-        this.tailLength += tail;
-        const acceleration = this.bounceAccelerationLimit.div(this.maxBounces);
-        this.acceleration.add(acceleration);
+// fires a "stem" that bounces straight up upon collision. After reaching Y height, turns into N "needle" shots that umbrella downwards in an enveloping arc.
+export class PineShot extends DefaultAmmo {
+    static stemTransition () {
+        const { shot } = this;
+        if (shot.current.velocity.y <= this.userData.speedThreshold) {
+            this.userData.setupNextStage();
+            shot.current.velocity.mul(0, true);
+        }
     }
-    static bounceVelocityMultiplier = new Vector(1.1, 1.3);
-    static initalSpeed = 500;
-    static acceleration = new Vector(30, -200);
-    static drag = 0.002;
-    static maxBounces = 3;
-    static radius = 15;
-    bounceAccelerationLimit = new Vector(-10, -75);
-    bounceTailLengthLimit = 15;
-    bounceGlowLimit = 40;
-    bounceGlowAlphaMultiplier = .7;
-    bounceGlowRadiusLimit = 50;
-    bounceBlastRadiusLimit = 30;
+    static setupNeedleStage (needleStage) {
+        const pos = this.shot.position.clone();
+        const time = this.time;
+        needleStage.stages.forEach((stage) => {
+            const { shot } = stage;
+            shot.origin.apply(pos);
+            shot.applyPosition(pos);
+            stage.blastTimeOffset += time;
+        });
+    }
+    static stemCollisionCallback (intersections) {
+        const { shot } = this;
+        const normal = this.lastCollision.normal?.clone();
+        const direction = shot.current.velocity.clone();
+        const doBounce = normal !== undefined && normal.y >= 0; // only bounce if normal is not negative (colliding surface faces up)- otherwise go stage 2 (spawn needles) immedately
+        this.updateCallback = this.userData.stageTransition;
+        if (doBounce) {
+            const point = shot.position.clone();
+            // update projectile
+            const reflection = shot.current.velocity.apply(this.userData.bounceVelocity).clone();
+            shot.drag = this.userData.bounceDrag;
+            shot.acceleration.apply(this.userData.bounceAcceleration);
+            shot.position.y += shot.shape.radius; // move up to avoid exploding instantly
+            // log for debugging
+            this.userData.previousBounces.push({ direction, normal, reflection, point });
+        } else {
+            shot.current.velocity.mul(0, true);
+        }
+    }
+    static needleCollisionCallback (intersections) {
+        this.shot.current.velocity.mul(0, true);
+        Behaviors.createBlasts.call(this);
+    }
+    static stageCount = 2;
+    static needleCount = 5; // should be an odd number
+    static needleAcceleration = new Vector(0, -500);
+    static needleDrag = 0// 0.001;
+    static needleLaunchVelocity = new Vector(120, 45);
+    static stemTransitionSpeedThreshold = 10; // [!] poorly named
+    static stemBounceVelocity = new Vector(0, 200);
+    static stemBounceDrag = 0.0015;
+    static stemBounceAcceleration = new Vector(0, -100);
+    previousBounces = new Array();
     constructor (origin, angle, power = 1, resolution = 1) {
         super(origin, angle, power, resolution);
-        this.hitbox.at(0).radius = 30;
-        this.glowColor.a = 100;
+        // geometry config
+        const { initalSpeed, drag, radius, blastRadius } = this.constructor;
+        const acceleration = this.constructor.acceleration.clone();
+        // convert params for Shot(s)
+        const velocity = Direction(angle, false).mul(400 * power);
+        // init stem geometry
+        const stemShape = new Circle(origin, radius, resolution);
+        const stemShot = new Shot(origin, velocity, acceleration, drag, stemShape);
+        // init needle geometry
+        const _zeroVec = new Vector(); // [!] throwaway, will be overwritten
+        const needleAcceleration = this.constructor.needleAcceleration.clone();
+        const needleDrag = this.constructor.needleDrag;
+        const needleShape = new Circle(_zeroVec, radius * (2/3), resolution);
+        const needleShot = new Shot(_zeroVec, _zeroVec, needleAcceleration, needleDrag, needleShape);
+        const hitbox = [new Blast(new Circle(new Vector(), blastRadius, resolution))];
+        // generate stages
+        const stemStage = this.stages[0];
+        const needleStage = this.stages[1];
+        // first stage "stem"
+        const stemShotStage = stemStage.newStage(stemShot);
+        stemShotStage.userData = {
+            bounceDrag: this.constructor.stemBounceDrag,
+            bounceAcceleration: this.constructor.stemBounceAcceleration.clone(),
+            bounceVelocity: this.constructor.stemBounceVelocity.clone(),
+            speedThreshold: this.constructor.stemTransitionSpeedThreshold,
+            previousBounces: this.previousBounces,
+            stageTransition: this.constructor.stemTransition,
+            setupNextStage: this.constructor.setupNeedleStage.bind(stemShotStage, needleStage)
+        };
+        stemShotStage.collisionCallback = this.constructor.stemCollisionCallback;
+        // second stage "needles"
+        const needleCount = this.constructor.needleCount;
+        const halfCount = Math.floor(needleCount / 2);
+        const needleCollisionCallback = this.constructor.needleCollisionCallback;
+        const needleLaunchSpeed = this.constructor.needleLaunchVelocity.clone();
+        const needleShots = [];
+        for (let i = 0; i < needleCount; i++) {
+            const relativeIdx = -(halfCount - i);
+            const vel = needleLaunchSpeed.mul({x: (relativeIdx / halfCount), y: 0.25});
+            const newNeedleShot = needleShot.clone(true);
+            newNeedleShot.velocity.apply(vel);
+            newNeedleShot.current.velocity.apply(vel);
+            const needleShotStage = needleStage.newStage(newNeedleShot);
+            needleShotStage.userData = { hitbox };
+            needleShotStage.collisionCallback = needleCollisionCallback;
+            needleShots.push(newNeedleShot);
+        }
     }
 
-    clone () { return new MegaBouncer(this.origin, this.angle, this.power, this.resolution) }
-}
-
-export class MegaBouncer2 extends MegaBouncer {
-    static onBounce () {
-        this.applyBlast();
-        //super.onBounce();
+    trace (...args) { // [!] for debugging
+        const result = super.trace(...args);
+        result.bounces = result.state.previousBounces;
+        return result;
     }
-    static onBounceCallback () {} // override, don't play bounce sfx
-    static maxBounces = 2;
-    constructor (origin, angle, power = 1, resolution = 1) {
-        super(origin, angle, power, resolution);
-    }
-
-    clone () { return new MegaBouncer2(this.origin, this.angle, this.power, this.resolution) }
 }

@@ -32,7 +32,7 @@ export class Polygon extends TrackableObject { // points should be ordered clock
             hole.smooth(resolution);
     }
 
-    overlap (poly) { // returns an array of Path segments that are overlapping with the given polygon
+    overlap (poly, flatten = false) { // returns an array of Path segments that are overlapping with the given polygon
         if (!poly?.isPolygon) throw new Error(`[${this.constructor.name}] Error: Cannot overlap with non-Polygon type ${typeof poly}`);
         const segments = [];
         let segment = new Path();
@@ -44,9 +44,15 @@ export class Polygon extends TrackableObject { // points should be ordered clock
             }
         }
         if (segment.length > 0) segments.push(segment);
+        if (flatten) {
+            // return all segments as a conjoined Path
+            const segmentsPath = new Path();
+            for (const seg of segments)
+                segmentsPath.push(...seg);
+            return segmentsPath;
+        }
         return segments;
     }
-
     // [!] I have no idea what I'm doing!
     cut (poly, mutate = false) { // https://en.wikipedia.org/wiki/Greiner%E2%80%93Hormann_clipping_algorithm
         if (!poly?.isPolygon) throw new Error(`[${this.constructor.name}] Error: Cannot cut with non-Polygon type ${typeof poly}`);

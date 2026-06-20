@@ -3,7 +3,7 @@ import { Polygon, Color, Vector, Circle } from "../geometry/geometry.js";
 import { drawTerrain } from "../terrain/terrain.js";
 import { Shot } from "../projectile/projectile.js";
 import { CACHE_TYPES } from "./types.js";
-import * as ShotType from "../projectile/basic.js";
+import * as AmmoType from "../projectile/ammo-types.js";
 
 /* Polygon64: 
  * {
@@ -102,7 +102,7 @@ self.onmessage = async (e) => {
         } else if (type === "INTERSECTPROJ") {
             /* Payload expected:
              * {
-             *    shot: String,
+             *    ammo: String,
              *    collisions: [...Polygon64 | UUID],
              *    origin: Vector,
              *    angle: Number, (radians)
@@ -112,15 +112,16 @@ self.onmessage = async (e) => {
              *    limit: Number
              * }
              */
-            const { shot, collisions, origin, angle, power, resolution, increment, limit } = payload;
+            const { ammo, collisions, origin, angle, power, resolution, increment, limit } = payload;
             const targetPolys = collisions.map((target) =>
                 typeof target === "string"
                     ? getCache(target).data?.poly
                     : Polygon.fromObject(target, target.depth));
-            const proj = new ShotType[shot](Vector.fromObject(origin), angle, power, resolution);
-            const result = proj.intersectAt(targetPolys, increment, limit, true);
+            const proj = new AmmoType[ammo](Vector.fromObject(origin), angle, power, resolution);
+            for (const collisionPoly of targetPolys) proj.colliders.push(collisionPoly);
+            const result = proj.trace(increment, limit, true);
             delete result.state;
-            postResponse(id, result, (result?.buffers || []));
+            postResponse(id, result);
         } else if (type === "CUTPOLY") {
             /* Payload expected:
              * {

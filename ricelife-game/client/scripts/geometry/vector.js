@@ -201,6 +201,14 @@ export class Vector {
     toString () { return `(${this.x.toFixed(3)}, ${this.y.toFixed(3)})` }
     toJSON () { return {x: this.x, y: this.y} }
     static fromObject (object) { return new Vector(object?.x, object?.y) }
+    static average (vectors = []) {
+        if (!vectors.every((vec) => vec.isVector)) throw new Error(`[${this.constructor.name}]: Cannot find Vector average with non-Vector type(s)`);
+        const vec = new Vector();
+        for (const vector of vectors)
+            vec.add(vector, true);
+        vec.div(vectors.length, true);
+        return vec;
+    }
 }
 
 export class Color {
