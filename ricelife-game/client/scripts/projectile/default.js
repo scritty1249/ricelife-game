@@ -237,7 +237,17 @@ export class Shot extends Projectile {
         } else return undefined; // signal nothing is intersecting
         return intersections;
     }
-    clone (deep = false) { return new Shot(this.origin, this.velocity, this.acceleration, this.drag, this.shape.clone(deep)) }
+    clone (deep = false) { 
+        const shot = new Shot(this.origin, this.velocity, this.acceleration, this.drag, this.shape.clone(deep));
+        // copy configs
+        shot.tailLength = this.tailLength;
+        shot.tailColor = this.tailColor.clone();
+        shot.glowRadius = this.glowRadius;
+        shot.glowResolution = this.glowResolution;
+        shot.glowColor = this.glowColor.clone();
+        shot.mainColor = this.mainColor.clone();
+        return shot;
+    }
 
     get isShot () { return true }
     get shape () { return this.#shape }

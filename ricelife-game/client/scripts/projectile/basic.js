@@ -279,12 +279,18 @@ export class PineShot extends DefaultAmmo {
         // init stem geometry
         const stemShape = new Circle(origin, radius, resolution);
         const stemShot = new Shot(origin, velocity, acceleration, drag, stemShape);
+        stemShot.glowColor.apply(107, 73, 41);
+        stemShot.mainColor.apply(102, 91, 78);
+        stemShot.tailColor.apply(104.5, 82, 59.5); 
         // init needle geometry
         const _zeroVec = new Vector(); // [!] throwaway, will be overwritten
         const needleAcceleration = this.constructor.needleAcceleration.clone();
         const needleDrag = this.constructor.needleDrag;
         const needleShape = new Circle(_zeroVec, radius * (2/3), resolution);
         const needleShot = new Shot(_zeroVec, _zeroVec, needleAcceleration, needleDrag, needleShape);
+        needleShot.glowColor.apply(5, 102, 8);
+        needleShot.mainColor.apply(0, 81, 26);
+        needleShot.tailColor.apply(2.5, 91.5, 16.5); 
         const hitbox = [new Blast(new Circle(new Vector(), blastRadius, resolution))];
         // generate stages
         const stemStage = this.stages[0];

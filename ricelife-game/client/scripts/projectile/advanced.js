@@ -68,6 +68,7 @@ export class Spreader extends Basic.BasicShot {
         const stage = this.stages[0].stages[0];
         // adjust cosmetics
         stage.shot.glowColor.apply(0, 212, 255);
+        stage.shot.mainColor.apply(255, 105, 180);
         // change hitbox
         const { blastRadius } = this.constructor;
         const ogBlast = stage.userData.hitbox[0];
