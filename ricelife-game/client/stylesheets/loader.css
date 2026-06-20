@@ -45,6 +45,9 @@
     inset: 0;
     position: absolute;
     pointer-events: none;
+    -webkit-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
     color: var(--color);
     font-family: Arial, Helvetica, sans-serif;
     font-size: min(10dvh, 10dvw);

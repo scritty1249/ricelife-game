@@ -1,4 +1,5 @@
-import { Ammo, Shot, Blast } from "./default.js";
+import { Ammo, Shot } from "./default.js";
+import { Blast } from "./blast.js";
 import { Circle, Vector, Direction, Color } from "../geometry/geometry.js";
 import { deg2rad } from "../utils/utils.js";
 import * as Behaviors from "./behaviors.js";

@@ -1,16 +1,8 @@
 
 import { Polygon, Color, Vector, Circle } from "../geometry/geometry.js";
 import { drawTerrain } from "../terrain/terrain.js";
-import { Shot } from "../projectile/projectile.js";
 import { CACHE_TYPES } from "./types.js";
 import * as AmmoType from "../projectile/ammo-types.js";
-
-/* Polygon64: 
- * {
- *    path: Float64Array,
- *    holes: [...Polygon64]
- * }
- */
 
 const _queryString = self.location.search;
 const _urlParams = new URLSearchParams(_queryString);

@@ -1,2 +1,2 @@
 export * from "./ammo-types.js";
-export * from "./default.js";
+export * from "./blast.js";
