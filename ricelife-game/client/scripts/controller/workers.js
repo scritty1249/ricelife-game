@@ -67,10 +67,10 @@ export class WorkerController {
         );
     }
     async traceProjectile (polygonid, projectile, increment, limit) {
-        const shot = projectile.constructor.name;
+        const ammo = projectile.constructor.name;
         const { origin, velocity, acceleration, angle, resolution, power } = projectile;
         const payload = {
-            origin, angle, power, resolution, increment, limit, shot,
+            origin, angle, power, resolution, increment, limit, ammo,
             collisions: [polygonid]
         };
         const landing = await this.#pool.post("INTERSECTPROJ", payload, [], [polygonid]);

@@ -6,7 +6,7 @@ import { LoadImage, Spritesheet, Animation, AnimationList } from "./animate/anim
 import { WorkerPool } from "./workers/pool.js";
 import { AudioContext } from "./audio/audio.js";
 import * as Menu from "./menu/menu.js"
-import * as Projectiles from "./projectile/projectile.js";
+import * as Ammo from "./projectile/ammo-types.js";
 
 // [!] for debugging
 const URL_PARAMS = new URLSearchParams(window?.location?.search);
@@ -16,6 +16,7 @@ async function fireProjectile (shot, state, config) { // [!} laziness
     setTurn(state, false);
     drawFrame(state, config); // draw one last frame so the game doesn't look like it just froze
     const projectile = new shot(state.tanks[config.playerTank].barrelPos, state.aimer.rotation + (3 * (Math.PI / 2)), state.aimer.power);
+    projectile.colliders.push(state.terrain);
     const muzzleFlash = generateMuzzleFlash(state, config);
     const landing = await state.threading.traceProjectile("blastTerrain", projectile, config.traceIncrement, config.traceMaxTime);
     state.blastTerrain = undefined;
@@ -32,7 +33,7 @@ async function fireProjectile (shot, state, config) { // [!} laziness
             const impact = {
                 triggered: false,
                 frame: frame,
-                time: delay / 1000,
+                time: delay,
                 blasts: blasts,
                 animations: new AnimationList(),
                 play: function () {
@@ -253,14 +254,15 @@ function animate (state, config) {
             // update projectile
             state.projectile.update(config.traceIncrement, [state.terrain]);
             // are we done with projectile?
+            const projectileLanded = state.landing?.time !== undefined;
             const endProjectileEarly =
                 (state.projectile.time >= config.traceMaxTime) // time out shots even if a landing exists
-                || (state.landing?.at !== undefined  && 
+                || (!projectileLanded  && 
                     // time out early if theres no landing and it flew offscreen
                     state.projectile.isWithin(config.display.size)
                 );
             const isTimedout =
-                !(state.landing?.intersect && state.projectile.time >= state.landing.at - Number.EPSILON)
+                !(projectileLanded && state.projectile.time >= state.landing.time - Number.EPSILON)
                 && endProjectileEarly;
             
             if (endProjectileEarly) {
@@ -436,7 +438,7 @@ async function main(...loaded) {
         threading: Workers,
         interface: UIInterface,
         isTurn: Inputs.pointer.enabled,
-        activeShot: Projectiles.BasicShot,
+        activeShot: Ammo.BasicShot,
         
         // uncertain about these. will likely refactor out in near future don't implement too much that relies on these
         projectile: undefined,
@@ -448,14 +450,14 @@ async function main(...loaded) {
         blastAnimationFrames: testExplosion,
         blastAnimationFps: 25,
         projectileTypes: {
-            shot1: Projectiles.BasicShot,
-            shot2: Projectiles.Spreader,
-            shot3: Projectiles.Flower,
-            shot4: Projectiles.Digger,
-            shot5: Projectiles.Bouncer,
-            shot6: Projectiles.MegaBouncer,
-            shot7: Projectiles.MegaBouncer2,
-            shot8: Projectiles.PineShot
+            shot1: Ammo.BasicShot,
+            shot2: Ammo.Spreader,
+            shot3: Ammo.Flower,
+            shot4: Ammo.Digger,
+            shot5: Ammo.Bouncer,
+            shot6: Ammo.MegaBouncer,
+            shot7: Ammo.GigaBouncer,
+            shot8: Ammo.PineShot
         },
         animations: { global: Animations },
         impactData: [],
@@ -471,10 +473,10 @@ async function main(...loaded) {
 
     {
         // setup functions that required loaded assets
-        Projectiles.Bouncer.onBounceCallback = function () {
+        Ammo.Bouncer.onBounceCallback = function () {
             config.audio.player.add(config.audio.sources.bouncer.Instance().play(), true);
         }
-        Projectiles.MegaBouncer.onBounceCallback = function () {
+        Ammo.MegaBouncer.onBounceCallback = function () {
             config.audio.player.add(config.audio.sources.bouncer.Instance().play(), true);
         }
     }
