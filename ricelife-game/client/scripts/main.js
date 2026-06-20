@@ -1,4 +1,4 @@
-import { load } from "./game/mainloop.js";
+import { load } from "./game/game.js";
 
 if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", load);
