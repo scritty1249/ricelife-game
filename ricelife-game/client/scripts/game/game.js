@@ -74,6 +74,171 @@ export async function load () {
     init(WorkerManager, AudioCtx, AudioPlayer, audioLayers, await body, await barrel, await testExplosion, await testMuzzleFlash, await buttons, await sfx);
 }
 
+async function init (...loaded) {
+    const [WorkerManager, AudioCtx, AudioPlayer, audioLayers, tankBodyImage, tankBarrelImage, testExplosion, testMuzzleFlash, buttons, sfx] = loaded;
+    tankBodyImage.width = 50;
+    tankBarrelImage.scale.apply(tankBodyImage.scale);
+    {
+        const offset = testExplosion.frameSize.mul(testExplosion.scale);
+        testExplosion.offset.apply(
+            -offset.x * .4, // animation is slightly off center
+            offset.y * .6
+        );
+    }
+    {
+        testMuzzleFlash.origin.apply(
+            testMuzzleFlash.rawSize.x / 2,
+            testMuzzleFlash.rawSize.y
+        );
+    }
+    const Workers = new WorkerController(WorkerManager);
+    const Display = new AppCanvas(window.appCanvas, new Vector(1920, 1080));
+    const Tank = new TankController(tankBodyImage, tankBarrelImage, new Vector());
+    const Aimer = new AimController(Tank, Tank.width * 3);
+    const UIInterface = new Menu.Interface();
+    const Inputs = new InputListener(Display.canvas, CLICK_DURATION_MS, INPUT_MAP, UIInterface);
+    const Animations = new AnimationList();
+    const Terrain = URL_PARAMS.get("map") == "flat"
+        ? generateTerrain(new Path(new Vector(0, GROUND), new Vector(Display.size.x, GROUND)).smooth(GLOBAL_RESOLUTION), Display.size)
+        : generateTerrain(generateWave(Display.size.x, GLOBAL_RESOLUTION, (v) => v.y += GROUND, .03, 40, 1.3, 15), Display.size);
+    const Mover = new MovementController(Terrain, Tank, -(Tank.offset.body.y / 10));
+
+    await Promise.all([
+        Workers.createCache("blastBackground", "CANVAS", ...Display.size),
+        Workers.createCache("background", "CANVAS", ...Display.size),
+        Workers.insertCache("blastTerrain", "POLY", Terrain.Float64(1))
+    ]);
+
+    const config = {
+        fps: FPS,
+        frameInterval: 1000 / FPS,
+        display: Display,
+        audio: {
+            sources: Object.fromEntries(sfx.map((fx) => [fx.name, fx])), // audio sources
+            layers: audioLayers,
+            player: AudioPlayer,
+            ctx: AudioCtx
+        },
+        playerTank: Tank.id,
+        moveIncr: 1,
+        aimIncr: (Math.PI / 180),
+        powerIncr: .005,
+        traceIncrement: 1 / FPS,
+        traceMaxTime: MAX_SHOT_TRACE_SECONDS,
+        terrain: {
+            edge: new Color("#00e8f0"),
+            fill: new Color("#0098eb")
+        }
+    };
+    const state = {
+        input: Inputs,
+        aimer: Aimer,
+        move: Mover,
+        polygons: {},
+        threading: Workers,
+        interface: UIInterface,
+        isTurn: Inputs.pointer.enabled,
+        activeShot: Ammo.BasicShot,
+        
+        // uncertain about these. will likely refactor out in near future don't implement too much that relies on these
+        projectile: undefined,
+        tracer: undefined,
+        landing: undefined,
+        blastTerrain: undefined,
+        muzzleFlashAnimationFrames: testMuzzleFlash,
+        muzzleFlashAnimationFps: 25,
+        blastAnimationFrames: testExplosion,
+        blastAnimationFps: 25,
+        projectileTypes: {
+            shot1: Ammo.BasicShot,
+            shot2: Ammo.Spreader,
+            shot3: Ammo.Flower,
+            shot4: Ammo.Digger,
+            shot5: Ammo.Bouncer,
+            shot6: Ammo.MegaBouncer,
+            shot7: Ammo.GigaBouncer,
+            shot8: Ammo.PineShot
+        },
+        animations: { global: Animations },
+        impactData: [],
+        drawProjectile: true,
+
+
+        tanks: {[Tank.id]: Tank},
+        terrain: Terrain,
+        lastStamp: performance.now(),
+        redrawJob: Workers.drawTerrain("background", "blastTerrain", config.terrain.fill, config.terrain.edge)
+            .then(() => Workers.updateCache("background"))
+    };
+
+    {
+        // setup functions that required loaded assets
+        Ammo.Bouncer.onBounceCallback = function () {
+            config.audio.player.add(config.audio.sources.bouncer.Instance().play(), true);
+        }
+        Ammo.MegaBouncer.onBounceCallback = function () {
+            config.audio.player.add(config.audio.sources.bouncer.Instance().play(), true);
+        }
+    }
+
+    {
+        // setting up UI
+        const [fireImage, selectImage, rightImage, leftImage, shotTypeImage] = buttons;
+        fireImage.height = 100;
+        selectImage.height = 100;
+        rightImage.height = 100;
+        leftImage.height = 100;
+        shotTypeImage.height = 80;
+        const fireButton = new Menu.Button(fireImage);
+        fireButton.position.apply(75, 150);
+        const selectButton = new Menu.Button(selectImage);
+        selectButton.position.apply(300, 150);
+        const rightButton = new Menu.Button(rightImage);
+        rightButton.position.apply(Display.size.x - rightImage.width - 75, 150);
+        const leftButton = new Menu.Button(leftImage);
+        leftButton.position.apply(rightButton.position.x - leftImage.width - 25, 150);
+
+        const shotTypeIcon = new Menu.Icon(shotTypeImage);
+        shotTypeIcon.position.apply(520, 150);
+        shotTypeIcon.fontSize = 16;
+        shotTypeIcon.text = state.activeShot.name;
+
+        const btns = [fireButton, selectButton, rightButton, leftButton, shotTypeIcon];
+        let shotIdx = 0;
+        const shotMax = Object.keys(state.projectileTypes).length;
+        // setting up button callbacks
+        rightButton.onclick = rightButton.onhold = () => Mover.move(config.moveIncr);
+        leftButton.onclick = leftButton.onhold = () => Mover.move(-config.moveIncr);
+        selectButton.onclick = () => {
+            shotIdx = (shotIdx+1)%shotMax;
+            state.activeShot = state.projectileTypes[`shot${shotIdx+1}`];
+            shotTypeIcon.text = state.activeShot.name;
+        };
+        fireButton.onclick = () => {
+            if (state.projectile === undefined)
+                fireProjectile(state.activeShot, state, config);
+        }
+
+        UIInterface.insert() // draw layer zero after background but before terrain
+            .push(Aimer);
+        UIInterface.insert()
+            .push(...btns);
+    }
+    Mover.set(Math.floor(Display.size.x / 4));
+    Aimer.update(Tank.position.add({x: 0, y: Display.size.y})); // aim straight up and set power to 100% (1)
+    Display.canvas.focus();
+    // [!] testing
+    if (DEBUG_ENABLED()) {
+        window._GAME_STATE = state;
+        window._GAME_CONFIG = config;
+    }
+    if (document.readyState === "complete") {
+        animate(state, config);
+    } else {
+        window.addEventListener("load", () => animate(state, config));
+    }
+}
+
 async function fireProjectile (shot, state, config) { // [!} laziness
     setTurn(state, false);
     drawFrame(state, config); // draw one last frame so the game doesn't look like it just froze
@@ -372,169 +537,4 @@ function animate (state, config) {
         handleInput(state, config);
         requestAnimationFrame(() => animate(state, config));
     });
-}
-
-async function init (...loaded) {
-    const [WorkerManager, AudioCtx, AudioPlayer, audioLayers, tankBodyImage, tankBarrelImage, testExplosion, testMuzzleFlash, buttons, sfx] = loaded;
-    tankBodyImage.width = 50;
-    tankBarrelImage.scale.apply(tankBodyImage.scale);
-    {
-        const offset = testExplosion.frameSize.mul(testExplosion.scale);
-        testExplosion.offset.apply(
-            -offset.x * .4, // animation is slightly off center
-            offset.y * .6
-        );
-    }
-    {
-        testMuzzleFlash.origin.apply(
-            testMuzzleFlash.rawSize.x / 2,
-            testMuzzleFlash.rawSize.y
-        );
-    }
-    const Workers = new WorkerController(WorkerManager);
-    const Display = new AppCanvas(document.getElementById("app"), new Vector(1920, 1080));
-    const Tank = new TankController(tankBodyImage, tankBarrelImage, new Vector());
-    const Aimer = new AimController(Tank, Tank.width * 3);
-    const UIInterface = new Menu.Interface();
-    const Inputs = new InputListener(Display.canvas, CLICK_DURATION_MS, INPUT_MAP, UIInterface);
-    const Animations = new AnimationList();
-    const Terrain = URL_PARAMS.get("map") == "flat"
-        ? generateTerrain(new Path(new Vector(0, GROUND), new Vector(Display.size.x, GROUND)).smooth(GLOBAL_RESOLUTION), Display.size)
-        : generateTerrain(generateWave(Display.size.x, GLOBAL_RESOLUTION, (v) => v.y += GROUND, .03, 40, 1.3, 15), Display.size);
-    const Mover = new MovementController(Terrain, Tank, -(Tank.offset.body.y / 10));
-
-    await Promise.all([
-        Workers.createCache("blastBackground", "CANVAS", ...Display.size),
-        Workers.createCache("background", "CANVAS", ...Display.size),
-        Workers.insertCache("blastTerrain", "POLY", Terrain.Float64(1))
-    ]);
-
-    const config = {
-        fps: FPS,
-        frameInterval: 1000 / FPS,
-        display: Display,
-        audio: {
-            sources: Object.fromEntries(sfx.map((fx) => [fx.name, fx])), // audio sources
-            layers: audioLayers,
-            player: AudioPlayer,
-            ctx: AudioCtx
-        },
-        playerTank: Tank.id,
-        moveIncr: 1,
-        aimIncr: (Math.PI / 180),
-        powerIncr: .005,
-        traceIncrement: 1 / FPS,
-        traceMaxTime: MAX_SHOT_TRACE_SECONDS,
-        terrain: {
-            edge: new Color("#00e8f0"),
-            fill: new Color("#0098eb")
-        }
-    };
-    const state = {
-        input: Inputs,
-        aimer: Aimer,
-        move: Mover,
-        polygons: {},
-        threading: Workers,
-        interface: UIInterface,
-        isTurn: Inputs.pointer.enabled,
-        activeShot: Ammo.BasicShot,
-        
-        // uncertain about these. will likely refactor out in near future don't implement too much that relies on these
-        projectile: undefined,
-        tracer: undefined,
-        landing: undefined,
-        blastTerrain: undefined,
-        muzzleFlashAnimationFrames: testMuzzleFlash,
-        muzzleFlashAnimationFps: 25,
-        blastAnimationFrames: testExplosion,
-        blastAnimationFps: 25,
-        projectileTypes: {
-            shot1: Ammo.BasicShot,
-            shot2: Ammo.Spreader,
-            shot3: Ammo.Flower,
-            shot4: Ammo.Digger,
-            shot5: Ammo.Bouncer,
-            shot6: Ammo.MegaBouncer,
-            shot7: Ammo.GigaBouncer,
-            shot8: Ammo.PineShot
-        },
-        animations: { global: Animations },
-        impactData: [],
-        drawProjectile: true,
-
-
-        tanks: {[Tank.id]: Tank},
-        terrain: Terrain,
-        lastStamp: performance.now(),
-        redrawJob: Workers.drawTerrain("background", "blastTerrain", config.terrain.fill, config.terrain.edge)
-            .then(() => Workers.updateCache("background"))
-    };
-
-    {
-        // setup functions that required loaded assets
-        Ammo.Bouncer.onBounceCallback = function () {
-            config.audio.player.add(config.audio.sources.bouncer.Instance().play(), true);
-        }
-        Ammo.MegaBouncer.onBounceCallback = function () {
-            config.audio.player.add(config.audio.sources.bouncer.Instance().play(), true);
-        }
-    }
-
-    {
-        // setting up UI
-        const [fireImage, selectImage, rightImage, leftImage, shotTypeImage] = buttons;
-        fireImage.height = 100;
-        selectImage.height = 100;
-        rightImage.height = 100;
-        leftImage.height = 100;
-        shotTypeImage.height = 80;
-        const fireButton = new Menu.Button(fireImage);
-        fireButton.position.apply(75, 150);
-        const selectButton = new Menu.Button(selectImage);
-        selectButton.position.apply(300, 150);
-        const rightButton = new Menu.Button(rightImage);
-        rightButton.position.apply(Display.size.x - rightImage.width - 75, 150);
-        const leftButton = new Menu.Button(leftImage);
-        leftButton.position.apply(rightButton.position.x - leftImage.width - 25, 150);
-
-        const shotTypeIcon = new Menu.Icon(shotTypeImage);
-        shotTypeIcon.position.apply(520, 150);
-        shotTypeIcon.fontSize = 16;
-        shotTypeIcon.text = state.activeShot.name;
-
-        const btns = [fireButton, selectButton, rightButton, leftButton, shotTypeIcon];
-        let shotIdx = 0;
-        const shotMax = Object.keys(state.projectileTypes).length;
-        // setting up button callbacks
-        rightButton.onclick = rightButton.onhold = () => Mover.move(config.moveIncr);
-        leftButton.onclick = leftButton.onhold = () => Mover.move(-config.moveIncr);
-        selectButton.onclick = () => {
-            shotIdx = (shotIdx+1)%shotMax;
-            state.activeShot = state.projectileTypes[`shot${shotIdx+1}`];
-            shotTypeIcon.text = state.activeShot.name;
-        };
-        fireButton.onclick = () => {
-            if (state.projectile === undefined)
-                fireProjectile(state.activeShot, state, config);
-        }
-
-        UIInterface.insert() // draw layer zero after background but before terrain
-            .push(Aimer);
-        UIInterface.insert()
-            .push(...btns);
-    }
-    Mover.set(Math.floor(Display.size.x / 4));
-    Aimer.update(Tank.position.add({x: 0, y: Display.size.y})); // aim straight up and set power to 100% (1)
-    Display.canvas.focus();
-    // [!] testing
-    if (DEBUG_ENABLED()) {
-        window._GAME_STATE = state;
-        window._GAME_CONFIG = config;
-    }
-    if (document.readyState === "complete") {
-        animate(state, config);
-    } else {
-        window.addEventListener("load", () => animate(state, config));
-    }
 }
