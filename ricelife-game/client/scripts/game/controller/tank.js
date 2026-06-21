@@ -1,4 +1,4 @@
-import { Vector, Direction } from "../geometry/geometry.js";
+import { Vector } from "../geometry/geometry.js";
 import { deg2rad, rad2deg, TrackableObject } from "../utils/utils.js";
 
 export class TankController extends TrackableObject {

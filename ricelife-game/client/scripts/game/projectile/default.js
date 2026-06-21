@@ -1,5 +1,5 @@
 import { TrackableObject, floatEqual } from "../utils/utils.js";
-import { Circle, Vector, Direction, Color, Path, Ray } from "../geometry/geometry.js";
+import { Circle, Vector, Color, Path, Ray } from "../geometry/geometry.js";
 import { Blast } from "./blast.js";
 
 export class Projectile extends TrackableObject {
@@ -212,7 +212,7 @@ export class ShotStage extends TrackableObject {
     #blasts;
     #time = 0; // global time, seperate from Shot time
     #delayTime; // don't start updating shot until this duration has passed
-    #lastCollision; // may change every time update() is called. Contains the time (from Shot), position (Vector), direction (Vector<Direction>), and normal (radians | undefined) of the last intersection, or undefined if none.
+    #lastCollision; // may change every time update() is called. Contains the time (from Shot), position (Vector), direction (Vector), and normal (radians | undefined) of the last intersection, or undefined if none.
     #collisionCallback; // <bound to This> ([...{polygon: Polygon, overlap: Path}]) => undefined
     #updateCallback; // <bound to This> () => undefined
     #colliders; // list of polygons that can be collided with
@@ -252,7 +252,7 @@ export class ShotStage extends TrackableObject {
         } else return undefined; // nothing intersecting
         return intersections;
     }
-    // returns time (relative to Shot), position (Vector), direction (Vector<Direction>), normal (radians | undefined)
+    // returns time (relative to Shot), position (Vector), direction (Vector), normal (radians | undefined)
     #captureShotData () {
         const { shot, colliders } = this;
         let normal;

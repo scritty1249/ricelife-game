@@ -1,4 +1,4 @@
-import { Vector, Direction, Path, Ray, Circle, Color, Triangle } from "../geometry/geometry.js";
+import { Vector, Path, Ray, Circle, Color, Triangle } from "../geometry/geometry.js";
 import { rad2deg, deg2rad, floatEqual, clamp, normalizeAngle, TrackableObject } from "../utils/utils.js";
 
 export class InputListener { // wrapper for K&M input
@@ -216,7 +216,7 @@ export class MovementController { // only moves along X axis
         const position = this.#player.position;
 
         const maxHeight = this.#player.height + position.y + this.offsetY; // next position should not be going OVER this - under is still fine. (player would be falling)
-        const ray = Ray(new Vector(amount, this.#terrainHeight), Direction(270), this.#terrainHeight - 1);
+        const ray = Ray(new Vector(amount, this.#terrainHeight), Vector.fromAngle(deg2rad(270)), this.#terrainHeight - 1);
         const hits = this.#terrain.raycast(ray);
         const exiting = hits.some(({entering}) => !entering);
 
@@ -241,7 +241,7 @@ export class MovementController { // only moves along X axis
 
     *#findValidPoints (targetX) { // [!] TODO: THIS WILL ALLOW PLAYERS TO JUMP OVER PIXEL GAPS (INTENDED) BUT ALSO ALLOWS THEM TO PHASE THROUGH WALLS IF THIN ENOUGH
         const { position, width } = this.#player;
-        const ray = Ray(new Vector(), Direction(90), this.#terrainHeight - 1);
+        const ray = Ray(new Vector(), Vector.fromAngle(Math.PI/2), this.#terrainHeight - 1);
         const movingRight = targetX > position.x;
         const maxHeight = position.y + (this.#player.height / 2); // next position should not be going OVER this - under is still fine. (player would be falling)
         const nodes = this.#terrain.edgeNodes(true);

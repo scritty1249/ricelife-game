@@ -1,5 +1,5 @@
 import { InputListener, MovementController, TankController, AppCanvas, AimController, WorkerController } from "./controller/controller.js";
-import { Vector, Direction, Color, Polygon, Ray, Path } from "./geometry/geometry.js";
+import { Vector, Color, Polygon, Ray, Path } from "./geometry/geometry.js";
 import { drawCircle, drawMarker, drawLine, drawText, outlineImage } from "./utils/utils.js";
 import { drawTerrain, generateTerrain, generateWave } from "./terrain/terrain.js";
 import { LoadImage, Spritesheet, Animation, AnimationList } from "./animate/animate.js";
@@ -440,12 +440,12 @@ function drawDebugOverlay (state, config) {
     }
 
     // draw Y-axis positioning raycasters
-    const ray = Ray(new Vector(player.position.x, 0), Direction(90), config.display.size.y - 20);
+    const ray = Ray(new Vector(player.position.x, 0), Vector.fromAngle(Math.PI/2), config.display.size.y - 20);
     drawCircle(cursor, ray.at(0), 7, "purple")
     drawCircle(cursor, ray.at(-1), 7, "white")
     state.terrain.raycast(ray)
         .toSorted((a, b) => b.point.y - a.point.y)
-        .forEach(({point, angle, entering}, i) => drawMarker(cursor, point, Direction((angle + Math.PI) % (2 * Math.PI), false), 4, 20, entering ? "purple" : "white"));
+        .forEach(({point, angle, entering}, i) => drawMarker(cursor, point, Vector.fromAngle(angle + Math.PI), 4, 20, entering ? "purple" : "white"));
 
     if (state.projectile) {
         if (state.landing) {

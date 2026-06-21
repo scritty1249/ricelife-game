@@ -201,6 +201,7 @@ export class Vector {
     toString () { return `(${this.x.toFixed(3)}, ${this.y.toFixed(3)})` }
     toJSON () { return {x: this.x, y: this.y} }
     static fromObject (object) { return new Vector(object?.x, object?.y) }
+    static fromAngle (radians) { return new Vector(Math.cos(radians), Math.sin(radians)) }
     static average (vectors = []) {
         if (!vectors.every((vec) => vec.isVector)) throw new Error(`[${this.constructor.name}]: Cannot find Vector average with non-Vector type(s)`);
         const vec = new Vector();
@@ -258,9 +259,4 @@ export class Color {
     set a (number) { return (this.#a = Color.#setValue(number)) }
 
     static #setValue (value) { return clamp(value, 0, 255) }
-}
-
-export function Direction (angle, degrees = true) {
-    const rad = degrees ? deg2rad(angle) : angle;
-    return new Vector(Math.cos(rad), Math.sin(rad));
 }

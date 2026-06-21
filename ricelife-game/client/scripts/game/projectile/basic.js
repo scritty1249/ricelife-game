@@ -1,6 +1,6 @@
 import { Ammo, Shot } from "./default.js";
 import { Blast } from "./blast.js";
-import { Circle, Vector, Direction, Color } from "../geometry/geometry.js";
+import { Circle, Vector, Color } from "../geometry/geometry.js";
 import { deg2rad } from "../utils/utils.js";
 import * as Behaviors from "./behaviors.js";
 
@@ -25,7 +25,7 @@ class DefaultAmmo extends Ammo {
         this.power = power;
         this.resolution = resolution;
         // convert params for Shot(s)
-        this.initalVelocity = Direction(angle, false).mul(400 * power);
+        this.initalVelocity = Vector.fromAngle(angle).mul(400 * power);
         // setup stages
         for (let i = 0; i < this.constructor.stageCount; i++) this.newStage();
     }
@@ -44,7 +44,7 @@ export class BasicShot extends DefaultAmmo {
         const { initalSpeed, drag, radius, blastRadius } = this.constructor;
         const acceleration = this.constructor.acceleration.clone();
         // convert params for Shot(s)
-        const velocity = Direction(angle, false).mul(400 * power);
+        const velocity = Vector.fromAngle(angle).mul(400 * power);
         // init geometry
         const shape = new Circle(origin, radius, resolution);
         const shot = new Shot(origin, velocity, acceleration, drag, shape);
@@ -65,7 +65,7 @@ export class Flower extends DefaultAmmo {
         const { initalSpeed, drag, radius, blastRadius } = this.constructor;
         const acceleration = this.constructor.acceleration.clone();
         // convert params for Shot(s)
-        const velocity = Direction(angle, false).mul(400 * power);
+        const velocity = Vector.fromAngle(angle).mul(400 * power);
         // init geometry
         const shape = new Circle(origin, radius, resolution);
         const shot = new Shot(origin, velocity, acceleration, drag, shape);
@@ -124,7 +124,7 @@ export class Bouncer extends DefaultAmmo {
         const { initalSpeed, drag, radius, blastRadius } = this.constructor;
         const acceleration = this.constructor.acceleration.clone();
         // convert params for Shot(s)
-        const velocity = Direction(angle, false).mul(400 * power);
+        const velocity = Vector.fromAngle(angle).mul(400 * power);
         // init geometry
         const shape = new Circle(origin, radius, resolution);
         const shot = new Shot(origin, velocity, acceleration, drag, shape);
@@ -190,7 +190,7 @@ export class Digger extends DefaultAmmo {
         const { initalSpeed, drag, radius, blastRadius } = this.constructor;
         const acceleration = this.constructor.acceleration.clone();
         // convert params for Shot(s)
-        const velocity = Direction(angle, false).mul(400 * power);
+        const velocity = Vector.fromAngle(angle).mul(400 * power);
         // init geometry
         const shape = new Circle(origin, radius, resolution);
         const shot = new Shot(origin, velocity, acceleration, drag, shape);
@@ -276,7 +276,7 @@ export class PineShot extends DefaultAmmo {
         const { initalSpeed, drag, radius, blastRadius } = this.constructor;
         const acceleration = this.constructor.acceleration.clone();
         // convert params for Shot(s)
-        const velocity = Direction(angle, false).mul(400 * power);
+        const velocity = Vector.fromAngle(angle).mul(400 * power);
         // init stem geometry
         const stemShape = new Circle(origin, radius, resolution);
         const stemShot = new Shot(origin, velocity, acceleration, drag, stemShape);
