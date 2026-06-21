@@ -123,6 +123,8 @@ export class Vector {
             ? this.y / this.x
             : this.x / this.y;
     }
+    max () { return Math.max(this.x, this.y) }
+    min () { return Math.min(this.x, this.y) }
     magnitude () {
         return Math.sqrt(this.pow(2).sum());
     }
