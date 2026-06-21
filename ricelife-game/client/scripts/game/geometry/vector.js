@@ -80,8 +80,9 @@ export class Vector {
         vec.y = x;
         return vec;
     }
-    project (radians, magnitude, mutate = false) {
-        const [dx, dy] = [magnitude * Math.cos(radians), magnitude * Math.sin(radians)];
+    // moves Vector by distance at specified angle
+    project (radians, distance, mutate = false) {
+        const [dx, dy] = [distance * Math.cos(radians), distance * Math.sin(radians)];
         if (mutate) {
             this.x += dx;
             this.y += dy;
@@ -127,11 +128,12 @@ export class Vector {
     }
     rotate (radians, mutate = false) {
         const vec = mutate ? this : this.clone();
-        const cos = Math.cos(radians);
-        const sin = Math.sin(radians);
-        const x = vec.mul({x: cos, y: sin}).diff();
-        const y = vec.mul({x: sin, y: cos}).sum();
-        return vec.apply(x, y); // for chaining
+        const angle = radians?.isVector
+            ? radians
+            : Vector.fromAngle(radians);
+        const x = vec.mul(angle).diff();
+        const y = vec.mul(angle.transpose()).sum();
+        return vec.apply(x, y);
     }
     pivot (radians, origin, mutate = false) {
         const vec = mutate ? this : this.clone();
