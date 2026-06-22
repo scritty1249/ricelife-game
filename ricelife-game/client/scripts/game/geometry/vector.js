@@ -124,6 +124,7 @@ export class Vector {
             : this.x / this.y;
     }
     modulo (reverse = false) {
+        if (this.x === 0 && this.y === 0) return 0; // guard against Javascript bug (0 % 0 == NaN)
         return reverse
             ? this.y % this.x
             : this.x % this.y;
