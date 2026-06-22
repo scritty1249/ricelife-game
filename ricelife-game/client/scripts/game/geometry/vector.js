@@ -214,6 +214,17 @@ export class Vector {
         vec.div(vectors.length, true);
         return vec;
     }
+    static segmentsIntersect (start1, end1, start2, end2) {
+        const denom = (end2.y - start2.y) * (end1.x - start1.x) - (end2.x - start2.x) * (end1.y - start1.y);
+        if (denom === 0) return false; // parallel lines
+        const ua = ((end2.x - start2.x) * (start1.y - start2.y) - (end2.y - start2.y) * (start1.x - start2.x)) / denom;
+        const ub = ((end1.x - start1.x) * (start1.y - start2.y) - (end1.y - start1.y) * (start1.x - start2.x)) / denom;
+        return ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1;
+    }
+    static isBetween (target, start, end) {
+        return start.cross(target) >= 0
+            && target.cross(end) >= 0;
+    }
 }
 
 export class Color {
