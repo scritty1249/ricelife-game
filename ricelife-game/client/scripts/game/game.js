@@ -302,9 +302,8 @@ async function fireProjectile (shot, state, config) { // [!} laziness
                 }
             };
             for (let i = 0; i < blasts.length; i++) {
-                const spritesheet = state.blastAnimationFrames.clone();
                 const blast = blasts.at(i);
-                const blastSize = blast.shape.globalTransformation.scale.magnitude();
+                const blastSize = blast.shape.getBoundingBox().size.magnitude();
                 // sound effects
                 const bassNode = config.audio.ctx.newBassNode();
                 bassNode.frequency.value = 200;
@@ -312,12 +311,11 @@ async function fireProjectile (shot, state, config) { // [!} laziness
                 const sfxNode = config.audio.sources.blast.Instance();
                 sfxLayer.add(sfxNode); // [!] whole layer is already ephemeral so no need to apply to the instance
                 // visual effects
-                spritesheet.width = (blastSize * 2) * 20;
                 const ani = new ShapeAnimation(blast.shape.clone(), .6, state.blastAnimationFps, drawBlastAnimation);
                 ani.speed = 1.25;
                 ani.onstart.then(() => {
                     // play sfx
-                    bassNode.gain.value = 15 * ((blastSize / 50)**3);
+                    bassNode.gain.value = (blastSize / 50)**3;
                     sfxNode.play();
                 });
                 impact.animations.push(ani);
