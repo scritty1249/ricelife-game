@@ -275,6 +275,11 @@ export class ShotStage extends TrackableObject {
     #isStarted = false; // trip this flag once we start updating projectile, never set again to prevent tracking errors
     #blastTimeOffset = 0; // offset time when creating new Blasts
     #finishedPromise = Promise.withResolvers();
+    #legend; // when set, ShotStage will skip all collision checks and follow based on this
+    #record = { // records data to be exported
+        collisions: [],
+        duration: 0
+    };
     constructor (shot, delay = 0, blastsReference = [], collisionsReference = []) {
         if (!shot?.isShot) throw new Error(`[${this.constructor.name}]: Invalid parameter - expected Shot, got ${typeof shot}`);
         super();
@@ -368,46 +373,48 @@ export class ShotStage extends TrackableObject {
     #projectUpdate (seconds, resolution = 1) {
         const { shot, blasts, colliders } = this;
         const projection = shot.project(seconds);
-        if (!this.#isCollisionAhead(projection)) return shot.update(seconds);
-        // collect "front facing" coordinates
-        const diff = projection.velocity.sub(shot.current.velocity);
-        const distance = shot.position.distance(projection.position);
-        const direction = diff.normalize();
-        const origin = shot.shape.origin;
-        const points = shot.shape.Polygon(resolution).path.points;
-        const rays = [];
-        let hitDistance = undefined;
-        for (const point of points) {
-            const dir = point.sub(origin).normalize(true);
-            // only draw ray for front-facing points on the Shape
-            if (direction.dot(dir) >= 0)
-                rays.push(Ray(point.clone(), direction.clone(), distance));
-        }
-        for (const collider of colliders) {
-            // [!] temporary fix- assign blasts to polygon holes for raycasting, then remove after
-            const colliderHoles = collider.holes;
-            const originalHoleCount = colliderHoles.length;
-            for (const blast of blasts)
-                colliderHoles.push(blast.shape.Polygon(resolution));
-            // do raycasts
-            for (const ray of rays) {
-                const hits = collider.raycast(ray);
-                for (const hit of hits)
-                    if (hitDistance === undefined || hit.distance < hitDistance)
-                        hitDistance = hit.distance;
+        if (this.#isCollisionAhead(projection)) {
+            // collect "front facing" coordinates
+            const diff = projection.velocity.sub(shot.current.velocity);
+            const distance = shot.position.distance(projection.position);
+            const direction = diff.normalize();
+            const origin = shot.shape.origin;
+            const points = shot.shape.Polygon(resolution).path.points;
+            const rays = [];
+            let hitDistance = undefined;
+            for (const point of points) {
+                const dir = point.sub(origin).normalize(true);
+                // only draw ray for front-facing points on the Shape
+                if (direction.dot(dir) >= 0)
+                    rays.push(Ray(point.clone(), direction.clone(), distance));
             }
-            // remove blasts / temp holes
-            colliderHoles.splice(originalHoleCount, blasts.length);
-        }
-        if (hitDistance === undefined) {
-            shot.update(seconds);
+            for (const collider of colliders) {
+                // [!] temporary fix- assign blasts to polygon holes for raycasting, then remove after
+                const colliderHoles = collider.holes;
+                const originalHoleCount = colliderHoles.length;
+                for (const blast of blasts)
+                    colliderHoles.push(blast.shape.Polygon(resolution));
+                // do raycasts
+                for (const ray of rays) {
+                    const hits = collider.raycast(ray);
+                    for (const hit of hits)
+                        if (hitDistance === undefined || hit.distance < hitDistance)
+                            hitDistance = hit.distance;
+                }
+                // remove blasts / temp holes
+                colliderHoles.splice(originalHoleCount, blasts.length);
+            }
+            if (hitDistance === undefined) {
+                shot.update(seconds);
+            } else {
+                const target = direction
+                    .mul(hitDistance, true)
+                    .add(origin, true);
+                shot.applyPosition(target);
+                this.#updateCollision(true);
+            }
         } else {
-            const target = direction
-                .mul(hitDistance, true)
-                .add(origin, true);
-            shot.position.apply(target);
-            shot.shape.moveTo(target);
-            this.#updateCollision(true);
+            shot.update(seconds);
         }
     }
     // returns intersections if colliding, and undefined if not colliding with anything
@@ -460,11 +467,21 @@ export class ShotStage extends TrackableObject {
             // do nothing, not colliding
         } else if (forceCollision || intersections.length) {
             this.#lastCollision = this.#captureShotData();
+            this.#record.collisions.push({
+                time: this.time,
+                position: this.shot.position.clone(),
+                velocity: this.shot.current.velocity.clone()
+            });
             this.collisionCallback?.(intersections);
         } else {
             // should never happen. Log computed data
             console.warn(`[${this.constructor.name}]: Failed to find intersection for collision`, intersections);
         }
+    }
+    #setFinished () { // [!] does not check if already finished. Caller is responsible for making sure this is only used once
+        this.#isFinished = true;
+        this.#record.duration = this.time;
+        this.#finishedPromise.resolve();
     }
 
     update (seconds) {
@@ -475,13 +492,29 @@ export class ShotStage extends TrackableObject {
                 return;   
             };
             const { shot } = this;
-            if (!shot.isStopped) this.#updateCollision(false);
-            this.time += seconds;
-            this.#projectUpdate(seconds, 1);
-            this.updateCallback?.();
-            if (!this.#isFinished && shot.isStopped) {
-                this.#isFinished = true;
-                this.#finishedPromise.resolve();
+            const legend = this.#legend;
+            if (legend === undefined) {
+                const { shot } = this;
+                if (!shot.isStopped) this.#updateCollision(false);
+                this.time += seconds;
+                this.#projectUpdate(seconds, 1);
+                this.updateCallback?.();
+                if (!this.#isFinished && shot.isStopped)
+                    this.#setFinished();
+            } else {
+                this.time += seconds;
+                const nextCollision = legend.collisions[0];
+                if (nextCollision && this.time >= nextCollision.time) {
+                    legend.collisions.shift();
+                    shot.applyPosition(nextCollision.position);
+                    shot.current.velocity.apply(nextCollision.velocity);
+                    this.#updateCollision(true);
+                } else {
+                    shot.update(seconds);
+                }
+                this.updateCallback?.();
+                if (!this.#isFinished && this.time >= legend.duration)
+                    this.#setFinished();
             }
         } catch (error) {
             this.#finishedPromise.reject(error);
@@ -502,6 +535,33 @@ export class ShotStage extends TrackableObject {
     }
     isWithin (size) {
         return this.shot.isWithin(size);
+    }
+    getLegend () {
+        // clones and returns everything in record. The resulting object should be safely passable between worker threads
+        const record = this.#record;
+        const legend = {
+            collisions: Array.from(record, ({time, position, velocity}) => [
+                time, [position.x, position.y], [velocity.x, velocity.y]
+            ]),
+            duration: record.duration
+        };
+        return legend;
+    }
+    setLegend (legend) {
+        try {
+            this.#legend = {
+                collisions: Array.from(legend[1],
+                    ([time, position, velocity]) => ({
+                        time: time,
+                        position: new Vector(position[0], position[1]),
+                        velocity: new Vector(velocity[0], velocity[1])
+                    })),
+                duration: legend[0]
+            };
+        } catch (error) {
+            console.error(`[${this.constructor.name}]: Error parsing legend object`);
+            throw error;
+        }
     }
     // creates a fresh instance with the same Shot, delay and callback. References and blast time offset are not copied.
     clone (deep = false, blastsReference = [], collisionsReference = []) {
@@ -540,6 +600,7 @@ export class MultiShotStage extends TrackableObject {
     #colliders; // list of polygons that stages can collide with
     #isStarted = false; // trip this flag once we start updating stages, never set again to prevent tracking errors
     #finishedPromise = Promise.withResolvers();
+    #isResolved = false;
     constructor (delay = 0, blastsReference = [], collisionsReference = []) {
         super();
         this.#delayTime = delay;
@@ -561,7 +622,10 @@ export class MultiShotStage extends TrackableObject {
                 if (isDelayed) return;
             }
             this.#updateStages(seconds);
-            if (this.isFinished) this.#finishedPromise.resolve(); // [!] inefficient - resolves the same Promise repeatedly
+            if (!this.#isResolved && this.isFinished) {
+                this.#isResolved = true;
+                this.#finishedPromise.resolve();
+            }
         } catch (error) {
             this.#finishedPromise.reject(error);
             throw error;
@@ -588,6 +652,21 @@ export class MultiShotStage extends TrackableObject {
             newStage.collisionCallback = stage.collisionCallback;
         }
         return multishot;
+    }
+    getLegend () {
+        return this.stages
+            .map((stage) => stage.getLegend())
+            .map(({duration, collisions}) => [duration, collisions])
+    }
+    setLegend (legend) {
+        try {
+            const stages = this.stages;
+            for (let i = 0; i < this.size; i++)
+                stages[i].setLegend(legend[i]);
+        } catch (error) {
+            console.error(`[${this.constructor.name}]: Error parsing legend array`);
+            throw error;
+        }
     }
 
     get isMultiShotStage () { return true }
@@ -654,6 +733,7 @@ export class Ammo extends TrackableObject {
             ammo.update(increment);
             if (ammo.isFinished) result.time = ammo.time;
         }
+        result.legend = ammo.getLegend(); // [!] no need to pass as transfer, we shouldn't have a large amount of collisions
         result.blasts = float64
             ? ammo.blasts.map((blast) => blast.decode())
             : [...ammo.blasts]; // dereference
@@ -669,6 +749,19 @@ export class Ammo extends TrackableObject {
         for (const stage of this.#stages) stages.push(stage.clone(deep));
         const ammo = new Ammo(this.colliders, stages);
         return ammo;
+    }
+    getLegend () {
+        return this.stages.map((stage) => stage.getLegend())
+    }
+    setLegend (legend) {
+        try {
+            const stages = this.stages;
+            for (let i = 0; i < stages.length; i++)
+                stages[i].setLegend(legend[i]);
+        } catch (error) {
+            console.error(`[${this.constructor.name}]: Error parsing legend arrays`);
+            throw error;
+        }
     }
 
     get isAmmo () { return true }

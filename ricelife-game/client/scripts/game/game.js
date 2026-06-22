@@ -277,6 +277,7 @@ async function fireProjectile (shot, state, config) { // [!} laziness
     projectile.colliders.push(state.terrain);
     const muzzleFlash = generateMuzzleFlash(state, config);
     const landing = await state.threading.traceProjectile("blastTerrain", projectile, config.traceIncrement, config.traceMaxTime);
+    projectile.setLegend(landing.legend);
     state.blastTerrain = undefined;
     state.impactData = [];
     if (landing.blasts.length) {
