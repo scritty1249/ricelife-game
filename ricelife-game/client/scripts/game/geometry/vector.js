@@ -137,8 +137,9 @@ export class Vector {
     rotate (radians, mutate = false) {
         const vec = mutate ? this : this.clone();
         const angle = radians?.isVector
-            ? radians
+            ? radians.clone()
             : Vector.fromAngle(radians);
+        if (floatEqual(angle.x, 0) && floatEqual(angle.y, 0)) return vec; // no rotation
         const x = vec.mul(angle).diff();
         const y = vec.mul(angle.transpose()).sum();
         return vec.apply(x, y);
