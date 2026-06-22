@@ -481,10 +481,11 @@ function drawDebugOverlay (state, config) {
 
     if (state.input.pointer.isActive) {
         const { position } = state.input.pointer;
-        drawCircle(cursor, position, 4, "yellow");
-        drawText(cursor, position, position.toString(), "yellow");
+        const c = state.terrain.isIntersecting(position) ? "green" : "yellow";
+        drawCircle(cursor, position, 4, c);
+        drawText(cursor, position, position.toString(), c);
         if (state.input.pointer.isDragging && state.aimer.isOver(state.input.pointer.dragStart))
-            drawLine(cursor, player.barrelPos, position, 2, "rgba(255, 255, 0, 0.5)");
+            drawLine(cursor, player.barrelPos, position, 2, c);
     }
 }
 
