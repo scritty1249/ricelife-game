@@ -341,7 +341,7 @@ async function fireProjectile (shot, state, config) { // [!} laziness
 
 function generateMuzzleFlash (state, config) { // [!] laziness
     const ss = state.muzzleFlashAnimationFrames.clone();
-    ss.width = 400 * (state.aimer.power**3);
+    ss.width = 600 * (state.aimer.power**3);
     ss.rotation = state.aimer.rotation + Math.PI;
     const ani = new Animation(state.tanks[config.playerTank].barrelPos, ss, state.muzzleFlashAnimationFps);
     ani.speed = 2.3;
