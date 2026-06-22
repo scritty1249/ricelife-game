@@ -265,7 +265,7 @@ export class PineShot extends DefaultAmmo {
     static needleAcceleration = new Vector(0, -500);
     static needleDrag = 0// 0.001;
     static needleLaunchVelocity = new Vector(120, 45);
-    static stemTransitionSpeedThreshold = 10; // [!] poorly named
+    static stemTransitionSpeedThreshold = 40; // [!] poorly named, also should be a fraction of stemBounceVelocity
     static stemBounceVelocity = new Vector(0, 200);
     static stemBounceDrag = 0.0015;
     static stemBounceAcceleration = new Vector(0, -100);
