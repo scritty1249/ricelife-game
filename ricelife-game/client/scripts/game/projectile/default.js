@@ -127,7 +127,8 @@ export class Shot extends Projectile {
     }
 
     draw (cursor) {
-        this.drawGlow(cursor);
+        this.drawTailGlow(cursor);
+        this.drawMainGlow(cursor);
         this.drawTail(cursor);
         this.drawShot(cursor);
     }
@@ -149,19 +150,35 @@ export class Shot extends Projectile {
             tail.transformation.reset();
             tail.transformation.scale.apply(scale);
             tail.applyTransformation();
-            this.#drawGlow(cursor, tail);
-        }
-        for (let i = 0; i < this.tail.length; i++) {
-            const tail = this.tail[i];
             tail.draw(cursor, true);
-            tail.transformation.restore();
+            tail.transformation.scale.apply(scale === 0 ? 0 : 1 / scale);
             tail.applyTransformation();
+            tail.transformation.restore();
             cursor.fill();
         }
         cursor.restore();
     }
-    drawGlow (cursor) {
+    drawMainGlow (cursor) {
         this.#drawGlow(cursor, this.shape);
+    }
+    drawTailGlow (cursor) {
+        cursor.save();
+        cursor.fillStyle = this.tailColor.toString();
+        const minScale = 1 / this.tail.length;
+        for (let i = 0; i < this.tail.length; i++) {
+            const tail = this.tail[i];
+            const scale = minScale + (i / this.tail.length);
+            tail.transformation.save();
+            tail.transformation.reset();
+            tail.transformation.scale.apply(scale);
+            tail.applyTransformation();
+            this.#drawGlow(cursor, tail);
+            tail.transformation.scale.apply(scale === 0 ? 0 : 1 / scale);
+            tail.applyTransformation();
+            tail.transformation.restore();
+            cursor.fill();
+        }
+        cursor.restore();
     }
     applyPosition (vector) {
         this.shape.moveTo(vector);
