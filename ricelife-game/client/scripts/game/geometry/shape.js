@@ -126,7 +126,6 @@ export class Shape {
     // counts overlapping edge as an intersection
     isIntersecting (value) {
         const bbox = this.getBoundingBox();
-        console.log(bbox.toString());
         if (value?.isVector && !bbox.isIntersecting(value)) return false;
         else if ((value?.isShape || value?.isPolygon) && !bbox.isIntersecting(value.getBoundingBox())) return false;
         else if (value?.isVector) return this.isVectorIntersecting(value);
