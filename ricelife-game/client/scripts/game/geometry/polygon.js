@@ -5,6 +5,8 @@ import { TrackableObject } from "../utils/utils.js";
 export class Polygon extends TrackableObject { // points should be ordered clockwise (in positioning)
     #path;
     #holes;
+    #bbox;
+    #lastPathHash; // used to check if bbox needs to be recomputed
     constructor (...points) {
         super();
         this.#holes = []; // hole paths must be reordered to counter clockwise positioning
@@ -164,6 +166,13 @@ export class Polygon extends TrackableObject { // points should be ordered clock
 
     isIntersecting (value, ignoreholes = false) {
         if (value?.isVector) {
+            // bounding box check, is point even close to this polygon?
+            const boundingBox = this.getBoundingBox();
+            if (value.x < boundingBox[0].x
+                || value.x > boundingBox[1].x
+                || value.y < boundingBox[0].y
+                || value.y > boundingBox[1].y
+            ) return false;
             let inside = false;
             const { x, y } = value;
             const path = this.path;
@@ -206,6 +215,23 @@ export class Polygon extends TrackableObject { // points should be ordered clock
             });
         }
         return hits;
+    }
+
+    getBoundingBox () {
+        if (this.#lastPathHash === this.path.hash) return Array.from(this.#bbox, (pt) => pt.clone());
+        const points = this.edgePoints(false, true);
+        if (!points.length) return [new Vector(), new Vector()];
+        const min = points[0].clone();
+        const max = points[0].clone();
+        for (const point of this.edgePoints(false, true)) {
+            if (point.x < min.x) min.x = point.x;
+            if (point.y < min.y) min.y = point.y;
+            if (point.x > max.x) max.x = point.x;
+            if (point.y > max.y) max.y = point.y;
+        }
+        this.#bbox = [min, max];
+        this.#lastPathHash = this.path.hash;
+        return Array.from(this.#bbox, (pt) => pt.clone());
     }
 
     nearestTo (point) { // returns the nearest SURFACE point to the given point. Accounts for hole "surfaces"
