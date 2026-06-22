@@ -296,7 +296,7 @@ export class Circle extends Shape {
     draw (cursor, close = true) {
         if (this.isEllipse && this.radii.x === 0) return;
         const { origin, right, left } = this.blob;
-        const { radii } = this;
+        const { radii, transformation } = this;
         const precision = this.constructor.DRAW_PRECISION;
         // account for canvas orientation
         transformation.save();
