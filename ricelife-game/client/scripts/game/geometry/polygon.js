@@ -1,15 +1,14 @@
-import { Path, tweenPoints } from "./path.js";
+import { Path, BoundingBox, tweenPoints } from "./path.js";
 import { Vector } from "./vector.js";
 import { TrackableObject } from "../utils/utils.js";
 
 export class Polygon extends TrackableObject { // points should be ordered clockwise (in positioning)
     #path;
-    #holes;
-    #bbox;
+    #holes = new Array(); // hole paths must be reordered to counter clockwise positioning
+    #bbox = new BoundingBox();
     #lastPathHash; // used to check if bbox needs to be recomputed
     constructor (...points) {
         super();
-        this.#holes = []; // hole paths must be reordered to counter clockwise positioning
         this.#holes.apply = function (...holes) {
             this.splice(0, this.length);
             for (const hole of holes) {
@@ -167,12 +166,7 @@ export class Polygon extends TrackableObject { // points should be ordered clock
     isIntersecting (value, ignoreholes = false) {
         if (value?.isVector) {
             // bounding box check, is point even close to this polygon?
-            const boundingBox = this.getBoundingBox();
-            if (value.x < boundingBox[0].x
-                || value.x > boundingBox[1].x
-                || value.y < boundingBox[0].y
-                || value.y > boundingBox[1].y
-            ) return false;
+            if (!this.getBoundingBox().isIntersecting(value)) return false;
             let inside = false;
             const { x, y } = value;
             const path = this.path;
@@ -218,7 +212,7 @@ export class Polygon extends TrackableObject { // points should be ordered clock
     }
 
     getBoundingBox () {
-        if (this.#lastPathHash === this.path.hash) return Array.from(this.#bbox, (pt) => pt.clone());
+        if (this.#lastPathHash === this.path.hash) return this.#bbox.clone();
         const points = this.edgePoints(false, true);
         if (!points.length) return [new Vector(), new Vector()];
         const min = points[0].clone();
@@ -229,9 +223,9 @@ export class Polygon extends TrackableObject { // points should be ordered clock
             if (point.x > max.x) max.x = point.x;
             if (point.y > max.y) max.y = point.y;
         }
-        this.#bbox = [min, max];
+        this.#bbox.apply(min, max);
         this.#lastPathHash = this.path.hash;
-        return Array.from(this.#bbox, (pt) => pt.clone());
+        return this.#bbox.clone();
     }
 
     nearestTo (point) { // returns the nearest SURFACE point to the given point. Accounts for hole "surfaces"

@@ -218,6 +218,33 @@ export class Path extends TrackableObject { // points should be ordered clockwis
     }
 }
 
+export class BoundingBox {
+    #min = new Vector();
+    #max = new Vector();
+    constructor (min = undefined, max = undefined) {
+        if (min?.isVector) this.min.apply(min);
+        if (max?.isVector) this.max.apply(max);
+    }
+    isIntersecting (point) {
+        // meant for speed, don't typecheck
+        return !(point.x < this.min.x
+            || point.x > this.max.x
+            || point.y < this.min.y
+            || point.y > this.max.y
+        );
+    }
+    apply (min, max) {
+        this.min.apply(min);
+        this.max.apply(max);
+        return this; // for chaining
+    }
+    // deep clones by default, copies on init
+    clone () { return new BoundingBox(this.min, this.max) }
+    get isBoundingBox () { return true }
+    get min () { return this.#min }
+    get max () { return this.#max }
+}
+
 export function *tweenPoints (previous, current, resolution) {
     const diff = current.sub(previous),
         dist = Math.hypot(...diff);
