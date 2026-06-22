@@ -249,7 +249,7 @@ export class PineShot extends DefaultAmmo {
             const reflection = shot.current.velocity.apply(this.userData.bounceVelocity).clone();
             shot.drag = this.userData.bounceDrag;
             shot.acceleration.apply(this.userData.bounceAcceleration);
-            shot.position.y += shot.shape.radius; // move up to avoid exploding instantly
+            shot.position.y += shot.shape.radii.y; // move up to avoid exploding instantly
             // log for debugging
             this.userData.previousBounces.push({ direction, normal, reflection, point });
         } else {
