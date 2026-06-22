@@ -212,7 +212,7 @@ export class Polygon extends TrackableObject { // points should be ordered clock
     }
 
     getBoundingBox () {
-        if (this.#lastPathHash === this.path.hash) return this.#bbox.clone();
+        if (this.#lastPathHash === this.path.hash) return this.#bbox;
         const points = this.edgePoints(false, true);
         if (!points.length) return [new Vector(), new Vector()];
         const min = points[0].clone();
@@ -225,7 +225,7 @@ export class Polygon extends TrackableObject { // points should be ordered clock
         }
         this.#bbox.apply(min, max);
         this.#lastPathHash = this.path.hash;
-        return this.#bbox.clone();
+        return this.#bbox;
     }
 
     nearestTo (point) { // returns the nearest SURFACE point to the given point. Accounts for hole "surfaces"

@@ -1,5 +1,5 @@
 import { Polygon } from "./polygon.js";
-import { Path } from "./path.js";
+import { Path, BoundingBox } from "./path.js";
 import { Vector } from "./vector.js";
 import { floatEqual } from "../utils/utils.js";
 
@@ -90,6 +90,7 @@ export class Shape {
     #blob = {}
     #transform = new Transformation();
     #globalTransform = new Transformation(); // all transformations applied, compounded
+    #bbox = new BoundingBox();
     constructor () {
         if (this.constructor === Shape) throw new Error(`[${this.constructor.name}]: Cannot be initalized from parent class`);
     }
@@ -115,6 +116,7 @@ export class Shape {
         this.applyTransformation();
         this.transformation.restore();
     }
+    getBoundingBox () { return this.#bbox }
     // [!] holy shit man
     // children should overload for optimizations, but not needed
     isPolygonIntersecting (value) { return value.isIntersecting(this.origin) || value.edgePoints(true, true).some((point) => this.isVectorIntersecting(point)) }
@@ -123,7 +125,11 @@ export class Shape {
     isPolyInside (value) { return this.isPolygonInside(value.polygon) }
     // counts overlapping edge as an intersection
     isIntersecting (value) {
-        if (value?.isVector) return this.isVectorIntersecting(value);
+        const bbox = this.getBoundingBox();
+        console.log(bbox.toString());
+        if (value?.isVector && !bbox.isIntersecting(value)) return false;
+        else if ((value?.isShape || value?.isPolygon) && !bbox.isIntersecting(value.getBoundingBox())) return false;
+        else if (value?.isVector) return this.isVectorIntersecting(value);
         else if (value?.isPath) return this.isPathIntersecting(value);
         else if (value?.isPolygon) return this.isPolygonIntersecting(value);
         else if (value?.isCircle) return this.isCircleIntersecting(value);
@@ -134,7 +140,10 @@ export class Shape {
     // Checks if VALUE is inside of THIS
     // counts overlapping edges as still inside
     isInside (value) {
-        if (value?.isVector) return this.isVectorIntersecting(value);
+        const bbox = this.getBoundingBox();
+        if (value?.isVector && !bbox.isIntersecting(value)) return false;
+        else if ((value?.isShape || value?.isPolygon) && !bbox.isIntersecting(value.getBoundingBox())) return false;
+        else if (value?.isVector) return this.isVectorIntersecting(value);
         else if (value?.isPath) return this.isPathInside(value);
         else if (value?.isPolygon) return this.isPolygonInside(value);
         else if (value?.isCircle) return this.isCircleInside(value);
@@ -159,8 +168,7 @@ export class Shape {
     isPathInside (value) { return value.points.every((point) => this.isVectorIntersecting(point)) }
     isCircleInside (value) { throw new Error() }
     isTriangleInside (value) { throw new Error() }
-    
-
+    get hash () { throw new Error() }
     get origin () { return new Vector() }
     static fromObject (payload) {
         return Shape.TYPES[payload.data.type].fromObject(payload);
@@ -169,6 +177,7 @@ export class Shape {
 
 export class Circle extends Shape {
     static get TYPE () { return 0 }
+    #lastBboxHash;
     constructor (radius = undefined, position = undefined) {
         super();
         this.blob.radii = new Vector(1, 1); // need to support (X, Y) individually
@@ -326,7 +335,16 @@ export class Circle extends Shape {
         circle.blob.origin.apply(this.blob.origin);
         return circle;
     }
-
+    getBoundingBox () {
+        const bbox = super.getBoundingBox();
+        const { origin, radii } = this.blob;
+        const hash = Vector.mixedHash(origin, radii);
+        if (this.#lastBboxHash === hash) return bbox;
+        this.#lastBboxHash = hash;
+        bbox.min.apply(origin.sub(radii));
+        bbox.max.apply(origin.add(radii));
+        return bbox;
+    }
     get isCircle () { return true }
     get isEllipse () { return !floatEqual(this.blob.radii.modulo(), 0) }
     get radii () { return this.blob.radii }
@@ -359,6 +377,7 @@ export class Triangle extends Shape {
         right: new Vector(.5, Triangle.#LEG_Y),
         left: new Vector(-.5, Triangle.#LEG_Y)
     };
+    #lastBboxHash;
     constructor () {
         super();
         this.blob.origin = Triangle.#POINTS.origin.clone();
@@ -461,7 +480,23 @@ export class Triangle extends Shape {
         triangle.blob.left.apply(this.blob.left);
         return triangle;
     }
-    
+    getBoundingBox () {
+        const bbox = super.getBoundingBox();
+        const { path, origin } = this.blob;
+        const hash = path.hash;
+        if (this.#lastBboxHash === hash) return bbox;
+        bbox.min.apply(origin);
+        bbox.max.apply(origin);
+        for (const point of path) {
+            if (point.x > bbox.max.x) bbox.max.x = point.x;
+            if (point.y > bbox.max.y) bbox.max.y = point.y;
+            if (point.x < bbox.min.x) bbox.min.x = point.x;
+            if (point.y < bbox.min.y) bbox.min.y = point.y;
+        }
+        this.#lastBboxHash = hash;
+        return bbox;
+    }
+
     get isTriangle () { return true }
     // get / set leg lengths
     get height () {
@@ -578,8 +613,10 @@ export class Poly extends Shape {
         const poly = new Poly(this.blob.polygon.clone(true));
         return poly;
     }
+    getBoundingBox () { return this.polygon.getBoundingBox() }
 
     get isPoly () { return true }
+    get hash () { return this.polygon.path.hash }
     get origin () { return this.polygon.center }
     get polygon () { return this.blob.polygon }
     static fromObject (payload) {

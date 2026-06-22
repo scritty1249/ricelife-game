@@ -135,7 +135,7 @@ export class Path extends TrackableObject { // points should be ordered clockwis
     get hash () {
         // just hashes points, does not account for Path attributes (like ID)
         let hash = HASH_BASE;
-        for (const point of this.points) {
+        for (const point of this.points.slice(1)) {
             hash ^= point.hash;
             hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
         }
@@ -227,14 +227,18 @@ export class BoundingBox {
     }
     isIntersecting (value) {
         if (value?.isVector) {
-            return !(point.x < this.min.x
-                || point.x > this.max.x
-                || point.y < this.min.y
-                || point.y > this.max.y
-            );
+            return !(value.x < this.min.x
+                    || value.x > this.max.x
+                    || value.y < this.min.y
+                    || value.y > this.max.y
+                );
         } else if (value?.isBoundingBox) {
-            return this.isIntersecting(value.min) || this.isIntersecting(value.max);
-        } else throw new Error(`[${this.constructor.name}]: Cannot check bounds of unsupported type ${typeof value}`);
+            return !(value.max.x < this.min.x
+                    || value.min.x > this.max.x
+                    || value.max.y < this.min.y
+                    || value.min.y > this.max.y
+                );
+        } else return false; // dont throw errors on unknown types
     }
     apply (min, max) {
         this.min.apply(min);
@@ -243,10 +247,24 @@ export class BoundingBox {
     }
     // deep clones by default, copies on init
     clone () { return new BoundingBox(this.min, this.max) }
+    toString() {
+        const { size } = this;
+        return `[${this.constructor.name}] < ${size.x.toFixed(2)} x ${size.y.toFixed(2)} at ${this.min.toString()} > `;
+    }
+    toJSON () { return [this.min.toJSON(), this.max.toJSON()] }
+    draw (cursor, close = true) {
+        if (close) cursor.beginPath();
+        cursor.moveTo(this.min);
+        cursor.lineTo(this.min.x, this.max.y);
+        cursor.lineTo(this.max);
+        cursor.lineTo(this.max.x, this.min.y);
+        if (close) cursor.closePath();
+    }
     get isBoundingBox () { return true }
     get min () { return this.#min }
     get max () { return this.#max }
     get size () { return this.max.sub(this.min).abs(true) }
+    get hash () { return Vector.mixedHash(this.min, this.max) }
 }
 
 export function *tweenPoints (previous, current, resolution) {
