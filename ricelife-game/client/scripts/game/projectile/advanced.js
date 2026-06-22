@@ -18,8 +18,14 @@ export class MegaBouncer extends Basic.Bouncer {
         shot.tailLength += tail;
         // "functional" updates
         if (this.userData.hitbox) {
-            const radius = this.userData.bounceBlastRadiusLimit / maxBounces;
-            this.userData.hitbox.forEach((blast) => blast.radius += radius);
+            const factor = this.userData.bounceBlastScaleFactor;
+            this.userData.hitbox.forEach(({shape}) => {
+                shape.transformation.save();
+                shape.transformation.reset();
+                shape.transformation.scale.apply(factor);
+                shape.applyTransformation();
+                shape.transformation.restore();
+            });
         }
         const acceleration = this.userData.bounceAccelerationLimit.div(maxBounces);
         shot.acceleration.add(acceleration);
@@ -36,7 +42,7 @@ export class MegaBouncer extends Basic.Bouncer {
     static bounceGlowLimit = 40;
     static bounceGlowAlphaMultiplier = .7;
     static bounceGlowRadiusLimit = 5;
-    static bounceBlastRadiusLimit = 30;
+    static bounceBlastScaleFactor = 1.2;
     constructor (origin, angle, power = 1, resolution = 1) {
         super(origin, angle, power, resolution);
         const stage = this.stages[0].stages[0];
@@ -48,7 +54,7 @@ export class MegaBouncer extends Basic.Bouncer {
         stage.userData.bounceGlowLimit = this.constructor.bounceGlowLimit;
         stage.userData.bounceGlowAlphaMultiplier = this.constructor.bounceGlowAlphaMultiplier;
         stage.userData.bounceGlowRadiusLimit = this.constructor.bounceGlowRadiusLimit;
-        stage.userData.bounceBlastRadiusLimit = this.constructor.bounceBlastRadiusLimit;
+        stage.userData.bounceBlastScaleFactor = this.constructor.bounceBlastScaleFactor;
     }
 }
 
@@ -73,10 +79,10 @@ export class Spreader extends Basic.BasicShot {
         const { blastRadius } = this.constructor;
         const ogBlast = stage.userData.hitbox[0];
         const leftBlast = ogBlast.clone(true);
-        leftBlast.shape.position.x = -blastRadius * 1.75
+        leftBlast.shape.moveTo(-blastRadius * 1.75);
         leftBlast.delay = 0.25;
         const rightBlast = leftBlast.clone(true);
-        rightBlast.position.x *= -1;
+        rightBlast.shape.moveTo(-rightBlast.shape.origin.x);
         rightBlast.delay = 0.5;
         stage.userData.hitbox.push(leftBlast, rightBlast);
     }

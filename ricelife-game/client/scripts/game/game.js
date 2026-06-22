@@ -2,9 +2,10 @@ import { InputListener, MovementController, TankController, AppCanvas, AimContro
 import { Vector, Color, Polygon, Ray, Path } from "./geometry/geometry.js";
 import { drawCircle, drawMarker, drawLine, drawText, outlineImage } from "./utils/utils.js";
 import { drawTerrain, generateTerrain, generateWave } from "./terrain/terrain.js";
-import { LoadImage, Spritesheet, Animation, AnimationList } from "./animate/animate.js";
+import { LoadImage, Spritesheet, Animation, ShapeAnimation, AnimationList } from "./animate/animate.js";
 import { WorkerPool } from "./workers/pool.js";
 import { AudioContext } from "./audio/audio.js";
+import { drawBlastAnimation } from "./projectile/blast.js";
 import * as Menu from "./menu/menu.js"
 import * as Ammo from "./projectile/ammo-types.js";
 
@@ -303,6 +304,7 @@ async function fireProjectile (shot, state, config) { // [!} laziness
             for (let i = 0; i < blasts.length; i++) {
                 const spritesheet = state.blastAnimationFrames.clone();
                 const blast = blasts.at(i);
+                const blastSize = blast.shape.globalTransformation.scale.magnitude();
                 // sound effects
                 const bassNode = config.audio.ctx.newBassNode();
                 bassNode.frequency.value = 200;
@@ -310,12 +312,12 @@ async function fireProjectile (shot, state, config) { // [!} laziness
                 const sfxNode = config.audio.sources.blast.Instance();
                 sfxLayer.add(sfxNode); // [!] whole layer is already ephemeral so no need to apply to the instance
                 // visual effects
-                spritesheet.width = (blast.radius * 2) * 20;
-                const ani = new Animation(blast.position, spritesheet, state.blastAnimationFps);
+                spritesheet.width = (blastSize * 2) * 20;
+                const ani = new ShapeAnimation(blast.shape.clone(), .6, state.blastAnimationFps, drawBlastAnimation);
                 ani.speed = 1.25;
                 ani.onstart.then(() => {
                     // play sfx
-                    bassNode.gain.value = 15 * ((blast.radius / 50)**3);
+                    bassNode.gain.value = 15 * ((blastSize / 50)**3);
                     sfxNode.play();
                 });
                 impact.animations.push(ani);
@@ -455,7 +457,7 @@ function drawDebugOverlay (state, config) {
                 cursor.strokeStyle = "orange";
                 cursor.lineWidth = 2;
                 for (const { shape } of state.landing.blasts) {
-                    shape.path.draw(cursor); // [!] inefficient, but for debugging so we don't care?
+                    shape.Polygon(1).path.draw(cursor); // [!] inefficient, but for debugging so we don't care?
                 }
                 cursor.stroke();
                 cursor.restore();

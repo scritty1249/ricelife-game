@@ -1,6 +1,5 @@
 import { TrackableObject, floatEqual } from "../utils/utils.js";
 import { Circle, Vector, Color, Path, Ray } from "../geometry/geometry.js";
-import { Blast } from "./blast.js";
 
 export class Projectile extends TrackableObject {
     #tracer;
@@ -142,17 +141,19 @@ export class Shot extends Projectile {
         cursor.save();
         cursor.fillStyle = this.tailColor.toString();
         const minScale = 1 / this.tail.length;
-        const scales = [];
         for (let i = 0; i < this.tail.length; i++) {
             const tail = this.tail[i];
-            scales.push(tail.scale.clone());
-            tail.scale.apply(minScale + (i / this.tail.length));
+            tail.transformation.save();
+            tail.transformation.reset();
+            tail.transformation.scale.apply(minScale + (i / this.tail.length));
+            tail.applyTransformation();
             this.#drawGlow(cursor, tail);
         }
         for (let i = 0; i < this.tail.length; i++) {
             const tail = this.tail[i];
             tail.draw(cursor);
-            tail.scale.apply(scales[i]);
+            tail.transformation.restore();
+            tail.applyTransformation();
             cursor.fill();
         }
         cursor.restore();
@@ -161,13 +162,13 @@ export class Shot extends Projectile {
         this.#drawGlow(cursor, this.shape);
     }
     applyPosition (vector) {
-        this.shape.position.apply(vector);
+        this.shape.moveTo(vector);
         this.position.apply(vector);
     }
     update (seconds = 1) {
         if (this.tail.length >= this.tailLength) this.tail.shift();
         this.tail.push(this.shape.clone(true));
-        this.shape.position.apply(super.update(seconds));
+        this.shape.moveTo(super.update(seconds));
         return this.position; // for chaining
     }
     collision (polygons = []) {
@@ -176,10 +177,10 @@ export class Shot extends Projectile {
         const shape = this.shape;
         const position = this.position.clone();
         for (const polygon of polygons)
-            if (polygon.isIntersecting(shape)) intersecting.push(polygon);
+            if (shape.isIntersecting(polygon)) intersecting.push(polygon);
         if (intersecting.length > 0) {
             for (const polygon of intersecting) {
-                const overlap = polygon.overlap(shape, true);
+                const overlap = shape.Polygon(1).overlap(polygon, true);
                 intersections.push({
                     polygon,
                     overlap,
@@ -235,14 +236,13 @@ export class ShotStage extends TrackableObject {
         if (intersections?.length) {
             return intersections;
         } else if (
-            shot.shape.path.points.some((point) =>
-                this.blasts.some(({shape}) =>
-                    shape.isIntersecting(point)))
+            this.blasts.some(({shape}) =>
+                shape.isIntersecting(shot.shape))
         ) {
             // if there are no overlaps, we may be inside of a blast- check if exiting
             const overlaps = new Path();
             for (const { shape } of this.blasts) {
-                overlaps.push(shape.overlap(shot.shape, true));
+                overlaps.push(shape.overlap(shot.shape, true)); // [!] expensive operation
             }
             return [{
                 polygon: colliders[0], // [!} temporary
@@ -261,9 +261,8 @@ export class ShotStage extends TrackableObject {
             ?.map?.(({normal}) => normal);
         // [!] messy, fix soon - KT
         if (!normals?.length
-            && shot.shape.path.points.some((point) =>
-                this.blasts.some(({shape}) =>
-                    shape.isIntersecting(point)))
+            && this.blasts.some(({shape}) =>
+                shape.isIntersecting(shot.shape))
         ) {
             // if there are no overlapping segements, find if we're exiting a blast...
             const overlaps = new Path();
@@ -295,19 +294,16 @@ export class ShotStage extends TrackableObject {
         const position = shot.position.clone();
         const intersecting = [];
         const intersections = [];
-
-        if (shape.path.points.every((point) =>
-            blasts.some(({shape}) =>
-                shape.isIntersecting(point)
-        ))) return undefined; // don't return any overlap if we're inside of a blast
-
+        if (blasts.some(({shape: s}) =>
+                shape.isIntersecting(s)
+        )) return undefined; // don't return any overlap if we're inside of a blast
         for (const polygon of colliders)
-            if (polygon.isIntersecting(shape)) intersecting.push(polygon);
+            if (shape.isIntersecting(polygon)) intersecting.push(polygon);
         if (intersecting.length === 0) {
             return undefined; // nothing intersecting
         } else {
             for (const polygon of intersecting) {
-                const overlap = polygon.overlap(shape, true);
+                const overlap = polygon.overlap(shape.Polygon(1), true);
                 intersections.push({
                     polygon,
                     overlap,
@@ -356,7 +352,8 @@ export class ShotStage extends TrackableObject {
     }
     applyBlast (blast) {
         const hitbox = blast.clone(true);
-        hitbox.position.add(this.shot.position, true);
+        hitbox.shape.transformation.offset.add(this.shot.position, true);
+        hitbox.shape.applyTransformation();
         hitbox.delay += this.time + this.blastTimeOffset;
         this.blasts.push(hitbox);
         return hitbox; // for modifying, if needed

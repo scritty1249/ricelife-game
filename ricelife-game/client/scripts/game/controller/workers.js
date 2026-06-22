@@ -96,7 +96,7 @@ export class WorkerController {
                 .then(() => this.#pool.cache[polygonid]);
             return {polygon: await poly, intervals: []};
         } else if (blasts.length === 1) {
-            const poly = this.cutPolygon(depth, polygonid, polygonid, blasts[0].shape);
+            const poly = this.cutPolygon(depth, polygonid, polygonid, blasts[0].shape.Polygon(1));
             const key = `${polygonid}_c0_${uuid()}`;
             const canvas = this.#pool.initCache("CANVAS", [canvasSize.x, canvasSize.y], key);
             await poly;
@@ -141,7 +141,7 @@ export class WorkerController {
             // do cut operations, and seperate the caches into different workers (load balancing)
             for (let i = 0; i < blastIntervals.length; i++) {
                 const interval = blastIntervals[i];
-                const cuts = interval.map(({shape}) => shape);
+                const cuts = interval.map(({shape}) => shape.Polygon(1));
                 const prevPolyKey = polygonKeys[i];
                 const polyKey = polygonKeys[i+1];
                 const canvasKey = await canvasKeys[i];
