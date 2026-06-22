@@ -21,8 +21,9 @@ export class Polygon extends TrackableObject { // points should be ordered clock
     }
 
     smooth (resolution = 1) {
+        if (resolution === 1) return;
         const path = this.path;
-        if (path.points.length == 1) return;
+        if (path.points.length <= 1) return;
         const last = path.at(-1);
         path.smooth(resolution);
         // smooth connection between first and last points
@@ -31,7 +32,6 @@ export class Polygon extends TrackableObject { // points should be ordered clock
         for (const hole of this.holes)
             hole.smooth(resolution);
     }
-
     overlap (poly, flatten = false) { // returns an array of Path segments that are overlapping with the given polygon
         if (!poly?.isPolygon) throw new Error(`[${this.constructor.name}] Error: Cannot overlap with non-Polygon type ${typeof poly}`);
         const segments = [];
@@ -180,8 +180,10 @@ export class Polygon extends TrackableObject { // points should be ordered clock
             return value.path.points.some((point) => this.isIntersecting(point));
         } else if (value?.isPath) { // counts surface contact/collision as intersection
             return value.points.some((point) => this.isIntersecting(point));
-        } else
-            throw new Error(`[${this.constructor.name}] Error: Unable to compute intersect of unsupported type ${typeof value}`);
+        } else if (value?.isShape) {
+            return value.isIntersecting(this);
+        }   
+        throw new Error(`[${this.constructor.name}] Error: Unable to compute intersect of unsupported type ${typeof value}`);
     }
 
     raycast (ray) {
@@ -229,16 +231,14 @@ export class Polygon extends TrackableObject { // points should be ordered clock
         return thisPath.intersections(thatPath);
     }
 
-    Float64 (depth, buffer = true) {
+    Float64 (depth = undefined) {
+        if (!Number.isInteger(depth) || depth < 0) throw new Error(`[${this.constructor.name}]: Invalid depth ${depth}`);
         const data = {depth};
         data.path = this.path.Float64();
-        data.holes = depth > 0 ? this.holes.map((hole) => hole.Float64(depth-1, false)) : [];
-        if (buffer) {
-            data.buffers = [data.path.buffer];
-            for (const hole of data.holes.flat(depth))
-                data.buffers.push(hole.path.buffer);
-        }
-        data.type = this.constructor.name;
+        data.holes = depth > 0 ? this.holes.map((hole) => hole.Float64(depth-1)) : [];
+        data.buffers = [data.path.buffer];
+        for (const hole of data.holes.flat(depth))
+            data.buffers.push(hole.path.buffer);
         return data;
     }
     get isPolygon () { return true }
@@ -255,12 +255,43 @@ export class Polygon extends TrackableObject { // points should be ordered clock
 
         return total.div(this.path.length);
     }
-    edgePoints () { // returns out of order points from polygon and holes that do not overlap with any other holes
-        const points = [...this.path.points];
-        for (const hole of this.holes)
-            points.push(...hole.path.points
-                .filter(({point})=>
-                    !this.holes.some((h)=>h.isIntersecting(point))));
+    edgePoints (innerEdges = true, flatten = true) { // returns ordered points from polygon outside of any holes, and holes that do not overlap with any other holes (inside edges)
+        const segments = [];
+        let segment = new Path();
+        // push outer edge points
+        for (const point of this.path) {
+            if (this.holes.some((hole) => hole.isIntersecting(point))) {
+                // don't push this point
+                if (segment.length) segments.push(segment);
+                segment = new Path();
+            } else {
+                segment.push(point);
+            }
+        }
+        if (segment.length) segments.push(segment);
+        if (innerEdges) {
+            // push inner edge points
+            for (const hole of this.holes) {
+                for (const point of hole.path) {
+                    if (this.holes.some((hole) => hole.isIntersecting(point))) {
+                        // don't push this point
+                        if (segment.length) segments.push(segment);
+                        segment = new Path();
+                    } else {
+                        segment.push(point);
+                    }
+                }
+            }
+            if (segment.length) segments.push(segment);
+        }
+        if (flatten) {
+            // unpack
+            const result = [];
+            for (const path of segments)
+                for (const point of path)
+                    result.push(point)
+            return result;
+        }
         return points;
     }
     edgeNodes (ignoreHoles = false) {
