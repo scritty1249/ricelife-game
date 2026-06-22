@@ -225,13 +225,16 @@ export class BoundingBox {
         if (min?.isVector) this.min.apply(min);
         if (max?.isVector) this.max.apply(max);
     }
-    isIntersecting (point) {
-        // meant for speed, don't typecheck
-        return !(point.x < this.min.x
-            || point.x > this.max.x
-            || point.y < this.min.y
-            || point.y > this.max.y
-        );
+    isIntersecting (value) {
+        if (value?.isVector) {
+            return !(point.x < this.min.x
+                || point.x > this.max.x
+                || point.y < this.min.y
+                || point.y > this.max.y
+            );
+        } else if (value?.isBoundingBox) {
+            return this.isIntersecting(value.min) || this.isIntersecting(value.max);
+        } else throw new Error(`[${this.constructor.name}]: Cannot check bounds of unsupported type ${typeof value}`);
     }
     apply (min, max) {
         this.min.apply(min);
