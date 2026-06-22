@@ -194,12 +194,12 @@ export class Shot extends Projectile {
         const intersecting = [];
         const intersections = [];
         const shape = this.shape;
-        const position = this.position.clone();
         for (const polygon of polygons)
             if (shape.isIntersecting(polygon)) intersecting.push(polygon);
         if (intersecting.length > 0) {
+            const poly = shape.Polygon(1);
             for (const polygon of intersecting) {
-                const overlap = shape.Polygon(1).overlap(polygon, true);
+                const overlap = poly.overlap(polygon, true);
                 intersections.push({
                     polygon,
                     overlap,
@@ -262,9 +262,20 @@ export class ShotStage extends TrackableObject {
         ) {
             // if there are no overlaps, we may be inside of a blast- check if exiting
             const overlaps = new Path();
-            for (const { shape } of this.blasts) {
-                overlaps.push(shape.overlap(shot.shape, true)); // [!] expensive operation
+            const shotBbox = shot.shape.getBoundingBox();
+            const blasts = this.blasts
+                .filter((blast) =>
+                    blast.getBoundingBox()
+                        .isIntersecting(shotBbox));
+            for (const { shape } of blasts) {
+                const overlap = shape
+                        .overlap(shot.shape, true)
+                        .filter((point) =>
+                            colliders.some((collider) =>
+                                collider.isIntersecting(point)));
+                if (overlap.length) overlaps.push(overlap);
             }
+            if (!overlaps.length) return undefined;
             return [{
                 polygon: colliders[0], // [!} temporary
                 overlap: overlaps,
@@ -314,11 +325,10 @@ export class ShotStage extends TrackableObject {
     #getIntersections () {
         const { shot, blasts, colliders } = this;
         const { shape } = shot;
-        const position = shot.position.clone();
         const intersecting = [];
         const intersections = [];
         if (blasts.some(({shape: s}) =>
-                shape.isIntersecting(s)
+                s.isInside(shape)
         )) return undefined; // don't return any overlap if we're inside of a blast
         for (const polygon of colliders)
             if (shape.isIntersecting(polygon))
@@ -328,13 +338,26 @@ export class ShotStage extends TrackableObject {
         } else {
             for (const polygon of intersecting) {
                 const overlap = polygon.overlap(shape.Polygon(1), true);
-                // [!] temporary fix, need to find root of issue still -KT
                 if (overlap.length)
                     intersections.push({
                         polygon,
                         overlap,
                         normal: overlap.length >= 2 ? overlap.normal() : undefined
                     });
+                else {
+                    // we're in a blast.
+                    for (const {shape: s} of blasts) {
+                        if (s.isIntersecting(shape)) {
+                            const o = s.Polygon(1).overlap(shape.Polygon(1), true);
+                            if (o.length)
+                                intersections.push({
+                                    polygon,
+                                    overlap: o,
+                                    normal: o.length >= 2 ? o.normal() : undefined
+                                });
+                        }
+                    }
+                }
             }
         }
         return intersections.length
