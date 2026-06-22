@@ -175,7 +175,8 @@ async function init (...loaded) {
             shot5: Ammo.Bouncer,
             shot6: Ammo.MegaBouncer,
             shot7: Ammo.GigaBouncer,
-            shot8: Ammo.PineShot
+            shot8: Ammo.PineShot,
+            shot9: Ammo.Sniper
         },
         animations: { global: Animations },
         impactData: [],

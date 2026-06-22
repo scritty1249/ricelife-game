@@ -1,6 +1,6 @@
-import { Vector, Color } from "../geometry/geometry.js";
+import { Vector, Color } from "../../geometry/geometry.js";
 import * as Basic from "./basic.js";
-import * as Behaviors from "./behaviors.js";
+import * as Behaviors from "../behaviors.js";
 
 export class MegaBouncer extends Basic.Bouncer {
     static onBounce () {
@@ -85,5 +85,22 @@ export class Spreader extends Basic.BasicShot {
         rightBlast.shape.moveTo(-rightBlast.shape.origin.x);
         rightBlast.delay = 0.5;
         stage.userData.hitbox.push(leftBlast, rightBlast);
+    }
+}
+
+export class Sniper extends Basic.BasicShot {
+    constructor (origin, angle, power = 1, resolution = 1) {
+        super(origin, angle, power, resolution);
+        const stage = this.stages[0].stages[0];
+        const blast = stage.userData.hitbox[0];
+        const shot = stage.shot;
+        // adjust sizing
+        blast.shape.radius = 15;
+        shot.velocity.mul(5, true);
+        shot.current.velocity.mul(5, true);
+        shot.shape.radius = 3;
+        // adjust cosmetics
+        shot.glowRadius = 3;
+        shot.tailLength = 70;
     }
 }

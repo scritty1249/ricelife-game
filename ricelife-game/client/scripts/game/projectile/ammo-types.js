@@ -1,2 +1,2 @@
-export * from "./basic.js";
-export * from "./advanced.js";
+export * from "./ammo/basic.js";
+export * from "./ammo/advanced.js";
