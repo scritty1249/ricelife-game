@@ -1,4 +1,4 @@
-import { deg2rad, floatEqual, roundTo, clamp } from "../utils/utils.js";
+import { deg2rad, floatEqual, roundTo, clamp, HASH_BASE } from "../utils/utils.js";
 
 export class Vector {
     constructor(x = 0, y = null) {
@@ -213,6 +213,15 @@ export class Vector {
         yield this.y;
     }
     get isVector () { return true }
+    get hash () {
+        // FNV-1a hash algorithm, just need uniqueness and speed
+        let hash = HASH_BASE;
+        hash ^= this.x;
+        hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+        hash ^= this.y;
+        hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+        return hash >>> 0; // unsigned 32-bit Integer
+    }
     clone () { return new Vector(this.x, this.y) }
     toString () { return `(${this.x.toFixed(3)}, ${this.y.toFixed(3)})` }
     toJSON () { return {x: this.x, y: this.y} }

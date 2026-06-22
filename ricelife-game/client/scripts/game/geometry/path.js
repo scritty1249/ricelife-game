@@ -1,4 +1,4 @@
-import { TrackableObject, clamp } from "../utils/utils.js";
+import { TrackableObject, clamp, HASH_BASE } from "../utils/utils.js";
 import { Vector } from "./vector.js";
 
 export class Path extends TrackableObject { // points should be ordered clockwise (in positioning)
@@ -131,6 +131,15 @@ export class Path extends TrackableObject { // points should be ordered clockwis
             nextNode: arr.at((idx + 1) % arr.length),
             prevNode: arr.at((idx - 1) % arr.length)
         }));
+    }
+    get hash () {
+        // just hashes points, does not account for Path attributes (like ID)
+        let hash = HASH_BASE;
+        for (const point of this.points) {
+            hash ^= point.hash;
+            hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+        }
+        return hash >>> 0;
     }
     Float64 () {
         const arr = [];
