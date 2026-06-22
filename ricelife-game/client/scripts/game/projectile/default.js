@@ -1,4 +1,4 @@
-import { TrackableObject, floatEqual } from "../utils/utils.js";
+import { TrackableObject, floatEqual, roundToPlace } from "../utils/utils.js";
 import { Circle, Vector, Color, Path, Ray } from "../geometry/geometry.js";
 
 export class Projectile extends TrackableObject {
@@ -111,9 +111,10 @@ export class Shot extends Projectile {
     #drawGlow (cursor, shape) {
         cursor.save();
         shape.draw(cursor);
-        for (let i = 0; i <= this.glowRadius; i += this.glowResolution) {
+        for (let i = this.glowResolution; i <= this.glowRadius; i += this.glowResolution) {
             const color = this.glowColor.clone();
-            color.a *= (1 - (i / this.glowRadius)).toFixed(2);
+            const factor = (1 - (i / this.glowRadius));
+            color.a = (color.a * factor).toFixed(2);
             cursor.strokeStyle = color.toString();
             cursor.lineWidth = i;
             cursor.stroke();
@@ -143,15 +144,16 @@ export class Shot extends Projectile {
         const minScale = 1 / this.tail.length;
         for (let i = 0; i < this.tail.length; i++) {
             const tail = this.tail[i];
+            const scale = minScale + (i / this.tail.length);
             tail.transformation.save();
             tail.transformation.reset();
-            tail.transformation.scale.apply(minScale + (i / this.tail.length));
+            tail.transformation.scale.apply(scale);
             tail.applyTransformation();
             this.#drawGlow(cursor, tail);
         }
         for (let i = 0; i < this.tail.length; i++) {
             const tail = this.tail[i];
-            tail.draw(cursor);
+            tail.draw(cursor, true);
             tail.transformation.restore();
             tail.applyTransformation();
             cursor.fill();

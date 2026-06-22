@@ -300,8 +300,9 @@ export class Circle extends Shape {
         cursor.ellipse(
             origin,
             // canvas can't do negatives, needs to still work even if scale is set to mirror/flip (negative values)
-            Math.abs(radii.x),
-            Math.abs(radii.y),
+            // set toFixed to prevent flickering artifacts. Values greater than 4 may cause flickering depending on hardware. - KT
+            Math.abs(radii.x).toFixed(2),
+            Math.abs(radii.y).toFixed(2),
             0,
             0,
             2 * Math.PI
@@ -422,9 +423,9 @@ export class Triangle extends Shape {
     draw (cursor, close = true) {
         const { origin, right, left } = this.blob;
         if (close) cursor.beginPath();
-        cursor.moveTo(origin);
-        cursor.lineTo(right);
-        cursor.lineTo(left);
+        cursor.moveTo(origin.toFixed(2));
+        cursor.lineTo(right.toFixed(2));
+        cursor.lineTo(left.toFixed(2));
         if (close) cursor.closePath();
     }
     clone () { // does not carry over pending transformations
