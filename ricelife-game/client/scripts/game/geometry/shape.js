@@ -7,7 +7,7 @@ export class Transformation {
     static #DEFAULT = { // [!] never modify
         scl: new Vector(1, 1),
         off: new Vector(0, 0), // at origin
-        rot: new Vector(0, 0) // point up
+        rot: Vector.fromAngle(0) // point up
     };
     #scale = Transformation.#DEFAULT.scl.clone();
     #offset = Transformation.#DEFAULT.off.clone();
@@ -463,7 +463,7 @@ export class Triangle extends Shape {
         const [ centerX, centerY ] = this.#getBottomCenterXY();
         // get axis legs sit on, multiply by half of length to get distance
         const distance = rotation.transpose();
-        distance.y *= -1;
+        distance.x *= -1;
         distance.mul(value / 2, true);
         right.apply(centerX, centerY).add(distance, true);
         left.apply(centerX, centerY).sub(distance, true);
