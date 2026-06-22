@@ -1,54 +1,5 @@
-import { TrackableObject, floatEqual } from "../utils/utils.js";
-import { Circle, Vector, Direction, Color, Path, Ray } from "../geometry/geometry.js";
-
-// [!] can be passed safely between web workers
-export class Blast { // only intended to record information, properties should be extracted before manipulating data
-    #shape;
-    #delay; // MILLISECONDS
-    constructor (shape, delay = 0) {
-        if (!shape?.isCircle) throw new Error(`[${this.constructor.name}]: Invalid argument - Circle expected, got ${typeof shape}`);
-        if (delay < 0) throw new Error(`[${this.constructor.name}]: Invalid argument - delay must be a non-negative numeric value, got ${delay}`);
-        this.#shape = shape;
-        this.#delay = delay;
-    }
-
-    toJSON () {
-        return {
-            shape: this.shape,
-            delay: this.delay,
-            position: this.position,
-            radius: this.radius
-        }
-    }
-    decode () {
-        return {
-            delay: this.delay,
-            position: this.shape.position.toJSON(),
-            radius: this.shape.radius,
-            resolution: this.shape.resolution
-        }
-    }
-    clone (deep = false) {
-        return new Blast(this.shape.clone(deep), this.delay);
-    }
-
-    get isBlast () { return true }
-    get shape () { return this.#shape }
-    get radius () { return this.#shape.radius }
-    set radius (value) { return (this.#shape.radius = value) }
-    get delay () { return this.#delay }
-    set delay (value) {
-        if (value < 0) throw new Error(`[${this.constructor.name}]: Invalid value - delay must be a non-negative numeric value, got ${value}`);
-        return (this.#delay = value);
-    }
-    get position () { return this.#shape.position }
-
-    static fromObject (payload) {
-        const shape = new Circle(Vector.fromObject(payload.position), payload.radius, payload.resolution);
-        const blast = new Blast(shape, payload.delay);
-        return blast;
-    }
-}
+import { TrackableObject, floatEqual, roundToPlace } from "../utils/utils.js";
+import { Circle, Vector, Color, Path, Ray } from "../geometry/geometry.js";
 
 export class Projectile extends TrackableObject {
     #tracer;
@@ -160,9 +111,10 @@ export class Shot extends Projectile {
     #drawGlow (cursor, shape) {
         cursor.save();
         shape.draw(cursor);
-        for (let i = 0; i <= this.glowRadius; i += this.glowResolution) {
+        for (let i = this.glowResolution; i <= this.glowRadius; i += this.glowResolution) {
             const color = this.glowColor.clone();
-            color.a *= (1 - (i / this.glowRadius)).toFixed(2);
+            const factor = (1 - (i / this.glowRadius));
+            color.a = (color.a * factor).toFixed(2);
             cursor.strokeStyle = color.toString();
             cursor.lineWidth = i;
             cursor.stroke();
@@ -190,17 +142,20 @@ export class Shot extends Projectile {
         cursor.save();
         cursor.fillStyle = this.tailColor.toString();
         const minScale = 1 / this.tail.length;
-        const scales = [];
         for (let i = 0; i < this.tail.length; i++) {
             const tail = this.tail[i];
-            scales.push(tail.scale.clone());
-            tail.scale.apply(minScale + (i / this.tail.length));
+            const scale = minScale + (i / this.tail.length);
+            tail.transformation.save();
+            tail.transformation.reset();
+            tail.transformation.scale.apply(scale);
+            tail.applyTransformation();
             this.#drawGlow(cursor, tail);
         }
         for (let i = 0; i < this.tail.length; i++) {
             const tail = this.tail[i];
-            tail.draw(cursor);
-            tail.scale.apply(scales[i]);
+            tail.draw(cursor, true);
+            tail.transformation.restore();
+            tail.applyTransformation();
             cursor.fill();
         }
         cursor.restore();
@@ -209,13 +164,13 @@ export class Shot extends Projectile {
         this.#drawGlow(cursor, this.shape);
     }
     applyPosition (vector) {
-        this.shape.position.apply(vector);
+        this.shape.moveTo(vector);
         this.position.apply(vector);
     }
     update (seconds = 1) {
         if (this.tail.length >= this.tailLength) this.tail.shift();
         this.tail.push(this.shape.clone(true));
-        this.shape.position.apply(super.update(seconds));
+        this.shape.moveTo(super.update(seconds));
         return this.position; // for chaining
     }
     collision (polygons = []) {
@@ -224,10 +179,10 @@ export class Shot extends Projectile {
         const shape = this.shape;
         const position = this.position.clone();
         for (const polygon of polygons)
-            if (polygon.isIntersecting(shape)) intersecting.push(polygon);
+            if (shape.isIntersecting(polygon)) intersecting.push(polygon);
         if (intersecting.length > 0) {
             for (const polygon of intersecting) {
-                const overlap = polygon.overlap(shape, true);
+                const overlap = shape.Polygon(1).overlap(polygon, true);
                 intersections.push({
                     polygon,
                     overlap,
@@ -260,7 +215,7 @@ export class ShotStage extends TrackableObject {
     #blasts;
     #time = 0; // global time, seperate from Shot time
     #delayTime; // don't start updating shot until this duration has passed
-    #lastCollision; // may change every time update() is called. Contains the time (from Shot), position (Vector), direction (Vector<Direction>), and normal (radians | undefined) of the last intersection, or undefined if none.
+    #lastCollision; // may change every time update() is called. Contains the time (from Shot), position (Vector), direction (Vector), and normal (radians | undefined) of the last intersection, or undefined if none.
     #collisionCallback; // <bound to This> ([...{polygon: Polygon, overlap: Path}]) => undefined
     #updateCallback; // <bound to This> () => undefined
     #colliders; // list of polygons that can be collided with
@@ -283,14 +238,13 @@ export class ShotStage extends TrackableObject {
         if (intersections?.length) {
             return intersections;
         } else if (
-            shot.shape.path.points.some((point) =>
-                this.blasts.some(({shape}) =>
-                    shape.isIntersecting(point)))
+            this.blasts.some(({shape}) =>
+                shape.isIntersecting(shot.shape))
         ) {
             // if there are no overlaps, we may be inside of a blast- check if exiting
             const overlaps = new Path();
             for (const { shape } of this.blasts) {
-                overlaps.push(shape.overlap(shot.shape, true));
+                overlaps.push(shape.overlap(shot.shape, true)); // [!] expensive operation
             }
             return [{
                 polygon: colliders[0], // [!} temporary
@@ -300,7 +254,7 @@ export class ShotStage extends TrackableObject {
         } else return undefined; // nothing intersecting
         return intersections;
     }
-    // returns time (relative to Shot), position (Vector), direction (Vector<Direction>), normal (radians | undefined)
+    // returns time (relative to Shot), position (Vector), direction (Vector), normal (radians | undefined)
     #captureShotData () {
         const { shot, colliders } = this;
         let normal;
@@ -309,9 +263,8 @@ export class ShotStage extends TrackableObject {
             ?.map?.(({normal}) => normal);
         // [!] messy, fix soon - KT
         if (!normals?.length
-            && shot.shape.path.points.some((point) =>
-                this.blasts.some(({shape}) =>
-                    shape.isIntersecting(point)))
+            && this.blasts.some(({shape}) =>
+                shape.isIntersecting(shot.shape))
         ) {
             // if there are no overlapping segements, find if we're exiting a blast...
             const overlaps = new Path();
@@ -343,19 +296,16 @@ export class ShotStage extends TrackableObject {
         const position = shot.position.clone();
         const intersecting = [];
         const intersections = [];
-
-        if (shape.path.points.every((point) =>
-            blasts.some(({shape}) =>
-                shape.isIntersecting(point)
-        ))) return undefined; // don't return any overlap if we're inside of a blast
-
+        if (blasts.some(({shape: s}) =>
+                shape.isIntersecting(s)
+        )) return undefined; // don't return any overlap if we're inside of a blast
         for (const polygon of colliders)
-            if (polygon.isIntersecting(shape)) intersecting.push(polygon);
+            if (shape.isIntersecting(polygon)) intersecting.push(polygon);
         if (intersecting.length === 0) {
             return undefined; // nothing intersecting
         } else {
             for (const polygon of intersecting) {
-                const overlap = polygon.overlap(shape, true);
+                const overlap = polygon.overlap(shape.Polygon(1), true);
                 intersections.push({
                     polygon,
                     overlap,
@@ -404,7 +354,8 @@ export class ShotStage extends TrackableObject {
     }
     applyBlast (blast) {
         const hitbox = blast.clone(true);
-        hitbox.position.add(this.shot.position, true);
+        hitbox.shape.transformation.offset.add(this.shot.position, true);
+        hitbox.shape.applyTransformation();
         hitbox.delay += this.time + this.blastTimeOffset;
         this.blasts.push(hitbox);
         return hitbox; // for modifying, if needed

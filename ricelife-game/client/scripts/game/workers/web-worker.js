@@ -1,16 +1,8 @@
 
-import { Polygon, Color, Vector, Circle } from "../geometry/geometry.js";
+import { Polygon, Color, Vector } from "../geometry/geometry.js";
 import { drawTerrain } from "../terrain/terrain.js";
-import { Shot } from "../projectile/projectile.js";
 import { CACHE_TYPES } from "./types.js";
 import * as AmmoType from "../projectile/ammo-types.js";
-
-/* Polygon64: 
- * {
- *    path: Float64Array,
- *    holes: [...Polygon64]
- * }
- */
 
 const _queryString = self.location.search;
 const _urlParams = new URLSearchParams(_queryString);
@@ -153,9 +145,8 @@ self.onmessage = async (e) => {
             const result = {};
             let bufs = [];
             if (callback) {
-                const { path, holes, buffers } = polygon.Float64(depth+1); // [!] We are not expecting our holes to have more goddamn holes, but ffs JUST IN CASE...
-                result.polygon = {path, holes, depth: depth + 1};
-                bufs = buffers;
+                result.polygon = polygon.Float64(polygon.depth);
+                bufs = result.polygon.buffers;
             }
             postResponse(id, result, bufs);
         } else if (type === "DRAWTERRAIN") {

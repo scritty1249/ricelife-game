@@ -1,4 +1,4 @@
-import { Vector, Path, Polygon } from "../geometry/geometry.js";
+import { Vector, Path, Polygon, Poly } from "../geometry/geometry.js";
 
 export function drawTerrain (cursor, polygon, fillColor, edgeColor, gradientWidth, resolution) { // fill and edge colors are expected to be Color objects
     cursor.save();

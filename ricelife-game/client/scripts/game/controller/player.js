@@ -1,4 +1,4 @@
-import { Vector, Direction, Path, Ray, Circle, Color, Triangle } from "../geometry/geometry.js";
+import { Vector, Path, Ray, Circle, Color, Triangle } from "../geometry/geometry.js";
 import { rad2deg, deg2rad, floatEqual, clamp, normalizeAngle, TrackableObject } from "../utils/utils.js";
 
 export class InputListener { // wrapper for K&M input
@@ -216,7 +216,7 @@ export class MovementController { // only moves along X axis
         const position = this.#player.position;
 
         const maxHeight = this.#player.height + position.y + this.offsetY; // next position should not be going OVER this - under is still fine. (player would be falling)
-        const ray = Ray(new Vector(amount, this.#terrainHeight), Direction(270), this.#terrainHeight - 1);
+        const ray = Ray(new Vector(amount, this.#terrainHeight), Vector.fromAngle(deg2rad(270)), this.#terrainHeight - 1);
         const hits = this.#terrain.raycast(ray);
         const exiting = hits.some(({entering}) => !entering);
 
@@ -241,7 +241,7 @@ export class MovementController { // only moves along X axis
 
     *#findValidPoints (targetX) { // [!] TODO: THIS WILL ALLOW PLAYERS TO JUMP OVER PIXEL GAPS (INTENDED) BUT ALSO ALLOWS THEM TO PHASE THROUGH WALLS IF THIN ENOUGH
         const { position, width } = this.#player;
-        const ray = Ray(new Vector(), Direction(90), this.#terrainHeight - 1);
+        const ray = Ray(new Vector(), Vector.fromAngle(Math.PI/2), this.#terrainHeight - 1);
         const movingRight = targetX > position.x;
         const maxHeight = position.y + (this.#player.height / 2); // next position should not be going OVER this - under is still fine. (player would be falling)
         const nodes = this.#terrain.edgeNodes(true);
@@ -290,7 +290,6 @@ export class AimController extends TrackableObject { // takes control of rotatio
         circleColor = new Color(255, 255, 255, .025 * 255),
         beamColor = new Color(255, 255, 255, .05 * 255),
         coneColor = new Color(255, 255, 255, 0.075 * 255),
-        resolution = .25
     ) {
         super();
         this.#player = tank;
@@ -299,23 +298,29 @@ export class AimController extends TrackableObject { // takes control of rotatio
         this.#rotation = this.#player.rotation.barrel; // degrees
         this.#pointerPosition = new Vector();
         {
-            const pos = this.#player.relativePosition;
             const fullBeamWidth = this.#radius / 3;
             const fullConeWidth = fullBeamWidth / 2;
+            const circle = new Circle(this.#radius);
+            const outerTriangle = new Triangle();
+            outerTriangle.bottomLength = fullBeamWidth;
+            outerTriangle.height = this.#radius;
+            const innerTriangle = outerTriangle.clone();
+            innerTriangle.bottomLength = fullConeWidth;
+
             this.#display = {
                 circle: {
-                    shape: new Circle(pos, radius, resolution), // pass position by reference
+                    shape: circle,
                     color: circleColor
                 },
                 // [!] running out of names...
                 triangle: { // outer
-                    shape: new Triangle(pos, new Vector(fullBeamWidth, this.#radius)),
+                    shape: outerTriangle,
                     minWidth: fullBeamWidth / 3,
                     widthMultiplier: (fullBeamWidth / 3) * 1.5,
                     color: beamColor
                 },
                 cone: { // inner
-                    shape: new Triangle(pos, new Vector(fullConeWidth, this.#radius)),
+                    shape: innerTriangle,
                     minWidth: fullConeWidth / 3,
                     widthMultiplier: (fullConeWidth / 3) * 1.5,
                     color: coneColor
@@ -328,9 +333,9 @@ export class AimController extends TrackableObject { // takes control of rotatio
         const { circle, triangle, cone } = this.#display;
         const position = this.#player.relativePosition;
         // only need to update positions
-        circle.shape.position.apply(position);
-        triangle.shape.position.apply(position);
-        cone.shape.position.apply(position);
+        circle.shape.moveTo(position);
+        triangle.shape.moveTo(position);
+        cone.shape.moveTo(position);
 
         cursor.save();
         this.#drawPowerCircle(cursor);
@@ -366,21 +371,23 @@ export class AimController extends TrackableObject { // takes control of rotatio
         const expPow = power ** 4; // for scaling width of triangles
         {
             const { shape, minWidth, widthMultiplier } = this.#display.triangle;
-            shape.size.apply(
+            shape.transformation.scale.apply(
                 minWidth + (widthMultiplier * expPow),
                 radius * power * (floatEqual(power, 1) ? 1 : .95)
             );
-            shape.position.apply(position);
-            shape.rotation = angle;
+            shape.transformation.offset = position.sub(shape.origin);
+            shape.transformation.rotation = angle;
+            shape.applyTransformation();
         }
         {
             const { shape, minWidth, widthMultiplier } = this.#display.cone;
-            shape.size.apply(
+            shape.transformation.scale.apply(
                 minWidth + (widthMultiplier * expPow),
                 radius * power
             );
-            shape.position.apply(position);
-            shape.rotation = angle;
+            shape.transformation.offset = position.sub(shape.origin);
+            shape.transformation.rotation = angle;
+            shape.applyTransformation();
         }
     }
 

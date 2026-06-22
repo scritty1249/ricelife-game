@@ -53,6 +53,11 @@ class Canvas2DContextCursor {
                 : this.#ctx.arc(x.x, this.normalizeY(x.y), y, ...args)
             : this.#ctx.arc(x, this.normalizeY(y), ...args);
     }
+    ellipse (x, y, ...args) {
+        x?.isVector
+            ? this.#ctx.ellipse(x.x, this.normalizeY(x.y), y, ...args)
+            : this.#ctx.ellipse(x, this.normalizeY(y), ...args);
+    }
     strokeText (text, x, y = null, ...args) {
         x?.isVector
             ? (y === null)

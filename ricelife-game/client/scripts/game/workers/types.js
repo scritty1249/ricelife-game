@@ -1,18 +1,20 @@
 import { Canvas2DContextCursorFactory } from "../controller/controller.js";
-import { Polygon } from "../geometry/geometry.js";
+import { Polygon, Shape } from "../geometry/geometry.js";
 
 export const CACHE_TYPES = {
     POLY: {
         create (path, holes, depth) {
             return this.encode({path, holes, depth});
         },
-        decode: (data, ref = false) => {
+        decode: (data) => {
             const { depth } = data;
-            const { path, holes, buffers } = data.poly.Float64(depth); // [!] We are not expecting our holes to have more goddamn holes, but ffs JUST IN CASE...
+            const poly = data.poly.Float64(depth); // [!] We are not expecting our holes to have more goddamn holes, but ffs JUST IN CASE...
+            const { buffers } = poly;
             const reference = { depth };
+            delete poly.buffers;
             return {
                 buffers, reference,
-                payload: { path, holes, depth },
+                payload: poly,
             };
         },
         encode: (payload, peer = true) => {
@@ -31,7 +33,7 @@ export const CACHE_TYPES = {
             const canvas = new OffscreenCanvas(width, height);
             return this.encode(canvas);
         },
-        decode: (data, ref = false) => {
+        decode: (data) => {
             const { canvas } = data;
             const reference = { width: canvas?.width, height: canvas?.height };
             const img = canvas.transferToImageBitmap();
@@ -54,5 +56,19 @@ export const CACHE_TYPES = {
             return { canvas, cursor };
         }
     },
+    SHAPE: {
+        create (payload) { return this.encode(payload, true) },
+        decode (data) {
+            const payload = data.decode();
+            return { payload, buffers: payload?.buffers || [] };
+        },
+        encode (payload, peer = true) {
+            const shape = Shape.fromObject(payload);
+            return peer ? { shape, reference: {type: shape.constructor.TYPE} } : shape
+        },
+        encodeReference (reference) {
+            return { shape: new Shape.TYPES[reference.type]() }
+        }
+    }
 };
 Object.freeze(CACHE_TYPES);

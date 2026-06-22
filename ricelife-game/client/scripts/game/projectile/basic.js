@@ -1,5 +1,6 @@
-import { Ammo, Shot, Blast } from "./default.js";
-import { Circle, Vector, Direction, Color } from "../geometry/geometry.js";
+import { Ammo, Shot } from "./default.js";
+import { Blast } from "./blast.js";
+import { Circle, Vector, Color } from "../geometry/geometry.js";
 import { deg2rad } from "../utils/utils.js";
 import * as Behaviors from "./behaviors.js";
 
@@ -24,7 +25,7 @@ class DefaultAmmo extends Ammo {
         this.power = power;
         this.resolution = resolution;
         // convert params for Shot(s)
-        this.initalVelocity = Direction(angle, false).mul(400 * power);
+        this.initalVelocity = Vector.fromAngle(angle).mul(400 * power);
         // setup stages
         for (let i = 0; i < this.constructor.stageCount; i++) this.newStage();
     }
@@ -43,11 +44,11 @@ export class BasicShot extends DefaultAmmo {
         const { initalSpeed, drag, radius, blastRadius } = this.constructor;
         const acceleration = this.constructor.acceleration.clone();
         // convert params for Shot(s)
-        const velocity = Direction(angle, false).mul(400 * power);
+        const velocity = Vector.fromAngle(angle).mul(400 * power);
         // init geometry
-        const shape = new Circle(origin, radius, resolution);
+        const shape = new Circle(radius, origin);
         const shot = new Shot(origin, velocity, acceleration, drag, shape);
-        const hitbox = [new Blast(new Circle(new Vector(), blastRadius, resolution))];
+        const hitbox = [new Blast(new Circle(blastRadius))];
         // generate stages
         const stage = this.stages[0].newStage(shot);
         stage.userData = { hitbox };
@@ -64,9 +65,9 @@ export class Flower extends DefaultAmmo {
         const { initalSpeed, drag, radius, blastRadius } = this.constructor;
         const acceleration = this.constructor.acceleration.clone();
         // convert params for Shot(s)
-        const velocity = Direction(angle, false).mul(400 * power);
+        const velocity = Vector.fromAngle(angle).mul(400 * power);
         // init geometry
-        const shape = new Circle(origin, radius, resolution);
+        const shape = new Circle(radius, origin);
         const shot = new Shot(origin, velocity, acceleration, drag, shape);
         shot.glowColor = new Color(255, 215, 0);
         shot.glowRadius = 20;
@@ -74,7 +75,7 @@ export class Flower extends DefaultAmmo {
         const hitbox = [];
         Array.from([0, 360/7, 720/7, 1080/7, 1440/7, 1800/7, 2160/7], (angle, i) => {
                 const rad = deg2rad(angle);
-                return new Circle(new Vector(Math.cos(rad), Math.sin(rad)).mul(radius + (blastRadius * 1.75)), blastRadius, resolution)})
+                return new Circle(blastRadius, Vector.fromAngle(rad).mul(radius + (blastRadius * 1.75)))})
             .forEach((shape, i) => hitbox.push(new Blast(shape, (i * 100) / 1000)));
         // generate stages
         const stage = this.stages[0].newStage(shot);
@@ -123,13 +124,13 @@ export class Bouncer extends DefaultAmmo {
         const { initalSpeed, drag, radius, blastRadius } = this.constructor;
         const acceleration = this.constructor.acceleration.clone();
         // convert params for Shot(s)
-        const velocity = Direction(angle, false).mul(400 * power);
+        const velocity = Vector.fromAngle(angle).mul(400 * power);
         // init geometry
-        const shape = new Circle(origin, radius, resolution);
+        const shape = new Circle(radius, origin);
         const shot = new Shot(origin, velocity, acceleration, drag, shape);
         shot.glowColor = new Color(128, 0, 128);
         shot.mainColor = new Color(255, 240, 255);
-        const hitbox = [new Blast(new Circle(new Vector(), blastRadius, resolution))];
+        const hitbox = [new Blast(new Circle(blastRadius))];
         // generate stages
         const stage = this.stages[0].newStage(shot);
         stage.userData = { hitbox,
@@ -156,7 +157,7 @@ export class Digger extends DefaultAmmo {
         const { shot } = this;
         const normal = this.lastCollision.normal?.clone();
         const direction = shot.current.velocity.clone();
-        const doBlast = normal === undefined || normal.y >= 0; // only apply blasts and count bounces if normal is not negative (colliding surface faces up) 
+        const doBlast = normal === undefined || normal.y >= 0; // only apply blasts and count bounces if normal is not negative (colliding surface faces up)
         if (this.userData.bounces < this.userData.maxBounces && normal) {
             const point = shot.position.clone();
             // update projectile
@@ -189,13 +190,13 @@ export class Digger extends DefaultAmmo {
         const { initalSpeed, drag, radius, blastRadius } = this.constructor;
         const acceleration = this.constructor.acceleration.clone();
         // convert params for Shot(s)
-        const velocity = Direction(angle, false).mul(400 * power);
+        const velocity = Vector.fromAngle(angle).mul(400 * power);
         // init geometry
-        const shape = new Circle(origin, radius, resolution);
+        const shape = new Circle(radius, origin);
         const shot = new Shot(origin, velocity, acceleration, drag, shape);
         shot.glowColor = new Color(210, 165, 0);
         shot.mainColor = new Color(200, 90, 0);
-        const hitbox = [new Blast(new Circle(new Vector(), blastRadius, resolution))];
+        const hitbox = [new Blast(new Circle(blastRadius))];
         // generate stages
         const stage = this.newStage().newStage(shot);
         stage.userData = { hitbox,
@@ -248,7 +249,7 @@ export class PineShot extends DefaultAmmo {
             const reflection = shot.current.velocity.apply(this.userData.bounceVelocity).clone();
             shot.drag = this.userData.bounceDrag;
             shot.acceleration.apply(this.userData.bounceAcceleration);
-            shot.position.y += shot.shape.radius; // move up to avoid exploding instantly
+            shot.position.y += shot.shape.radii.y; // move up to avoid exploding instantly
             // log for debugging
             this.userData.previousBounces.push({ direction, normal, reflection, point });
         } else {
@@ -275,9 +276,9 @@ export class PineShot extends DefaultAmmo {
         const { initalSpeed, drag, radius, blastRadius } = this.constructor;
         const acceleration = this.constructor.acceleration.clone();
         // convert params for Shot(s)
-        const velocity = Direction(angle, false).mul(400 * power);
+        const velocity = Vector.fromAngle(angle).mul(400 * power);
         // init stem geometry
-        const stemShape = new Circle(origin, radius, resolution);
+        const stemShape = new Circle(radius, origin);
         const stemShot = new Shot(origin, velocity, acceleration, drag, stemShape);
         stemShot.glowColor.apply(107, 73, 41);
         stemShot.mainColor.apply(102, 91, 78);
@@ -286,12 +287,12 @@ export class PineShot extends DefaultAmmo {
         const _zeroVec = new Vector(); // [!] throwaway, will be overwritten
         const needleAcceleration = this.constructor.needleAcceleration.clone();
         const needleDrag = this.constructor.needleDrag;
-        const needleShape = new Circle(_zeroVec, radius * (2/3), resolution);
+        const needleShape = new Circle(radius * (2/3));
         const needleShot = new Shot(_zeroVec, _zeroVec, needleAcceleration, needleDrag, needleShape);
         needleShot.glowColor.apply(5, 102, 8);
         needleShot.mainColor.apply(0, 81, 26);
         needleShot.tailColor.apply(2.5, 91.5, 16.5); 
-        const hitbox = [new Blast(new Circle(new Vector(), blastRadius, resolution))];
+        const hitbox = [new Blast(new Circle(blastRadius))];
         // generate stages
         const stemStage = this.stages[0];
         const needleStage = this.stages[1];

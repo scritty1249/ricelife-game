@@ -1,4 +1,4 @@
-import { Vector } from "../geometry/geometry.js";
+import { Vector, Transformation } from "../geometry/geometry.js";
 
 export class Animation {
     #position = new Vector();
@@ -39,7 +39,7 @@ export class Animation {
 
     draw (cursor) {
         if (this.hasNext) {
-            this.next().draw(cursor, this.position);
+            this.next()?.draw(cursor, this.position);
             if (!this.#promise.onstart.isResolved) this.#promise.onstart.resolve();
         } else if (this.#prevFrame) this.#prevFrame.draw(cursor, this.position);
     }
@@ -65,6 +65,7 @@ export class Animation {
         const ani = new Animation (this.position, this.#frames.clone(), this.#framerateMs * 1000);
         ani.speed = this.speed;
         if (this.playing) ani.play();
+        return ani;
     }
 
     get isAnimation () { return true }
@@ -83,6 +84,37 @@ export class Animation {
     get duration () { return this.#framerateMs * this.#frames.length } // milliseconds
     get elapsed () { return this.progress * this.duration } // milliseconds
     get position () { return this.#position }
+}
+
+// Animation, but for Shapes
+export class ShapeAnimation extends Animation {
+    #shape;
+    #drawFn; // (cursor, shape, progress) => {}
+    #duration; // stored for cloning
+    #framerate; // stored for cloning
+    // duration in seconds
+    constructor (shape, duration, framerate, drawFn = (cursor, shape, progress) => {}) {
+        const totalFramesCount = Math.ceil(duration * framerate);
+        super(shape.origin, Array.from({length: totalFramesCount}), framerate);
+        this.#shape = shape;
+        this.#duration = duration;
+        this.#drawFn = drawFn?.bind(this);
+    }
+
+    draw (cursor) {
+        super.draw(cursor);
+        if (this.progress > 0) this.#drawFn?.(cursor, this.#shape, this.progress);
+
+    }
+    clone () {
+        const ani = new ShapeAnimation(this.#shape.clone(), this.#duration, this.#framerate, this.#drawFn);
+        ani.speed = this.speed;
+        if (this.playing) ani.play();
+        return ani;
+    }
+
+    get isShapeAnimation () { return true }
+    get position () { return this.#shape.origin }
 }
 
 export class AnimationList {

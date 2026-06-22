@@ -47,6 +47,28 @@ export class Path extends TrackableObject { // points should be ordered clockwis
         const sumVectors = points.slice(1).reduce((acc, curr, i) => acc.add(points[i].normal(curr, clockwise).normalize()), new Vector());
         return sumVectors.normalize();
     }
+    // accepts: (Vector), (Vector, Vector) or Path
+    isIntersecting (start, end = null) {
+        const { points } = this;
+        if (points.length === 0) return false;
+        if (start?.isPath) {
+            const pts = start.points;
+            for (let i = 0; i < pts.length; i+=2)
+                if (this.isIntersecting(pts[i], pts[i+1])) return true;
+            return false;
+        } else if (start?.isVector && end?.isVector) {
+            if (points.length === 1) return Vector.isBetween(points[0], start, end);
+            for (let i = 0; i < points.length; i+=2)
+                if (Vector.segmentsIntersect(points[i], points[i+1], start, end)) return true;
+            return false;
+        } else if (start?.isVector) {
+            if (points.length === 1) return points[0].eq(start);
+            for (let i = 0; i < points.length; i+=2)
+                if (Vector.isBetween(start, points[i], points[i+1])) return true;
+            return false;
+        }
+        throw new Error(`[${this.constructor.name}]: Invalid argument(s), cannot check intersection of Path and ${typeof start}${end === null ? "" : `, ${typeof end}`}`);
+    }
     intersections (path) { // returns the CLOCKWISE details of all intersections from this Path to the given Path ("this" points into "that"). !! This can return points that are not inside of the Path, if the resolution is large enough!
         if (!path?.isPath) throw new Error(`[${this.constructor.name}] Error: Cannot find intersection with non-Path object ${typeof path}`);
         const intersections = [],

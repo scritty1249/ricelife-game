@@ -80,8 +80,9 @@ export class Vector {
         vec.y = x;
         return vec;
     }
-    project (radians, magnitude, mutate = false) {
-        const [dx, dy] = [magnitude * Math.cos(radians), magnitude * Math.sin(radians)];
+    // moves Vector by distance at specified angle
+    project (radians, distance, mutate = false) {
+        const [dx, dy] = [distance * Math.cos(radians), distance * Math.sin(radians)];
         if (mutate) {
             this.x += dx;
             this.y += dy;
@@ -100,6 +101,12 @@ export class Vector {
         const vec = mutate ? this : this.clone();
         vec.x = Math.floor(vec.x);
         vec.y = Math.floor(vec.y);
+        return vec;
+    }
+    toFixed (digits, mutate = false) {
+        const vec = mutate ? this : this.clone();
+        vec.x = vec.x.toFixed(digits);
+        vec.y = vec.y.toFixed(digits);
         return vec;
     }
     lerp (vector, factor) { // (Linear Interpolation) returns the point between this vector and given vector. distance from this vector determined by factor given
@@ -122,16 +129,26 @@ export class Vector {
             ? this.y / this.x
             : this.x / this.y;
     }
+    modulo (reverse = false) {
+        if (this.x === 0 && this.y === 0) return 0; // guard against Javascript bug (0 % 0 == NaN)
+        return reverse
+            ? this.y % this.x
+            : this.x % this.y;
+    }
+    max () { return Math.max(this.x, this.y) }
+    min () { return Math.min(this.x, this.y) }
     magnitude () {
         return Math.sqrt(this.pow(2).sum());
     }
     rotate (radians, mutate = false) {
         const vec = mutate ? this : this.clone();
-        const cos = Math.cos(radians);
-        const sin = Math.sin(radians);
-        const x = vec.mul({x: cos, y: sin}).diff();
-        const y = vec.mul({x: sin, y: cos}).sum();
-        return vec.apply(x, y); // for chaining
+        const angle = radians?.isVector
+            ? radians.clone()
+            : Vector.fromAngle(radians);
+        if (floatEqual(angle.x, 0) && floatEqual(angle.y, 0)) return vec; // no rotation
+        const x = vec.mul(angle).diff();
+        const y = vec.mul(angle.transpose()).sum();
+        return vec.apply(x, y);
     }
     pivot (radians, origin, mutate = false) {
         const vec = mutate ? this : this.clone();
@@ -201,6 +218,7 @@ export class Vector {
     toString () { return `(${this.x.toFixed(3)}, ${this.y.toFixed(3)})` }
     toJSON () { return {x: this.x, y: this.y} }
     static fromObject (object) { return new Vector(object?.x, object?.y) }
+    static fromAngle (radians) { return new Vector(Math.cos(radians), Math.sin(radians)) }
     static average (vectors = []) {
         if (!vectors.every((vec) => vec.isVector)) throw new Error(`[${this.constructor.name}]: Cannot find Vector average with non-Vector type(s)`);
         const vec = new Vector();
@@ -208,6 +226,17 @@ export class Vector {
             vec.add(vector, true);
         vec.div(vectors.length, true);
         return vec;
+    }
+    static segmentsIntersect (start1, end1, start2, end2) {
+        const denom = (end2.y - start2.y) * (end1.x - start1.x) - (end2.x - start2.x) * (end1.y - start1.y);
+        if (denom === 0) return false; // parallel lines
+        const ua = ((end2.x - start2.x) * (start1.y - start2.y) - (end2.y - start2.y) * (start1.x - start2.x)) / denom;
+        const ub = ((end1.x - start1.x) * (start1.y - start2.y) - (end1.y - start1.y) * (start1.x - start2.x)) / denom;
+        return ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1;
+    }
+    static isBetween (target, start, end) {
+        return start.cross(target) >= 0
+            && target.cross(end) >= 0;
     }
 }
 
@@ -258,9 +287,4 @@ export class Color {
     set a (number) { return (this.#a = Color.#setValue(number)) }
 
     static #setValue (value) { return clamp(value, 0, 255) }
-}
-
-export function Direction (angle, degrees = true) {
-    const rad = degrees ? deg2rad(angle) : angle;
-    return new Vector(Math.cos(rad), Math.sin(rad));
 }
