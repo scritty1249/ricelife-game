@@ -86,6 +86,7 @@ export class Transformation {
 
 export class Shape {
     static TYPES = new Array();
+    static DRAW_PRECISION = 2; // during draw() calls, apply toFixed on coordinates to prevent flickering artifacts. Values greater than 4 may cause flickering depending on hardware. - KT
     #blob = {}
     #transform = new Transformation();
     #globalTransform = new Transformation(); // all transformations applied, compounded
@@ -296,13 +297,13 @@ export class Circle extends Shape {
         if (this.isEllipse && this.radii.x === 0) return;
         const { origin, right, left } = this.blob;
         const { radii } = this;
+        const precision = this.constructor.DRAW_PRECISION;
         if (close) cursor.beginPath();
         cursor.ellipse(
             origin,
             // canvas can't do negatives, needs to still work even if scale is set to mirror/flip (negative values)
-            // set toFixed to prevent flickering artifacts. Values greater than 4 may cause flickering depending on hardware. - KT
-            Math.abs(radii.x).toFixed(2),
-            Math.abs(radii.y).toFixed(2),
+            Math.abs(radii.x).toFixed(precision),
+            Math.abs(radii.y).toFixed(precision),
             0,
             0,
             2 * Math.PI
@@ -422,10 +423,11 @@ export class Triangle extends Shape {
     }
     draw (cursor, close = true) {
         const { origin, right, left } = this.blob;
+        const precision = this.constructor.DRAW_PRECISION;
         if (close) cursor.beginPath();
-        cursor.moveTo(origin.toFixed(2));
-        cursor.lineTo(right.toFixed(2));
-        cursor.lineTo(left.toFixed(2));
+        cursor.moveTo(origin.toFixed(precision));
+        cursor.lineTo(right.toFixed(precision));
+        cursor.lineTo(left.toFixed(precision));
         if (close) cursor.closePath();
     }
     clone () { // does not carry over pending transformations
