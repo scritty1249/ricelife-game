@@ -103,11 +103,10 @@ export class Vector {
         vec.y = Math.floor(vec.y);
         return vec;
     }
-    toFixed (digits, mutate = false) {
+    precision (precision, mutate = false) {
         const vec = mutate ? this : this.clone();
-        vec.x = vec.x.toFixed(digits);
-        vec.y = vec.y.toFixed(digits);
-        return vec;
+        const power = 10**precision;
+        return vec.mul(power, true).floor(true).div(power, true);
     }
     lerp (vector, factor) { // (Linear Interpolation) returns the point between this vector and given vector. distance from this vector determined by factor given
         if (!vector?.isVector) throw new Error(`[${this.constructor.name}] Error: Cannot linearly interpolate between Vector and non-Vector type ${typeof vector}`);

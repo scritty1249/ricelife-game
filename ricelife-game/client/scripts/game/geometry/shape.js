@@ -298,6 +298,12 @@ export class Circle extends Shape {
         const { origin, right, left } = this.blob;
         const { radii } = this;
         const precision = this.constructor.DRAW_PRECISION;
+        // account for canvas orientation
+        transformation.save();
+        transformation.reset();
+        transformation.angle = Math.PI / 2;
+        this.applyTransformation();
+
         if (close) cursor.beginPath();
         cursor.ellipse(
             origin,
@@ -309,6 +315,10 @@ export class Circle extends Shape {
             2 * Math.PI
         );
         if (close) cursor.closePath();
+
+        transformation.angle = -Math.PI / 2;
+        this.applyTransformation();
+        transformation.restore();
     }
     clone () { // does not carry over pending transformations
         const circle = new Circle();
@@ -415,20 +425,34 @@ export class Triangle extends Shape {
     }
     applyTransformation () {
         const { origin, right, left } = this.blob;
-        const { transformation } = this;
-        transformation.set(origin, true);
-        transformation.set(right, true);
-        transformation.set(left, true);
+        const { offset, scale, rotation } = this.transformation;
+        const r = right.sub(origin);
+        const l = left.sub(origin);
+        // transforms should be relative to origin
+        origin.add(offset, true);
+        right.apply(origin).add(r.mul(scale, true).rotate(rotation, true), true);
+        left.apply(origin).add(l.mul(scale, true).rotate(rotation, true), true);
         super.applyTransformation(); // reset transformations
     }
     draw (cursor, close = true) {
         const { origin, right, left } = this.blob;
+        const { transformation } = this;
         const precision = this.constructor.DRAW_PRECISION;
+        // account for canvas orientation
+        transformation.save();
+        transformation.reset();
+        transformation.angle = Math.PI / 2;
+        this.applyTransformation();
+
         if (close) cursor.beginPath();
-        cursor.moveTo(origin.toFixed(precision));
-        cursor.lineTo(right.toFixed(precision));
-        cursor.lineTo(left.toFixed(precision));
+        cursor.moveTo(origin.precision(precision));
+        cursor.lineTo(right.precision(precision));
+        cursor.lineTo(left.precision(precision));
         if (close) cursor.closePath();
+
+        transformation.angle = -Math.PI / 2;
+        this.applyTransformation();
+        transformation.restore();
     }
     clone () { // does not carry over pending transformations
         const triangle = new Triangle();

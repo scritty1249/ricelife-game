@@ -339,7 +339,7 @@ export class AimController extends TrackableObject { // takes control of rotatio
 
         cursor.save();
         this.#drawPowerCircle(cursor);
-        //cursor.clip();
+        cursor.clip();
         this.#drawAngleTriangle(cursor, triangle);
         this.#drawAngleTriangle(cursor, cone);
         cursor.restore();
@@ -371,22 +371,18 @@ export class AimController extends TrackableObject { // takes control of rotatio
         const expPow = power ** 4; // for scaling width of triangles
         {
             const { shape, minWidth, widthMultiplier } = this.#display.triangle;
-            shape.transformation.scale.apply(
-                minWidth + (widthMultiplier * expPow),
-                radius * power * (floatEqual(power, 1) ? 1 : .95)
-            );
+            shape.bottomLength = minWidth + (widthMultiplier * expPow);
+            shape.height = radius * power * (floatEqual(power, 1) ? 1 : .95);
             shape.transformation.offset = position.sub(shape.origin);
-            shape.transformation.rotation = angle;
+            shape.transformation.angle = angle;
             shape.applyTransformation();
         }
         {
             const { shape, minWidth, widthMultiplier } = this.#display.cone;
-            shape.transformation.scale.apply(
-                minWidth + (widthMultiplier * expPow),
-                radius * power
-            );
+            shape.bottomLength = minWidth + (widthMultiplier * expPow);
+            shape.height = radius * power;
             shape.transformation.offset = position.sub(shape.origin);
-            shape.transformation.rotation = angle;
+            shape.transformation.angle = angle;
             shape.applyTransformation();
         }
     }
