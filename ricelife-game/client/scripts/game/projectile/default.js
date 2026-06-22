@@ -1,5 +1,5 @@
 import { TrackableObject, floatEqual, roundToPlace } from "../utils/utils.js";
-import { Circle, Vector, Color, Path, Ray } from "../geometry/geometry.js";
+import { Circle, Vector, Color, Path, Ray, BoundingBox } from "../geometry/geometry.js";
 
 export class Projectile extends TrackableObject {
     #tracer;
@@ -47,13 +47,41 @@ export class Projectile extends TrackableObject {
         else if (floatEqual(velocity.x, 0)) 
             acceleration.x *= 0;
         position.add(velocity.mul(seconds), true);
-        velocity.add(acceleration.add(v).mul(seconds), true);
+        velocity.add(acceleration.add(v).mul(seconds, true), true);
+    }
+    projectPosition (seconds) {
+        const position = this.current.position;
+        const velocity = this.current.velocity;
+        const acceleration = this.acceleration.clone();
+        const v = velocity.mul(-this.drag * Math.sqrt(velocity.pow(2).sum()));
+        if (velocity.x < 0)
+            acceleration.x *= -1;
+        else if (floatEqual(velocity.x, 0)) 
+            acceleration.x *= 0;
+        return {
+            position: position.add(velocity.mul(seconds)),
+            velocity: velocity.add(acceleration.add(v).mul(seconds, true))
+        };
     }
     update (seconds = 1) {
         this.#tracer.push(this.position.clone());
         if (!this.isStopped) this.updatePosition(seconds);
         this.#time += seconds;
         return this.position;
+    }
+    // simulate update
+    project (seconds = 1) {
+        if (this.isStopped) {
+            return {
+                position: this.position.clone(),
+                velocity: this.current.velocity.clone(),
+                time: this.time + seconds
+            };
+        } else {
+            const projection = this.projectPosition(seconds);
+            projection.time = this.time + seconds;
+            return projection;
+        }
     }
     reset () {
         this.current.position.apply(this.origin);
@@ -190,6 +218,13 @@ export class Shot extends Projectile {
         this.shape.moveTo(super.update(seconds));
         return this.position; // for chaining
     }
+    project (seconds = 1) {
+        const projection = super.project(seconds);
+        const shape = this.shape.clone(true);
+        shape.moveTo(projection.position);
+        projection.shape = shape;
+        return projection;
+    }
     collision (polygons = []) {
         const intersecting = [];
         const intersections = [];
@@ -320,6 +355,61 @@ export class ShotStage extends TrackableObject {
             normal: normal
         };
     }
+    // Approximate if any collisions lie between current state and given projection
+    #isCollisionAhead (projection) { // [!] poorly named
+        const { shot, colliders } = this;
+        const bbox = shot.shape.getBoundingBox()
+            .merge(projection.shape.getBoundingBox());
+        // [!] does not account for blasts
+        return colliders.some((collider) => bbox.isIntersecting(collider.getBoundingBox()));
+    }
+    // project, update or set position at collision
+    // [!] assumes the Shot shape is a non-elliptical circle
+    #projectUpdate (seconds, resolution = 1) {
+        const { shot, blasts, colliders } = this;
+        const projection = shot.project(seconds);
+        if (!this.#isCollisionAhead(projection)) return shot.update(seconds);
+        // collect "front facing" coordinates
+        const diff = projection.velocity.sub(shot.current.velocity);
+        const distance = shot.position.distance(projection.position);
+        const direction = diff.normalize();
+        const origin = shot.shape.origin;
+        const points = shot.shape.Polygon(resolution).path.points;
+        const rays = [];
+        let hitDistance = undefined;
+        for (const point of points) {
+            const dir = point.sub(origin).normalize(true);
+            // only draw ray for front-facing points on the Shape
+            if (direction.dot(dir) >= 0)
+                rays.push(Ray(point.clone(), direction.clone(), distance));
+        }
+        for (const collider of colliders) {
+            // [!] temporary fix- assign blasts to polygon holes for raycasting, then remove after
+            const colliderHoles = collider.holes;
+            const originalHoleCount = colliderHoles.length;
+            for (const blast of blasts)
+                colliderHoles.push(blast.shape.Polygon(resolution));
+            // do raycasts
+            for (const ray of rays) {
+                const hits = collider.raycast(ray);
+                for (const hit of hits)
+                    if (hitDistance === undefined || hit.distance < hitDistance)
+                        hitDistance = hit.distance;
+            }
+            // remove blasts / temp holes
+            colliderHoles.splice(originalHoleCount, blasts.length);
+        }
+        if (hitDistance === undefined) {
+            shot.update(seconds);
+        } else {
+            const target = direction
+                .mul(hitDistance, true)
+                .add(origin, true);
+            shot.position.apply(target);
+            shot.shape.moveTo(target);
+            this.#updateCollision(true);
+        }
+    }
     // returns intersections if colliding, and undefined if not colliding with anything
     // intersections are [...{polygon: Polygon, overlap: Path}]
     #getIntersections () {
@@ -364,29 +454,30 @@ export class ShotStage extends TrackableObject {
             ? intersections
             : undefined;
     }
+    #updateCollision (forceCollision = false) {
+        const intersections = this.#getIntersections();
+        if (!forceCollision && intersections === undefined) {
+            // do nothing, not colliding
+        } else if (forceCollision || intersections.length) {
+            this.#lastCollision = this.#captureShotData();
+            this.collisionCallback?.(intersections);
+        } else {
+            // should never happen. Log computed data
+            console.warn(`[${this.constructor.name}]: Failed to find intersection for collision`, intersections);
+        }
+    }
 
     update (seconds) {
         try {
             if (!this.#isStarted) this.#isStarted = true;
-            {
-                const isDelayed = this.time <= this.delay;
+            if (this.time <= this.delay) {
                 this.time += seconds;
-                if (isDelayed) return;
-            }
+                return;   
+            };
             const { shot } = this;
-            if (!shot.isStopped) {
-                const intersections = this.#getIntersections();
-                if (intersections === undefined) {
-                    // do nothing, not colliding
-                } else if (intersections.length) {
-                    this.#lastCollision = this.#captureShotData();
-                    this.collisionCallback?.(intersections);
-                } else {
-                    // should never happen. Log computed data
-                    console.warn(`[${this.constructor.name}]: Failed to find intersection for collision`, intersections);
-                }
-            }
-            shot.update(seconds);
+            if (!shot.isStopped) this.#updateCollision(false);
+            this.time += seconds;
+            this.#projectUpdate(seconds, 1);
             this.updateCallback?.();
             if (!this.#isFinished && shot.isStopped) {
                 this.#isFinished = true;

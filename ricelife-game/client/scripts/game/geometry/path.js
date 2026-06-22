@@ -240,6 +240,15 @@ export class BoundingBox {
                 );
         } else return false; // dont throw errors on unknown types
     }
+    merge (other, mutate = false) {
+        if (!other?.isBoundingBox) throw new Error(`[${this.constructor.name}]: Cannot combine BoundingBox and type ${typeof other}`);
+        const bbox = mutate ? this : this.clone();
+        bbox.min.x = Math.min(bbox.min.x, bbox.max.x, other.min.x, other.max.x);
+        bbox.min.y = Math.min(bbox.min.y, bbox.max.y, other.min.y, other.max.y);
+        bbox.max.x = Math.max(bbox.min.x, bbox.max.x, other.min.x, other.max.x);
+        bbox.max.y = Math.max(bbox.min.y, bbox.max.y, other.min.y, other.max.y);
+        return bbox;
+    }
     apply (min, max) {
         this.min.apply(min);
         this.max.apply(max);
