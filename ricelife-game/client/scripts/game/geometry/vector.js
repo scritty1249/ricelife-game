@@ -123,6 +123,11 @@ export class Vector {
             ? this.y / this.x
             : this.x / this.y;
     }
+    modulo (reverse = false) {
+        return reverse
+            ? this.y % this.x
+            : this.x % this.y;
+    }
     max () { return Math.max(this.x, this.y) }
     min () { return Math.min(this.x, this.y) }
     magnitude () {
