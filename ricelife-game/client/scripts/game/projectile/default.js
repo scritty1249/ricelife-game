@@ -47,13 +47,41 @@ export class Projectile extends TrackableObject {
         else if (floatEqual(velocity.x, 0)) 
             acceleration.x *= 0;
         position.add(velocity.mul(seconds), true);
-        velocity.add(acceleration.add(v).mul(seconds), true);
+        velocity.add(acceleration.add(v).mul(seconds, true), true);
+    }
+    projectPosition (seconds) {
+        const position = this.current.position;
+        const velocity = this.current.velocity;
+        const acceleration = this.acceleration.clone();
+        const v = velocity.mul(-this.drag * Math.sqrt(velocity.pow(2).sum()));
+        if (velocity.x < 0)
+            acceleration.x *= -1;
+        else if (floatEqual(velocity.x, 0)) 
+            acceleration.x *= 0;
+        return {
+            position: position.add(velocity.mul(seconds)),
+            velocity: velocity.add(acceleration.add(v).mul(seconds, true))
+        };
     }
     update (seconds = 1) {
         this.#tracer.push(this.position.clone());
         if (!this.isStopped) this.updatePosition(seconds);
         this.#time += seconds;
         return this.position;
+    }
+    // simulate update
+    project (seconds = 1) {
+        if (!this.isStopped) {
+            return {
+                position: this.position.clone(),
+                velocity: this.current.velocity.clone(),
+                time: this.time + seconds
+            };
+        } else {
+            const projection = this.projectPosition(seconds);
+            projection.time = this.time + seconds;
+            return projection;
+        }
     }
     reset () {
         this.current.position.apply(this.origin);
@@ -189,6 +217,13 @@ export class Shot extends Projectile {
         this.tail.push(this.shape.clone(true));
         this.shape.moveTo(super.update(seconds));
         return this.position; // for chaining
+    }
+    project (seconds = 1) {
+        const projection = super.project(seconds);
+        const shape = this.shape.clone(true);
+        shape.moveTo(projection.position);
+        projection.shape = shape;
+        return projection;
     }
     collision (polygons = []) {
         const intersecting = [];
