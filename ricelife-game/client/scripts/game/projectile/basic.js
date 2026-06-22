@@ -8,6 +8,7 @@ import * as Behaviors from "./behaviors.js";
 class DefaultAmmo extends Ammo {
     // <this> context will be rebound to ShotStage
     static collisionCallback (intersections) { // default
+        console.log(intersections);
         this.shot.current.velocity.mul(0, true);
         Behaviors.createBlasts.call(this);
     }

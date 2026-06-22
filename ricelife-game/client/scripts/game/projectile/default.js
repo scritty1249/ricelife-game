@@ -238,7 +238,9 @@ export class ShotStage extends TrackableObject {
         if (intersections?.length) {
             return intersections;
         } else if (
-            this.blasts.some(({shape}) =>
+            colliders.some((collider) =>
+                shot.shape.isIntersecting(collider))
+            && this.blasts.some(({shape}) =>
                 shape.isIntersecting(shot.shape))
         ) {
             // if there are no overlaps, we may be inside of a blast- check if exiting
@@ -263,6 +265,8 @@ export class ShotStage extends TrackableObject {
             ?.map?.(({normal}) => normal);
         // [!] messy, fix soon - KT
         if (!normals?.length
+            && colliders.some((collider) =>
+                shot.shape.isIntersecting(collider))
             && this.blasts.some(({shape}) =>
                 shape.isIntersecting(shot.shape))
         ) {
@@ -300,20 +304,25 @@ export class ShotStage extends TrackableObject {
                 shape.isIntersecting(s)
         )) return undefined; // don't return any overlap if we're inside of a blast
         for (const polygon of colliders)
-            if (shape.isIntersecting(polygon)) intersecting.push(polygon);
+            if (shape.isIntersecting(polygon))
+                intersecting.push(polygon);
         if (intersecting.length === 0) {
             return undefined; // nothing intersecting
         } else {
             for (const polygon of intersecting) {
                 const overlap = polygon.overlap(shape.Polygon(1), true);
-                intersections.push({
-                    polygon,
-                    overlap,
-                    normal: overlap.length >= 2 ? overlap.normal() : undefined
-                });
+                // [!] temporary fix, need to find root of issue still -KT
+                if (overlap.length)
+                    intersections.push({
+                        polygon,
+                        overlap,
+                        normal: overlap.length >= 2 ? overlap.normal() : undefined
+                    });
             }
         }
-        return intersections;
+        return intersections.length
+            ? intersections
+            : undefined;
     }
 
     update (seconds) {

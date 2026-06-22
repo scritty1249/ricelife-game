@@ -273,7 +273,10 @@ export class Polygon extends TrackableObject { // points should be ordered clock
             // push inner edge points
             for (const hole of this.holes) {
                 for (const point of hole.path) {
-                    if (this.holes.some((hole) => hole.isIntersecting(point))) {
+                    if (
+                        !this.isIntersecting(point) // does the hole path extend beyond the actual Polygon?
+                        && this.holes.some((hole) => hole.isIntersecting(point))
+                    ) {
                         // don't push this point
                         if (segment.length) segments.push(segment);
                         segment = new Path();
