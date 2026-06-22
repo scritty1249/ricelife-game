@@ -243,6 +243,7 @@ export class BoundingBox {
     get isBoundingBox () { return true }
     get min () { return this.#min }
     get max () { return this.#max }
+    get size () { return this.max.sub(this.min).abs(true) }
 }
 
 export function *tweenPoints (previous, current, resolution) {
