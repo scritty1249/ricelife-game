@@ -211,6 +211,7 @@ export class Polygon extends TrackableObject { // points should be ordered clock
             const holeHits = hole.raycast(ray);
             for (const hit of holeHits) {
                 hit.angle -= (2 * Math.PI) / 3;
+                hit.hole = true;
                 if (this.isIntersecting(hit.point, true)
                     && !holes.some((h, i) => i !== idx && h.isIntersecting(hit.point))
                     && hits.some(({point}) => point.eq(hit.point)))

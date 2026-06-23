@@ -329,7 +329,7 @@ export class ShotStage extends TrackableObject {
                     const hits = collider.raycast(ray);
                     let angle = undefined;
                     for (const hit of hits) {
-                        if (hit.entering && (hitDistance === undefined || hit.distance < hitDistance)) {
+                        if ((!hit.hole || hit.entering) && (hitDistance === undefined || hit.distance < hitDistance)) {
                             hitPoint = hit.point;
                             hitDistance = hit.distance;
                             angle = hit.angle;
