@@ -207,16 +207,15 @@ export class Polygon extends TrackableObject { // points should be ordered clock
                         entering: inter.entering
                     });
         for (let idx = 0; idx < holes.length; idx++) {
-            holes[idx].raycast(ray).filter((hit) => {
-                hit.entering = !hit.entering;
-                return !holes.some((h, i) => i == idx || h.isIntersecting(hit.point));
-            });
-        }
-        for (const hole of holes) {
-            hole.raycast(ray).filter((hit) => {
-                hit.entering = !hit.entering;
-                return !holes.some((h) => h.isIntersecting(hit.point));
-            });
+            const hole = holes[idx];
+            const holeHits = hole.raycast(ray);
+            for (const hit of holeHits) {
+                hit.angle -= (2 * Math.PI) / 3;
+                if (this.isIntersecting(hit.point, true)
+                    && !holes.some((h, i) => i !== idx && h.isIntersecting(hit.point))
+                    && hits.some(({point}) => point.eq(hit.point)))
+                    hits.push(hit);
+            }
         }
         return hits;
     }
@@ -307,6 +306,7 @@ export class Polygon extends TrackableObject { // points should be ordered clock
             }
             if (segment.length) this.#outerEdgeSegments.push(segment);
             // inner edge points
+            segment = new Path();
             for (const hole of this.holes) {
                 for (const point of hole.path) {
                     if (

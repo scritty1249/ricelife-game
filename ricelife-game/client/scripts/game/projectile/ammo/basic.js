@@ -98,7 +98,7 @@ export class Bouncer extends DefaultAmmo {
                 direction: velocity.normalize()
             });
             // update projectile
-            const offset = shot.shape.getBoundingBox().size.length / 4; // if too small, projectile will collide with same surface on exiting side instantly. if too large, projectile will go flying for no reason
+            const offset = shot.shape.getBoundingBox().size.length / 3; // if too small, projectile will collide with same surface on exiting side instantly. if too large, projectile will go flying for no reason
             shot.applyPosition(position.add(reflect.mul(offset, true)));
             velocity.apply(reflection.mul(this.userData.bounceVelocityMultiplier));
             this.userData.bounces++;
@@ -252,20 +252,21 @@ export class PineShot extends DefaultAmmo {
             const reflection = shot.current.velocity.apply(this.userData.bounceVelocity).clone();
             shot.drag = this.userData.bounceDrag;
             shot.acceleration.apply(this.userData.bounceAcceleration);
-            shot.position.y += shot.shape.radii.y; // move up to avoid exploding instantly
+            const offset = shot.shape.getBoundingBox().size.length / 4; // if too small, projectile will collide with same surface on exiting side instantly. if too large, projectile will go flying for no reason
+            shot.applyPosition(shot.position.add(reflection.normalize().mul(offset, true)));
             // log for debugging
             this.userData.previousBounces.push({ direction, normal, reflection, point });
         } else {
-            shot.current.velocity.mul(0, true);
+            shot.current.velocity.apply(0, 0);
         }
     }
-    static needleCollisionCallback (intersections) {
-        this.shot.current.velocity.mul(0, true);
+    static needleCollisionCallback (point, normal) {
+        this.shot.current.velocity.apply(0, 0);
         Behaviors.createBlasts.call(this);
     }
     static stageCount = 2;
-    static needleCount = 5; // should be an odd number
-    static needleAcceleration = new Vector(0, -500);
+    static needleCount = 7; // should be an odd number
+    static needleAcceleration = new Vector(0, -250);
     static needleDrag = 0// 0.001;
     static needleLaunchVelocity = new Vector(120, 45);
     static stemTransitionSpeedThreshold = 40; // [!] poorly named, also should be a fraction of stemBounceVelocity

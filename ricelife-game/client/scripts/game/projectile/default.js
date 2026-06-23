@@ -329,7 +329,7 @@ export class ShotStage extends TrackableObject {
                     const hits = collider.raycast(ray);
                     let angle = undefined;
                     for (const hit of hits) {
-                        if (hitDistance === undefined || hit.distance < hitDistance) {
+                        if (hit.entering && (hitDistance === undefined || hit.distance < hitDistance)) {
                             hitPoint = hit.point;
                             hitDistance = hit.distance;
                             angle = hit.angle;
@@ -615,6 +615,7 @@ export class Ammo extends TrackableObject {
             ammo.update(increment);
             if (ammo.isFinished) result.time = ammo.time;
         }
+        if (result.time === undefined) console.log("timeout");
         result.legend = ammo.getLegend(); // [!] no need to pass as transfer, we shouldn't have a large amount of collisions
         result.blasts = float64
             ? ammo.blasts.map((blast) => blast.decode())
