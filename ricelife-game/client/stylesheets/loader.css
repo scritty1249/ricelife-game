@@ -1,0 +1,91 @@
+.spinner {
+    --fg-color: #fff;
+    --bg-color: #00ccff;
+    --thickness: 12px;
+    --size: min(50dvh, 50dvw);
+    width: var(--size);
+    height: var(--size);
+    border-radius: 50%;
+    display: inline-block;
+    margin: auto;
+    inset: 0;
+    border-top: var(--thickness) solid var(--fg-color);
+    border-right: var(--thickness) solid transparent;
+    box-sizing: border-box;
+    animation: rotation 1s linear infinite;
+    position: absolute;
+    pointer-events: none;
+    overflow: visible;
+}
+.spinner::after {
+    content: '';  
+    box-sizing: border-box;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: var(--size);
+    height: var(--size);
+    margin: auto;
+    inset: 0;
+    border-radius: 50%;
+    border-left: var(--thickness) solid var(--bg-color);
+    border-bottom: var(--thickness) solid transparent;
+    animation: rotation 0.5s linear infinite reverse;
+    pointer-events: none;
+    overflow: visible;
+}
+.loader.error-state > .spinner {
+    display: none;
+}
+.loader > .caption {
+    --color: #fff;
+    align-content: center;
+    text-align: center;
+    margin: auto;
+    inset: 0;
+    position: absolute;
+    pointer-events: none;
+    -webkit-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    color: var(--color);
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: min(10dvh, 10dvw);
+}
+.loader {
+    width: 100dvw;
+    height: 100dvh;
+    position: fixed;
+    pointer-events: all;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px); /* Safari support */
+    background: rgba(0, 0, 0, 0.15);
+    &.error-state {
+        backdrop-filter: blur(20px);
+        background: rgba(255, 0, 0, 0.3);
+    }
+}
+.loader.error-state > .spinner {
+    --bg-color: #ff5500;
+}
+.loader:not(.loading-state) > #loading-caption {
+    display: none;
+}
+.loader:not(.busy-state) > #busy-caption {
+    display: none;
+}
+.loader:not(.error-state) > #error-caption {
+    display: none;
+}
+.loader.hidden,
+.loader.hidden::before {
+    display: none;
+}
+@keyframes rotation {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}

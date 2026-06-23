@@ -3,9 +3,16 @@
     <head>
         <meta name="viewport" content=""width=device-width, inital-scale="1.0, maximum-scale=1.0, user-scalable=no"/>
         <link rel="stylesheet" href="./stylesheets/styles.css"/>
+        <link rel="stylesheet" href="./stylesheets/loader.css"/>
         <script type="module" src="./scripts/main.js" defer></script>
     </head>
     <body>
         <canvas id="app"></canvas>
+        <div id="loading-screen" class="loader">
+            <span class="spinner"></span>
+            <div id="loading-caption" class="caption">Loading</div>
+            <div id="busy-caption" class="caption">busy</div>
+            <div id="error-caption" class="caption">crashed</div>
+        </div>
     </body>
 </html>
