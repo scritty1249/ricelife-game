@@ -6,7 +6,10 @@ export class Polygon extends TrackableObject { // points should be ordered clock
     #path;
     #holes = new Array(); // hole paths must be reordered to counter clockwise positioning
     #bbox = new BoundingBox();
-    #lastPathHash; // used to check if bbox needs to be recomputed
+    #pathHash; // used to check if bbox needs to be recomputed
+    #edgeHash; // used to check if edge points need to be recomputed
+    #innerEdgeSegments;
+    #outerEdgeSegments;
     constructor (...points) {
         super();
         this.#holes.apply = function (...holes) {
@@ -19,6 +22,7 @@ export class Polygon extends TrackableObject { // points should be ordered clock
         this.#path = (points.length == 1 && points[0]?.isPath)
             ? points[0]
             : new Path(...points);
+        this.#path.isClosed = true;
     }
 
     smooth (resolution = 1) {
@@ -193,9 +197,15 @@ export class Polygon extends TrackableObject { // points should be ordered clock
         const distance = ray.at(0).distance(ray.at(-1));
         const holes = this.holes;
         const hits = [];
-        for (const inter of ray.intersections(this.path))
-            if (!holes.some(hole => hole.isIntersecting(inter.point)) && !hits.some(({point}) => point.eq(inter.point)))
-                hits.push({ point: inter.point, distance: inter.coeff.other * distance, angle: inter.angle, entering: inter.entering });
+        for (const path of this.edgePoints(true, false))
+            for (const inter of ray.intersections(path))
+                if (!holes.some(hole => hole.isIntersecting(inter.point)) && !hits.some(({point}) => point.eq(inter.point)))
+                    hits.push({
+                        point: inter.point,
+                        distance: inter.coeff.self * distance,
+                        angle: inter.angle,
+                        entering: inter.entering
+                    });
         for (let idx = 0; idx < holes.length; idx++) {
             holes[idx].raycast(ray).filter((hit) => {
                 hit.entering = !hit.entering;
@@ -212,7 +222,7 @@ export class Polygon extends TrackableObject { // points should be ordered clock
     }
 
     getBoundingBox () {
-        if (this.#lastPathHash === this.path.hash) return this.#bbox;
+        if (this.#pathHash === this.path.hash) return this.#bbox;
         const points = this.edgePoints(false, true);
         if (!points.length) return [new Vector(), new Vector()];
         const min = points[0].clone();
@@ -224,7 +234,7 @@ export class Polygon extends TrackableObject { // points should be ordered clock
             if (point.y > max.y) max.y = point.y;
         }
         this.#bbox.apply(min, max);
-        this.#lastPathHash = this.path.hash;
+        this.#pathHash = this.path.hash;
         return this.#bbox;
     }
 
@@ -238,7 +248,7 @@ export class Polygon extends TrackableObject { // points should be ordered clock
     translate (translate, mutate = false) {
         const poly = mutate ? this : this.clone(true);
         poly.path.translate(translate, mutate);
-        poly.holes.forEach((hole) => hole.translate(translate, mutuate));
+        poly.holes.forEach((hole) => hole.translate(translate, mutate));
         return poly;
     }
 
@@ -276,37 +286,48 @@ export class Polygon extends TrackableObject { // points should be ordered clock
         return total.div(this.path.length);
     }
     edgePoints (innerEdges = true, flatten = true) { // returns ordered points from polygon outside of any holes, and holes that do not overlap with any other holes (inside edges)
+        const edgeHash = Vector.hashVectors(this.path.points.concat(Array.from(
+            this.holes, ({path}) => path.points
+        ).flat(1)));
         const segments = [];
-        let segment = new Path();
-        // push outer edge points
-        for (const point of this.path) {
-            if (this.holes.some((hole) => hole.isIntersecting(point))) {
-                // don't push this point
-                if (segment.length) segments.push(segment);
-                segment = new Path();
-            } else {
-                segment.push(point);
+        if (this.#edgeHash !== edgeHash) {
+            this.#edgeHash = edgeHash;
+            this.#outerEdgeSegments = [];
+            this.#innerEdgeSegments = [];
+            let segment = new Path();
+            // outer edge points
+            for (const point of this.path) {
+                if (this.holes.some((hole) => hole.isIntersecting(point))) {
+                    // don't push this point
+                    if (segment.length) this.#outerEdgeSegments.push(segment);
+                    segment = new Path();
+                } else {
+                    segment.push(point.clone());
+                }
             }
-        }
-        if (segment.length) segments.push(segment);
-        if (innerEdges) {
-            // push inner edge points
+            if (segment.length) this.#outerEdgeSegments.push(segment);
+            // inner edge points
             for (const hole of this.holes) {
                 for (const point of hole.path) {
                     if (
-                        !this.isIntersecting(point) // does the hole path extend beyond the actual Polygon?
-                        && this.holes.some((hole) => hole.isIntersecting(point))
+                        !this.isIntersecting(point, true) // does the hole path extend beyond the actual Polygon?
+                        || this.holes.some((h) => !h.eq(hole) && h.isIntersecting(point))
                     ) {
                         // don't push this point
-                        if (segment.length) segments.push(segment);
+                        if (segment.length) this.#innerEdgeSegments.push(segment);
                         segment = new Path();
                     } else {
-                        segment.push(point);
+                        segment.push(point.clone());
                     }
                 }
             }
-            if (segment.length) segments.push(segment);
+            if (segment.length) this.#innerEdgeSegments.push(segment);
         }
+        for (const path of this.#outerEdgeSegments)
+                segments.push(path.clone(true));
+        if (innerEdges)
+            for (const path of this.#innerEdgeSegments)
+                segments.push(path.clone(true));
         if (flatten) {
             // unpack
             const result = [];
@@ -315,7 +336,7 @@ export class Polygon extends TrackableObject { // points should be ordered clock
                     result.push(point)
             return result;
         }
-        return points;
+        return segments;
     }
     edgeNodes (ignoreHoles = false) {
         const nodes = this.path.pointNodes;

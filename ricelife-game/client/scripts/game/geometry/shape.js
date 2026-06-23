@@ -238,7 +238,7 @@ export class Circle extends Shape {
 
         const localizedCenter = centerDiff.div(radii1);
         const localizedRadii = radii2.div(radii1);
-        const targetDist = localizedCenter.magnitude();
+        const targetDist = localizedCenter.length;
         if (targetDist === 0) return true;
 
         // closest perimeter point on given Circle to center of this Circle
@@ -337,7 +337,7 @@ export class Circle extends Shape {
     getBoundingBox () {
         const bbox = super.getBoundingBox();
         const { origin, radii } = this.blob;
-        const hash = Vector.mixedHash(origin, radii);
+        const hash = Vector.hashVectors([origin, radii]);
         if (this.#lastBboxHash === hash) return bbox;
         this.#lastBboxHash = hash;
         bbox.min.apply(origin.sub(radii));

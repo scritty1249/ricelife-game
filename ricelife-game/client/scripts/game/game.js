@@ -35,7 +35,9 @@ const INPUT_MAP = {
     Digit7: "shot7",
     Digit8: "shot8",
     Digit9: "shot9",
-    Digit0: "shot10"
+    Digit0: "shot10",
+    ShiftLeft: "debug+",
+    ShiftRight: "debug+"
 };
 
 // [!] for debugging
@@ -277,6 +279,7 @@ async function fireProjectile (shot, state, config) { // [!} laziness
     projectile.colliders.push(state.terrain);
     const muzzleFlash = generateMuzzleFlash(state, config);
     const landing = await state.threading.traceProjectile("blastTerrain", projectile, config.traceIncrement, config.traceMaxTime);
+    projectile.setLegend(landing.legend);
     state.blastTerrain = undefined;
     state.impactData = [];
     if (landing.blasts.length) {
@@ -304,7 +307,7 @@ async function fireProjectile (shot, state, config) { // [!} laziness
             };
             for (let i = 0; i < blasts.length; i++) {
                 const blast = blasts.at(i);
-                const blastSize = blast.shape.getBoundingBox().size.magnitude();
+                const blastSize = blast.shape.getBoundingBox().size.length;
                 // sound effects
                 const bassNode = config.audio.ctx.newBassNode();
                 bassNode.frequency.value = 200;
@@ -439,27 +442,32 @@ function drawDebugOverlay (state, config) {
         cursor.stroke(); 
         cursor.restore();
     }
-
-    // draw Y-axis positioning raycasters
-    const ray = Ray(new Vector(player.position.x, 0), Vector.fromAngle(Math.PI/2), config.display.size.y - 20);
-    drawCircle(cursor, ray.at(0), 7, "purple")
-    drawCircle(cursor, ray.at(-1), 7, "white")
-    state.terrain.raycast(ray)
-        .toSorted((a, b) => b.point.y - a.point.y)
-        .forEach(({point, angle, entering}, i) => drawMarker(cursor, point, Vector.fromAngle(angle + Math.PI), 4, 20, entering ? "purple" : "white"));
+    {
+        // draw Y-axis positioning raycasters
+        const ray = Ray(new Vector(player.position.x, 0), Vector.fromAngle(Math.PI/2), config.display.size.y - 20);
+        drawCircle(cursor, ray.at(0), 7, "purple")
+        drawCircle(cursor, ray.at(-1), 7, "white")
+        state.terrain.raycast(ray)
+            .toSorted((a, b) => b.point.y - a.point.y)
+            .forEach(({point, angle, entering}, i) => drawMarker(cursor, point, Vector.fromAngle(angle + Math.PI), 4, 20, entering ? "purple" : "white"));
+    }
 
     if (state.projectile) {
         if (state.landing) {
             // draw blasts, if any
             if (state.landing?.blasts.length) {
+                const c = new Color(255, 165, 0, .4);
                 cursor.save();
-                cursor.strokeStyle = "orange";
-                cursor.lineWidth = 2;
+                cursor.fillStyle = c.toString();
                 for (const { shape } of state.landing.blasts) {
-                    shape.Polygon(1).path.draw(cursor); // [!] inefficient, but for debugging so we don't care?
+                    shape.draw(cursor, true);
+                    cursor.fill();
                 }
-                cursor.stroke();
                 cursor.restore();
+                c.a = 1;
+                for (const { position } of state.landing.blasts) {
+                    drawCircle(cursor, position, 2, c.toString());
+                }
             }
             // draw custom properties, if any
             if (state.landing.bounces) {
@@ -480,11 +488,20 @@ function drawDebugOverlay (state, config) {
 
     if (state.input.pointer.isActive) {
         const { position } = state.input.pointer;
-        const c = state.terrain.isIntersecting(position) ? "green" : "yellow";
+        const c = state.terrain.isIntersecting(position) ? new Color(0, 200, 50, 1) : new Color(200, 200, 10, 1);
         drawCircle(cursor, position, 4, c);
-        drawText(cursor, position, position.toString(), c);
-        if (state.input.pointer.isDragging && state.aimer.isOver(state.input.pointer.dragStart))
-            drawLine(cursor, player.barrelPos, position, 2, c);
+        drawText(cursor, position, position.toString(), c.toString());
+        if (state.input.pointer.isDragging && state.aimer.isOver(state.input.pointer.dragStart)) {
+            c.a = .5;
+            drawLine(cursor, player.barrelPos, position, 2, c.toString());
+            // draw raycast tester
+            if (state.input.keyboard.keyActive("debug+")) {
+                const hits = state.terrain.raycast(Ray(player.barrelPos, position));
+                for (const {point, angle, entering} of hits) {
+                    drawMarker(cursor, point, Vector.fromAngle(angle + Math.PI / 2), 4, 20, entering ? "purple" : "white");
+                }
+            }
+        }
     }
 }
 

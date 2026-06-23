@@ -1,6 +1,10 @@
 export function deg2rad (deg) { return deg * (Math.PI / 180) }
 
-export function rad2deg (rad) { return rad * (180 / Math.PI) }
+export function rad2deg (rad) { return (rad * (180 / Math.PI)) }
+
+export function wrapDeg (deg) { return ((deg % 360) + 360) % 360 } // for readability while debugging
+
+export function wrapRad (rad) { const full = 2 * Math.PI; return ((rad % full) + full) % full } // for readability while debugging
 
 export function str2hex (str) {
   return str

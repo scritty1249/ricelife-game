@@ -50,8 +50,8 @@ export class Blast { // only intended to record information, properties should b
 }
 
 export function drawBlastAnimation (cursor, shape, progress) {
-    const color = new Color(255, 255, 255, 255);
-    color.a *= 1 - (progress**2);
+    const color = new Color(255, 255, 255, 1);
+    color.a = 1 - (progress**2);
     cursor.save();
     cursor.fillStyle = color.toString();
     shape.draw(cursor);

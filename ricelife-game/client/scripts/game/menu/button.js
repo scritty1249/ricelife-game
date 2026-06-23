@@ -1,4 +1,4 @@
-import { TrackableObject } from "../utils/utils.js";
+import { TrackableObject, floatEqual } from "../utils/utils.js";
 import { Vector, Color } from "../geometry/geometry.js";
 
 export class Icon extends TrackableObject {
@@ -21,7 +21,7 @@ export class Icon extends TrackableObject {
     }
 
     #drawText (cursor) {
-        if (this.fontColor.a === 0 || !this.text) return;
+        if (floatEqual(this.fontColor.a, 0) || !this.text) return;
         cursor.save();
         cursor.font = `bold ${this.fontSize}px ${this.fontFamily}`;
         cursor.fillStyle = this.fontColor.toString();
