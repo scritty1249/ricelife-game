@@ -24,7 +24,6 @@ This demo is only available during inital testing. Support for running this appl
 #### Running the demo
 
 The demo is available on Github Pages at: https://scritty1249.github.io/ricelife-game/ricelife-game/client
-- *currently running off of the [beta-features](https://github.com/scritty1249/ricelife-game/tree/beta-worker-pool) branch*
 
 > Running the demo yourself:\
 > Use any server hosting method of choice, and serve `index.html` from the `/ricelife-game/client` directory scope. This demo (*and expected final version*) does not require any extra third-party binaries or modules to function beyond serving the game content.
