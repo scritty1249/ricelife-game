@@ -1,8 +1,9 @@
-import { TrackableObject, clamp, HASH_BASE } from "../utils/utils.js";
+import { TrackableObject, clamp } from "../utils/utils.js";
 import { Vector } from "./vector.js";
 
 export class Path extends TrackableObject { // points should be ordered clockwise (in positioning)
     #points;
+    #isClosed = false;
     constructor (...points) {
         super();
         this.#points = (points.length == 1)
@@ -76,8 +77,9 @@ export class Path extends TrackableObject { // points should be ordered clockwis
             thatPts = path.points;
 
         // this segements
-        for (let i = 0; i < thisPts.length; i++) {
-            const direction = thisPts[(i + 1) % thisPts.length].sub(thisPts[i]);
+        const segmentCount = this.isClosed ? thisPts.length : thisPts.length - 1; 
+        for (let i = 0; i < segmentCount; i++) {
+            const direction = thisPts[i + 1].sub(thisPts[i]); 
             // that segments
             for (let j = 0; j < thatPts.length; j++) {
                 const dir = thatPts[(j + 1) % thatPts.length].sub(thatPts[j]),
@@ -121,6 +123,8 @@ export class Path extends TrackableObject { // points should be ordered clockwis
     }
 
     get isPath () { return true }
+    get isClosed () { return this.#isClosed }
+    set isClosed (bool) { return (this.#isClosed = bool) }
     get points () { return this.#points }
     get length () { return this.#points.length }
     get direction () { return this.#points.slice().reverse().reduce((acc, curr) => acc.sub(curr)) }
@@ -134,12 +138,7 @@ export class Path extends TrackableObject { // points should be ordered clockwis
     }
     get hash () {
         // just hashes points, does not account for Path attributes (like ID)
-        let hash = HASH_BASE;
-        for (const point of this.points.slice(1)) {
-            hash ^= point.hash;
-            hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
-        }
-        return hash >>> 0;
+        return Vector.hashVectors(this.points);
     }
     Float64 () {
         const arr = [];
@@ -273,7 +272,7 @@ export class BoundingBox {
     get min () { return this.#min }
     get max () { return this.#max }
     get size () { return this.max.sub(this.min).abs(true) }
-    get hash () { return Vector.mixedHash(this.min, this.max) }
+    get hash () { return Vector.hashVectors([this.min, this.max]) }
 }
 
 export function *tweenPoints (previous, current, resolution) {

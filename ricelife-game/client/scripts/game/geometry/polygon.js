@@ -302,7 +302,7 @@ export class Polygon extends TrackableObject { // points should be ordered clock
                     if (segment.length) this.#outerEdgeSegments.push(segment);
                     segment = new Path();
                 } else {
-                    segment.push(point);
+                    segment.push(point.clone());
                 }
             }
             if (segment.length) this.#outerEdgeSegments.push(segment);
@@ -317,7 +317,7 @@ export class Polygon extends TrackableObject { // points should be ordered clock
                         if (segment.length) this.#innerEdgeSegments.push(segment);
                         segment = new Path();
                     } else {
-                        segment.push(point);
+                        segment.push(point.clone());
                     }
                 }
             }

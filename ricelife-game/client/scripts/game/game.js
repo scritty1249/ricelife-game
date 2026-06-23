@@ -456,14 +456,18 @@ function drawDebugOverlay (state, config) {
         if (state.landing) {
             // draw blasts, if any
             if (state.landing?.blasts.length) {
+                const c = new Color(255, 165, 0, .4);
                 cursor.save();
-                cursor.strokeStyle = "orange";
-                cursor.lineWidth = 2;
+                cursor.fillStyle = c.toString();
                 for (const { shape } of state.landing.blasts) {
-                    shape.Polygon(1).path.draw(cursor); // [!] inefficient, but for debugging so we don't care?
+                    shape.draw(cursor, true);
+                    cursor.fill();
                 }
-                cursor.stroke();
                 cursor.restore();
+                c.a = 1;
+                for (const { position } of state.landing.blasts) {
+                    drawCircle(cursor, position, 2, c.toString());
+                }
             }
             // draw custom properties, if any
             if (state.landing.bounces) {

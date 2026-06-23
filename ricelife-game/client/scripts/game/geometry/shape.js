@@ -337,7 +337,7 @@ export class Circle extends Shape {
     getBoundingBox () {
         const bbox = super.getBoundingBox();
         const { origin, radii } = this.blob;
-        const hash = Vector.mixedHash(origin, radii);
+        const hash = Vector.hashVectors([origin, radii]);
         if (this.#lastBboxHash === hash) return bbox;
         this.#lastBboxHash = hash;
         bbox.min.apply(origin.sub(radii));

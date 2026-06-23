@@ -245,14 +245,15 @@ export class Vector {
         return start.cross(target) >= 0
             && target.cross(end) >= 0;
     }
-    static mixedHash (vec1, vec2) {
-        // mixes (combines) the hashes of two vectors
-        let hash = HASH_BASE;
-        hash ^= vec1.hash;
-        hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
-        hash ^= vec2.hash;
-        hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
-        return hash >>> 0;
+    static hashVectors (vectors = []) {
+        if (vectors.length) {
+            let hash = vectors[0].hash;
+            for (let i = 1; i < vectors.length; i++) {
+                hash ^= vectors[i].hash;
+                hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+            }
+            return hash >>> 0;
+        }
     }
 }
 
