@@ -109,10 +109,10 @@ export class Projectile extends TrackableObject {
 export class Shot extends Projectile {
     // configuration
     static tailLength = 10;
-    static tailColor = new Color(255, 255, 255, 160);
+    static tailColor = new Color(255, 255, 255, .55);
     static glowRadius = 25;
     static glowResolution = 5;
-    static glowColor = new Color(255, 0, 0, 100);
+    static glowColor = new Color(255, 0, 0, .4);
     static mainColor = new Color(255, 255, 255);
     // instance
     tailLength;
@@ -142,7 +142,7 @@ export class Shot extends Projectile {
         for (let i = this.glowResolution; i <= this.glowRadius; i += this.glowResolution) {
             const color = this.glowColor.clone();
             const factor = (1 - (i / this.glowRadius));
-            color.a = (color.a * factor).toFixed(2);
+            color.a *= factor;
             cursor.strokeStyle = color.toString();
             cursor.lineWidth = i;
             cursor.stroke();
@@ -267,8 +267,7 @@ export class ShotStage extends TrackableObject {
     #blasts;
     #time = 0; // global time, seperate from Shot time
     #delayTime; // don't start updating shot until this duration has passed
-    #lastCollision; // may change every time update() is called. Contains the time (from Shot), position (Vector), direction (Vector), and normal (radians | undefined) of the last intersection, or undefined if none.
-    #collisionCallback; // <bound to This> ([...{polygon: Polygon, overlap: Path}]) => undefined
+    #collisionCallback; // <bound to This> (point (contact point), normal (of colliding surface)) => undefined
     #updateCallback; // <bound to This> () => undefined
     #colliders; // list of polygons that can be collided with
     #isFinished = false; // trip this flag once projectile stops moving, never set again to prevent overlapping stages
@@ -289,77 +288,6 @@ export class ShotStage extends TrackableObject {
         this.#colliders = collisionsReference; // by reference
     }
 
-    #shotOverlap () {
-        const { shot, colliders } = this;
-        const intersections = shot.collision(colliders);
-        if (intersections?.length) {
-            return intersections;
-        } else if (
-            colliders.some((collider) =>
-                shot.shape.isIntersecting(collider))
-            && this.blasts.some(({shape}) =>
-                shape.isIntersecting(shot.shape))
-        ) {
-            // if there are no overlaps, we may be inside of a blast- check if exiting
-            const overlaps = new Path();
-            const shotBbox = shot.shape.getBoundingBox();
-            const blasts = this.blasts
-                .filter((blast) =>
-                    blast.getBoundingBox()
-                        .isIntersecting(shotBbox));
-            for (const { shape } of blasts) {
-                const overlap = shape
-                        .overlap(shot.shape, true)
-                        .filter((point) =>
-                            colliders.some((collider) =>
-                                collider.isIntersecting(point)));
-                if (overlap.length) overlaps.push(overlap);
-            }
-            if (!overlaps.length) return undefined;
-            return [{
-                polygon: colliders[0], // [!} temporary
-                overlap: overlaps,
-                normal: overlap.length >= 2 ? overlap.normal() : undefined
-            }];
-        } else return undefined; // nothing intersecting
-        return intersections;
-    }
-    // returns time (relative to Shot), position (Vector), direction (Vector), normal (radians | undefined)
-    #captureShotData () {
-        const { shot, colliders } = this;
-        let normal;
-        const normals = this.#shotOverlap()
-            ?.filter?.(({normal}) => normal)
-            ?.map?.(({normal}) => normal);
-        // [!] messy, fix soon - KT
-        if (!normals?.length
-            && colliders.some((collider) =>
-                shot.shape.isIntersecting(collider))
-            && this.blasts.some(({shape}) =>
-                shape.isIntersecting(shot.shape))
-        ) {
-            // if there are no overlapping segements, find if we're exiting a blast...
-            const overlaps = new Path();
-            for (const { shape } of this.blasts) {
-                overlaps.push(...shape.overlap(shot.shape, true));
-            }
-            normal = overlaps.normal();
-        } else {
-            normal = normals?.length
-                ? Vector
-                    .average(normals)
-                    .normalize(true)
-                : undefined;
-        }
-        // check for errors- invert normal if current position is on the wrong segment "side"
-        if (normal !== undefined && shot.current.velocity.dot(normal) > 0) normal.mul(-1, true);
-        return {
-            time: shot.time,
-            position: shot.position.clone(),
-            direction: shot.current.velocity.normalize(),
-            normal: normal
-        };
-    }
     // Approximate if any collisions lie between current state and given projection
     #isCollisionAhead (projection) { // [!] poorly named
         const { shot, colliders } = this;
@@ -380,7 +308,9 @@ export class ShotStage extends TrackableObject {
             const direction = diff.normalize();
             const origin = shot.shape.origin;
             const points = shot.shape.Polygon(resolution).path.points;
+            const angles = [];
             const rays = [];
+            let hitPoint = undefined;
             let hitDistance = undefined;
             for (const point of points) {
                 const dir = point.sub(origin).normalize(true);
@@ -397,86 +327,29 @@ export class ShotStage extends TrackableObject {
                 // do raycasts
                 for (const ray of rays) {
                     const hits = collider.raycast(ray);
-                    for (const hit of hits)
-                        if (hitDistance === undefined || hit.distance < hitDistance)
+                    for (const hit of hits) {
+                        let angle = undefined;
+                        if (hitDistance === undefined || hit.distance < hitDistance) {
+                            hitPoint = hit.point;
                             hitDistance = hit.distance;
+                            angle = hit.angle;
+                        }
+                        if (angle !== undefined) angles.push(Vector.fromAngle(angle));
+                    }
                 }
                 // remove blasts / temp holes
                 colliderHoles.splice(originalHoleCount, blasts.length);
             }
-            if (hitDistance === undefined) {
-                shot.update(seconds);
-            } else {
+            if (hitDistance !== undefined) {
                 const target = direction
                     .mul(hitDistance, true)
                     .add(origin, true);
                 shot.applyPosition(target);
-                this.#updateCollision(true);
-            }
-        } else {
-            shot.update(seconds);
-        }
-    }
-    // returns intersections if colliding, and undefined if not colliding with anything
-    // intersections are [...{polygon: Polygon, overlap: Path}]
-    #getIntersections () {
-        const { shot, blasts, colliders } = this;
-        const { shape } = shot;
-        const intersecting = [];
-        const intersections = [];
-        if (blasts.some(({shape: s}) =>
-                s.isInside(shape)
-        )) return undefined; // don't return any overlap if we're inside of a blast
-        for (const polygon of colliders)
-            if (shape.isIntersecting(polygon))
-                intersecting.push(polygon);
-        if (intersecting.length === 0) {
-            return undefined; // nothing intersecting
-        } else {
-            for (const polygon of intersecting) {
-                const overlap = polygon.overlap(shape.Polygon(1), true);
-                if (overlap.length)
-                    intersections.push({
-                        polygon,
-                        overlap,
-                        normal: overlap.length >= 2 ? overlap.normal() : undefined
-                    });
-                else {
-                    // we're in a blast.
-                    for (const {shape: s} of blasts) {
-                        if (s.isIntersecting(shape)) {
-                            const o = s.Polygon(1).overlap(shape.Polygon(1), true);
-                            if (o.length)
-                                intersections.push({
-                                    polygon,
-                                    overlap: o,
-                                    normal: o.length >= 2 ? o.normal() : undefined
-                                });
-                        }
-                    }
-                }
+                this.applyCollision(hitPoint, Vector.average(angles).normalize(true));
+                return;
             }
         }
-        return intersections.length
-            ? intersections
-            : undefined;
-    }
-    #updateCollision (forceCollision = false) {
-        const intersections = this.#getIntersections();
-        if (!forceCollision && intersections === undefined) {
-            // do nothing, not colliding
-        } else if (forceCollision || intersections.length) {
-            this.#lastCollision = this.#captureShotData();
-            this.#record.collisions.push({
-                time: this.time,
-                position: this.shot.position.clone(),
-                velocity: this.shot.current.velocity.clone()
-            });
-            this.collisionCallback?.(intersections);
-        } else {
-            // should never happen. Log computed data
-            console.warn(`[${this.constructor.name}]: Failed to find intersection for collision`, intersections);
-        }
+        shot.update(seconds);
     }
     #setFinished () { // [!] does not check if already finished. Caller is responsible for making sure this is only used once
         this.#isFinished = true;
@@ -484,6 +357,14 @@ export class ShotStage extends TrackableObject {
         this.#finishedPromise.resolve();
     }
 
+    // point is collision/contact point
+    applyCollision (point, normal) {
+        const { time, shot } = this;
+        const position = shot.position.clone();
+        const velocity = shot.current.velocity.clone();
+        this.#record.collisions.push({time, position, point, velocity, normal});
+        this.collisionCallback?.(point, normal);
+    }
     update (seconds) {
         try {
             if (!this.#isStarted) this.#isStarted = true;
@@ -495,7 +376,6 @@ export class ShotStage extends TrackableObject {
             const legend = this.#legend;
             if (legend === undefined) {
                 const { shot } = this;
-                if (!shot.isStopped) this.#updateCollision(false);
                 this.time += seconds;
                 this.#projectUpdate(seconds, 1);
                 this.updateCallback?.();
@@ -503,12 +383,13 @@ export class ShotStage extends TrackableObject {
                     this.#setFinished();
             } else {
                 this.time += seconds;
-                const nextCollision = legend.collisions[0];
-                if (nextCollision && this.time >= nextCollision.time) {
-                    legend.collisions.shift();
-                    shot.applyPosition(nextCollision.position);
-                    shot.current.velocity.apply(nextCollision.velocity);
-                    this.#updateCollision(true);
+                if (legend.collisions.length > 0
+                    && this.time >= legend.collisions[0].time
+                ) {
+                    const { time, position, point, velocity, normal } = legend.collisions.shift();
+                    shot.applyPosition(position);
+                    shot.current.velocity.apply(velocity);
+                    this.applyCollision(point, normal);
                 } else {
                     shot.update(seconds);
                 }
@@ -540,23 +421,25 @@ export class ShotStage extends TrackableObject {
         // clones and returns everything in record. The resulting object should be safely passable between worker threads
         const record = this.#record;
         const legend = {
-            collisions: Array.from(record, ({time, position, velocity}) => [
-                time, [position.x, position.y], [velocity.x, velocity.y]
-            ]),
-            duration: record.duration
+            duration: record.duration,
+            collisions: Array.from(record.collisions, ({time, position, point, velocity, normal}) => [
+                time, [position.x, position.y], [point.x, point.y], [velocity.x, velocity.y], [normal.x, normal.y]
+            ])
         };
         return legend;
     }
     setLegend (legend) {
         try {
             this.#legend = {
+                duration: legend[0],
                 collisions: Array.from(legend[1],
-                    ([time, position, velocity]) => ({
+                    ([time, position, point, velocity, normal]) => ({
                         time: time,
                         position: new Vector(position[0], position[1]),
-                        velocity: new Vector(velocity[0], velocity[1])
-                    })),
-                duration: legend[0]
+                        point: new Vector(point[0], point[1]),
+                        velocity: new Vector(velocity[0], velocity[1]),
+                        normal: new Vector(normal[0], normal[1])
+                    }))
             };
         } catch (error) {
             console.error(`[${this.constructor.name}]: Error parsing legend object`);
@@ -577,7 +460,6 @@ export class ShotStage extends TrackableObject {
     get shot () { return this.#shot }
     get blasts () { return this.#blasts }
     get colliders () { return this.#colliders }
-    get lastCollision () { return this.#lastCollision }
     get onend () { return this.#finishedPromise.promise }
     get time () { return this.#time }
     set time (value) { return (this.#time = value) }

@@ -35,7 +35,9 @@ const INPUT_MAP = {
     Digit7: "shot7",
     Digit8: "shot8",
     Digit9: "shot9",
-    Digit0: "shot10"
+    Digit0: "shot10",
+    ShiftLeft: "debug+",
+    ShiftRight: "debug+"
 };
 
 // [!] for debugging
@@ -305,7 +307,7 @@ async function fireProjectile (shot, state, config) { // [!} laziness
             };
             for (let i = 0; i < blasts.length; i++) {
                 const blast = blasts.at(i);
-                const blastSize = blast.shape.getBoundingBox().size.magnitude();
+                const blastSize = blast.shape.getBoundingBox().size.length;
                 // sound effects
                 const bassNode = config.audio.ctx.newBassNode();
                 bassNode.frequency.value = 200;
@@ -440,14 +442,15 @@ function drawDebugOverlay (state, config) {
         cursor.stroke(); 
         cursor.restore();
     }
-
-    // draw Y-axis positioning raycasters
-    const ray = Ray(new Vector(player.position.x, 0), Vector.fromAngle(Math.PI/2), config.display.size.y - 20);
-    drawCircle(cursor, ray.at(0), 7, "purple")
-    drawCircle(cursor, ray.at(-1), 7, "white")
-    state.terrain.raycast(ray)
-        .toSorted((a, b) => b.point.y - a.point.y)
-        .forEach(({point, angle, entering}, i) => drawMarker(cursor, point, Vector.fromAngle(angle + Math.PI), 4, 20, entering ? "purple" : "white"));
+    {
+        // draw Y-axis positioning raycasters
+        const ray = Ray(new Vector(player.position.x, 0), Vector.fromAngle(Math.PI/2), config.display.size.y - 20);
+        drawCircle(cursor, ray.at(0), 7, "purple")
+        drawCircle(cursor, ray.at(-1), 7, "white")
+        state.terrain.raycast(ray)
+            .toSorted((a, b) => b.point.y - a.point.y)
+            .forEach(({point, angle, entering}, i) => drawMarker(cursor, point, Vector.fromAngle(angle + Math.PI), 4, 20, entering ? "purple" : "white"));
+    }
 
     if (state.projectile) {
         if (state.landing) {
@@ -481,11 +484,20 @@ function drawDebugOverlay (state, config) {
 
     if (state.input.pointer.isActive) {
         const { position } = state.input.pointer;
-        const c = state.terrain.isIntersecting(position) ? "green" : "yellow";
+        const c = state.terrain.isIntersecting(position) ? new Color(0, 200, 50, 1) : new Color(200, 200, 10, 1);
         drawCircle(cursor, position, 4, c);
-        drawText(cursor, position, position.toString(), c);
-        if (state.input.pointer.isDragging && state.aimer.isOver(state.input.pointer.dragStart))
-            drawLine(cursor, player.barrelPos, position, 2, c);
+        drawText(cursor, position, position.toString(), c.toString());
+        if (state.input.pointer.isDragging && state.aimer.isOver(state.input.pointer.dragStart)) {
+            c.a = .5;
+            drawLine(cursor, player.barrelPos, position, 2, c.toString());
+            // draw raycast tester
+            if (state.input.keyboard.keyActive("debug+")) {
+                const hits = state.terrain.raycast(Ray(player.barrelPos, position));
+                for (const {point, angle, entering} of hits) {
+                    drawMarker(cursor, point, Vector.fromAngle(angle + Math.PI / 2), 4, 20, entering ? "purple" : "white");
+                }
+            }
+        }
     }
 }
 

@@ -238,7 +238,7 @@ export class Circle extends Shape {
 
         const localizedCenter = centerDiff.div(radii1);
         const localizedRadii = radii2.div(radii1);
-        const targetDist = localizedCenter.magnitude();
+        const targetDist = localizedCenter.length;
         if (targetDist === 0) return true;
 
         // closest perimeter point on given Circle to center of this Circle

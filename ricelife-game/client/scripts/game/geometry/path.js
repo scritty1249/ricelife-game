@@ -286,6 +286,8 @@ export function *tweenPoints (previous, current, resolution) {
     }
 }
 
-export function Ray (origin, direction, distance) {
-    return new Path(origin, origin.add(direction.mul(distance)));
+export function Ray (origin, direction, distance = undefined) {
+    return distance === undefined
+        ? new Path(origin, direction)
+        : new Path(origin, origin.add(direction.mul(distance)));
 }

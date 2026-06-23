@@ -48,7 +48,7 @@ export class MegaBouncer extends Basic.Bouncer {
         const stage = this.stages[0].stages[0];
         // adjust cosmetics
         stage.userData.hitbox.at(0).radius = 30;
-        stage.shot.glowColor.a = 100;
+        stage.shot.glowColor.a = .4;
         stage.userData.bounceAccelerationLimit = this.constructor.bounceAccelerationLimit;
         stage.userData.bounceTailLengthLimit = this.constructor.bounceTailLengthLimit;
         stage.userData.bounceGlowLimit = this.constructor.bounceGlowLimit;

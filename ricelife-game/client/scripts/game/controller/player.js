@@ -287,9 +287,9 @@ export class AimController extends TrackableObject { // takes control of rotatio
     #pointerRecorded = false; // sentinal value
     #display;
     constructor (tank, radius,
-        circleColor = new Color(255, 255, 255, .025 * 255),
-        beamColor = new Color(255, 255, 255, .05 * 255),
-        coneColor = new Color(255, 255, 255, 0.075 * 255),
+        circleColor = new Color(255, 255, 255, .025),
+        beamColor = new Color(255, 255, 255, .05),
+        coneColor = new Color(255, 255, 255, 0.075),
     ) {
         super();
         this.#player = tank;

@@ -68,7 +68,7 @@ export class Vector {
     normal (vector, clockwise = true) { // finds normalized point perpendicular to the line 
         if (!vector.isVector) throw new Error(`[${this.constructor.name}] Error: Cannot calculate normal from Vector to non-Vector type ${typeof vector}`);
         const diff = vector.sub(this);
-        diff.div(diff.magnitude(), true);
+        diff.div(diff.length, true);
         return clockwise
             ? new Vector(diff.y, -diff.x)
             : new Vector(-diff.y, diff.x);
@@ -136,9 +136,6 @@ export class Vector {
     }
     max () { return Math.max(this.x, this.y) }
     min () { return Math.min(this.x, this.y) }
-    magnitude () {
-        return Math.sqrt(this.pow(2).sum());
-    }
     rotate (radians, mutate = false) {
         const vec = mutate ? this : this.clone();
         const angle = radians?.isVector
@@ -202,7 +199,7 @@ export class Vector {
     }
     normalize (mutate = false) {
         const vec = mutate ? this : this.clone();
-        const mag = vec.magnitude();
+        const mag = vec.length;
         vec.x /= mag;
         vec.y /= mag;
         return vec;
@@ -213,6 +210,7 @@ export class Vector {
         yield this.y;
     }
     get isVector () { return true }
+    get isNormalized () { return floatEqual(this.length, 1) }
     get hash () {
         // FNV-1a hash algorithm, just need uniqueness and speed
         let hash = HASH_BASE;
@@ -222,6 +220,7 @@ export class Vector {
         hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
         return hash >>> 0; // unsigned 32-bit Integer
     }
+    get length () { return Math.sqrt(this.pow(2).sum()) }
     clone () { return new Vector(this.x, this.y) }
     toString () { return `(${this.x.toFixed(3)}, ${this.y.toFixed(3)})` }
     toJSON () { return {x: this.x, y: this.y} }
@@ -263,11 +262,11 @@ export class Color {
     #g;
     #b;
     #a;
-    constructor (value, g = undefined, b = undefined, a = 255) {
+    constructor (value, g = undefined, b = undefined, a = 1) {
         this.apply(value, g, b, a);
     }
 
-    apply (value, g = undefined, b = undefined, a = 255) {
+    apply (value, g = undefined, b = undefined, a = 1) {
         let matches, _;
         if (typeof value === "string"
             && (matches = value.match(Color.#hexPattern)))
@@ -281,14 +280,14 @@ export class Color {
         else
             throw new Error(`[${this.constructor.name}] Error: Cannot apply invalid type`);
         if (!Number.isFinite(this.a))
-            this.a = 255
+            this.a = 1
     }
     toJSON () { return {r: this.r, g: this.g, b: this.b, a: this.a} }
     toString () { return "#"
         + Math.floor(this.r).toString(16).padStart(2, "0")
         + Math.floor(this.g).toString(16).padStart(2, "0")
         + Math.floor(this.b).toString(16).padStart(2, "0")
-        + (this.a < 255 ? Math.floor(this.a).toString(16).padStart(2, "0") : "");
+        + (this.A < 255 ? Math.floor(this.A).toString(16).padStart(2, "0") : "");
     }
     toRGBA () { return `rgba(${this.r}, ${this.g}, ${this.b}, ${this.a})` }
     clone () { return new Color(this.r, this.g, this.b, this.a) }
@@ -297,11 +296,13 @@ export class Color {
     get r () { return this.#r }
     get g () { return this.#g }
     get b () { return this.#b }
-    get a () { return this.#a }
+    get a () { return this.#a / 255 }
+    get A () { return this.#a }
     set r (number) { return (this.#r = Color.#setValue(number)) }
     set g (number) { return (this.#g = Color.#setValue(number)) }
     set b (number) { return (this.#b = Color.#setValue(number)) }
-    set a (number) { return (this.#a = Color.#setValue(number)) }
+    set a (number) { return (this.#a = Color.#setValue(number * 255)) }
+    set A (number) { return (this.#a = Color.#setValue(number)) }
 
     static #setValue (value) { return clamp(value, 0, 255) }
 }

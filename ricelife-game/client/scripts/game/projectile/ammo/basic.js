@@ -1,13 +1,13 @@
 import { Ammo, Shot } from "../default.js";
 import { Blast } from "../blast.js";
 import { Circle, Vector, Color } from "../../geometry/geometry.js";
-import { deg2rad } from "../../utils/utils.js";
+import { deg2rad, rad2deg } from "../../utils/utils.js";
 import * as Behaviors from "../behaviors.js";
 
 // just for easy Ammo type construction
 class DefaultAmmo extends Ammo {
     // <this> context will be rebound to ShotStage
-    static collisionCallback (intersections) { // default
+    static collisionCallback (point, normal) { // default
         this.shot.current.velocity.mul(0, true);
         Behaviors.createBlasts.call(this);
     }
@@ -85,23 +85,29 @@ export class Flower extends DefaultAmmo {
 }
 
 export class Bouncer extends DefaultAmmo {
-    static collisionCallback (intersections) {
+    static collisionCallback (point, normal) {
         const { shot } = this;
-        const bounceData = Behaviors.computeBounce.call(this);
-        if (this.userData.bounces < this.userData.maxBounces && bounceData) {
-            const { normal, reflection } = bounceData;
+        const { position, velocity } = shot.current;
+        const reflection = Behaviors.computeBounce.call(this, normal);
+        if (this.userData.bounces < this.userData.maxBounces) {
+            const reflect = reflection.normalize()
             // log for debugging
-            this.userData.previousBounces.push(bounceData);
+            this.userData.previousBounces.push({
+                point, normal,
+                reflection: reflect.clone(),
+                direction: velocity.normalize()
+            });
             // update projectile
-            shot.position.add(normal, true);
-            shot.current.velocity.apply(reflection);
+            const offset = shot.shape.getBoundingBox().size.length / 4; // if too small, projectile will collide with same surface on exiting side instantly. if too large, projectile will go flying for no reason
+            shot.applyPosition(position.add(reflect.mul(offset, true)));
+            velocity.apply(reflection.mul(this.userData.bounceVelocityMultiplier));
             this.userData.bounces++;
             // callback
             this.userData.onBounce();
             this.userData.onBounceCallback?.();
         } else {
             Behaviors.createBlasts.call(this);
-            shot.current.velocity.mul(0, true);
+            velocity.mul(0, true);
         }
     }
     static onBounce () {
@@ -111,13 +117,12 @@ export class Bouncer extends DefaultAmmo {
         shot.glowColor.r -= reduce;
         shot.glowColor.g -= reduce;
         shot.glowColor.b -= reduce;
-        shot.current.velocity.mul(this.userData.bounceVelocityMultiplier, true);
     }
     static onBounceCallback () {} // this does not apply to Projectile tracing performed by web workers. Operations done in this callback should be cosmetic-only: should NOT change projectile movement or hitbox
     static bounceVelocityMultiplier = new Vector(.9, .9);
     static maxBounces = 3;
     static bounceGlowReduction = 50;
-    previousBounces = new Array(); // [!] for debugging
+    previousBounces = new Array(); // [!] for debugging, expects {point (of contact), direction, reflection, normal}
     constructor (origin, angle, power = 1, resolution = 1) {
         super(origin, angle, power, resolution);
         // geometry config
@@ -153,12 +158,11 @@ export class Bouncer extends DefaultAmmo {
 }
 
 export class Digger extends DefaultAmmo {
-    static collisionCallback (intersections) {
+    static collisionCallback (point, normal) {
         const { shot } = this;
-        const normal = this.lastCollision.normal?.clone();
-        const direction = shot.current.velocity.clone();
+        const direction = shot.current.velocity.normalize();
         const doBlast = normal === undefined || normal.y >= 0; // only apply blasts and count bounces if normal is not negative (colliding surface faces up)
-        if (this.userData.bounces < this.userData.maxBounces && normal) {
+        if (this.userData.bounces < this.userData.maxBounces) {
             const point = shot.position.clone();
             // update projectile
             const reflection = shot.current.velocity.apply(0,
@@ -237,11 +241,10 @@ export class PineShot extends DefaultAmmo {
             stage.blastTimeOffset += time;
         });
     }
-    static stemCollisionCallback (intersections) {
+    static stemCollisionCallback (point, normal) {
         const { shot } = this;
-        const normal = this.lastCollision.normal?.clone();
-        const direction = shot.current.velocity.clone();
-        const doBounce = normal !== undefined && normal.y >= 0; // only bounce if normal is not negative (colliding surface faces up)- otherwise go stage 2 (spawn needles) immedately
+        const direction = shot.current.velocity.normalize();
+        const doBounce = normal.y >= 0; // only bounce if normal is not negative (colliding surface faces up)- otherwise go stage 2 (spawn needles) immedately
         this.updateCallback = this.userData.stageTransition;
         if (doBounce) {
             const point = shot.position.clone();
