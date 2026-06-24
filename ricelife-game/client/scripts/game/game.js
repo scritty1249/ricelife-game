@@ -519,18 +519,19 @@ function drawDebugOverlay (state, config) {
         // draw raycast tester
         const mode = state.input.keyboard.keyActive("shot1")
             ? 1 // only show hits from holes
-            : state.input.keyboard.keyActive("shot1")
+            : state.input.keyboard.keyActive("shot2")
                 ? 2 // only show hits from non-holes
                 : 0; // show all hits
-        const hits = state.terrain.raycast(Ray(player.barrelPos, position));
-        for (const {point, angle, entering, hole} of hits) {
-            const c = entering ? "purple" : "white";
-            if (mode === 0
+        const hits = state.terrain.raycast(Ray(player.barrelPos, position))
+            .filter(({hole}) => 
+                (mode === 0)
                 || (mode === 1 && hole)
-                || (mode === 2 && !hole)
-            )
-                drawMarker(cursor, point, Vector.fromAngle(angle + Math.PI / 2), 4, 20, c);
-
+                || (mode === 2 && !hole));
+        if (state.input.keyboard.keyActive("shot3")) console.log(hits);
+        for (let i = 0; i < hits.length; i++) {
+            const { point, angle, entering, hole } = hits[i];
+            const c = entering ? "purple" : "white";
+            drawMarker(cursor, point, Vector.fromAngle(angle + Math.PI / 2), 4, 20, c);
         }
     }
 }
@@ -598,6 +599,16 @@ function animate (state, config) {
             ) {
                 waitPromise = waitPromise
                     .then(() => state.redrawJob)
+                    .then(() => {
+                        // [!] debugging
+                        if (!state.blastTerrain) return;
+                        const hash = state.blastTerrain.hash;
+                        state.threading.hashCache("blastTerrain")
+                            .then((h) => {
+                                if (hash !== h)
+                                    console.error(`Cached terrain does not match current terrain state. Terrain drawn onscreen may not reflect it's hitbox.`)
+                            });
+                    })
                     .then(() => {
                         if (state.blastTerrain) state.terrain.apply(state.blastTerrain);
                         // reset projectile related state info
