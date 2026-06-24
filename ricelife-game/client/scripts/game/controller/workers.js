@@ -47,7 +47,7 @@ export class WorkerController {
                 payload.cuts.push(data);
                 transfer.push(...data.buffers);
             }
-            const data = await this.#pool.post("CUTPOLY", payload, transfer, [subjectid, destid]);
+            const data = await this.#pool.post("CUTPOLY", payload, transfer, subjectid === destid ? [subjectid] : [subjectid, destid]);
             return Polygon.fromObject(data.polygon, depth);
         }
     }

@@ -506,16 +506,7 @@ function drawDebugOverlay (state, config) {
     }
     if (state.input.keyboard.keyActive("debug+")) {
         const { position } = state.input.pointer;
-        // stuff here will cause a lot of lag
-        cursor.save();
-        cursor.strokeStyle = "orange";
-        cursor.lineWidth = 5;
-        const edges = state.terrain.edgePoints(true, false);
-        for (const edge of edges) {
-            edge.draw(cursor, true);
-            cursor.stroke();
-        }
-        cursor.restore();
+        // stuff here may cause a lot of lag
         // draw raycast tester
         const mode = state.input.keyboard.keyActive("shot1")
             ? 1 // only show hits from holes
@@ -528,11 +519,17 @@ function drawDebugOverlay (state, config) {
                 || (mode === 1 && hole)
                 || (mode === 2 && !hole));
         if (state.input.keyboard.keyActive("shot3")) console.log(hits);
+        cursor.save();
+        cursor.strokeStyle = "orange";
+        cursor.lineWidth = 3;
         for (let i = 0; i < hits.length; i++) {
             const { point, angle, entering, hole } = hits[i];
             const c = entering ? "purple" : "white";
             drawMarker(cursor, point, Vector.fromAngle(angle + Math.PI / 2), 4, 20, c);
+            hits[i]._path.draw(cursor, true);
+            cursor.stroke();
         }
+        cursor.restore();
     }
 }
 

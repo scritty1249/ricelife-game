@@ -201,6 +201,10 @@ export class Polygon extends TrackableObject { // points should be ordered clock
             for (const inter of ray.intersections(path))
                 if (!holes.some(hole => hole.isIntersecting(inter.point)) && !hits.some(({point}) => point.eq(inter.point)))
                     hits.push({
+                        // [!] debugging. Values in here are passed by ref and SHOULD NOT be modified
+                        _path: path,
+                        _inter: inter,
+
                         point: inter.point,
                         distance: inter.coeff.self * distance,
                         angle: inter.angle,
