@@ -285,10 +285,14 @@ export class Polygon extends TrackableObject { // points should be ordered clock
 
         return total.div(this.path.length);
     }
-    edgePoints (innerEdges = true, flatten = true) { // returns ordered points from polygon outside of any holes, and holes that do not overlap with any other holes (inside edges)
-        const edgeHash = Vector.hashVectors(this.path.points.concat(Array.from(
+    get hash () {
+        // only returns the hash of the points, does not actually count ID
+        return Vector.hashVectors(this.path.points.concat(Array.from(
             this.holes, ({path}) => path.points
         ).flat(1)));
+    }
+    edgePoints (innerEdges = true, flatten = true) { // returns ordered points from polygon outside of any holes, and holes that do not overlap with any other holes (inside edges)
+        const edgeHash = this.hash;
         const segments = [];
         if (this.#edgeHash !== edgeHash) {
             this.#edgeHash = edgeHash;

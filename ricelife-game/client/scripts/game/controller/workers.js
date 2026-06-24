@@ -73,7 +73,7 @@ export class WorkerController {
             origin, angle, power, resolution, increment, limit, ammo,
             collisions: [polygonid]
         };
-        const landing = await this.#pool.post("INTERSECTPROJ", payload, [], [polygonid]);
+        const landing = await this.#pool.post("TRACESHOT", payload, [], [polygonid]);
         // encode data
         if (landing) {
             if (landing.blasts?.length)
@@ -101,14 +101,18 @@ export class WorkerController {
             const canvas = this.#pool.initCache("CANVAS", [canvasSize.x, canvasSize.y], key);
             await poly;
             await canvas;
-            const frame = await this.drawTerrain(key, polygonid, terrainConfig.fill, terrainConfig.edge)
+            const frame = poly
+                .then(() => canvas)
+                .then(() => this.drawTerrain(key, polygonid, terrainConfig.fill, terrainConfig.edge))
                 .then(() => this.#pool.pullCache(key, true, false))
                 .then(() => this.#pool.cache[key]);
-            return {polygon: await poly,
+            const delay = blasts[0].delay || 0;
+            return {
+                polygon: await poly,
                 intervals: [{
-                    frame: frame,
+                    delay,
+                    frame: await frame,
                     blasts: blasts,
-                    delay: blasts[0].delay
                 }]
             };
         } else {
@@ -170,13 +174,14 @@ export class WorkerController {
             await this.#pool.copyCache(finalKey, polygonid, true, false);
             // package object into easier to parse structure
             const intervals = [];
+            const delay = interval[0].delay || 0;
             for (let i = 0; i < blastIntervals.length; i++) {
                 const interval = blastIntervals[i];
                 const frame = frames[i];
                 intervals.push({
+                    delay,
                     frame: frame,
-                    blasts: interval,
-                    delay: interval[0].delay
+                    blasts: interval
                 });
             }
             return { polygon, intervals };
@@ -186,6 +191,7 @@ export class WorkerController {
     async insertCache (id, type, payload) { return await this.#pool.pushCache(type, payload, id) }
     async updateCache (id, transfer = false) { await this.#pool.pullCache(id, transfer, true) }
     async destroyCache (id) { return await this.#pool.dropCache(id) }
+    async hashCache (id) { return await this.#pool.hashCache(id) }
 
     get cache() { return this.#pool.cache }
 }

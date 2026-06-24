@@ -167,7 +167,7 @@ export class Shape {
     isPathInside (value) { return value.points.every((point) => this.isVectorIntersecting(point)) }
     isCircleInside (value) { throw new Error() }
     isTriangleInside (value) { throw new Error() }
-    get hash () { throw new Error() }
+    get hash () { return this.Polygon(1).hash }
     get origin () { return new Vector() }
     static fromObject (payload) {
         return Shape.TYPES[payload.data.type].fromObject(payload);
@@ -615,7 +615,7 @@ export class Poly extends Shape {
     getBoundingBox () { return this.polygon.getBoundingBox() }
 
     get isPoly () { return true }
-    get hash () { return this.polygon.path.hash }
+    get hash () { return this.polygon.hash }
     get origin () { return this.polygon.center }
     get polygon () { return this.blob.polygon }
     static fromObject (payload) {

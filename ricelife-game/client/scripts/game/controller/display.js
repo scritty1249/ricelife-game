@@ -92,6 +92,14 @@ class Canvas2DContextCursor {
     get isCanvasCursor () {
         return true;
     }
+    get hash () {
+        // pixels should be a Uint8ClampedArray
+        const pixels = this.#ctx.getImageData(0, 0, this.#size.x, this.#size.y)?.data;
+        let hash = 0;
+        for (const val of pixels)
+            hash = (hash * 31 + val) | 0; // 32-bit range
+        return hash >>> 0;
+    }
 }
 
 // DefaultDict implementation
