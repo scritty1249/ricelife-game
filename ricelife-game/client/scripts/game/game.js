@@ -283,7 +283,15 @@ async function fireProjectile (shot, state, config) { // [!} laziness
     projectile.setLegend(landing.legend);
     state.blastTerrain = undefined;
     state.impactData = [];
-    if (state.debug) state.debug.landing = landing;
+    if (state.debug) {
+        state.debug.landing = landing;
+        state.debug.legend = projectile.getLegend(false);
+        state.debug.collisions = [];
+        for (const multiStageLegend of state.debug.legend)
+            for (const stageLegend of multiStageLegend)
+                for (const collision of stageLegend.collisions)
+                    state.debug.collisions.push(collision);
+    }
     if (landing.blasts.length) {
         const blasts = landing.blasts; // should be sorted
         state.redrawJob = state.threading.drawBlastedTerrains(1, "blastTerrain", config.display.size, config.terrain, ...blasts);
@@ -478,12 +486,12 @@ function drawDebugOverlay (state, config) {
             }
         }
         // draw custom properties, if any
-        if (debug.landing.bounces) {
+        if (debug.collisions) {
             const _lineLength = 35;
-            debug.landing.bounces.forEach(({point, reflection, direction, normal}) => {
+            debug.collisions.forEach(({point, resultVelocity, velocity, normal}) => {
                 drawLine(cursor, point, point.add(normal.normalize().mul(_lineLength)), 3, "green"); // normal
-                drawLine(cursor, point, point.add(direction.normalize().mul(_lineLength)), 3, "blue"); // direction (incoming)
-                drawLine(cursor, point, point.add(reflection.normalize().mul(_lineLength)), 3, "red"); // reflection
+                drawLine(cursor, point, point.add(velocity.normalize().mul(_lineLength)), 3, "blue"); // direction (incoming)
+                drawLine(cursor, point, point.add(resultVelocity.normalize().mul(_lineLength)), 3, "red"); // reflection
             });
         }
     }
