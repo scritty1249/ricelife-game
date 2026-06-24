@@ -64,8 +64,16 @@ export class Path extends TrackableObject { // points should be ordered clockwis
             return false;
         } else if (start?.isVector) {
             if (points.length === 1) return points[0].eq(start);
-            for (let i = 0; i < points.length; i+=2)
-                if (Vector.isBetween(start, points[i], points[i+1])) return true;
+            for (let i = 0; i < points.length; i+=2) {
+                const pt1 = points[i];
+                const pt2 = points[i+1];
+                if (Vector.isBetween(start, pt1, pt2))
+                    return {
+                        angle: pt1.angle(start),
+                        coeff: pt1.distance(start) / pt1.distance(pt2),
+                        index: i
+                    };
+            }
             return false;
         }
         throw new Error(`[${this.constructor.name}]: Invalid argument(s), cannot check intersection of Path and ${typeof start}${end === null ? "" : `, ${typeof end}`}`);
@@ -75,6 +83,42 @@ export class Path extends TrackableObject { // points should be ordered clockwis
         const intersections = [],
             thisPts = this.points,
             thatPts = path.points;
+        // idiot check
+        if (thisPts.length === 0 || thatPts.length === 0)
+            return [];
+        else if (thisPts.length === 1 && thatPts.length === 1)
+            return thisPts[0].eq(thatPts[0])
+                ? [{
+                    point: thisPts.clone(),
+                    entering: undefined,
+                    index: { self: 0, other: 0 },
+                    coeff: { self: 0, other: 0 },
+                    angle: 0 // [!] maybe this should be undefined? but would add lot of overhead to anything using this method -KT
+                }] : [];
+        else if (thisPts.length === 1) {
+            const inter = path.isIntersecting(thisPts[0]);
+            if (inter) { // inter should always be an Object when truthy, since we passed a Vector to isIntersecting
+                const otherIdx = inter.index;
+                inter.index = { self: 0, other: otherIdx };
+                const otherCoeff = inter.coeff;
+                inter.coeff = { self: 0, other: otherCoeff };
+                inter.entering = undefined;
+                return [inter];
+            }
+            return [];
+        } else if (thatPts.length === 1) {
+            const inter = this.isIntersecting(thatPts[0]);
+            if (inter) { // inter should always be an Object when truthy, since we passed a Vector to isIntersecting
+                const selfIdx = inter.index;
+                inter.index = { self: selfIdx, other: 0 };
+                const selfCoeff = inter.coeff;
+                inter.coeff = { self: selfCoeff, other: 0 };
+                inter.entering = undefined;
+                return [inter];
+            }
+            return [];
+        }
+        
 
         // this segements
         const segmentCount = this.isClosed ? thisPts.length : thisPts.length - 1; 
