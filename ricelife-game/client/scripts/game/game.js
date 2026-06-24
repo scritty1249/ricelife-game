@@ -159,6 +159,7 @@ async function init (...loaded) {
         interface: UIInterface,
         isTurn: Inputs.pointer.enabled,
         activeShot: Ammo.BasicShot,
+        debug: {}, // [!] store debugging related stuff here
         
         // uncertain about these. will likely refactor out in near future don't implement too much that relies on these
         projectile: undefined,
@@ -282,6 +283,7 @@ async function fireProjectile (shot, state, config) { // [!} laziness
     projectile.setLegend(landing.legend);
     state.blastTerrain = undefined;
     state.impactData = [];
+    if (state.debug) state.debug.landing = landing;
     if (landing.blasts.length) {
         const blasts = landing.blasts; // should be sorted
         state.redrawJob = state.threading.drawBlastedTerrains(1, "blastTerrain", config.display.size, config.terrain, ...blasts);
@@ -372,39 +374,41 @@ function handleInput (state, config) {
                 state.interface.onhold(pointer.position);
         }
         // keyboard
-        if (state.projectile === undefined) {
-            if (keyboard.keyActive("shootActive"))
-                fireProjectile(state.activeShot, state, config);
-            else
-                for (const [keyMapping, shotType] of Object.entries(state.projectileTypes))
-                    if (keyboard.keyActive(keyMapping)) {
-                        fireProjectile(shotType, state, config)
-                            .catch((error) => {
-                                console.error("Projectile trace error");
-                                config.dispatchEvent.error();
-                                throw error;
-                            });
-                        break;
-                    }
-        }
-        player.position.round(1/GLOBAL_RESOLUTION);
-        if (keyboard.keyActive("mv+")) {
-            state.move.move(config.moveIncr);
-        }
-        if (keyboard.keyActive("mv-")) {
-            state.move.move(-config.moveIncr);
-        }
-        if (keyboard.keyActive("shot+")) {
-            state.aimer.power+=config.powerIncr;
-        }
-        if (keyboard.keyActive("shot-")) {
-            state.aimer.power-=config.powerIncr;
-        }
-        if (keyboard.keyActive("aim+")) {
-            state.aimer.rotation+=config.aimIncr;
-        }
-        if (keyboard.keyActive("aim-")) {
-            state.aimer.rotation-=config.aimIncr;
+        if (!keyboard.keyActive("debug+")) {
+            if (state.projectile === undefined) {
+                if (keyboard.keyActive("shootActive"))
+                    fireProjectile(state.activeShot, state, config);
+                else
+                    for (const [keyMapping, shotType] of Object.entries(state.projectileTypes))
+                        if (keyboard.keyActive(keyMapping)) {
+                            fireProjectile(shotType, state, config)
+                                .catch((error) => {
+                                    console.error("Projectile trace error");
+                                    config.dispatchEvent.error();
+                                    throw error;
+                                });
+                            break;
+                        }
+            }
+            player.position.round(1/GLOBAL_RESOLUTION);
+            if (keyboard.keyActive("mv+")) {
+                state.move.move(config.moveIncr);
+            }
+            if (keyboard.keyActive("mv-")) {
+                state.move.move(-config.moveIncr);
+            }
+            if (keyboard.keyActive("shot+")) {
+                state.aimer.power+=config.powerIncr;
+            }
+            if (keyboard.keyActive("shot-")) {
+                state.aimer.power-=config.powerIncr;
+            }
+            if (keyboard.keyActive("aim+")) {
+                state.aimer.rotation+=config.aimIncr;
+            }
+            if (keyboard.keyActive("aim-")) {
+                state.aimer.rotation-=config.aimIncr;
+            }
         }
     } else {
         // only handle input related to menus (main menu, settings, exit button, etc.) - KT
@@ -419,7 +423,9 @@ function handleInput (state, config) {
 
 function drawDebugOverlay (state, config) {
     const { cursor } = config.display;
+    const { debug } = state;
     const player = state.tanks[config.playerTank];
+    if (!debug) return; // [!] debug property should always exist (but may be empty)
     // draw any holes in terrain
     for (const hole of state.terrain.holes) {
         cursor.save();
@@ -453,31 +459,32 @@ function drawDebugOverlay (state, config) {
     }
 
     if (state.projectile) {
-        if (state.landing) {
-            // draw blasts, if any
-            if (state.landing?.blasts.length) {
-                const c = new Color(255, 165, 0, .4);
-                cursor.save();
-                cursor.fillStyle = c.toString();
-                for (const { shape } of state.landing.blasts) {
-                    shape.draw(cursor, true);
-                    cursor.fill();
-                }
-                cursor.restore();
-                c.a = 1;
-                for (const { position } of state.landing.blasts) {
-                    drawCircle(cursor, position, 2, c.toString());
-                }
+ 
+    }
+    if (debug.landing) {
+        // draw blasts, if any
+        if (debug.landing?.blasts.length) {
+            const c = new Color(255, 165, 0, .15);
+            cursor.save();
+            cursor.fillStyle = c.toString();
+            for (const { shape } of debug.landing.blasts) {
+                shape.draw(cursor, true);
+                cursor.fill();
             }
-            // draw custom properties, if any
-            if (state.landing.bounces) {
-                const _lineLength = 35;
-                state.landing.bounces.forEach(({point, reflection, direction, normal}) => {
-                    drawLine(cursor, point, point.add(normal.normalize().mul(_lineLength)), 3, "green"); // normal
-                    drawLine(cursor, point, point.add(direction.normalize().mul(_lineLength)), 3, "blue"); // direction (incoming)
-                    drawLine(cursor, point, point.add(reflection.normalize().mul(_lineLength)), 3, "red"); // reflection
-                });
+            cursor.restore();
+            c.a = 1;
+            for (const { position } of debug.landing.blasts) {
+                drawCircle(cursor, position, 2, c.toString());
             }
+        }
+        // draw custom properties, if any
+        if (debug.landing.bounces) {
+            const _lineLength = 35;
+            debug.landing.bounces.forEach(({point, reflection, direction, normal}) => {
+                drawLine(cursor, point, point.add(normal.normalize().mul(_lineLength)), 3, "green"); // normal
+                drawLine(cursor, point, point.add(direction.normalize().mul(_lineLength)), 3, "blue"); // direction (incoming)
+                drawLine(cursor, point, point.add(reflection.normalize().mul(_lineLength)), 3, "red"); // reflection
+            });
         }
     }
 
@@ -486,21 +493,44 @@ function drawDebugOverlay (state, config) {
             outlineImage(cursor, item.source, item.position, 1, "green");
     }));
 
-    if (state.input.pointer.isActive) {
+    if ((state.input.pointer.isDragging
+        && state.aimer.isOver(state.input.pointer.dragStart))
+        || state.input.keyboard.keyActive("debug+")
+    ) {
         const { position } = state.input.pointer;
         const c = state.terrain.isIntersecting(position) ? new Color(0, 200, 50, 1) : new Color(200, 200, 10, 1);
         drawCircle(cursor, position, 4, c);
         drawText(cursor, position, position.toString(), c.toString());
-        if (state.input.pointer.isDragging && state.aimer.isOver(state.input.pointer.dragStart)) {
-            c.a = .5;
-            drawLine(cursor, player.barrelPos, position, 2, c.toString());
-            // draw raycast tester
-            if (state.input.keyboard.keyActive("debug+")) {
-                const hits = state.terrain.raycast(Ray(player.barrelPos, position));
-                for (const {point, angle, entering} of hits) {
-                    drawMarker(cursor, point, Vector.fromAngle(angle + Math.PI / 2), 4, 20, entering ? "purple" : "white");
-                }
-            }
+        c.a = .5;
+        drawLine(cursor, player.barrelPos, position, 2, c.toString());
+    }
+    if (state.input.keyboard.keyActive("debug+")) {
+        const { position } = state.input.pointer;
+        // stuff here will cause a lot of lag
+        cursor.save();
+        cursor.strokeStyle = "orange";
+        cursor.lineWidth = 5;
+        const edges = state.terrain.edgePoints(true, false);
+        for (const edge of edges) {
+            edge.draw(cursor, true);
+            cursor.stroke();
+        }
+        cursor.restore();
+        // draw raycast tester
+        const mode = state.input.keyboard.keyActive("shot1")
+            ? 1 // only show hits from holes
+            : state.input.keyboard.keyActive("shot1")
+                ? 2 // only show hits from non-holes
+                : 0; // show all hits
+        const hits = state.terrain.raycast(Ray(player.barrelPos, position));
+        for (const {point, angle, entering, hole} of hits) {
+            const c = entering ? "purple" : "white";
+            if (mode === 0
+                || (mode === 1 && hole)
+                || (mode === 2 && !hole)
+            )
+                drawMarker(cursor, point, Vector.fromAngle(angle + Math.PI / 2), 4, 20, c);
+
         }
     }
 }
