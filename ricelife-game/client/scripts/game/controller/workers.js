@@ -174,12 +174,11 @@ export class WorkerController {
             await this.#pool.copyCache(finalKey, polygonid, true, false);
             // package object into easier to parse structure
             const intervals = [];
-            const delay = interval[0].delay || 0;
             for (let i = 0; i < blastIntervals.length; i++) {
                 const interval = blastIntervals[i];
                 const frame = frames[i];
                 intervals.push({
-                    delay,
+                    delay: interval[0].delay,
                     frame: frame,
                     blasts: interval
                 });
