@@ -15,6 +15,24 @@ export class Path extends TrackableObject { // points should be ordered clockwis
             :   [...points];
     }
 
+    // removes duplicate adjacent points from Path
+    reduce (mutate = false) {
+        const path = mutate ? this : this.clone(true);
+        if (path.length <= 1) return path;
+        const newPoints = [];
+        const points = path.points;
+        for (let i = 0; i < points.length - 1; i++) {
+            if (!points[i].eq(points[i+1])) newPoints.push(points[i]);
+        }
+        if (path.isClosed && !path.at(-1).eq(path.at(0)))
+            newPoints.push(path.at(-1));
+        else
+            newPoints.push(points.at(-1));
+        path.splice(0, path.length);
+        for (const point of newPoints) path.push(point);
+        return path;
+    }
+
     smooth (resolution = 1) {
         if (this.length == 1) return;
         const newPoints = [];
@@ -121,12 +139,13 @@ export class Path extends TrackableObject { // points should be ordered clockwis
         
 
         // this segements
-        const segmentCount = this.isClosed ? thisPts.length : thisPts.length - 1; 
-        for (let i = 0; i < segmentCount; i++) {
+        const thisSegmentCount = this.isClosed ? thisPts.length : thisPts.length - 1; 
+        const thatSegmentCount = path.isClosed ? thatPts.length : thatPts.length - 1;
+        for (let i = 0; i < thisSegmentCount; i++) {
             const direction = thisPts[i + 1].sub(thisPts[i]); 
             // that segments
-            for (let j = 0; j < thatPts.length; j++) {
-                const dir = thatPts[(j + 1) % thatPts.length].sub(thatPts[j]),
+            for (let j = 0; j < thatSegmentCount; j++) {
+                const dir = thatPts[j + 1].sub(thatPts[j]),
                     cross = direction.cross(dir),
                     gap = thatPts[j].sub(thisPts[i]);
 
