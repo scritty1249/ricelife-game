@@ -113,6 +113,7 @@ async function init (...loaded) {
         Workers.createCache("background", "CANVAS", ...Display.size),
         Workers.insertCache("blastTerrain", "POLY", Terrain.Float64(1))
     ]);
+    console.info("Worker caches initalized");
     let state, config;
 
     config = {
@@ -470,8 +471,24 @@ function drawDebugOverlay (state, config) {
  
     }
     if (debug.landing) {
-        // draw blasts, if any
-        if (debug.landing?.blasts.length) {
+        // draw collision details
+        if (debug.collisions) {
+            const _lineLength = 35;
+            const red = new Color(255, 0, 0, .5)
+                .toString();
+            const green = new Color(0, 255, 0, .5)
+                .toString();
+            const blue = new Color(0, 0, 255, .5)
+                .toString();
+            debug.collisions.forEach(({position, point, resultVelocity, velocity, normal}) => {
+                drawCircle(cursor, position, 3, blue); // shot position during collision
+                drawLine(cursor, point, point.add(normal.normalize().mul(_lineLength)), 2, green); // normal
+                drawLine(cursor, point, point.add(velocity.normalize().mul(_lineLength)), 2, blue); // direction (incoming)
+                drawLine(cursor, point, point.add(resultVelocity.normalize().mul(_lineLength)), 2, red); // reflection
+            });
+        }
+        // draw blasts
+        if (debug.landing?.blasts?.length) {
             const c = new Color(255, 165, 0, .15);
             cursor.save();
             cursor.fillStyle = c.toString();
@@ -482,17 +499,8 @@ function drawDebugOverlay (state, config) {
             cursor.restore();
             c.a = 1;
             for (const { position } of debug.landing.blasts) {
-                drawCircle(cursor, position, 2, c.toString());
+                drawCircle(cursor, position, 3, c.toString());
             }
-        }
-        // draw custom properties, if any
-        if (debug.collisions) {
-            const _lineLength = 35;
-            debug.collisions.forEach(({point, resultVelocity, velocity, normal}) => {
-                drawLine(cursor, point, point.add(normal.normalize().mul(_lineLength)), 3, "green"); // normal
-                drawLine(cursor, point, point.add(velocity.normalize().mul(_lineLength)), 3, "blue"); // direction (incoming)
-                drawLine(cursor, point, point.add(resultVelocity.normalize().mul(_lineLength)), 3, "red"); // reflection
-            });
         }
     }
 
