@@ -26,8 +26,18 @@ export function averageAngle (radians = []) {
   return avg;
 }
 
+/* Rounds a number to a specific number of decimal places (base 10).
+ * 
+ * roundToPlace(3.14159, 2) // => 3.14 (rounds to 2 decimal places)
+ * roundToPlace(1234.56, -2) // => 1200 (rounds to the nearest hundred)
+ */
 export function roundToPlace (num, precision = 2) { const place = 10**precision; return Math.round(num * place) / place }
 
+/* Rounds a number to a custom an increment/interval.
+ *
+ * roundTo(7.3, 2) // => 7.5 (snaps to nearest 0.5, 1 / 2 = 0.5)
+ * roundTo(14, 0.25) // => 16 (snaps to nearest 4, 1 / 0.25 = 4)
+ */
 export function roundTo (num, precision = 1) { return Math.round(num * precision) / precision }
 
 export function clamp (num, min, max) { return Math.min(max, Math.max(min, num)) }
