@@ -220,7 +220,6 @@ export class MovementController { // only moves along X axis
         const hits = this.#terrain.raycast(ray);
         const exiting = hits.some(({entering}) => !entering);
 
-
         // remove duplicate/junk raycasting hits (i did some shit wrong)
         const hit = (exiting ? hits.filter(({entering}) => !entering) : hits)
             ?.toSorted((a, b) => b.point.y - a.point.y)?.at(0);
@@ -229,13 +228,11 @@ export class MovementController { // only moves along X axis
             return false;
         }
 
-        const angle = this.#normalizeAngle(hit.angle, hit.entering);
-
         // setting position
         position.x = amount;
         position.y = hit.point.y + this.offsetY;
         // setting rotation
-        this.#player.rotation.body = angle;
+        this.#player.rotation.body = hit.angle - (Math.PI / 2);
         return true;
     }
 

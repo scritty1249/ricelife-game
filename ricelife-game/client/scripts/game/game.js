@@ -199,12 +199,6 @@ async function init (...loaded) {
         const bounceSfxFn = function () { config.audio.player.add(config.audio.sources.bouncer.Instance().play(), true); }
         Ammo.Bouncer.SFX.bounce = bounceSfxFn;
         Ammo.MegaBouncer.SFX.bounce = bounceSfxFn;
-        // Ammo.Bouncer.onBounceCallback = function () {
-        //     config.audio.player.add(config.audio.sources.bouncer.Instance().play(), true);
-        // }
-        // Ammo.MegaBouncer.onBounceCallback = function () {
-        //     config.audio.player.add(config.audio.sources.bouncer.Instance().play(), true);
-        // }
     }
 
     {

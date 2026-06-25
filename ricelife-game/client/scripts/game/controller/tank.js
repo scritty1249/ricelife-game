@@ -1,5 +1,5 @@
 import { Vector } from "../geometry/geometry.js";
-import { deg2rad, rad2deg, TrackableObject } from "../utils/utils.js";
+import { deg2rad, rad2deg, TrackableObject, clamp } from "../utils/utils.js";
 
 export class TankController extends TrackableObject {
     #source;
@@ -14,8 +14,10 @@ export class TankController extends TrackableObject {
             get body () { return bodyImage.rotation },
             get barrel () { return barrelImage.rotation - (Math.PI) },
             set body (radians) {
-                bodyImage.rotation = radians;
-                return radians;
+                console.log(radians);
+                const val = clamp(radians % (Math.PI * 2), -(Math.PI / 2), Math.PI / 2);
+                bodyImage.rotation = val;
+                return val;
             },
             set barrel (radians) {
                 barrelImage.rotation = radians + (Math.PI);
