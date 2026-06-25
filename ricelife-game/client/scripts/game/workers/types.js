@@ -7,7 +7,7 @@ export const CACHE_TYPES = {
             return this.encode({path, holes, depth});
         },
         decode: (data) => {
-            const { depth } = data;
+            const { depth } = data.poly;
             const poly = data.poly.Float64(depth); // [!] We are not expecting our holes to have more goddamn holes, but ffs JUST IN CASE...
             const { buffers } = poly;
             const reference = { depth };
@@ -19,7 +19,7 @@ export const CACHE_TYPES = {
         },
         encode: (payload, peer = true) => {
             const poly = payload?.isPolygon ? payload : Polygon.fromObject(payload, payload.depth);
-            return peer ? { poly, depth: payload.depth } : poly;
+            return peer ? { poly } : poly;
         },
         encodeReference: (reference) => {
             return {
