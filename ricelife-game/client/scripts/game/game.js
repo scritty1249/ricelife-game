@@ -46,8 +46,8 @@ const DEBUG_ENABLED = () => window?.debugTools || (URL_PARAMS.get("debug") === "
 
 export async function load () {
     window.appCanvas.dispatchEvent(new Event("APP_loading"));
-    const body = new LoadImage("./assets/tank/body.png").onload;
-    const barrel = new LoadImage("./assets/tank/barrel.png").onload;
+    const body = new LoadImage("./assets/tank/basic/self/body.png").onload;
+    const barrel = new LoadImage("./assets/tank/basic/self/barrel.png").onload;
     const testExplosion = new Spritesheet("./assets/blast/explosion_ss_512x512.png", 512, 512).onload;
     const testMuzzleFlash = new Spritesheet("./assets/blast/muzzleflash_ss_140x162.png", 140, 162).onload;
     const AudioCtx = new AudioContext();
