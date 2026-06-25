@@ -279,13 +279,15 @@ export class ShotStage extends TrackableObject {
         collisions: [],
         duration: 0
     };
-    constructor (shot, delay = 0, blastsReference = [], collisionsReference = []) {
+    #sfxCallback;
+    constructor (shot, delay = 0, blastsReference = [], collisionsReference = [], sfxCallbackReference = {}) {
         if (!shot?.isShot) throw new Error(`[${this.constructor.name}]: Invalid parameter - expected Shot, got ${typeof shot}`);
         super();
         this.#shot = shot;
         this.#delayTime = delay;
         this.#blasts = blastsReference; // by reference
         this.#colliders = collisionsReference; // by reference
+        this.#sfxCallback = sfxCallbackReference; // by reference
     }
 
     // Approximate if any collisions lie between current state and given projection
@@ -426,6 +428,10 @@ export class ShotStage extends TrackableObject {
     isWithin (size) {
         return this.shot.isWithin(size);
     }
+    playSfx (sfxName) {
+        if (sfxName in this.sfxCallback) this.sfxCallback[sfxName]?.();
+        else console.warn(`[${this.constructor.name}]: Unable to play SFX "${sfxName}" -  callback does not exist`);
+    }
     getLegend (decode = true) {
         // clones and returns everything in record. The resulting object should be safely passable between worker threads
         const record = this.#legend || this.#record;
@@ -488,6 +494,7 @@ export class ShotStage extends TrackableObject {
     set collisionCallback (callbackFn) { return (this.#collisionCallback = callbackFn?.bind(this)) }
     get updateCallback () { return this.#updateCallback }
     set updateCallback (callbackFn) { return (this.#updateCallback = callbackFn?.bind(this)) }
+    get sfxCallback () { return this.#sfxCallback }
 }
 
 // Multiple shots at once
@@ -502,11 +509,13 @@ export class MultiShotStage extends TrackableObject {
     #isStarted = false; // trip this flag once we start updating stages, never set again to prevent tracking errors
     #finishedPromise = Promise.withResolvers();
     #isResolved = false;
-    constructor (delay = 0, blastsReference = [], collisionsReference = []) {
+    #sfxCallback;
+    constructor (delay = 0, blastsReference = [], collisionsReference = [], sfxCallbackReference = {}) {
         super();
         this.#delayTime = delay;
         this.#blasts = blastsReference;
         this.#colliders = collisionsReference;
+        this.#sfxCallback = sfxCallbackReference;
     }
 
     #updateStages (seconds) {
@@ -537,7 +546,7 @@ export class MultiShotStage extends TrackableObject {
     }
     // delay is amount of time before starting to update the shot
     newStage (shot, delay = 0) {
-        const stage = new ShotStage(shot, delay, this.blasts, this.colliders);
+        const stage = new ShotStage(shot, delay, this.blasts, this.colliders, this.sfxCallback);
         stage.blastTimeOffset = this.blastTimeOffset;
         this.#shotStages.push(stage);
         return stage;
@@ -546,8 +555,8 @@ export class MultiShotStage extends TrackableObject {
         return this.stages.some((stage) => stage.isWithin(size));
     }
     // creates a fresh instance with the same ShotStages, callbacks, and delay. References and blast time offset are not copied.
-    clone (deep = false, blastsReference = [], collisionsReference = []) {
-        const multishot = new MultiShotStage(this.delay, blastsReference, collisionsReference);
+    clone (deep = false, blastsReference = [], collisionsReference = [], sfxCallbackReference = {}) {
+        const multishot = new MultiShotStage(this.delay, blastsReference, collisionsReference, sfxCallbackReference);
         for (const stage of this.stages) {
             const newStage = multishot.newStage(stage.shot.clone(deep), stage.delay);
             newStage.collisionCallback = stage.collisionCallback;
@@ -585,10 +594,14 @@ export class MultiShotStage extends TrackableObject {
     set time (value) { return (this.#time = value) }
     get blastTimeOffset () { return this.#blastTimeOffset }
     set blastTimeOffset (value) { return (this.#blastTimeOffset = value) }
+    get sfxCallback () { return this.#sfxCallback }
 }
 
 // supports a sequence of shot or multishot stages
 export class Ammo extends TrackableObject {
+    static SFX = {
+        null: () => {}
+    };
     #time = 0;
     #colliders;
     #currentStage;
@@ -623,7 +636,7 @@ export class Ammo extends TrackableObject {
     }
     // create multishot stage by default
     newStage (delay = 0) {
-        const stage = new MultiShotStage(delay, this.blasts, this.colliders);
+        const stage = new MultiShotStage(delay, this.blasts, this.colliders, this.constructor.SFX);
         this.#stages.push(stage);
         if (this.#stageIdx === 0 && this.#currentStage === undefined) this.#currentStage = this.#stages[this.#stageIdx];
         return stage;

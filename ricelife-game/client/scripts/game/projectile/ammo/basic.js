@@ -88,13 +88,13 @@ export class Bouncer extends DefaultAmmo {
     static collisionCallback (point, normal) {
         const { shot } = this;
         const { position, velocity } = shot.current;
-        const reflection = Behaviors.computeBounce.call(this, normal);
+        const { reflect, displace } = Behaviors.computeBounce.call(this, normal);
         if (this.userData.bounces < this.userData.maxBounces) {
-            const reflect = reflection.normalize()
             // update projectile
-            const offset = shot.shape.getBoundingBox().size.length / 3; // if too small, projectile will collide with same surface on exiting side instantly. if too large, projectile will go flying for no reason
-            shot.applyPosition(position.add(reflect.mul(offset, true)));
-            velocity.apply(reflection.mul(this.userData.bounceVelocityMultiplier));
+            // const offset = shot.shape.getBoundingBox().size.length / 3; // if too small, projectile will collide with same surface on exiting side instantly. if too large, projectile will go flying for no reason
+            // shot.applyPosition(position.add(reflect.mul(offset, true)));
+            shot.applyPosition(position.add(displace));
+            velocity.apply(reflect.mul(this.userData.bounceVelocityMultiplier));
             this.userData.bounces++;
             // callback
             this.userData.onBounce();
@@ -111,6 +111,7 @@ export class Bouncer extends DefaultAmmo {
         shot.glowColor.r -= reduce;
         shot.glowColor.g -= reduce;
         shot.glowColor.b -= reduce;
+        this.playSfx("bounce");
     }
     static onBounceCallback () {} // this does not apply to Projectile tracing performed by web workers. Operations done in this callback should be cosmetic-only: should NOT change projectile movement or hitbox
     static bounceVelocityMultiplier = new Vector(.9, .9);

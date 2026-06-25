@@ -29,6 +29,7 @@ export class MegaBouncer extends Basic.Bouncer {
         }
         const acceleration = this.userData.bounceAccelerationLimit.div(maxBounces);
         shot.acceleration.add(acceleration);
+        this.playSfx("bounce");
     }
     static initalSpeed = 500;
     static acceleration = new Vector(30, -200);
