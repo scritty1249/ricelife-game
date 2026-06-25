@@ -124,20 +124,16 @@ self.onmessage = async (e) => {
              * }
              */
             const { subject, cuts, callback, cache } = payload;
-            const isUuid = typeof subject === "string";
-            const depth = isUuid
-                ? getCache(subject).data?.depth
-                : subject.depth;
-            const polygon = isUuid
-                ? (cache === subject)
+            const polygon = typeof subject === "string"
+                ? cache === subject
                     ? getCache(subject).data?.poly
                     : getCache(subject).data?.poly?.clone(true)
-                : Polygon.fromObject(subject, depth);
+                : Polygon.fromObject(subject, subject.depth);
             for (const cut of cuts) {
                 polygon.cut(
                     typeof cut === "string"
                         ? getCache(cut).data?.poly
-                        : Polygon.fromObject(cut, depth),
+                        : Polygon.fromObject(cut, cut.depth),
                     true
                 );
             }
