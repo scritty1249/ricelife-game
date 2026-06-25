@@ -274,7 +274,10 @@ async function fireProjectile (shot, state, config) { // [!} laziness
     }, config.busyThreshold);
 
     drawFrame(state, config); // draw one last frame so the game doesn't look like it just froze
-    const projectile = new shot(state.tanks[config.playerTank].barrelPos, state.aimer.rotation + (3 * (Math.PI / 2)), state.aimer.power);
+    const launchOrigin = state.terrain.isIntersecting(state.tanks[config.playerTank].barrelPos)
+        ? state.tanks[config.playerTank].relativePosition
+        : state.tanks[config.playerTank].barrelPos;
+    const projectile = new shot(launchOrigin, state.aimer.rotation + (3 * (Math.PI / 2)), state.aimer.power);
     projectile.colliders.push(state.terrain);
     const muzzleFlash = generateMuzzleFlash(state, config);
     const landing = await state.threading.traceProjectile("blastTerrain", projectile, config.traceIncrement, config.traceMaxTime);
