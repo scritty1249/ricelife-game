@@ -91,12 +91,6 @@ export class Bouncer extends DefaultAmmo {
         const reflection = Behaviors.computeBounce.call(this, normal);
         if (this.userData.bounces < this.userData.maxBounces) {
             const reflect = reflection.normalize()
-            // log for debugging
-            this.userData.previousBounces.push({
-                point, normal,
-                reflection: reflect.clone(),
-                direction: velocity.normalize()
-            });
             // update projectile
             const offset = shot.shape.getBoundingBox().size.length / 3; // if too small, projectile will collide with same surface on exiting side instantly. if too large, projectile will go flying for no reason
             shot.applyPosition(position.add(reflect.mul(offset, true)));
@@ -122,7 +116,6 @@ export class Bouncer extends DefaultAmmo {
     static bounceVelocityMultiplier = new Vector(.9, .9);
     static maxBounces = 3;
     static bounceGlowReduction = 50;
-    previousBounces = new Array(); // [!] for debugging, expects {point (of contact), direction, reflection, normal}
     constructor (origin, angle, power = 1, resolution = 1) {
         super(origin, angle, power, resolution);
         // geometry config
@@ -143,17 +136,10 @@ export class Bouncer extends DefaultAmmo {
             maxBounces: this.constructor.maxBounces,
             onBounce: this.constructor.onBounce.bind(stage),
             onBounceCallback: this.constructor.onBounceCallback.bind(stage),
-            previousBounces: this.previousBounces,
             bounceVelocityMultiplier: this.constructor.bounceVelocityMultiplier,
             bounceGlowReduction: this.constructor.bounceGlowReduction
         };
         stage.collisionCallback = this.constructor.collisionCallback;
-    }
-
-    trace (...args) { // [!] for debugging
-        const result = super.trace(...args);
-        result.bounces = result.state.previousBounces;
-        return result;
     }
 }
 
@@ -163,7 +149,6 @@ export class Digger extends DefaultAmmo {
         const direction = shot.current.velocity.normalize();
         const doBlast = normal === undefined || normal.y >= 0; // only apply blasts and count bounces if normal is not negative (colliding surface faces up)
         if (this.userData.bounces < this.userData.maxBounces) {
-            const point = shot.position.clone();
             // update projectile
             const reflection = shot.current.velocity.apply(0,
                     175 * (doBlast ? 1 : -1)
@@ -171,8 +156,6 @@ export class Digger extends DefaultAmmo {
             shot.drag = 0.002;
             shot.acceleration.y = -300;
             if (doBlast) this.userData.bounces++;
-            // log for debugging
-            this.userData.previousBounces.push({ direction, normal, reflection, point });
             // callback
             this.userData.onBounce();
             this.userData.onBounceCallback?.();
@@ -187,7 +170,6 @@ export class Digger extends DefaultAmmo {
     static initalSpeed = 500;
     static drag = 0.003;
     static radius = 8;
-    previousBounces = new Array(); // [!] for debugging
     constructor (origin, angle, power = 1, resolution = 1) {
         super(origin, angle, power, resolution);
         // geometry config
@@ -208,17 +190,10 @@ export class Digger extends DefaultAmmo {
             maxBounces: this.constructor.maxBounces,
             onBounce: this.constructor.onBounce.bind(stage),
             onBounceCallback: this.constructor.onBounceCallback.bind(stage),
-            previousBounces: this.previousBounces,
             bounceVelocityMultiplier: this.constructor.bounceVelocityMultiplier,
             bounceGlowReduction: this.constructor.bounceGlowReduction
         };
         stage.collisionCallback = this.constructor.collisionCallback;
-    }
-
-    trace (...args) { // [!] for debugging
-        const result = super.trace(...args);
-        result.bounces = result.state.previousBounces;
-        return result;
     }
 }
 
@@ -243,7 +218,6 @@ export class PineShot extends DefaultAmmo {
     }
     static stemCollisionCallback (point, normal) {
         const { shot } = this;
-        const direction = shot.current.velocity.normalize();
         const doBounce = normal.y >= 0; // only bounce if normal is not negative (colliding surface faces up)- otherwise go stage 2 (spawn needles) immedately
         this.updateCallback = this.userData.stageTransition;
         if (doBounce) {
@@ -254,8 +228,6 @@ export class PineShot extends DefaultAmmo {
             shot.acceleration.apply(this.userData.bounceAcceleration);
             const offset = shot.shape.getBoundingBox().size.length / 4; // if too small, projectile will collide with same surface on exiting side instantly. if too large, projectile will go flying for no reason
             shot.applyPosition(shot.position.add(reflection.normalize().mul(offset, true)));
-            // log for debugging
-            this.userData.previousBounces.push({ direction, normal, reflection, point });
         } else {
             shot.current.velocity.apply(0, 0);
         }
@@ -273,7 +245,6 @@ export class PineShot extends DefaultAmmo {
     static stemBounceVelocity = new Vector(0, 200);
     static stemBounceDrag = 0.0015;
     static stemBounceAcceleration = new Vector(0, -100);
-    previousBounces = new Array();
     constructor (origin, angle, power = 1, resolution = 1) {
         super(origin, angle, power, resolution);
         // geometry config
@@ -329,11 +300,5 @@ export class PineShot extends DefaultAmmo {
             needleShotStage.collisionCallback = needleCollisionCallback;
             needleShots.push(newNeedleShot);
         }
-    }
-
-    trace (...args) { // [!] for debugging
-        const result = super.trace(...args);
-        result.bounces = result.state.previousBounces;
-        return result;
     }
 }

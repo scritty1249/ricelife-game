@@ -91,7 +91,7 @@ self.onmessage = async (e) => {
         if (LOG_LEVEL >= 2) console.debug(`[WebWorker] (${ID}): Transaction ${id} receieved from parent\n\t${command ? command : type}: `,  payload);
         if (command) {
             processManagerCommand(command, id, payload);
-        } else if (type === "INTERSECTPROJ") {
+        } else if (type === "TRACESHOT") {
             /* Payload expected:
              * {
              *    ammo: String,
@@ -233,6 +233,15 @@ async function processManagerCommand (command, id, payload) {
             CHANNELS[worker].onmessage = onworkermessage;
             CHANNELS[worker].start();
             postSuccess(id);
+        } else if (command === "HASHCACHE") {
+            /* Payload expected:
+             * {
+             *    cache: UUID
+             * }
+             */
+            const { cache } = payload;
+            const { type, data } = getCache(cache);
+            postResponse(id, {hash: CACHE_TYPES[type].hash(data) });
         } else if (command === "INITCACHE") {
            /* Payload expected:
             * {

@@ -47,7 +47,7 @@ export class WorkerController {
                 payload.cuts.push(data);
                 transfer.push(...data.buffers);
             }
-            const data = await this.#pool.post("CUTPOLY", payload, transfer, [subjectid, destid]);
+            const data = await this.#pool.post("CUTPOLY", payload, transfer, subjectid === destid ? [subjectid] : [subjectid, destid]);
             return Polygon.fromObject(data.polygon, depth);
         }
     }
@@ -73,18 +73,12 @@ export class WorkerController {
             origin, angle, power, resolution, increment, limit, ammo,
             collisions: [polygonid]
         };
-        const landing = await this.#pool.post("INTERSECTPROJ", payload, [], [polygonid]);
+        const landing = await this.#pool.post("TRACESHOT", payload, [], [polygonid]);
         // encode data
         if (landing) {
             if (landing.blasts?.length)
                 landing.blasts = landing.blasts.map((blast) =>
                     Blast.fromObject(blast));
-            for (let i = 0; i < landing.bounces?.length; i++) {
-                landing.bounces[i].point = Vector.fromObject(landing.bounces[i].point);
-                landing.bounces[i].normal = Vector.fromObject(landing.bounces[i].normal);
-                landing.bounces[i].reflection = Vector.fromObject(landing.bounces[i].reflection);
-                landing.bounces[i].direction = Vector.fromObject(landing.bounces[i].direction);
-            }
         }
         return landing;
     }
@@ -101,14 +95,18 @@ export class WorkerController {
             const canvas = this.#pool.initCache("CANVAS", [canvasSize.x, canvasSize.y], key);
             await poly;
             await canvas;
-            const frame = await this.drawTerrain(key, polygonid, terrainConfig.fill, terrainConfig.edge)
+            const frame = poly
+                .then(() => canvas)
+                .then(() => this.drawTerrain(key, polygonid, terrainConfig.fill, terrainConfig.edge))
                 .then(() => this.#pool.pullCache(key, true, false))
                 .then(() => this.#pool.cache[key]);
-            return {polygon: await poly,
+            const delay = blasts[0].delay || 0;
+            return {
+                polygon: await poly,
                 intervals: [{
-                    frame: frame,
+                    delay,
+                    frame: await frame,
                     blasts: blasts,
-                    delay: blasts[0].delay
                 }]
             };
         } else {
@@ -174,9 +172,9 @@ export class WorkerController {
                 const interval = blastIntervals[i];
                 const frame = frames[i];
                 intervals.push({
+                    delay: interval[0].delay,
                     frame: frame,
-                    blasts: interval,
-                    delay: interval[0].delay
+                    blasts: interval
                 });
             }
             return { polygon, intervals };
@@ -186,6 +184,7 @@ export class WorkerController {
     async insertCache (id, type, payload) { return await this.#pool.pushCache(type, payload, id) }
     async updateCache (id, transfer = false) { await this.#pool.pullCache(id, transfer, true) }
     async destroyCache (id) { return await this.#pool.dropCache(id) }
+    async hashCache (id) { return await this.#pool.hashCache(id) }
 
     get cache() { return this.#pool.cache }
 }

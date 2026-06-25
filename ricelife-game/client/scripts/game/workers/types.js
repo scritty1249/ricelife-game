@@ -26,7 +26,10 @@ export const CACHE_TYPES = {
                 poly: new Polygon(),
                 depth: reference.depth
             }
-        }
+        },
+        hash: (data) => {
+            return data?.poly?.hash;
+        },
     },
     CANVAS: {
         create (width, height) {
@@ -54,7 +57,10 @@ export const CACHE_TYPES = {
             const canvas = new OffscreenCanvas(reference.width, reference.height);
             const cursor = Canvas2DContextCursorFactory(canvas);
             return { canvas, cursor };
-        }
+        },
+        hash: (data) => {
+            return data?.cursor?.hash;
+        },
     },
     SHAPE: {
         create (payload) { return this.encode(payload, true) },
@@ -68,7 +74,10 @@ export const CACHE_TYPES = {
         },
         encodeReference (reference) {
             return { shape: new Shape.TYPES[reference.type]() }
-        }
+        },
+        hash (data) {
+            return data?.shape?.hash;
+        },
     }
 };
 Object.freeze(CACHE_TYPES);

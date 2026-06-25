@@ -362,8 +362,17 @@ export class ShotStage extends TrackableObject {
         const { time, shot } = this;
         const position = shot.position.clone();
         const velocity = shot.current.velocity.clone();
-        this.#record.collisions.push({time, position, point, velocity, normal});
+        const collision = {
+            time,
+            position,
+            point,
+            velocity,
+            normal,
+            resultVelocity: undefined // velocity after collision. Mainly for debugging
+        }
+        this.#record.collisions.push(collision);
         this.collisionCallback?.(point, normal);
+        collision.resultVelocity = shot.current.velocity.clone();
     }
     update (seconds) {
         try {
@@ -417,14 +426,23 @@ export class ShotStage extends TrackableObject {
     isWithin (size) {
         return this.shot.isWithin(size);
     }
-    getLegend () {
+    getLegend (decode = true) {
         // clones and returns everything in record. The resulting object should be safely passable between worker threads
-        const record = this.#record;
+        const record = this.#legend || this.#record;
         const legend = {
             duration: record.duration,
-            collisions: Array.from(record.collisions, ({time, position, point, velocity, normal}) => [
-                time, [position.x, position.y], [point.x, point.y], [velocity.x, velocity.y], [normal.x, normal.y]
-            ])
+            collisions: Array.from(record.collisions,
+                decode
+                    ? ({time, position, point, velocity, normal, resultVelocity}) => [
+                        time,
+                        [position.x, position.y],
+                        [point.x, point.y],
+                        [velocity.x, velocity.y],
+                        [normal.x, normal.y],
+                        [resultVelocity.x, resultVelocity.y]
+                    ]
+                    : (collision) => collision
+            )
         };
         return legend;
     }
@@ -433,12 +451,13 @@ export class ShotStage extends TrackableObject {
             this.#legend = {
                 duration: legend[0],
                 collisions: Array.from(legend[1],
-                    ([time, position, point, velocity, normal]) => ({
+                    ([time, position, point, velocity, normal, resultVelocity]) => ({
                         time: time,
                         position: new Vector(position[0], position[1]),
                         point: new Vector(point[0], point[1]),
                         velocity: new Vector(velocity[0], velocity[1]),
-                        normal: new Vector(normal[0], normal[1])
+                        normal: new Vector(normal[0], normal[1]),
+                        resultVelocity: new Vector(resultVelocity[0], resultVelocity[1])
                     }))
             };
         } catch (error) {
@@ -535,10 +554,12 @@ export class MultiShotStage extends TrackableObject {
         }
         return multishot;
     }
-    getLegend () {
+    getLegend (decode = true) {
         return this.stages
-            .map((stage) => stage.getLegend())
-            .map(({duration, collisions}) => [duration, collisions])
+            .map((stage) => stage.getLegend(decode))
+            .map(decode
+                ? ({duration, collisions}) => [duration, collisions]
+                : (legend) => legend);
     }
     setLegend (legend) {
         try {
@@ -633,10 +654,10 @@ export class Ammo extends TrackableObject {
         const ammo = new Ammo(this.colliders, stages);
         return ammo;
     }
-    getLegend () {
-        return this.stages.map((stage) => stage.getLegend())
+    getLegend (decode = true) {
+        return this.stages.map((stage) => stage.getLegend(decode));
     }
-    setLegend (legend) {
+    setLegend (legend) { // expects an decoded legend 
         try {
             const stages = this.stages;
             for (let i = 0; i < stages.length; i++)

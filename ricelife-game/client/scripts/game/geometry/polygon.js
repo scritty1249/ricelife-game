@@ -201,6 +201,10 @@ export class Polygon extends TrackableObject { // points should be ordered clock
             for (const inter of ray.intersections(path))
                 if (!holes.some(hole => hole.isIntersecting(inter.point)) && !hits.some(({point}) => point.eq(inter.point)))
                     hits.push({
+                        // [!] debugging. Values in here are passed by ref and SHOULD NOT be modified
+                        _path: path,
+                        _inter: inter,
+
                         point: inter.point,
                         distance: inter.coeff.self * distance,
                         angle: inter.angle,
@@ -285,10 +289,14 @@ export class Polygon extends TrackableObject { // points should be ordered clock
 
         return total.div(this.path.length);
     }
-    edgePoints (innerEdges = true, flatten = true) { // returns ordered points from polygon outside of any holes, and holes that do not overlap with any other holes (inside edges)
-        const edgeHash = Vector.hashVectors(this.path.points.concat(Array.from(
+    get hash () {
+        // only returns the hash of the points, does not actually count ID
+        return Vector.hashVectors(this.path.points.concat(Array.from(
             this.holes, ({path}) => path.points
         ).flat(1)));
+    }
+    edgePoints (innerEdges = true, flatten = true) { // returns ordered points from polygon outside of any holes, and holes that do not overlap with any other holes (inside edges)
+        const edgeHash = this.hash;
         const segments = [];
         if (this.#edgeHash !== edgeHash) {
             this.#edgeHash = edgeHash;
