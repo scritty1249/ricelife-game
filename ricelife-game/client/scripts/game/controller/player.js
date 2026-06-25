@@ -185,7 +185,7 @@ export class MovementController { // only moves along X axis
     #range;
     #terrainHeight;
     #player;
-    #maxAngle = Math.PI / 3; // 60 degrees, forward and back
+    #maxAngle = (5 * Math.PI) / 12; // 75 degrees, forward and back
     constructor (terrain, tank, offsetY = 0) {
         this.#player = tank;
         this.#terrain = terrain;
