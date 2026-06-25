@@ -14,7 +14,6 @@ export class TankController extends TrackableObject {
             get body () { return bodyImage.rotation },
             get barrel () { return barrelImage.rotation - (Math.PI) },
             set body (radians) {
-                console.log(radians);
                 const val = clamp(radians % (Math.PI * 2), -(Math.PI / 2), Math.PI / 2);
                 bodyImage.rotation = val;
                 return val;

@@ -185,6 +185,7 @@ export class MovementController { // only moves along X axis
     #range;
     #terrainHeight;
     #player;
+    #maxAngle = Math.PI / 3; // 60 degrees, forward and back
     constructor (terrain, tank, offsetY = 0) {
         this.#player = tank;
         this.#terrain = terrain;
@@ -203,6 +204,7 @@ export class MovementController { // only moves along X axis
         if (!hits.length) return false;
 
         const hit = hits.at(0); // should already be sorted in decesnding order (from targetX to origin)
+        if (hit.angle >= this.#maxAngle || hit.angle <= -this.#maxAngle) return false;
         // setting position
         position.x = hit.point.x;
         position.y = hit.point.y + this.offsetY;
