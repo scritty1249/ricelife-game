@@ -196,12 +196,15 @@ async function init (...loaded) {
 
     {
         // setup functions that required loaded assets
-        Ammo.Bouncer.onBounceCallback = function () {
-            config.audio.player.add(config.audio.sources.bouncer.Instance().play(), true);
-        }
-        Ammo.MegaBouncer.onBounceCallback = function () {
-            config.audio.player.add(config.audio.sources.bouncer.Instance().play(), true);
-        }
+        const bounceSfxFn = function () { config.audio.player.add(config.audio.sources.bouncer.Instance().play(), true); }
+        Ammo.Bouncer.SFX.bounce = bounceSfxFn;
+        Ammo.MegaBouncer.SFX.bounce = bounceSfxFn;
+        // Ammo.Bouncer.onBounceCallback = function () {
+        //     config.audio.player.add(config.audio.sources.bouncer.Instance().play(), true);
+        // }
+        // Ammo.MegaBouncer.onBounceCallback = function () {
+        //     config.audio.player.add(config.audio.sources.bouncer.Instance().play(), true);
+        // }
     }
 
     {
@@ -484,7 +487,7 @@ function drawDebugOverlay (state, config) {
                 drawCircle(cursor, position, 3, blue); // shot position during collision
                 drawLine(cursor, point, point.add(normal.normalize().mul(_lineLength)), 2, green); // normal
                 drawLine(cursor, point, point.add(velocity.normalize().mul(_lineLength)), 2, blue); // direction (incoming)
-                drawLine(cursor, point, point.add(resultVelocity.normalize().mul(_lineLength)), 2, red); // reflection
+                drawLine(cursor, position, position.add(resultVelocity.normalize().mul(_lineLength)), 2, red); // reflection
             });
         }
         // draw blasts
@@ -541,7 +544,10 @@ function drawDebugOverlay (state, config) {
         for (let i = 0; i < hits.length; i++) {
             const { point, angle, entering, hole } = hits[i];
             const c = entering ? "purple" : "white";
-            drawMarker(cursor, point, Vector.fromAngle(angle + Math.PI / 2), 4, 20, c);
+            const offset = point.x > position.x
+                ? (3 * Math.PI) / 2
+                : Math.PI / 2;
+            drawMarker(cursor, point, Vector.fromAngle(angle + offset), 4, 20, c);
             hits[i]._path.draw(cursor, true);
             cursor.stroke();
         }
