@@ -8,7 +8,7 @@ export class Spritesheet extends LoadImage {
     #frames = [];
     #offset = new Vector(); // offset is applied using canvas coordinates (0,0) is top left, offset is applied before scaling
     #framerate; // completely optional. Only used to associate a consistet value with this specific source, it should not be used or interacted with at all within this class.
-    constructor (src, frameWidth, frameHeight, offset = new Vector(), framerate = undefined) {
+    constructor (src, frameWidth, frameHeight, framerate = undefined, offset = new Vector()) {
         super(src);
         this.#offset.apply(offset);
         this.#framerate = framerate;
