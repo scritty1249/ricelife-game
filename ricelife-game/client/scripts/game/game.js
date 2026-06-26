@@ -442,7 +442,7 @@ async function fireProjectile (shot, state, config) { // [!} laziness
     await state.redrawJob;
     state.landing = landing;
     state.projectile = projectile;
-    state.tracer = projectile.tracer;
+    state.tracer = projectile.getTracer();
     if (wasSetBusy) {
         config.dispatchEvent.ready();
     } else {

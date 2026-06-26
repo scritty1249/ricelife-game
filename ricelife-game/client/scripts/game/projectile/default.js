@@ -2,7 +2,7 @@ import { TrackableObject, floatEqual, roundToPlace } from "../utils/utils.js";
 import { Circle, Vector, Color, Path, Ray, BoundingBox } from "../geometry/geometry.js";
 
 export class Projectile extends TrackableObject {
-    #tracer;
+    #tracer = new Path();
     #time = 0; // in seconds
     constructor (origin, velocity, acceleration, drag) {
         super();
@@ -14,18 +14,6 @@ export class Projectile extends TrackableObject {
             position: new Vector(origin),
             velocity: this.velocity.clone()
         };
-        {
-            const tracer = new Path();
-            const _originalDraw = tracer.draw;
-            tracer.draw = function (cursor) {
-                cursor.save();
-                cursor.setLineDash([10, 20]);
-                cursor.strokeStyle = "rgba(255, 255, 255, .35)";
-                _originalDraw.call(this, cursor);
-                cursor.restore();
-            }
-            this.#tracer = tracer;
-        }
     }
 
     get speed () {
@@ -280,6 +268,7 @@ export class ShotStage extends TrackableObject {
         duration: 0
     };
     #sfxCallback;
+    #tracer = new Path();
     constructor (shot, delay = 0, blastsReference = [], collisionsReference = [], sfxCallbackReference = {}) {
         if (!shot?.isShot) throw new Error(`[${this.constructor.name}]: Invalid parameter - expected Shot, got ${typeof shot}`);
         super();
@@ -390,6 +379,7 @@ export class ShotStage extends TrackableObject {
                 this.time += seconds;
                 this.#projectUpdate(seconds, 1);
                 this.updateCallback?.();
+                this.tracer.push(shot.position.clone());
                 if (!this.#isFinished && shot.isStopped)
                     this.#setFinished();
             } else {
@@ -405,6 +395,7 @@ export class ShotStage extends TrackableObject {
                     shot.update(seconds);
                 }
                 this.updateCallback?.();
+                this.tracer.push(shot.position.clone());
                 if (!this.#isFinished && this.time >= legend.duration)
                     this.#setFinished();
             }
@@ -495,6 +486,7 @@ export class ShotStage extends TrackableObject {
     get updateCallback () { return this.#updateCallback }
     set updateCallback (callbackFn) { return (this.#updateCallback = callbackFn?.bind(this)) }
     get sfxCallback () { return this.#sfxCallback }
+    get tracer () { return this.#tracer }
 }
 
 // Multiple shots at once
@@ -595,6 +587,33 @@ export class MultiShotStage extends TrackableObject {
     get blastTimeOffset () { return this.#blastTimeOffset }
     set blastTimeOffset (value) { return (this.#blastTimeOffset = value) }
     get sfxCallback () { return this.#sfxCallback }
+    get tracer () { return this.stages.map(({tracer}) => tracer) }
+}
+
+// bundle tracer to be seperated from Ammos
+class AmmoTracer {
+    #stages = new Array(); // 2D array, contains sequence of MultShotStage tracers (Paths)
+    #color = new Color(255, 255, 255, .35);
+    lineDash = new Array(10, 20);
+    constructor (stages) {
+        for (const stage of stages) {
+            if (!stage?.isMultiShotStage) throw new Error(`[${this.constructor.name}]: Invalid parameter array item, expected MultiShotStage, got ${typeof stage}`);
+            this.#stages.push(stage.tracer); // stage.tracer should be an Array of Paths
+        }
+    }
+
+    draw (cursor) {
+        cursor.save();
+        cursor.setLineDash(this.lineDash);
+        cursor.strokeStyle = this.color.toString();
+        for (const stageTrace of this.#stages)
+            for (const trace of stageTrace)
+                trace.draw(cursor, true);
+        cursor.restore();
+    }
+
+    get isAmmoTracer () { return true }
+    get color () { return this.#color }
 }
 
 // supports a sequence of shot or multishot stages
@@ -680,6 +699,7 @@ export class Ammo extends TrackableObject {
             throw error;
         }
     }
+    getTracer () { return new AmmoTracer(this.stages) }
 
     get isAmmo () { return true }
     get colliders () { return this.#colliders }
