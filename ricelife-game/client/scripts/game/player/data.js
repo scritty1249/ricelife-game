@@ -20,6 +20,9 @@ export class Player extends TrackableObject  {
         if (this.#isLoaded) throw new Error(`[${this.constructor.name}]: Failed to load - already loaded`);
         await this.data.onload;
         const { body, barrel } = this.data.model;
+        body.width = 50;
+        barrel.scale.apply(body.scale);
+
         this.#tank = new TankController(body, barrel, new Vector());
         this.#aimer = new AimController(this.tank, this.tank.width * 3);
         this.#mover = new MovementController(terrain, this.tank,  -(this.tank.offset.body.y / 10));
@@ -165,10 +168,6 @@ export class PlayerModel {
         this.#type = type;
         this.#body = body.clone(false);
         this.#barrel = barrel.clone(false);
-        this.onload.then(() => {
-            this.#body.width = width;
-            this.#barrel.scale.apply(this.#body.scale);
-        });
     }
 
     get isPlayerModel () { return true }

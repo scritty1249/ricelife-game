@@ -334,12 +334,19 @@ async function init (...loaded) {
     {
         // distribute players
         const min = Display.size.x / 10;
+        const max = Display.size.x - min;
         const spacing = (Display.size.x / 6);
-        const range = (Display.size.x - min) / spacing; 
+        const range = (max - min) / spacing; 
+        const spots = new Set()
+        let x = undefined;
         for (const { aimer, mover } of players) {
-            const x = Math.floor(Math.random() * (range + 1)) * spacing + min;
-            mover.set(Math.floor(x));
+            while (x === undefined || spots.has(x)) {
+                x = (Math.floor(Math.random() * (range + 1)) * spacing) + min;
+            }
+            spots.add(x);
+            mover.set(x);
             aimer.update(players[0].tank.position.add({x: 0, y: Display.size.y})); // aim straight up and set power to 100% (1)
+            console.log(x);
         }
     }
     Display.canvas.focus();

@@ -2,6 +2,7 @@ import { Vector } from "../geometry/geometry.js";
 import { TrackableObject, drawLine } from "../utils/utils.js";
 
 export class LoadImage extends TrackableObject {
+    #src; // used for cloning
     #img;
     #loadPromise;
     #ready = false;
@@ -18,6 +19,7 @@ export class LoadImage extends TrackableObject {
                 this.#size.apply(this.#img.width, this.#img.height);
             } else {
                 this.#loadPromise = src.onload.then(() => {
+                    this.#src = src.img.src;
                     this.#img = src.img;
                     this.#size.apply(this.#img.width, this.#img.height);
                     this.#ready = true;
@@ -25,6 +27,7 @@ export class LoadImage extends TrackableObject {
                 });
             }
         } else {
+            this.#src = src;
             this.#img = new Image();
             this.#loadPromise = new Promise((resolve, reject) => {
                 this.#img.onerror = (e) => (this.#ready = undefined, reject(e));
@@ -49,7 +52,7 @@ export class LoadImage extends TrackableObject {
         cursor.drawImage(this.img, sx, sy, sWidth, sHeight, og.x, og.y, dWidth, dHeight);
         cursor.restore();
     }
-    clone (deep = false) { return new LoadImage(deep ? this.#img.src : this) }
+    clone (deep = false) { return new LoadImage(deep ? this.#src : this) }
 
     get isLoadImage () { return true }
     get ready () { return this.#ready }
