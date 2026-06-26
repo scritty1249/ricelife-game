@@ -49,7 +49,7 @@ export class LoadImage extends TrackableObject {
         cursor.drawImage(this.img, sx, sy, sWidth, sHeight, og.x, og.y, dWidth, dHeight);
         cursor.restore();
     }
-    clone () { return new LoadImage(this) }
+    clone (deep = false) { return new LoadImage(deep ? this.#img.src : this) }
 
     get isLoadImage () { return true }
     get ready () { return this.#ready }
