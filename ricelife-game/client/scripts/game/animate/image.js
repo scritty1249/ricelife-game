@@ -21,7 +21,7 @@ export class LoadImage extends TrackableObject {
                     this.#ready = true;
                     this.#img = src.img;
                     this.#size.apply(this.#img.width, this.#img.height);
-                    resolve(this);
+                    return this;
                 });
             }
         } else {
