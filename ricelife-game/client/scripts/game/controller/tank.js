@@ -1,10 +1,9 @@
 import { Vector } from "../geometry/geometry.js";
-import { deg2rad, rad2deg, TrackableObject, clamp } from "../utils/utils.js";
+import { deg2rad, rad2deg, clamp } from "../utils/utils.js";
 
-export class TankController extends TrackableObject {
+export class TankController {
     #source;
     constructor (bodyImage, barrelImage, position = new Vector()) {
-        super();
         this.#source = {
             // expects LOADED ResizedImage objects
             body: bodyImage,

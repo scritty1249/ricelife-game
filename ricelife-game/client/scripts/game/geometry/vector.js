@@ -263,7 +263,7 @@ export class Color {
     #g;
     #b;
     #a;
-    constructor (value, g = undefined, b = undefined, a = 1) {
+    constructor (value = "#000000", g = undefined, b = undefined, a = 1) {
         this.apply(value, g, b, a);
     }
 

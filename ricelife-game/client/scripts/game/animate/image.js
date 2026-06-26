@@ -18,9 +18,9 @@ export class LoadImage extends TrackableObject {
                 this.#size.apply(this.#img.width, this.#img.height);
             } else {
                 this.#loadPromise = src.onload.then(() => {
-                    this.#ready = true;
                     this.#img = src.img;
                     this.#size.apply(this.#img.width, this.#img.height);
+                    this.#ready = true;
                     return this;
                 });
             }
@@ -29,8 +29,8 @@ export class LoadImage extends TrackableObject {
             this.#loadPromise = new Promise((resolve, reject) => {
                 this.#img.onerror = (e) => (this.#ready = undefined, reject(e));
                 this.#img.onload = () => {
-                    this.#ready = true;
                     this.#size.apply(this.#img.width, this.#img.height);
+                    this.#ready = true;
                     resolve(this);
                 };
             });
