@@ -12,19 +12,37 @@ export class Polygon extends TrackableObject { // points should be ordered clock
     #outerEdgeSegments;
     constructor (...points) {
         super();
-        this.#holes.apply = function (...holes) {
-            this.splice(0, this.length);
-            for (const hole of holes) {
-                if (!hole.isPolygon) throw new Error(`[${this.constructor.name}] Error: Holes must be Polygons, not ${typeof hole}`);
-                this.push(hole);
-            }
-        }
         this.#path = (points.length == 1 && points[0]?.isPath)
             ? points[0]
             : new Path(...points);
         this.#path.isClosed = true;
+        {
+            this.#holes.apply = function (...holes) {
+                this.splice(0, this.length);
+                for (const hole of holes) {
+                    if (!hole.isPolygon) throw new Error(`[${this.constructor.name}] Error: Holes must be Polygons, not ${typeof hole}`);
+                    this.push(hole);
+                }
+            }
+        }
     }
 
+    // optimize polygons, remove holes that are completely swallowed / overlapping with other holes
+    reduceHoles () {
+        const oldHoles = this.holes;
+        const newHoles = [];
+        for (const hole of oldHoles) {
+            if (!hole.edgePoints(false, true)
+                    .every((pt) =>
+                        oldHoles.some((h) =>
+                            !h.eq(hole)
+                            && h.isIntersecting(pt)
+            ))) newHoles.push(hole);
+        }
+        oldHoles.splice(0, oldHoles.length);
+        for (const hole of newHoles) oldHoles.push(hole);
+        return this; // for chaining
+    }
     smooth (resolution = 1) {
         if (resolution === 1) return;
         const path = this.path;
@@ -154,7 +172,7 @@ export class Polygon extends TrackableObject { // points should be ordered clock
             newPolygon.holes.push(hole);
         } else if (polyPieces.length !== 0)
             newPolygon.path.apply(...polyPieces[0].path.points);
-        return newPolygon;
+        return newPolygon.reduceHoles();
     }
 
     draw (cursor, close = true) { // only draw the path
