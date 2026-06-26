@@ -16,14 +16,21 @@ export class Player extends TrackableObject  {
         this.#data = data;
     }
 
+    #applyStyling () {
+        const { profile, model } = this.data;
+        model.body.width = 50;
+        model.barrel.scale.apply(model.body.scale);
+        profile.avatar.width = 25;
+        profile.nameOffset.y = model.body.height * 1.5;
+        profile.avatarOffset.y = model.body.height * 2.4;
+        profile.fontColor.apply(255, 255, 255);
+    }
+
     async load (terrain) {
         if (this.#isLoaded) throw new Error(`[${this.constructor.name}]: Failed to load - already loaded`);
         await this.data.onload;
-        const { body, barrel } = this.data.model;
-        body.width = 50;
-        barrel.scale.apply(body.scale);
-
-        this.#tank = new TankController(body, barrel, new Vector());
+        this.#applyStyling();
+        this.#tank = new TankController(this.data.model.body, this.data.model.barrel, new Vector());
         this.#aimer = new AimController(this.tank, this.tank.width * 3);
         this.#mover = new MovementController(terrain, this.tank,  -(this.tank.offset.body.y / 10));
         this.#isLoaded = true;
@@ -107,14 +114,26 @@ export class PlayerProfile {
     }
     drawName (cursor, position) {
         cursor.save();
+        cursor.textAlign = "center";
+        cursor.textBaseline = "middle";
         cursor.fillStyle = this.fontColor.toString();
         cursor.font = this.font;
         cursor.fillText(this.name, position.add(this.nameOffset));
         cursor.restore();
     }
     drawAvatar (cursor, position) {
-        const offset = this.avatarOffset;
-        this.avatar.draw(cursor, position.x + offset.x, position.y + offset.y);
+        const { width, height } = this.avatar;
+        const radius = width / 2;
+        const offset = position.add(this.avatarOffset);
+        const origin = offset.clone();
+        offset.x -= radius;
+        offset.y += height / 2;
+        cursor.save();
+        cursor.beginPath();
+        cursor.arc(origin, radius, 0, Math.PI * 2, false);
+        cursor.clip();
+        this.avatar.draw(cursor, offset.x, offset.y);
+        cursor.restore();
     }
     toJSON () {
         return {

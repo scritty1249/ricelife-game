@@ -346,7 +346,6 @@ async function init (...loaded) {
             spots.add(x);
             mover.set(x);
             aimer.update(players[0].tank.position.add({x: 0, y: Display.size.y})); // aim straight up and set power to 100% (1)
-            console.log(x);
         }
     }
     Display.canvas.focus();
@@ -662,6 +661,8 @@ function drawFrame (state, config) {
     if (state.projectile && state.projectile.time > 0 && state.drawProjectile) state.projectile.draw(cursor);
     if (state.tracer) state.tracer.draw(cursor);
     state.animations.global.update(cursor);
+    for (const { data, tank } of Object.values(state.players))
+        if (data.team !== 0) data.profile.draw(cursor, tank.relativePosition);
     if (state.isTurn) state.interface.draw(cursor, 1);
 }
 
