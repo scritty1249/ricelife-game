@@ -1,4 +1,4 @@
-import { InputListener, MovementController, TankController, AppCanvas, AimController, WorkerController } from "./controller/controller.js";
+import { InputListener, AppCanvas, WorkerController } from "./controller/controller.js";
 import { Vector, Color, Polygon, Ray, Path } from "./geometry/geometry.js";
 import { drawCircle, drawMarker, drawLine, drawText, outlineImage } from "./utils/utils.js";
 import { drawTerrain, generateTerrain, generateWave } from "./terrain/terrain.js";
@@ -6,7 +6,7 @@ import { LoadImage, Spritesheet, Animation, ShapeAnimation, AnimationList } from
 import { WorkerPool } from "./workers/pool.js";
 import { AudioContext } from "./audio/audio.js";
 import { drawBlastAnimation } from "./projectile/blast.js";
-import { PlayerModel, PlayerData, Player } from "./player/data.js";
+import { PlayerModel, PlayerData, PlayerInstance } from "./player/player.js";
 import * as Menu from "./menu/menu.js"
 import * as Ammo from "./projectile/ammo-types.js";
 
@@ -124,7 +124,7 @@ export async function load () {
     const allyData = Array.from(LOBBY_DATA.teams[LOBBY_DATA.team].slice(1), (data) => PlayerData.fromObject(data, 1));
     const enemyData = Array.from(LOBBY_DATA.teams.filter((_, i) => i !== LOBBY_DATA.team).flat(1), (data) => PlayerData.fromObject(data, -1));
     const playerData = [selfData, ...allyData, ...enemyData];
-    const players = playerData.map((data) => new Player(data));
+    const players = playerData.map((data) => new PlayerInstance(data));
 
 
     // setup audio
