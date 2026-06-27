@@ -50,7 +50,7 @@ export class Blast { // only intended to record information, properties should b
 
     static fromObject (payload) {
         const shape = Shape.fromObject(payload.shape);
-        const blast = new Blast(shape, payload.delay);
+        const blast = new Blast(shape, payload.delay, payload.damage);
         return blast;
     }
 }
