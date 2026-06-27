@@ -55,6 +55,11 @@ class Canvas2DContextCursor {
             ? this.#ctx.lineTo(x.x, this.normalizeY(x.y))
             : this.#ctx.lineTo(x, this.normalizeY(y));
     }
+    fillRect (x, y, ...args) {
+        x?.isVector
+            ? this.#ctx.fillRect(x.x, this.normalizeY(x.y), y.x, this.normalizeY(y.y))
+            : this.#ctx.fillRect(x, this.normalizeY(y), args?.[0], this.normalizeY(args?.[1]));
+    }
     arc (x, y = null, ...args) {
         x?.isVector
             ? (y === null)
