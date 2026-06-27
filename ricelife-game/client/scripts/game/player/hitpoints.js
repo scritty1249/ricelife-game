@@ -38,11 +38,16 @@ export class HitPoints {
     layer (index) {
         return this.#layers.at(index);
     }
+    draw (cursor, position) {
+        for (const bar of this.bars)
+            bar.draw(cursor, position);
+    }
     toJSON () {
         return this.#layers.map((layer) => layer.toJSON());
     }
 
     get isHitPoints () { return true }
+    get bars () { return this.#layers.map(({bar}) => bar) } // convenience
     get isZero () { return this.baseLayer.isZero } // if base layer is zero, player is dead.
     get baseLayer () { return this.#layers[0] }
     get length () { return this.#layers.length }

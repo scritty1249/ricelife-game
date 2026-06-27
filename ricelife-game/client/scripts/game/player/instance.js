@@ -37,6 +37,10 @@ export class PlayerInstance extends TrackableObject  {
         profile.nameOffset.y = model.body.height * 1.5;
         profile.avatarOffset.y = model.body.height * 2.4;
         profile.fontColor.apply(255, 255, 255);
+        this.hitpoints.bars.forEach((bar) => {
+            bar.height = 8;
+            bar.width = model.body.width;
+        });
     }
 
     async load (terrain) {
@@ -64,6 +68,7 @@ export class PlayerInstance extends TrackableObject  {
     get tank () { return this.#tank }
     get aimer () { return this.#aimer }
     get mover () { return this.#mover }
+    get hitpoints () { return this.#hitpoints }
     get onload () { return this.#onloadCallbacks }
     set onload (callbackFn) {
         const callback = callbackFn?.bind(this);
