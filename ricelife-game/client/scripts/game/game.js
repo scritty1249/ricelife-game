@@ -609,9 +609,8 @@ function drawFrame (state, config) {
     if (state.tracer) state.tracer.draw(cursor);
     if (state.projectile && state.projectile.time > 0 && state.drawProjectile) state.projectile.draw(cursor);
     state.animations.global.update(cursor);
-    for (const { data, tank, hitpoints, isMain } of Object.values(state.players)) {
-        if (!isMain) data.profile.draw(cursor, tank.relativePosition);
-        hitpoints.draw(cursor, tank.relativePosition);
+    for (const player of Object.values(state.players)) {
+        player.drawProfile(cursor);
     }
     if (state.isTurn) state.interface.draw(cursor, 1);
 }

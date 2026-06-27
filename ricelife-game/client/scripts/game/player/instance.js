@@ -61,6 +61,17 @@ export class PlayerInstance extends TrackableObject  {
         for (const onload of this.onload) onload?.();
         return this; // for chaining
     }
+    drawProfile (cursor) {
+        const { data, tank, hitpoints, isMain, isDead } = this;
+        cursor.save();
+        if (isDead) {
+            cursor.filter = "grayscale(100%)";
+            data.profile.fontColor.apply(100, 100, 100); // [!] inefficient
+        }
+        if (!isMain) data.profile.draw(cursor, tank.relativePosition);
+        hitpoints.draw(cursor, tank.relativePosition);
+        cursor.restore();
+    }
     toJSON () {
         // [!] don't store aiming angle- save on backend storage, don't think anyone will notice/care... - KT
         return {
@@ -71,6 +82,7 @@ export class PlayerInstance extends TrackableObject  {
     }
 
     get isPlayer () { return true }
+    get isDead () { return this.hitpoints.isZero }
     get data () { return this.#data }
     get tank () { return this.#tank }
     get aimer () { return this.#aimer }
