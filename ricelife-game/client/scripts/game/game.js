@@ -137,7 +137,7 @@ async function init (...loaded) {
         Workers.createCache("blastBackground", "CANVAS", ...Display.size),
         Workers.createCache("background", "CANVAS", ...Display.size),
         Workers.insertCache("blastTerrain", "POLY", Terrain.Float64(1)),
-        ...players.map((p) => p.load(Terrain))
+        ...players.map((p) => p.load(Terrain, Display.cursor))
     ]);
     console.info("[Main]: Worker caches initalized");
     let state, config;

@@ -20,6 +20,7 @@ export class PlayerInstance extends TrackableObject  {
     #mover;
     #aimer;
     #tank;
+    #canvasCursor; // mainly used to compute player display name width. Store for any future use
     #isMain = false; // is main player? flag for game loop
     #isLoaded = false;
     #onloadCallbacks = new Array(); // support addition of mulitple onload callbacks, ran in order they were set
@@ -33,17 +34,24 @@ export class PlayerInstance extends TrackableObject  {
         const { profile, model } = this.data;
         model.body.width = 50;
         model.barrel.scale.apply(model.body.scale);
+
+        profile.fontSize = 18;
+        const nameWidth = profile.getNameWidth(this.#canvasCursor);
+        const profileLinePadding = 5;
         profile.fontColor.apply(255, 255, 255);
         profile.avatar.width = 25;
-        profile.nameOffset.y = model.body.height * 1.5;
-        profile.avatarOffset.y = model.body.height * 2.4;
-        this.hitpoints.barOffset.y += model.body.height * 1;
+        profile.nameOffset.x = ((nameWidth + profile.avatar.width) / 2) - (nameWidth / 2);
+        profile.avatarOffset.x = profile.nameOffset.x - (nameWidth / 2) - (25 / 2) - profileLinePadding;
+        profile.avatarOffset.y = profile.nameOffset.y = model.body.height * 2.6;
+
+        this.hitpoints.barOffset.y += model.body.height * 2;
         this.hitpoints.barHeight = 8;
         this.hitpoints.barWidth = model.body.width;
     }
 
-    async load (terrain) {
+    async load (terrain, cursor) {
         if (this.#isLoaded) throw new Error(`[${this.constructor.name}]: Failed to load - already loaded`);
+        this.#canvasCursor = cursor;
         await this.data.onload;
         this.#applyStyling();
         this.#tank = new TankController(this.data.model.body, this.data.model.barrel, new Vector());

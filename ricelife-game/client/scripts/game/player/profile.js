@@ -25,6 +25,13 @@ export class PlayerProfile {
         this.#userid = userid;
     }
 
+    getNameWidth (cursor) {
+        cursor.save();
+        cursor.font = this.font;
+        const { width } = cursor.measureText(this.name);
+        cursor.restore();
+        return width;
+    }
     draw (cursor, position) {
         this.drawName(cursor, position);
         this.drawAvatar(cursor, position);
