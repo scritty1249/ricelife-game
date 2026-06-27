@@ -301,11 +301,14 @@ export class ShotStage extends TrackableObject {
                     rays.push(Ray(point.clone(), direction.clone(), distance));
             }
             for (const collider of colliders) {
-                // [!] temporary fix- assign blasts to polygon holes for raycasting, then remove after
-                const colliderHoles = collider.holes;
-                const originalHoleCount = colliderHoles.length;
-                for (const blast of blasts)
-                    colliderHoles.push(blast.shape.Polygon(resolution));
+                const isDestructible = collider.userData?.destructible;
+                if (isDestructible) {
+                    // [!] temporary fix- assign blasts to polygon holes for raycasting, then remove after
+                    const colliderHoles = collider.holes;
+                    const originalHoleCount = colliderHoles.length;
+                    for (const blast of blasts)
+                        colliderHoles.push(blast.shape.Polygon(resolution));
+                }
                 // do raycasts
                 for (const ray of rays) {
                     const hits = collider.raycast(ray);
@@ -319,8 +322,10 @@ export class ShotStage extends TrackableObject {
                     }
                     if (angle !== undefined) angles.push(Vector.fromAngle(angle));
                 }
-                // remove blasts / temp holes
-                colliderHoles.splice(originalHoleCount, blasts.length);
+                if (isDestructible) {
+                    // remove blasts / temp holes
+                    colliderHoles.splice(originalHoleCount, blasts.length);
+                }
             }
             if (hitDistance !== undefined) {
                 const target = direction

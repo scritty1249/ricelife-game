@@ -10,6 +10,7 @@ export class Polygon extends TrackableObject { // points should be ordered clock
     #edgeHash; // used to check if edge points need to be recomputed
     #innerEdgeSegments;
     #outerEdgeSegments;
+    userData = {};
     constructor (...points) {
         super();
         this.#path = (points.length == 1 && points[0]?.isPath)
@@ -289,6 +290,7 @@ export class Polygon extends TrackableObject { // points should be ordered clock
         data.path = this.path.Float64();
         data.holes = depth > 0 ? this.holes.map((hole) => hole.Float64(depth-1)) : [];
         data.buffers = [data.path.buffer];
+        if (this.userData) data.userData = this.userData;
         for (const hole of data.holes.flat(depth))
             data.buffers.push(hole.path.buffer);
         return data;
@@ -399,6 +401,7 @@ export class Polygon extends TrackableObject { // points should be ordered clock
     }
     static fromObject (data, depth) {
         const polygon = new Polygon(Path.fromArray(data.path));
+        if (data.userData) polygon.userData = data.userData;
         if (depth)
             for (const hole of data.holes) {
                 const poly = this.fromObject(hole, depth-1);
