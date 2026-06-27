@@ -3,12 +3,14 @@ import { Shape, Vector, Color } from "../geometry/geometry.js";
 // [!] can be passed safely between web workers
 export class Blast { // only intended to record information, properties should be extracted before manipulating data
     #shape;
+    #damage;
     #delay; // MILLISECONDS
-    constructor (shape, delay = 0) {
+    constructor (shape, delay = 0, damage = 0) {
         if (!shape?.isShape) throw new Error(`[${this.constructor.name}]: Invalid argument - Shape expected, got ${typeof shape}`);
         if (delay < 0) throw new Error(`[${this.constructor.name}]: Invalid argument - delay must be a non-negative numeric value, got ${delay}`);
         this.#shape = shape;
         this.#delay = delay;
+        this.#damage = damage;
     }
 
     toJSON () {
@@ -16,6 +18,7 @@ export class Blast { // only intended to record information, properties should b
             shape: this.shape,
             delay: this.delay,
             position: this.position,
+            damage: this.damage,
             radius: this.radius
         }
     }
@@ -24,6 +27,7 @@ export class Blast { // only intended to record information, properties should b
         return {
             delay: this.delay,
             shape: decoded,
+            damage: this.damage,
             buffers: decoded.buffers || []
         }
     }
@@ -33,6 +37,8 @@ export class Blast { // only intended to record information, properties should b
 
     get isBlast () { return true }
     get shape () { return this.#shape }
+    get damage () { return this.#damage }
+    set damage (value) { return (this.#damage = value) }
     get radius () { return this.#shape.radius }
     set radius (value) { return (this.#shape.radius = value) }
     get delay () { return this.#delay }
