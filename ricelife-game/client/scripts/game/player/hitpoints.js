@@ -20,7 +20,7 @@ export class HitPoints {
     damage (amount) {
         let rollover = amount;
         while (rollover > 0 && !this.currentLayer.isZero)
-            rollover += this.currentLayer.update(-rollover);
+            rollover = this.currentLayer.update(-rollover);
         return rollover;
     }
     push (...layers) {
