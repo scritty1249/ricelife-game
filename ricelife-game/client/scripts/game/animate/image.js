@@ -1,4 +1,4 @@
-import { Vector } from "../geometry/geometry.js";
+import { Vector, Path } from "../geometry/geometry.js";
 import { TrackableObject, drawLine } from "../utils/utils.js";
 
 export class LoadImage extends TrackableObject {
@@ -52,6 +52,20 @@ export class LoadImage extends TrackableObject {
         const og = origin.mul(-1).mul(this.scale);
         cursor.drawImage(this.img, sx, sy, sWidth, sHeight, og.x, og.y, dWidth, dHeight);
         cursor.restore();
+    }
+    getEdges (x, y) {
+        const { width, height } = this;
+        const og = this.origin.mul(-1).mul(this.scale, true);
+
+        const local = new Array(
+            og.clone(), // top left
+            new Vector(og.x + width, og.y), // top right
+            new Vector(og.x + width, og.y + height), // bottom right
+            new Vector(og.x, og.y + height) // bottom left
+        );
+        const dest = new Vector(x, y);
+        local.forEach((pt) => pt.rotate(-this.rotation, true).add(dest, true));
+        return local;
     }
     clone (deep = false) { return new LoadImage(deep ? this.#src : this) }
 

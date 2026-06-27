@@ -1,8 +1,10 @@
-import { Vector } from "../geometry/geometry.js";
+import { Vector, Hitbox } from "../geometry/geometry.js";
 import { deg2rad, rad2deg, clamp } from "../utils/utils.js";
 
 export class TankController {
     #source;
+    #hitboxHash;
+    #hitbox;
     constructor (bodyImage, barrelImage, position = new Vector()) {
         this.#source = {
             // expects LOADED ResizedImage objects
@@ -47,6 +49,14 @@ export class TankController {
     draw (cursor) {
         this.#drawBarrel(cursor);
         this.#drawBody(cursor);
+    }
+    getHitbox () {
+        const hash = Vector.hashVectors([Vector.fromAngle(this.rotation.body), this.position]);
+        if (this.#hitboxHash === hash) return this.#hitbox;
+        this.#hitboxHash = hash;
+        const edges = this.#source.body.getEdges(this.position.x, this.position.y);
+        this.#hitbox = new Hitbox(...edges);
+        return this.#hitbox;
     }
 
     get relativePosition () { return this.position.add(this.offset.body) }
