@@ -33,14 +33,13 @@ export class PlayerInstance extends TrackableObject  {
         const { profile, model } = this.data;
         model.body.width = 50;
         model.barrel.scale.apply(model.body.scale);
+        profile.fontColor.apply(255, 255, 255);
         profile.avatar.width = 25;
         profile.nameOffset.y = model.body.height * 1.5;
         profile.avatarOffset.y = model.body.height * 2.4;
-        profile.fontColor.apply(255, 255, 255);
-        this.hitpoints.bars.forEach((bar) => {
-            bar.height = 8;
-            bar.width = model.body.width;
-        });
+        this.hitpoints.barOffset.y += model.body.height * 1;
+        this.hitpoints.barHeight = 8;
+        this.hitpoints.barWidth = model.body.width;
     }
 
     async load (terrain) {

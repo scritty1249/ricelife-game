@@ -152,64 +152,82 @@ export class HitAmount {
 
 export class HitAmountBar {
     #fillColor = new Color(0, 255, 0, 1);
-    #fillPattern = undefined;
+    #fillPatterns = new Array();
     #emptyColor = new Color(0, 0, 0, 0);
-    #emptyPattern = undefined;
+    #emptyPatterns = new Array();
     #size = new Vector();
     #hitamount;
-    blend = false; // whether to draw empty color and pattern below fill, or draw the two seperately
     constructor (hitamount) {
         if (!hitamount?.isHitAmount) throw new Error(`[${this.constructor.name}]: Invalid parameter - expected HitAmount, got ${typeof hitamount}`);
         this.#hitamount = hitamount;
     }
 
     drawEmpty (cursor, x, y) {
-        const { width, height } = this;
-        cursor.save();
+        const { height } = this;
+        const width = this.emptyWidth;
+        if (!width) return;
         if (!floatEqual(this.emptyColor.A, 0)) {
+            cursor.save();
             cursor.fillStyle = this.emptyColor.toString();
             cursor.fillRect(x, y, width, height);
+            cursor.restore();
         }
-        if (this.emptyPattern !== undefined) {
-            cursor.fillStyle = this.emptyPattern;
+        for (const { style, composite } of this.emptyPatterns) {
+            if (!style) continue;
+            cursor.save();
+            cursor.fillStyle = style(cursor, x, y);
+            if (composite) cursor.globalCompositeOperation = composite;
             cursor.fillRect(x, y, width, height);
+            cursor.restore();
         }
-        cursor.restore();
     }
     drawFilled (cursor, x, y) {
-        const { width, height } = this;
-        cursor.save();
+        const { height } = this;
+        const width = this.filledWidth;
+        if (!width) return;
         if (!floatEqual(this.fillColor.A, 0)) {
+            cursor.save();
             cursor.fillStyle = this.fillColor.toString();
             cursor.fillRect(x, y, width, height);
+            cursor.restore();
         }
-        if (this.fillPattern !== undefined) {
-            cursor.fillStyle = this.fillPattern;
+        for (const { style, composite } of this.fillPatterns) {
+            if (!style) continue;
+            cursor.save();
+            cursor.fillStyle = style(cursor, x, y);
+            if (composite) cursor.globalCompositeOperation = composite;
             cursor.fillRect(x, y, width, height);
+            cursor.restore();
         }
-        cursor.restore();
     }
-    draw (cursor, position) {
+    draw (cursor, position, center = true) {
         if (this.size.isZero) return;
         // calculate rectangles
-        const startX = position.x - this.width / 2;
+        const startX = center ? position.x - this.width / 2 : position.x;
         const startY = position.y - this.height / 2;
         const midX = startX + (this.width * this.#hitamount.percentage);
+    
+        cursor.save();
+        cursor.beginPath();
+        cursor.rect(startX, cursor.normalizeY(startY), this.width, this.height);
+        cursor.clip();
 
-        this.drawEmpty(cursor, (this.blend ? startX : midX), startY);
+        this.drawEmpty(cursor, midX, startY);
         this.drawFilled(cursor, startX, startY);
+
+        cursor.restore();
     }
 
     get isHitAmountBar () { return true }
     get fillColor () { return this.#fillColor }
-    get fillPattern () { return this.#fillPattern }
-    set fillPattern (pattern) { return (this.#fillPattern = pattern) }
+    get fillPatterns () { return this.#fillPatterns }
     get emptyColor () { return this.#emptyColor }
-    get emptyPattern () { return this.#emptyPattern }
-    set emptyPattern (pattern) { return (this.#emptyPattern = pattern) }
+    get emptyPatterns () { return this.#emptyPatterns }
     get size () { return this.#size }
     get width () { return this.size.x }
     set width (pixels) { return (this.size.x = pixels) }
     get height () { return this.size.y }
     set height (pixels) { return (this.size.y = pixels) }
+    get emptyWidth () { return this.width - this.filledWidth }
+    get filledWidth () { return this.width * this.#hitamount.percentage }
 }
