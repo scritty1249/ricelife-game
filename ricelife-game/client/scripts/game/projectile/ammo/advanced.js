@@ -19,7 +19,9 @@ export class MegaBouncer extends Basic.Bouncer {
         // "functional" updates
         if (this.userData.hitbox) {
             const factor = this.userData.bounceBlastScaleFactor;
-            this.userData.hitbox.forEach(({shape}) => {
+            this.userData.hitbox.forEach((blast) => {
+                const { shape } = blast;
+                blast.damage *= this.userData.bounceDamageMultiplier;
                 shape.transformation.save();
                 shape.transformation.reset();
                 shape.transformation.scale.apply(factor);
@@ -44,6 +46,7 @@ export class MegaBouncer extends Basic.Bouncer {
     static bounceGlowAlphaMultiplier = .7;
     static bounceGlowRadiusLimit = 5;
     static bounceBlastScaleFactor = 1.2;
+    static bounceDamageMultiplier = 1.34;
     constructor (origin, angle, power = 1, resolution = 1) {
         super(origin, angle, power, resolution);
         const stage = this.stages[0].stages[0];
@@ -56,6 +59,7 @@ export class MegaBouncer extends Basic.Bouncer {
         stage.userData.bounceGlowAlphaMultiplier = this.constructor.bounceGlowAlphaMultiplier;
         stage.userData.bounceGlowRadiusLimit = this.constructor.bounceGlowRadiusLimit;
         stage.userData.bounceBlastScaleFactor = this.constructor.bounceBlastScaleFactor;
+        stage.userData.bounceDamageMultiplier = this.constructor.bounceDamageMultiplier;
     }
 }
 
@@ -79,6 +83,7 @@ export class Spreader extends Basic.BasicShot {
         // change hitbox
         const { blastRadius } = this.constructor;
         const ogBlast = stage.userData.hitbox[0];
+        ogBlast.damage = 10;
         const leftBlast = ogBlast.clone(true);
         leftBlast.shape.moveTo(-blastRadius * 1.75);
         leftBlast.delay = 0.25;
@@ -96,6 +101,7 @@ export class Sniper extends Basic.BasicShot {
         const blast = stage.userData.hitbox[0];
         const shot = stage.shot;
         // adjust sizing
+        blast.damage = 60;
         blast.shape.radius = 15;
         shot.velocity.mul(5, true);
         shot.current.velocity.mul(5, true);

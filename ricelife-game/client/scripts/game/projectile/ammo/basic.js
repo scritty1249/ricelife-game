@@ -48,7 +48,7 @@ export class BasicShot extends DefaultAmmo {
         // init geometry
         const shape = new Circle(radius, origin);
         const shot = new Shot(origin, velocity, acceleration, drag, shape);
-        const hitbox = [new Blast(new Circle(blastRadius))];
+        const hitbox = [new Blast(new Circle(blastRadius), 0, 15)];
         // generate stages
         const stage = this.stages[0].newStage(shot);
         stage.userData = { hitbox };
@@ -76,7 +76,7 @@ export class Flower extends DefaultAmmo {
         Array.from([0, 360/7, 720/7, 1080/7, 1440/7, 1800/7, 2160/7], (angle, i) => {
                 const rad = deg2rad(angle);
                 return new Circle(blastRadius, Vector.fromAngle(rad).mul(radius + (blastRadius * 1.75)))})
-            .forEach((shape, i) => hitbox.push(new Blast(shape, (i * 100) / 1000)));
+            .forEach((shape, i) => hitbox.push(new Blast(shape, (i * 100) / 1000, 10)));
         // generate stages
         const stage = this.stages[0].newStage(shot);
         stage.userData = { hitbox };
@@ -129,7 +129,7 @@ export class Bouncer extends DefaultAmmo {
         const shot = new Shot(origin, velocity, acceleration, drag, shape);
         shot.glowColor = new Color(128, 0, 128);
         shot.mainColor = new Color(255, 240, 255);
-        const hitbox = [new Blast(new Circle(blastRadius))];
+        const hitbox = [new Blast(new Circle(blastRadius), 0, 25)];
         // generate stages
         const stage = this.stages[0].newStage(shot);
         stage.userData = { hitbox,
@@ -183,7 +183,7 @@ export class Digger extends DefaultAmmo {
         const shot = new Shot(origin, velocity, acceleration, drag, shape);
         shot.glowColor = new Color(210, 165, 0);
         shot.mainColor = new Color(200, 90, 0);
-        const hitbox = [new Blast(new Circle(blastRadius))];
+        const hitbox = [new Blast(new Circle(blastRadius), 0, 20)];
         // generate stages
         const stage = this.newStage().newStage(shot);
         stage.userData = { hitbox,
@@ -268,7 +268,7 @@ export class PineShot extends DefaultAmmo {
         needleShot.glowColor.apply(5, 102, 8);
         needleShot.mainColor.apply(0, 81, 26);
         needleShot.tailColor.apply(2.5, 91.5, 16.5); 
-        const hitbox = [new Blast(new Circle(blastRadius))];
+        const hitbox = [new Blast(new Circle(blastRadius), 0, 15)];
         // generate stages
         const stemStage = this.stages[0];
         const needleStage = this.stages[1];

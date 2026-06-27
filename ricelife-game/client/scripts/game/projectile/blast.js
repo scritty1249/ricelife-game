@@ -32,7 +32,7 @@ export class Blast { // only intended to record information, properties should b
         }
     }
     clone (deep = false) {
-        return new Blast(this.shape.clone(deep), this.delay);
+        return new Blast(this.shape.clone(deep), this.delay, this.damage);
     }
 
     get isBlast () { return true }
