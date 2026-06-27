@@ -163,53 +163,41 @@ export class HitAmountBar {
         this.#hitamount = hitamount;
     }
 
-    drawEmpty (cursor, x, y, dx, dy) {
+    drawEmpty (cursor, x, y) {
+        const { width, height } = this;
         cursor.save();
         if (!floatEqual(this.emptyColor.A, 0)) {
             cursor.fillStyle = this.emptyColor.toString();
-            cursor.fillRect(x, y, dx, dy);
+            cursor.fillRect(x, y, width, height);
         }
         if (this.emptyPattern !== undefined) {
             cursor.fillStyle = this.emptyPattern;
-            cursor.fillRect(x, y, dx, dy);
+            cursor.fillRect(x, y, width, height);
         }
         cursor.restore();
     }
-    drawFilled (cursor, x, y, dx, dy) {
+    drawFilled (cursor, x, y) {
+        const { width, height } = this;
         cursor.save();
         if (!floatEqual(this.fillColor.A, 0)) {
             cursor.fillStyle = this.fillColor.toString();
-            cursor.fillRect(x, y, dx, dy);
+            cursor.fillRect(x, y, width, height);
         }
         if (this.fillPattern !== undefined) {
             cursor.fillStyle = this.fillPattern;
-            cursor.fillRect(x, y, dx, dy);
+            cursor.fillRect(x, y, width, height);
         }
         cursor.restore();
     }
     draw (cursor, position) {
         if (this.size.isZero) return;
         // calculate rectangles
-        const halfWidth = this.width / 2;
-        const halfHeight = this.height / 2;
-        const fillWidth = this.width * this.#hitamount.percentage;
+        const startX = position.x - this.width / 2;
+        const startY = position.y - this.height / 2;
+        const midX = startX + (this.width * this.#hitamount.percentage);
 
-        const startX = position.x - halfWidth;
-        const startY = position.y - halfHeight;
-        const midX = startX + fillWidth;
-        const endX = position.x + halfWidth;
-        const endY = position.y + halfHeight;
-
-        this.drawEmpty(
-            cursor,
-            this.blend ? startX : midX, startY,
-            endX, endY
-        );
-        this.drawFilled(
-            cursor,
-            startX, startY,
-            midX, endY
-        );
+        this.drawEmpty(cursor, (this.blend ? startX : midX), startY);
+        this.drawFilled(cursor, startX, startY);
     }
 
     get isHitAmountBar () { return true }
