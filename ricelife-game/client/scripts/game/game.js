@@ -6,7 +6,8 @@ import { LoadImage, Spritesheet, Animation, ShapeAnimation, AnimationList } from
 import { WorkerPool } from "./workers/pool.js";
 import { AudioContext } from "./audio/audio.js";
 import { drawBlastAnimation } from "./projectile/blast.js";
-import { PlayerModel, PlayerData, PlayerInstance } from "./player/player.js";
+import { PlayerModel } from "./player/player.js";
+import { LobbyJSON } from "./lobby/json.js";
 import * as Menu from "./menu/menu.js"
 import * as Ammo from "./projectile/ammo-types.js";
 
@@ -42,65 +43,7 @@ const INPUT_MAP = {
 };
 
 // [!] only for client demo
-const LOBBY_DATA = {
-    team: 0,
-    teams: [ [], [] ],
-    terrain: [], // [!] implementing last
-}
-
-{
-    const defaultHealth = {
-        type: "Health",
-        increase: 1,
-        decrease: 1,
-        amount: 100,
-        regen: 0,
-        max: 100,
-        reserve: 0
-    };
-    const defaultShield = {
-        type: "Shield",
-        increase: 1,
-        decrease: 1,
-        amount: 20,
-        regen: 20 / 6,
-        max: 20,
-        reserve: 0
-    };
-    const defaultHP = [defaultHealth, defaultShield];
-    const defaultProfile = {
-        name: "Player",
-        avatar: "https://cdn.discordapp.com/embed/avatars/0.png?size=64", // "Blurple" avatar
-        fontFamily: "serif"
-    };
-
-
-    LOBBY_DATA.teams[0].push({
-        profile: defaultProfile,
-        hitpoints: defaultHP,
-        model: "basic"
-    });
-    LOBBY_DATA.teams[0].push({
-        profile: defaultProfile,
-        hitpoints: defaultHP,
-        model: "basic"
-    });
-    LOBBY_DATA.teams[1].push({
-        profile: defaultProfile,
-        hitpoints: defaultHP,
-        model: "basic"
-    });
-    LOBBY_DATA.teams[1].push({
-        profile: defaultProfile,
-        hitpoints: defaultHP,
-        model: "basic"
-    });
-    LOBBY_DATA.teams[1].push({
-        profile: defaultProfile,
-        hitpoints: defaultHP,
-        model: "basic"
-    });
-}
+import LOBBY_DATA from "./lobby/testlobby.json" with { type: "json" }; 
 
 // [!] for debugging
 const URL_PARAMS = new URLSearchParams(window?.location?.search);
@@ -120,11 +63,8 @@ export async function load () {
                 }
     }
     // unpack lobby data
-    const selfData = PlayerData.fromObject(LOBBY_DATA.teams[LOBBY_DATA.team][0], 0);
-    const allyData = Array.from(LOBBY_DATA.teams[LOBBY_DATA.team].slice(1), (data) => PlayerData.fromObject(data, 1));
-    const enemyData = Array.from(LOBBY_DATA.teams.filter((_, i) => i !== LOBBY_DATA.team).flat(1), (data) => PlayerData.fromObject(data, -1));
-    const playerData = [selfData, ...allyData, ...enemyData];
-    const players = playerData.map((data) => new PlayerInstance(data));
+    const LobbyRawData = new LobbyJSON(LOBBY_DATA);
+    const players = Array.from(LobbyRawData.playerInstances());
 
 
     // setup audio
@@ -166,7 +106,7 @@ export async function load () {
         ...Object.values(vfx).map((fx) => fx.onload),
         ...Object.values(sfx).map((fx) => fx.onload),
         ...Object.values(buttons).map((btn) => btn.onload),
-        ...playerData.map((p) => p.onload)
+        ...players.map(({data}) => data.onload)
     ]);
 
     {
@@ -661,8 +601,8 @@ function drawFrame (state, config) {
     if (state.tracer) state.tracer.draw(cursor);
     if (state.projectile && state.projectile.time > 0 && state.drawProjectile) state.projectile.draw(cursor);
     state.animations.global.update(cursor);
-    for (const { data, tank } of Object.values(state.players))
-        if (data.team !== 0) data.profile.draw(cursor, tank.relativePosition);
+    for (const { data, tank, isMain } of Object.values(state.players))
+        if (!isMain) data.profile.draw(cursor, tank.relativePosition);
     if (state.isTurn) state.interface.draw(cursor, 1);
 }
 

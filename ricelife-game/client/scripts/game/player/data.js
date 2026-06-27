@@ -1,24 +1,19 @@
 import { PlayerModel } from "./model.js";
 import { PlayerProfile } from "./profile.js";
+import { HitPoints } from "./hitpoints.js";
 
 // wraps all player related data
 export class PlayerData {
-    static fromObject (obj) {
-        const { profile, hitpoints, model, team } = obj;
-        const suffix = team > 0
-            ? "ally"
-            : team < 0
-                ? "enemy"
-                : "self";
-        const m = new PlayerModel(`${model}_${suffix}`);
+    static fromObject (obj, modelVariant = "ally") {
+        const { profile, model, team } = obj;
+        const m = new PlayerModel(`${model}_${modelVariant}`);
         const p = PlayerProfile.fromObject(profile);
-        const h = HitPoints.fromObject(hitpoints);
-        return new PlayerData(m, h, p, team);
+        return new PlayerData(m, p, team);
     }
-    #team = 1; // 0 - self, 1 - ally, -1 - enemy
+    #team;
     #profile;
     #model;
-    constructor (model, hitpoints, profile, team = 1) {
+    constructor (model, profile, team = 1) {
         this.#profile = profile; // PlayerProfile
         this.#model = model; // PlayerModel
         this.#team = team;
