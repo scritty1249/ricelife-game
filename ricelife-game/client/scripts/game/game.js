@@ -658,8 +658,8 @@ function drawFrame (state, config) {
     for (const { tank } of Object.values(state.players))
         tank.draw(cursor);
     cursor.drawImage(state.threading.cache.background, 0, 0);
-    if (state.projectile && state.projectile.time > 0 && state.drawProjectile) state.projectile.draw(cursor);
     if (state.tracer) state.tracer.draw(cursor);
+    if (state.projectile && state.projectile.time > 0 && state.drawProjectile) state.projectile.draw(cursor);
     state.animations.global.update(cursor);
     for (const { data, tank } of Object.values(state.players))
         if (data.team !== 0) data.profile.draw(cursor, tank.relativePosition);
@@ -688,17 +688,16 @@ function animate (state, config) {
             // update projectile
             state.projectile.update(config.traceIncrement, [state.terrain]);
             // are we done with projectile?
-            const projectileLanded = state.landing?.time !== undefined;
             const endProjectileEarly =
                 (state.projectile.time >= config.traceMaxTime) // time out shots even if a landing exists
-                || (!projectileLanded  && 
+                || (!state.landing.finished
                     // time out early if theres no landing and it flew offscreen
-                    state.projectile.isWithin(config.display.size)
+                    && !state.projectile.getBoundingBox().isIntersecting(config.display.getBoundingBox())
                 );
             const isTimedout =
-                !(projectileLanded && state.projectile.time >= state.landing.time - Number.EPSILON)
+                !(state.landing.finished && state.projectile.time >= state.landing.time - Number.EPSILON)
                 && endProjectileEarly;
-            
+
             if (endProjectileEarly) {
                 if (!blastAnimationsFinished) {
                     // play any paused blast animations prematurely

@@ -76,15 +76,6 @@ export class Projectile extends TrackableObject {
         this.current.velocity.apply(this.velocity);
         this.#time = 0;
     }
-    isWithin (size) {
-        const { position } = this.current;
-        return (
-            position.x > 0
-            && position.x < size.x
-            && position.y > 0
-            && position.y < size.y
-        );
-    }
 
     get isProjectile () { return true }
     get tracer () { return this.#tracer }
@@ -344,8 +335,11 @@ export class ShotStage extends TrackableObject {
     }
     #setFinished () { // [!] does not check if already finished. Caller is responsible for making sure this is only used once
         this.#isFinished = true;
-        this.#record.duration = this.time;
         this.#finishedPromise.resolve();
+    }
+    #trackUpdate () { // [!] poorly named. Tracks data during update() calls
+        this.#record.duration = this.time;
+        this.tracer.push(this.shot.position.clone());
     }
 
     // point is collision/contact point
@@ -379,7 +373,7 @@ export class ShotStage extends TrackableObject {
                 this.time += seconds;
                 this.#projectUpdate(seconds, 1);
                 this.updateCallback?.();
-                this.tracer.push(shot.position.clone());
+                this.#trackUpdate();
                 if (!this.#isFinished && shot.isStopped)
                     this.#setFinished();
             } else {
@@ -395,7 +389,7 @@ export class ShotStage extends TrackableObject {
                     shot.update(seconds);
                 }
                 this.updateCallback?.();
-                this.tracer.push(shot.position.clone());
+                this.#trackUpdate();
                 if (!this.#isFinished && this.time >= legend.duration)
                     this.#setFinished();
             }
@@ -415,9 +409,6 @@ export class ShotStage extends TrackableObject {
         hitbox.delay += this.time + this.blastTimeOffset;
         this.blasts.push(hitbox);
         return hitbox; // for modifying, if needed
-    }
-    isWithin (size) {
-        return this.shot.isWithin(size);
     }
     playSfx (sfxName) {
         if (sfxName in this.sfxCallback) this.sfxCallback[sfxName]?.();
@@ -543,9 +534,6 @@ export class MultiShotStage extends TrackableObject {
         this.#shotStages.push(stage);
         return stage;
     }
-    isWithin (size) {
-        return this.stages.some((stage) => stage.isWithin(size));
-    }
     // creates a fresh instance with the same ShotStages, callbacks, and delay. References and blast time offset are not copied.
     clone (deep = false, blastsReference = [], collisionsReference = [], sfxCallbackReference = {}) {
         const multishot = new MultiShotStage(this.delay, blastsReference, collisionsReference, sfxCallbackReference);
@@ -571,6 +559,14 @@ export class MultiShotStage extends TrackableObject {
             console.error(`[${this.constructor.name}]: Error parsing legend array`);
             throw error;
         }
+    }
+    getBoundingBox (merge = true) {
+        const bboxes = this.stages.map(({shot}) => shot.shape.getBoundingBox());
+        if (!merge) return bboxes;
+        const bbox = bboxes[0];
+        for (const bb of bboxes.slice(1))
+            bbox.merge(bb, true);
+        return bbox;
     }
 
     get isMultiShotStage () { return true }
@@ -663,22 +659,23 @@ export class Ammo extends TrackableObject {
     // returns blasts over a given time
     trace (increment = 1/60, limit = 60, float64 = false) {
         const ammo = this.clone(true);
-        const result = { time: undefined, state: ammo };
-        while (ammo.time < limit && result.time === undefined) {
+        const result = { finished: false, time: limit, state: ammo };
+        while (ammo.time < limit && !result.finished) {
             ammo.update(increment);
-            if (ammo.isFinished) result.time = ammo.time;
+            if (ammo.isFinished) {
+                result.time = ammo.time;
+                result.finished = true;
+            }
         }
-        if (result.time === undefined) console.log("timeout");
+        if (!result.finished) console.info(`[${this.constructor.name}]: Trace timed out`);
         result.legend = ammo.getLegend(); // [!] no need to pass as transfer, we shouldn't have a large amount of collisions
         result.blasts = float64
             ? ammo.blasts.map((blast) => blast.decode())
             : [...ammo.blasts]; // dereference
         return result;
     }
-    isWithin (size) {
-        return this.currentStage === undefined
-            ? false
-            : this.currentStage.isWithin(size);
+    getBoundingBox (merge = true) {
+        return this.currentStage.getBoundingBox(merge);
     }
     clone (deep = false) {
         const stages = [];

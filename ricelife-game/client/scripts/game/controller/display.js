@@ -1,6 +1,8 @@
-import { Vector } from "../geometry/geometry.js";
+import { Vector, BoundingBox } from "../geometry/geometry.js";
 
 export class AppCanvas {
+    #sizeHash;
+    #bbox;
     #cursor;
     #size;
     constructor (canvas, size = new Vector(1920, 1080)) {
@@ -10,7 +12,14 @@ export class AppCanvas {
         this.#cursor = Canvas2DContextCursorFactory(this.canvas);
     }
 
-    
+    getBoundingBox () {
+        const { hash } = this.size;
+        if (hash === this.#sizeHash) return this.#bbox;
+        this.#sizeHash = hash;
+        this.#bbox = new BoundingBox(undefined, this.size);
+        return this.#bbox;
+    }
+
     get cursor () { return this.#cursor }
     get size () { return this.#size }
 }
