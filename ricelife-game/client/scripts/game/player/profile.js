@@ -6,7 +6,7 @@ import { LoadImage } from "../animate/animate.js";
 export class PlayerProfile {
     static fromObject (obj) {
         const img = new LoadImage(obj.avatar);
-        const other = new PlayerProfile(obj.name, img);
+        const other = new PlayerProfile(obj.name, img, obj.userid);
         other.fontFamily = obj.fontFamily;
         return other;
     }
@@ -17,11 +17,12 @@ export class PlayerProfile {
     #fontColor = new Color();
     #avatarOffset = new Vector();
     #nameOffset = new Vector();
-    
+    #userid; // Snowflake ID from discord. these are strings
     // String, LoadedImage
-    constructor (name, avatar) {
+    constructor (name, avatar, userid) {
         this.#name = name.trim();
         this.#avatar = avatar;
+        this.#userid = userid;
     }
 
     draw (cursor, position) {
@@ -55,7 +56,8 @@ export class PlayerProfile {
         return {
             name: this.name,
             avatar: this.avatar.img.src,
-            fontFamily: this.fontFamily
+            fontFamily: this.fontFamily,
+            userid: this.userid
         }
     }
 
@@ -71,4 +73,5 @@ export class PlayerProfile {
     get fontFamily () { return this.#fontFamily }
     set fontFamily (font) { return (this.#fontFamily = font) }
     get font () { return `${this.fontSize}px ${this.fontFamily}` }
+    get userid () { return this.#userid } // string - snowflake ID from discord
 }
