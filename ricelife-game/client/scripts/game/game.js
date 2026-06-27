@@ -69,8 +69,8 @@ const LOBBY_DATA = {
     };
     const defaultHP = [defaultHealth, defaultShield];
     const defaultProfile = {
-        name: "S C R I T T Y",
-        avatar: "https://cdn.discordapp.com/avatars/644947703821762560/a4ba6c577bd31f9deee5feefa1b09eea.webp?size=64",
+        name: "Player",
+        avatar: "https://cdn.discordapp.com/embed/avatars/0.png?size=64", // "Blurple" avatar
         fontFamily: "serif"
     };
 
