@@ -368,10 +368,12 @@ async function fireProjectile (shot, state, config) { // [!} laziness
                 ani.speed = 1.25;
                 ani.onstart.then(() => {
                     // register damage
-                    for (const { tank, hitpoints, data } of Object.values(state.players)) {
-                        if (!tank.getHitbox().isIntersecting(blast.shape)) continue;
-                        hitpoints.damage(blast.damage);
-                        console.info(`[Main]: Registered damage on ${data.profile.name} from ${player.data.profile.name}`);
+                    if (blast.damage) {
+                        for (const { tank, hitpoints, data } of Object.values(state.players)) {
+                            if (!tank.getHitbox().isIntersecting(blast.shape)) continue;
+                            hitpoints.damage(blast.damage);
+                            console.info(`[Main]: Registered ${blast.damage} damage on ${data.profile.name} from ${player.data.profile.name}`);
+                        }
                     }
                     // play sfx
                     bassNode.gain.value = (blastSize / 50)**3;
