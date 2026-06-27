@@ -223,8 +223,12 @@ export class Vector {
     get length () { return Math.sqrt(this.pow(2).sum()) }
     clone () { return new Vector(this.x, this.y) }
     toString () { return `(${this.x.toFixed(3)}, ${this.y.toFixed(3)})` }
-    toJSON () { return {x: this.x, y: this.y} }
-    static fromObject (object) { return new Vector(object?.x, object?.y) }
+    toJSON () { return [this.x, this.y] }
+    static fromObject (object) {
+        return Array.isArray(object)
+            ? new Vector(...object)
+            : new Vector(object?.x, object?.y);
+    }
     static fromAngle (radians) { return new Vector(Math.cos(radians), Math.sin(radians)) }
     static average (vectors = []) {
         if (!vectors.every((vec) => vec.isVector)) throw new Error(`[${this.constructor.name}]: Cannot find Vector average with non-Vector type(s)`);
