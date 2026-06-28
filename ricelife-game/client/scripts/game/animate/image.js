@@ -64,7 +64,7 @@ export class LoadImage extends TrackableObject {
             new Vector(og.x, og.y + height) // bottom left
         );
         const dest = new Vector(x, y);
-        local.forEach((pt) => pt.rotate(-this.rotation, true).add(dest, true));
+        local.forEach((pt) => pt.rotate(this.rotation, true).add(dest, true));
         return local;
     }
     clone (deep = false) { return new LoadImage(deep ? this.#src : this) }

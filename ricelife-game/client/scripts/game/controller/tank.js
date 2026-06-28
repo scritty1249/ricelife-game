@@ -55,7 +55,7 @@ export class TankController {
         if (this.#hitboxHash === hash) return this.#hitbox;
         this.#hitboxHash = hash;
         const edges = this.#source.body.getEdges(this.position.x, this.position.y);
-        this.#hitbox = new Hitbox(...edges);
+        this.#hitbox = new Hitbox(...edges.map((edge) => edge.add(this.offset.body)));
         return this.#hitbox;
     }
 

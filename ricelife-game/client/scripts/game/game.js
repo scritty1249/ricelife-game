@@ -89,6 +89,7 @@ export async function load () {
     }
     const vfx = {
         muzzleFlash: new Spritesheet("./assets/blast/muzzleflash_ss_140x162.png", 140, 162, 25),
+        explosion: new Spritesheet("./assets/blast/explosion_ss_512x512.png", 512, 512, 25),
         blast: {
             draw: drawBlastAnimation,
             framerate: 25
@@ -215,6 +216,14 @@ async function init (...loaded) {
             .then(() => Workers.updateCache("background"))
     };
 
+    {
+        // adjust animations
+        const offset = vfx.explosion.frameSize.mul(vfx.explosion.scale);
+        vfx.explosion.offset.apply(
+            -offset.x * .4, // animation is slightly off center
+            offset.y * .6
+        );
+    }
     {
         // setup functions that required loaded assets
         const bounceSfxFn = function () { config.audio.player.add(config.audio.sources.bouncer.Instance().play(), true); }
@@ -370,10 +379,17 @@ async function fireProjectile (shot, state, config) { // [!} laziness
                     updateTerrain(state, polygon);
                     // register damage
                     if (blast.damage) {
-                        for (const { tank, hitpoints, data } of Object.values(state.players)) {
-                            if (!tank.getHitbox().isIntersecting(blast.shape)) continue;
-                            hitpoints.damage(blast.damage);
-                            console.info(`[Main]: Registered ${blast.damage} damage on ${data.profile.name} from ${player.data.profile.name}`);
+                        for (const player of Object.values(state.players)) {
+                            if (!player.tank.getHitbox().isIntersecting(blast.shape)) continue;
+                            player.hitpoints.damage(blast.damage);
+                            console.info(`[Main]: Registered ${blast.damage} damage on ${player.data.profile.name} from ${player.data.profile.name}`);
+                            if (player.isDead) {
+                                const ss = config.animated.explosion.clone();
+                                ss.rotation = player.tank.rotation.body - Math.PI;
+                                const an = new Animation(player.tank.relativePosition, ss, ss.framerate);
+                                an.play();
+                                state.animations.global.push(an);
+                            }
                         }
                     }
                     // play sfx
@@ -561,16 +577,18 @@ function drawDebugOverlay (state, config) {
             }
         }
     }
-
-    cursor.save();
-    cursor.strokeStyle = "green";
-    [...state.interface].forEach(({items}) => items.forEach((item) => {
-        if (item?.isButton) {
-            item.getBoundingBox().draw(cursor);
-            cursor.stroke();
-        }
-    }));
-    cursor.restore();
+    {
+        // draw button hitboxes
+        cursor.save();
+        cursor.strokeStyle = "green";
+        [...state.interface].forEach(({items}) => items.forEach((item) => {
+            if (item?.isButton) {
+                item.getBoundingBox().draw(cursor);
+                cursor.stroke();
+            }
+        }));
+        cursor.restore();
+    }
 
     if ((state.input.pointer.isDragging
         && player.aimer.isOver(state.input.pointer.dragStart))
@@ -584,6 +602,16 @@ function drawDebugOverlay (state, config) {
         drawLine(cursor, player.tank.barrelPos, position, 2, c.toString());
     }
     if (state.input.keyboard.keyActive("debug+")) {
+        // draw player hitboxes
+        cursor.save();
+        cursor.strokeStyle = "red";
+        cursor.lineWidth = 2;
+        for (const { tank, isDead } of Object.values(state.players))
+            if (!isDead) {
+                tank.getHitbox().draw(cursor);
+                cursor.stroke();
+            }
+        cursor.restore();
         const { position } = state.input.pointer;
         // stuff here may cause a lot of lag
         // draw raycast tester
@@ -620,8 +648,8 @@ function drawFrame (state, config) {
     const { cursor } = config.display;
     cursor.clear();
     if (state.isTurn) state.interface.draw(cursor, 0, 1);
-    for (const { tank } of Object.values(state.players))
-        tank.draw(cursor);
+    for (const { tank, isDead } of Object.values(state.players))
+        if (!isDead) tank.draw(cursor);
     cursor.drawImage(state.threading.cache.background, 0, 0);
     if (state.tracer) state.tracer.draw(cursor);
     if (state.projectile && state.projectile.time > 0 && state.drawProjectile) state.projectile.draw(cursor);
@@ -681,16 +709,6 @@ function animate (state, config) {
             ) {
                 waitPromise = waitPromise
                     .then(() => state.redrawJob)
-                    // .then(() => {
-                    //     // [!] debugging
-                    //     if (!state.blastTerrain) return;
-                    //     const hash = state.blastTerrain.hash;
-                    //     state.threading.hashCache("blastTerrain")
-                    //         .then((h) => {
-                    //             if (hash !== h)
-                    //                 console.error(`[Main]: Cached terrain does not match current terrain state. Terrain drawn onscreen may not reflect it's hitbox.`)
-                    //         });
-                    // })
                     .then(() => {
                         // reset projectile related state info
                         state.projectile = state.landing = undefined;
