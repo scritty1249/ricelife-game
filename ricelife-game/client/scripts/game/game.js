@@ -326,7 +326,7 @@ async function fireProjectile (shot, state, config) { // [!} laziness
     for (const player of Object.values(state.players))
         if (!player.isDead) {
             const hb = player.tank.getHitbox().Polygon();
-            hb.userData.enterOnly = true;
+            hb.userData.enterOnly = player.id === config.player.id;
             hb.subsection(1);
             colliders.push(hb)
         }

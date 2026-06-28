@@ -287,6 +287,7 @@ export class ShotStage extends TrackableObject {
             // collect "front facing" coordinates
             const diff = projection.velocity.sub(shot.current.velocity);
             const distance = shot.position.distance(projection.position);
+            const traversalBbox = shot.shape.getBoundingBox().merge(projection.shape.getBoundingBox(), false);
             const direction = diff.normalize();
             const origin = shot.shape.origin;
             const points = shot.shape.Polygon(resolution).path.points;
@@ -312,13 +313,19 @@ export class ShotStage extends TrackableObject {
                         // push all existing blasts instead of only the intersecting ones. This way we don't force collider to recompute edges every time we move to a new area
                         colliderHoles.push(blast.shape.Polygon(resolution));
                 }
+                if (!traversalBbox.isIntersecting(collider.getBoundingBox())) continue;
                 // do raycasts
                 for (const ray of rays) {
                     const hits = collider.raycast(ray);
                     let angle = undefined;
                     for (const hit of hits) {
-                        if ((!isEnterOnly || hit.entering)
-                            && (!hit.hole || hit.entering)
+                        if (isEnterOnly && !hit.entering) {
+                            hitPoint = undefined;
+                            hitDistance = undefined;
+                            angle = undefined;
+                            break;
+                        }
+                        if ((!hit.hole || hit.entering)
                             && (hitDistance === undefined || hit.distance < hitDistance)
                         ) {
                             hitPoint = hit.point;
