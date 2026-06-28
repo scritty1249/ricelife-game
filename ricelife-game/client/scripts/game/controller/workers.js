@@ -66,14 +66,24 @@ export class WorkerController {
             [cache]
         );
     }
-    async traceProjectile (polygonid, projectile, increment, limit) {
+    async traceProjectile (colliders, projectile, increment, limit) {
         const ammo = projectile.constructor.name;
         const { origin, velocity, acceleration, angle, resolution, power } = projectile;
+        const collidersData = colliders.map((collider) =>
+            collider?.isPolygon ? collider.Float64(collider.depth) : collider);
         const payload = {
             origin, angle, power, resolution, increment, limit, ammo,
-            collisions: [polygonid]
+            collisions: collidersData
         };
-        const landing = await this.#pool.post("TRACESHOT", payload, [], [polygonid]);
+        const landing = await this.#pool.post(
+            "TRACESHOT",
+            payload,
+            collidersData
+                .filter((c) => typeof c !== "string")
+                ?.map?.(({buffers}) => buffers)
+                ?.flat?.(1) || [],
+            collidersData
+                .filter((c) => typeof c === "string"));
         // encode data
         if (landing) {
             if (landing.blasts?.length)

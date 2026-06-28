@@ -121,7 +121,7 @@ export class Path extends TrackableObject { // points should be ordered clockwis
             if (points.length === 1) return Vector.isBetween(points[0], start, end);
             for (let i = 0; i < points.length; i+=2)
                 if (Vector.segmentsIntersect(points[i], points[i+1], start, end)) return true;
-            return false;
+            return this.isClosed && Vector.segmentsIntersect(points.at(-1), points[0], start, end);
         } else if (start?.isVector) {
             if (points.length === 1) return points[0].eq(start);
             for (let i = 0; i < points.length; i+=2) {

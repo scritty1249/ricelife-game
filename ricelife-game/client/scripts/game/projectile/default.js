@@ -303,6 +303,7 @@ export class ShotStage extends TrackableObject {
             }
             for (const collider of colliders) {
                 const isDestructible = collider.userData?.destructible;
+                const isEnterOnly = collider.userData?.enterOnly;
                 const colliderHoles = collider.holes;
                 const originalHoleCount = colliderHoles.length;
                 if (isDestructible) {
@@ -316,7 +317,10 @@ export class ShotStage extends TrackableObject {
                     const hits = collider.raycast(ray);
                     let angle = undefined;
                     for (const hit of hits) {
-                        if ((!hit.hole || hit.entering) && (hitDistance === undefined || hit.distance < hitDistance)) {
+                        if ((!isEnterOnly || hit.entering)
+                            && (!hit.hole || hit.entering)
+                            && (hitDistance === undefined || hit.distance < hitDistance)
+                        ) {
                             hitPoint = hit.point;
                             hitDistance = hit.distance;
                             angle = hit.angle;

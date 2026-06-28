@@ -189,32 +189,28 @@ export class Circle extends Shape {
         const { radii, origin } = this.blob;
         return point.sub(origin, mutate).div(radii, true);
     }
-    #pathIntersecting (point, target = null, localize = true) {
-        const { radii, origin } = this.blob;
-        if (point?.isPath) {
-            target = point.at(-1);
-            point = point.at(0);
-        } else if (point?.isVector && target?.isVector) {
-            // localize to radii scale (so we can treat Circle as uniform radius)
-            const localizedPoint = localize ? this.#localizePoint(point) : point;
-            const localizedTarget = localize ? this.#localizePoint(target) : target;
-            const edge = localizedTarget.sub(localizedPoint);
-            const toCenter = localizedPoint.mul(-1);
-            const edgeLen = edge.dot(edge);
-            let t = edgeLen === 0 ? 0 : toCenter.dot(edge) / edgeLen;
-            t = Math.max(0, Math.min(1, t));
-            // closest between origin and target to Circle center
-            const closest = localizedPoint.add(edge.mul(t));
-            return closest.dot(closest) <= 1;
-        }
-        throw new Error(`[${this.constructor.name}]: Missing parameter(s)`);
+    #segementIntersecting (start, end, localize = true) {
+        // localize to radii scale (so we can treat Circle as uniform radius)
+        const localizedPoint = localize ? this.#localizePoint(start) : start;
+        const localizedTarget = localize ? this.#localizePoint(end) : end;
+        const edge = localizedTarget.sub(localizedPoint);
+        const toCenter = localizedPoint.mul(-1);
+        const edgeLen = edge.dot(edge);
+        let t = edgeLen === 0 ? 0 : toCenter.dot(edge) / edgeLen;
+        t = Math.max(0, Math.min(1, t));
+        // closest between origin and target to Circle center
+        const closest = localizedPoint.add(edge.mul(t));
+        return closest.dot(closest) <= 1;
     }
     isVectorIntersecting (value) {
         const { radii, origin } = this.blob;
         return this.#localizePoint(value, false).pow(2).sum() <= 1;
     }
     isPathIntersecting (value) {
-        return this.#pathIntersecting(value, null, true);
+        for (let i = 0; i < value.length; i += 2)
+            if (this.#segementIntersecting(value.at(i), value.at(i+1), true))
+                return true;
+        return value.isClosed && this.#segementIntersecting(value.at(-1), value.at(0), true);
     }
     isCircleIntersecting (value) {
         const { radii: radii1, origin: origin1 } = this.blob;
@@ -256,9 +252,9 @@ export class Circle extends Shape {
         const r = this.#localizePoint(value.blob.right);
         const l = this.#localizePoint(value.blob.left);
         // check if legs intersect
-        if (this.#pathIntersecting(o, r, false)
-            || this.#pathIntersecting(r, l, false)
-            || this.#pathIntersecting(l, o, false)) return true;
+        if (this.#segementIntersecting(o, r, false)
+            || this.#segementIntersecting(r, l, false)
+            || this.#segementIntersecting(l, o, false)) return true;
         // check if triangle is swallowed by circle
         if (o.dot(o) <= 1 && r.dot(r) <= 1 && l.dot(l) <= 1) return true;
         // is circle center in triangle

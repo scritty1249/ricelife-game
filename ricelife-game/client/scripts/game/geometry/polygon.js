@@ -32,7 +32,8 @@ export class Polygon extends TrackableObject { // points should be ordered clock
         const oldHoles = this.holes;
         const newHoles = [];
         for (const hole of oldHoles) {
-            if (!hole.edgePoints
+            if (hole.isIntersecting(this, true)
+                && !hole.edgePoints
                     .every((pt) =>
                         oldHoles.some((h) =>
                             !h.eq(hole)
@@ -434,13 +435,14 @@ export class Hitbox {
         new Vector(),
     );
     constructor (topLeft, topRight, bottomRight, bottomLeft) {
+        this.#edges.isClosed = true;
         this.#edges.at(0).apply(topLeft);
         this.#edges.at(1).apply(topRight);
         this.#edges.at(2).apply(bottomRight);
         this.#edges.at(3).apply(bottomLeft);
     }
     #isShapeIntersecting (shape) {
-        return this.edges.points.some((pt) => shape.isIntersecting(pt));
+        return shape.isIntersecting(this.edges);
     }
     #isHitboxIntersecting (hitbox) {
         return this.edges.points.some((pt) => hitbox.isIntersecting(pt))

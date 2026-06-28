@@ -116,6 +116,11 @@ export async function load () {
             vfx.muzzleFlash.rawSize.x / 2,
             vfx.muzzleFlash.rawSize.y
         );
+        vfx.explosion.width = 800;
+        vfx.explosion.origin.apply(
+            vfx.explosion.rawSize.x * .5,
+            vfx.explosion.rawSize.y * .75
+        );
     }
 
     init(WorkerManager, audio, players, buttons, vfx, sfx);
@@ -215,22 +220,12 @@ async function init (...loaded) {
         redrawJob: Workers.drawTerrain("background", "blastTerrain", config.terrain.fill, config.terrain.edge)
             .then(() => Workers.updateCache("background"))
     };
-
-    {
-        // adjust animations
-        const offset = vfx.explosion.frameSize.mul(vfx.explosion.scale);
-        vfx.explosion.offset.apply(
-            -offset.x * .4, // animation is slightly off center
-            offset.y * .6
-        );
-    }
     {
         // setup functions that required loaded assets
         const bounceSfxFn = function () { config.audio.player.add(config.audio.sources.bouncer.Instance().play(), true); }
         Ammo.Bouncer.SFX.bounce = bounceSfxFn;
         Ammo.MegaBouncer.SFX.bounce = bounceSfxFn;
     }
-
     {
         // setting up UI
         const { fire: fireImage, select: selectImage, right: rightImage, left: leftImage, shotType: shotTypeImage } = buttons;
@@ -327,7 +322,15 @@ async function fireProjectile (shot, state, config) { // [!} laziness
     const projectile = new shot(launchOrigin, player.aimer.rotation + (3 * (Math.PI / 2)), player.aimer.power);
     projectile.colliders.push(state.terrain);
     const muzzleFlash = generateMuzzleFlash(state, config);
-    const landing = await state.threading.traceProjectile("blastTerrain", projectile, config.traceIncrement, config.traceMaxTime);
+    const colliders = ["blastTerrain"];
+    for (const player of Object.values(state.players))
+        if (!player.isDead) {
+            const hb = player.tank.getHitbox().Polygon();
+            hb.userData.enterOnly = true;
+            hb.subsection(1);
+            colliders.push(hb)
+        }
+    const landing = await state.threading.traceProjectile(colliders, projectile, config.traceIncrement, config.traceMaxTime);
     projectile.setLegend(landing.legend);
     state.impactData = [];
     if (state.debug) {
@@ -385,7 +388,7 @@ async function fireProjectile (shot, state, config) { // [!} laziness
                             console.info(`[Main]: Registered ${blast.damage} damage on ${player.data.profile.name} from ${player.data.profile.name}`);
                             if (player.isDead) {
                                 const ss = config.animated.explosion.clone();
-                                ss.rotation = player.tank.rotation.body - Math.PI;
+                                ss.rotation = player.tank.rotation.body;
                                 const an = new Animation(player.tank.relativePosition, ss, ss.framerate);
                                 an.play();
                                 state.animations.global.push(an);
