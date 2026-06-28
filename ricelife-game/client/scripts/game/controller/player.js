@@ -11,6 +11,12 @@ export class InputListener { // wrapper for K&M input
     ) {
         this.#keyboard = new KeyboardListener(window, keyCodeMap);
         this.#pointer = new PointerListener(appCanvas, clickThresholdMs, pointerCallbacks);
+        appCanvas.addEventListener("pointerleave", () => this.resetState());
+    }
+
+    resetState () {
+        this.keyboard.resetState();
+        this.pointer.resetState();
     }
 
     get keyboard () { return this.#keyboard }
@@ -41,7 +47,7 @@ class KeyboardListener {
     #setKeyState (event, keyDown) {
         if (Object.hasOwn(this.#keyCodeMap, event.code)) {
             this.#activeKeys[this.#keyCodeMap[event.code]][event.code] = keyDown;
-            event.preventDefault();
+            event?.preventDefault?.();
         }
     }
 
@@ -51,6 +57,15 @@ class KeyboardListener {
             return Object.values(mapped)?.some((active) => active);
         return undefined;
     }
+    resetKeyState (keyCode) {
+        this.#setKeyState({code: keyCode}, false);
+    }
+    resetState () {
+        for (const mapping of Object.values(this.#activeKeys))
+            for (const key of Object.keys(mapping))
+                mapping[key] = false;
+    }
+
 
     get listeningTo () { return this.#listeningTo }
     get activeKeys() { return this.#activeKeysProxy }
@@ -100,8 +115,10 @@ class PointerListener  {
     }
     #clearHoldTimeout () {
         this.#holding.isHolding = false;
-        if (this.#holding.timeout)
+        if (this.#holding.timeout) {
             clearTimeout(this.#holding.timeout);
+            this.#holding.timeout = undefined;
+        }
     }
 
     #updateDown (event) { // keep up and down event callbacks seperate for (marginal) perfomance boost
@@ -169,6 +186,14 @@ class PointerListener  {
         point.add(this.#offset, true);
         point.y += this.#elementSize.y;
         return point; // for chaining
+    }
+
+    resetState () {
+        this.#clearHoldTimeout();
+        this.#tracking.down.position.apply(0);
+        this.#tracking.down.stamp = undefined;
+        this.#tracking.up.position.apply(0);
+        this.#tracking.up.stamp = undefined;
     }
 
     get position () { return this.#tracking.position.clone() }
