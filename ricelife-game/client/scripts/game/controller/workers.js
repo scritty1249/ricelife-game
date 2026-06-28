@@ -88,7 +88,12 @@ export class WorkerController {
         if (blasts.length === 0) {
             const poly = this.#pool.pullCache(polygonid, false, false)
                 .then(() => this.#pool.cache[polygonid]);
-            return {polygon: await poly, intervals: []};
+            return [{
+                delay: 0,
+                frame: undefined,
+                blasts: [],
+                polygon: await poly
+            }];
         } else if (blasts.length === 1) {
             const poly = this.cutPolygon(depth, polygonid, polygonid, blasts[0].shape.Polygon(1));
             const key = `${polygonid}_c0_${uuid()}`;
@@ -101,14 +106,12 @@ export class WorkerController {
                 .then(() => this.#pool.pullCache(key, true, false))
                 .then(() => this.#pool.cache[key]);
             const delay = blasts[0].delay || 0;
-            return {
-                polygon: await poly,
-                intervals: [{
-                    delay,
-                    frame: await frame,
-                    blasts: blasts,
-                }]
-            };
+            return [{
+                delay,
+                frame: await frame,
+                blasts: blasts,
+                polygon: await poly
+            }];
         } else {
             // group blasts that occur at the same time, draw these onto the same canvas
             const uniq = [];
@@ -121,6 +124,7 @@ export class WorkerController {
             .sort((a, b) => a[0] - b[0])
             .map(([_, blast]) => blast);
             // init promise arrays
+            const polyJobs = [];
             const frameJobs = [];
             const polygonJobs = [];
             const intervalDelays = [];
@@ -135,7 +139,6 @@ export class WorkerController {
             // setup promise chains
             let drawJob = Promise.resolve();
             let cutJob = Promise.resolve();
-            let polyJob = Promise.resolve();
             // do cut operations, and seperate the caches into different workers (load balancing)
             for (let i = 0; i < blastIntervals.length; i++) {
                 const interval = blastIntervals[i];
@@ -151,19 +154,20 @@ export class WorkerController {
                 frameJobs.push(dj
                     .then(() => this.#pool.pullCache(canvasKey, true, false))
                     .then(() => this.#pool.cache[canvasKey]));
+                polyJobs.push(cj
+                    .then(() => this.#pool.pullCache(polyKey, false, true))
+                    .then(() => this.#pool.cache[polyKey]));
                 cutJob = dj;
                 drawJob = dj;
-                if (i === blastIntervals.length - 1)
-                    polyJob = cj
-                        .then(() => this.#pool.pullCache(polyKey, false, false))
-                        .then(() => this.#pool.cache[polyKey]);
+                if (i-1)
+                    polyJobs.at(-1)
+                        .then(() => this.destroyCache(polygonKeys[i-1]));
             }
             
             // syncronize everything
-            const polygon = await polyJob;
             const frames = await Promise.all(frameJobs);
+            const polygons = await Promise.all(polyJobs);
             const finalKey = await polygonKeys.at(-1);
-            await polyJob;
             // apply final cut polygon to original cache
             await this.#pool.copyCache(finalKey, polygonid, true, false);
             // package object into easier to parse structure
@@ -171,13 +175,15 @@ export class WorkerController {
             for (let i = 0; i < blastIntervals.length; i++) {
                 const interval = blastIntervals[i];
                 const frame = frames[i];
+                const polygon = polygons[i];
                 intervals.push({
                     delay: interval[0].delay,
                     frame: frame,
-                    blasts: interval
+                    blasts: interval,
+                    polygon: polygon
                 });
             }
-            return { polygon, intervals };
+            return intervals;
         }
     }
     async createCache (id, type, ...args) { return await this.#pool.initCache(type, args, id) }

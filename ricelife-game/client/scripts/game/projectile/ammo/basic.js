@@ -91,8 +91,6 @@ export class Bouncer extends DefaultAmmo {
         const { reflect, displace } = Behaviors.computeBounce.call(this, normal);
         if (this.userData.bounces < this.userData.maxBounces) {
             // update projectile
-            // const offset = shot.shape.getBoundingBox().size.length / 3; // if too small, projectile will collide with same surface on exiting side instantly. if too large, projectile will go flying for no reason
-            // shot.applyPosition(position.add(reflect.mul(offset, true)));
             shot.applyPosition(position.add(displace));
             velocity.apply(reflect.mul(this.userData.bounceVelocityMultiplier));
             this.userData.bounces++;
@@ -150,13 +148,22 @@ export class Digger extends DefaultAmmo {
         const direction = shot.current.velocity.normalize();
         const doBlast = normal === undefined || normal.y >= 0; // only apply blasts and count bounces if normal is not negative (colliding surface faces up)
         if (this.userData.bounces < this.userData.maxBounces) {
-            // update projectile
-            const reflection = shot.current.velocity.apply(0,
-                    175 * (doBlast ? 1 : -1)
-                ).clone();
-            shot.drag = 0.002;
-            shot.acceleration.y = -300;
-            if (doBlast) this.userData.bounces++;
+            if (doBlast) {
+                // update projectile
+                const reflection = shot.current.velocity.apply(0,
+                        175 * (doBlast ? 1 : -1)
+                    ).clone();
+                shot.drag = 0.002;
+                shot.acceleration.y = -300;
+                this.userData.bounces++;
+            } else {
+                const { reflect, displace } = Behaviors.computeBounce.call(this, normal);
+                shot.applyPosition(shot.position.add(displace));
+                shot.current.velocity.apply(reflect.mul(this.userData.ricochetVelocityScaleMultipler, true));
+                // if it's already created a blast (bounce was counted), scale velocity mulitplier more
+                if (this.userData.bounces) this.userData.ricochetVelocityScaleMultipler *= this.userData.ricochetVelocityScaleMultipler;
+                this.userData.ricochetVelocityScaleMultipler *= this.userData.ricochetVelocityScaleMultipler;
+            }
             // callback
             this.userData.onBounce();
             this.userData.onBounceCallback?.();
@@ -167,7 +174,7 @@ export class Digger extends DefaultAmmo {
     }
     static onBounce () {} // override, don't modify cosmetically
     static onBounceCallback () {} // override, don't play bounce sfx
-    static maxBounces = 4;
+    static maxBounces = 5;
     static initalSpeed = 500;
     static drag = 0.003;
     static radius = 8;
@@ -192,7 +199,8 @@ export class Digger extends DefaultAmmo {
             onBounce: this.constructor.onBounce.bind(stage),
             onBounceCallback: this.constructor.onBounceCallback.bind(stage),
             bounceVelocityMultiplier: this.constructor.bounceVelocityMultiplier,
-            bounceGlowReduction: this.constructor.bounceGlowReduction
+            bounceGlowReduction: this.constructor.bounceGlowReduction,
+            ricochetVelocityScaleMultipler: .5 // slows down the shot if bounced off any surface that isn't the ground (discourage repeatedly banking this shot off of walls)
         };
         stage.collisionCallback = this.constructor.collisionCallback;
     }

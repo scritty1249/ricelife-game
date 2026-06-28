@@ -119,9 +119,9 @@ export class Shape {
     getBoundingBox () { return this.#bbox }
     // [!] holy shit man
     // children should overload for optimizations, but not needed
-    isPolygonIntersecting (value) { return value.isIntersecting(this.origin) || value.edgePoints(true, true).some((point) => this.isVectorIntersecting(point)) }
+    isPolygonIntersecting (value) { return value.isIntersecting(this.origin) || value.edgePoints.some((point) => this.isVectorIntersecting(point)) }
     isPolyIntersecting (value) { return this.isPolygonIntersecting(value.polygon) }
-    isPolygonInside (value) { return value.isIntersecting(this.origin) && value.edgePoints(false, true).every((point) => this.isVectorIntersecting(point)) }
+    isPolygonInside (value) { return value.isIntersecting(this.origin) && value.edgePoints.every((point) => this.isVectorIntersecting(point)) }
     isPolyInside (value) { return this.isPolygonInside(value.polygon) }
     // counts overlapping edge as an intersection
     isIntersecting (value) {
@@ -439,7 +439,7 @@ export class Triangle extends Shape {
     Polygon (resolution = 1) {
         const { origin, right, left } = this.blob;
         // polygons need to be in clockwise order
-        return new Polygon(origin, right, left).smooth(resolution);
+        return new Polygon(origin, right, left).subsection(resolution);
     }
     applyTransformation () {
         const { origin, right, left } = this.blob;
@@ -559,7 +559,7 @@ export class Poly extends Shape {
     }
 
     #isShapeInside (value) {
-        const points = this.polygon.edgePoints(false, true);
+        const points = this.polygon.edgePoints;
         // if any hole intersects with the Shape, it is not wholly "inside"
         if (this.polygon.holes.some((hole) => value.isPolygonIntersecting(hole))) return false;
         // otherwise, if no holes intersect with Shape, just need to check that every point in the Shape intersects with the Polygon
@@ -577,7 +577,7 @@ export class Poly extends Shape {
     }
     isPathInside (value) {
         if (!this.isPathIntersecting(value)) return false;
-        const paths = this.polygon.edgePoints(true, false);
+        const paths = this.polygon.edges;
         for (const path of paths)
             if (path.isIntersecting(path)) return false;
         return true;
@@ -590,7 +590,7 @@ export class Poly extends Shape {
     }
     Polygon (resolution = 1) {
         const polygon = this.polygon.clone(true);
-        polygon.smooth(resolution);
+        polygon.subsection(resolution);
         return polygon;
     }
     decode () {

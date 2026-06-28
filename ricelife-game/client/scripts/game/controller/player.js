@@ -181,6 +181,7 @@ class PointerListener  {
 }
 
 export class MovementController { // only moves along X axis
+    #terrainHash;
     #terrain;
     #range;
     #terrainHeight;
@@ -189,12 +190,21 @@ export class MovementController { // only moves along X axis
     constructor (terrain, tank, offsetY = 0) {
         this.#player = tank;
         this.#terrain = terrain;
-        this.#range = this.#terrain.path.points.slice(0, -2).map((pt) => pt.x).toSorted((a, b) => b - a).at(0); // [!] unsafe math
-        this.#terrainHeight = Math.max(...this.#terrain.path.points.map(({y}) => y));
         this.offsetY = offsetY;
+        this.#computeTerrainData();
     }
 
-    move (amount, resolution = .01) {
+    #computeTerrainData () {
+        const hash = this.#terrain.hash;
+        if (this.#terrainHash === hash) return;
+        this.#terrainHash = hash;
+        const pts = this.#terrain.edgePoints;
+        this.#range = pts.map((pt) => pt.x).toSorted((a, b) => b - a).at(0); // [!] unsafe math
+        this.#terrainHeight = Math.max(...pts.map(({y}) => y));
+    }
+
+    move (amount) {
+        this.#computeTerrainData();
         if (Math.abs(amount) >= this.#range || floatEqual(amount, 0)) return;
         const position = this.#player.position;
         const movingRight = amount > 0;
@@ -202,9 +212,10 @@ export class MovementController { // only moves along X axis
 
         const hits = [...this.#findValidPoints(targetX)];
         if (!hits.length) return false;
-
         const hit = hits.at(0); // should already be sorted in decesnding order (from targetX to origin)
-        if (hit.angle >= this.#maxAngle || hit.angle <= -this.#maxAngle) return false;
+        if ((hit.angle >= this.#maxAngle && movingRight)
+            || (hit.angle <= -this.#maxAngle && !movingRight)) return false;
+
         // setting position
         position.x = hit.point.x;
         position.y = hit.point.y + this.offsetY;
@@ -213,10 +224,10 @@ export class MovementController { // only moves along X axis
         return true;
     }
 
-    set (amount, resolution = .01) {
+    set (amount) {
+        this.#computeTerrainData();
         if (amount < 1 || amount >= this.#range) return;
         const position = this.#player.position;
-
         const maxHeight = this.#player.height + position.y + this.offsetY; // next position should not be going OVER this - under is still fine. (player would be falling)
         const ray = Ray(new Vector(amount, this.#terrainHeight), Vector.fromAngle(deg2rad(270)), this.#terrainHeight - 1);
         const hits = this.#terrain.raycast(ray);
@@ -236,6 +247,10 @@ export class MovementController { // only moves along X axis
         // setting rotation
         this.#player.rotation.body = hit.angle - (Math.PI / 2);
         return true;
+    }
+
+    apply (x, y) {
+        
     }
 
     *#findValidPoints (targetX) { // [!] TODO: THIS WILL ALLOW PLAYERS TO JUMP OVER PIXEL GAPS (INTENDED) BUT ALSO ALLOWS THEM TO PHASE THROUGH WALLS IF THIN ENOUGH
@@ -273,7 +288,7 @@ export class MovementController { // only moves along X axis
     }
 
     #normalizeAngle (radians, pointingOut) {
-        return radians + ((pointingOut ? 3 : 1) * (Math.PI / 2));
+        return (radians + ((pointingOut ? 3 : 1) * (Math.PI / 2))) % (2 * Math.PI);
     }
 }
 

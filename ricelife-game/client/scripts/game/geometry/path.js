@@ -1,4 +1,4 @@
-import { TrackableObject, clamp } from "../utils/utils.js";
+import { TrackableObject, clamp, floatEqual } from "../utils/utils.js";
 import { Vector } from "./vector.js";
 
 export class Path extends TrackableObject { // points should be ordered clockwise (in positioning)
@@ -32,7 +32,7 @@ export class Path extends TrackableObject { // points should be ordered clockwis
         for (const point of newPoints) path.push(point);
         return path;
     }
-    smooth (resolution = 1) {
+    subsection (resolution = 1) {
         if (this.length == 1) return;
         const newPoints = [];
         for (let i = 0; i < this.length - 1; i++) {
@@ -42,6 +42,51 @@ export class Path extends TrackableObject { // points should be ordered clockwis
         }
         this.apply(...newPoints);
         return this; // for chaining
+    }
+    // round off edges/turns that exceed a given angle (radians)
+    smooth (maxAngle = Math.PI / 4, mutate = false) {
+        const path = mutate ? this : this.clone(true);
+        const pts = path.points;
+        if (pts.length < 3) return path;
+        const newPoints = [];
+        const startIdx = path.isClosed ? 0 : 1;
+        const endIdx = path.isClosed ? pts.length : pts.length - 1;
+
+        if (!path.isClosed) newPoints.push(pts[0]);
+        for (let i = startIdx; i < endIdx; i++) {
+            const prev = pts[(i - 1 + pts.length) % pts.length];
+            const curr = pts[i % pts.length];
+            const next = pts[(i + 1) % pts.length];
+
+            if (floatEqual(prev.distance(curr), 0)
+                || floatEqual(curr.distance(next), 0)
+            ) {
+                // overlapping point, skip
+                newPoints.push(curr);
+                continue;
+            }
+            const dotProd = curr
+                .sub(prev)
+                .normalize(true)
+                .dot(next
+                    .sub(curr)
+                    .normalize(true));
+            const segmentAngle = Math.acos(Math.max(-1, Math.min(1, dotProd)));
+
+            if (segmentAngle > maxAngle) {
+                // smoothing
+                const q = curr.lerp(prev, 0.25);
+                const r = curr.lerp(next, 0.25);
+                newPoints.push(q, r);
+            } else {
+                // keep the same
+                newPoints.push(curr);
+            }
+        }
+        if (!path.isClosed) newPoints.push(pts[pts.length - 1]);
+        path.splice(0, path.length);
+        for (const pt of newPoints) path.push(pt);
+        return path;
     }
     draw (cursor, close = true) { // only draw the path
         if (!this.#points.length) return;
@@ -332,6 +377,7 @@ export class BoundingBox {
     get max () { return this.#max }
     get size () { return this.max.sub(this.min).abs(true) }
     get hash () { return Vector.hashVectors([this.min, this.max]) }
+    get center () { return this.#min.lerp(this.#max, .5) }
 }
 
 export function *tweenPoints (previous, current, resolution) {

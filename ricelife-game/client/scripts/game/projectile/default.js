@@ -292,6 +292,7 @@ export class ShotStage extends TrackableObject {
             const points = shot.shape.Polygon(resolution).path.points;
             const angles = [];
             const rays = [];
+            const bbox = shot.shape.getBoundingBox();
             let hitPoint = undefined;
             let hitDistance = undefined;
             for (const point of points) {
@@ -302,11 +303,12 @@ export class ShotStage extends TrackableObject {
             }
             for (const collider of colliders) {
                 const isDestructible = collider.userData?.destructible;
+                const colliderHoles = collider.holes;
+                const originalHoleCount = colliderHoles.length;
                 if (isDestructible) {
                     // [!] temporary fix- assign blasts to polygon holes for raycasting, then remove after
-                    const colliderHoles = collider.holes;
-                    const originalHoleCount = colliderHoles.length;
                     for (const blast of blasts)
+                        // push all existing blasts instead of only the intersecting ones. This way we don't force collider to recompute edges every time we move to a new area
                         colliderHoles.push(blast.shape.Polygon(resolution));
                 }
                 // do raycasts
@@ -376,7 +378,7 @@ export class ShotStage extends TrackableObject {
             if (legend === undefined) {
                 const { shot } = this;
                 this.time += seconds;
-                this.#projectUpdate(seconds, 1);
+                this.#projectUpdate(seconds, 5);
                 this.updateCallback?.();
                 this.#trackUpdate();
                 if (!this.#isFinished && shot.isStopped)
@@ -666,6 +668,7 @@ export class Ammo extends TrackableObject {
         const ammo = this.clone(true);
         const result = { finished: false, time: limit, state: ammo };
         while (ammo.time < limit && !result.finished) {
+            // run the trace
             ammo.update(increment);
             if (ammo.isFinished) {
                 result.time = ammo.time;
@@ -680,7 +683,7 @@ export class Ammo extends TrackableObject {
         return result;
     }
     getBoundingBox (merge = true) {
-        return this.currentStage.getBoundingBox(merge);
+        return this.currentStage?.getBoundingBox?.(merge) || new BoundingBox();
     }
     clone (deep = false) {
         const stages = [];

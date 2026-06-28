@@ -130,7 +130,7 @@ async function init (...loaded) {
     const Inputs = new InputListener(Display.canvas, CLICK_DURATION_MS, INPUT_MAP, UIInterface);
     const Animations = new AnimationList();
     const Terrain = URL_PARAMS.get("map") == "flat"
-        ? generateTerrain(new Path(new Vector(0, GROUND), new Vector(Display.size.x, GROUND)).smooth(GLOBAL_RESOLUTION), Display.size)
+        ? generateTerrain(new Path(new Vector(0, GROUND), new Vector(Display.size.x, GROUND)).subsection(GLOBAL_RESOLUTION), Display.size)
         : generateTerrain(generateWave(Display.size.x, GLOBAL_RESOLUTION, (v) => v.y += GROUND, .03, 40, 1.3, 15), Display.size);
     Terrain.userData.destructible = true;
 
@@ -192,7 +192,6 @@ async function init (...loaded) {
         projectile: undefined,
         tracer: undefined,
         landing: undefined,
-        blastTerrain: undefined,
         projectileTypes: {
             shot1: Ammo.BasicShot,
             shot2: Ammo.Spreader,
@@ -321,7 +320,6 @@ async function fireProjectile (shot, state, config) { // [!} laziness
     const muzzleFlash = generateMuzzleFlash(state, config);
     const landing = await state.threading.traceProjectile("blastTerrain", projectile, config.traceIncrement, config.traceMaxTime);
     projectile.setLegend(landing.legend);
-    state.blastTerrain = undefined;
     state.impactData = [];
     if (state.debug) {
         state.debug.landing = landing;
@@ -335,11 +333,11 @@ async function fireProjectile (shot, state, config) { // [!} laziness
     if (landing.blasts.length) {
         const blasts = landing.blasts; // should be sorted
         state.redrawJob = state.threading.drawBlastedTerrains(1, "blastTerrain", config.display.size, config.terrain, ...blasts);
-        const { intervals: blastIntervals, polygon: blastTerrain } = await state.redrawJob;
+        const blastIntervals = await state.redrawJob;
         state.animations.blast = new AnimationList();
         const blastAudioLayer = config.audio.layers.blast;
         for (const blastInterval of blastIntervals) {
-            const { frame, delay, blasts } = blastInterval;
+            const { frame, delay, blasts, polygon } = blastInterval;
             // bundle callbacks to trigger later
             const impact = {
                 triggered: false,
@@ -368,6 +366,8 @@ async function fireProjectile (shot, state, config) { // [!} laziness
                 const ani = new ShapeAnimation(blast.shape.clone(), .6, config.animated.blast.framerate, config.animated.blast.draw);
                 ani.speed = 1.25;
                 ani.onstart.then(() => {
+                    // shift player positions
+                    updateTerrain(state, polygon);
                     // register damage
                     if (blast.damage) {
                         for (const { tank, hitpoints, data } of Object.values(state.players)) {
@@ -386,7 +386,6 @@ async function fireProjectile (shot, state, config) { // [!} laziness
             state.impactData.push(impact);
         }
         state.animations.global.push(...state.animations.blast);
-        state.blastTerrain = await blastTerrain;
     }
     await state.redrawJob;
     state.landing = landing;
@@ -415,6 +414,17 @@ function generateMuzzleFlash (state, config) { // [!] laziness
 function setTurn (state, toggle) {
     state.isTurn = toggle;
     state.input.pointer.enabled = toggle;
+}
+
+function updateTerrain (state, polygon) {
+    state.terrain.apply(polygon);
+    for (const { tank, mover } of Object.values(state.players)) {
+        // update positioning - account for "falling"
+        tank.position.round(2);
+        // [!] hack solution
+        mover.move(0.0001); 
+        mover.move(-0.0001);
+    }
 }
 
 function handleInput (state, config) {
@@ -595,6 +605,7 @@ function drawDebugOverlay (state, config) {
             drawMarker(cursor, point, Vector.fromAngle(angle + offset), 4, 20, c);
             hits[i]._path.draw(cursor, true);
             cursor.stroke();
+            drawCircle(cursor, hits[i]._path.at(0), 5, "orange");
         }
         cursor.restore();
     }
@@ -665,30 +676,22 @@ function animate (state, config) {
             ) {
                 waitPromise = waitPromise
                     .then(() => state.redrawJob)
+                    // .then(() => {
+                    //     // [!] debugging
+                    //     if (!state.blastTerrain) return;
+                    //     const hash = state.blastTerrain.hash;
+                    //     state.threading.hashCache("blastTerrain")
+                    //         .then((h) => {
+                    //             if (hash !== h)
+                    //                 console.error(`[Main]: Cached terrain does not match current terrain state. Terrain drawn onscreen may not reflect it's hitbox.`)
+                    //         });
+                    // })
                     .then(() => {
-                        // [!] debugging
-                        if (!state.blastTerrain) return;
-                        const hash = state.blastTerrain.hash;
-                        state.threading.hashCache("blastTerrain")
-                            .then((h) => {
-                                if (hash !== h)
-                                    console.error(`[Main]: Cached terrain does not match current terrain state. Terrain drawn onscreen may not reflect it's hitbox.`)
-                            });
-                    })
-                    .then(() => {
-                        if (state.blastTerrain) state.terrain.apply(state.blastTerrain);
                         // reset projectile related state info
                         state.projectile = state.landing = undefined;
                         state.drawProjectile = true;
                         state.impactData = [];
                         delete state.animations.blast;
-                        for (const { tank, mover } of Object.values(state.players)) {
-                            // update positioning - account for "falling"
-                            tank.position.round(2);
-                            // [!] hack solution
-                            mover.move(0.0001); 
-                            mover.move(-0.0001);
-                        }
                         // unlock player
                         setTurn(state, true);
                         return (state.redrawJob = Promise.resolve());

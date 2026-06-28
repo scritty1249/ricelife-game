@@ -258,6 +258,7 @@ export class Vector {
             }
             return hash >>> 0;
         }
+        return undefined;
     }
 }
 
