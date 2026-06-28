@@ -352,9 +352,9 @@ export class BoundingBox {
         bbox.max.y = Math.max(bbox.min.y, bbox.max.y, other.min.y, other.max.y);
         return bbox;
     }
-    apply (min, max) {
-        this.min.apply(min);
-        this.max.apply(max);
+    apply (min = undefined, max = undefined) {
+        if (min) this.min.apply(min);
+        if (max) this.max.apply(max);
         return this; // for chaining
     }
     // deep clones by default, copies on init

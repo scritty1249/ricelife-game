@@ -471,6 +471,14 @@ export class Hitbox {
             return this.#isShapeIntersecting(value);
         } else return false; // dont throw errors on unknown types
     }
+    draw (cursor, close = true) {
+        if (close) cursor.beginPath();
+        cursor.moveTo(this.topLeft);
+        cursor.lineTo(this.topRight);
+        cursor.lineTo(this.bottomRight);
+        cursor.lineTo(this.bottomLeft);
+        if (close) cursor.closePath();
+    }
     Polygon () { return new Polygon(this.edges.clone(true)) }
     get isHitbox () { return true }
     get edges () { return this.#edges }

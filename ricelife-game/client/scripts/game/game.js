@@ -562,10 +562,15 @@ function drawDebugOverlay (state, config) {
         }
     }
 
-    [...state.interface].forEach(({items}) => [...items].forEach((item) => {
-        if (item?.isButton)
-            outlineImage(cursor, item.source, item.position, 1, "green");
+    cursor.save();
+    cursor.strokeStyle = "green";
+    [...state.interface].forEach(({items}) => items.forEach((item) => {
+        if (item?.isButton) {
+            item.getBoundingBox().draw(cursor);
+            cursor.stroke();
+        }
     }));
+    cursor.restore();
 
     if ((state.input.pointer.isDragging
         && player.aimer.isOver(state.input.pointer.dragStart))
