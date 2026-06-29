@@ -194,6 +194,7 @@ export class Path extends TrackableObject { // points should be ordered clockwis
                 if (Math.abs(cross) < Number.EPSILON) continue;
                 const thisDistCoefficient = gap.cross(dir) / cross,
                     thatDistCoefficient = gap.cross(direction) / cross;
+                const inwardNormal = thatPts[j].normal(thatPts[(j + 1) % thatPts.length]);
                 // sanity check: are we still within the segment's range?
                 if (thisDistCoefficient >= -Number.EPSILON
                     && thisDistCoefficient <= 1 + Number.EPSILON
@@ -202,7 +203,7 @@ export class Path extends TrackableObject { // points should be ordered clockwis
                 ) {
                     intersections.push({
                         point: thisPts[i].add(direction.mul(clamp(thisDistCoefficient, 0, 1))),
-                        entering: cross > 0,
+                        entering: direction.dot(inwardNormal) > 0,
                         index: {
                             self: i,
                             other: j
