@@ -183,10 +183,10 @@ export class Path extends TrackableObject { // points should be ordered clockwis
         const thisSegmentCount = this.isClosed ? thisPts.length : thisPts.length - 1; 
         const thatSegmentCount = path.isClosed ? thatPts.length : thatPts.length - 1;
         for (let i = 0; i < thisSegmentCount; i++) {
-            const direction = thisPts[i + 1].sub(thisPts[i]); 
+            const direction = thisPts[(i + 1) % thisPts.length].sub(thisPts[i]); 
             // that segments
             for (let j = 0; j < thatSegmentCount; j++) {
-                const dir = thatPts[j + 1].sub(thatPts[j]),
+                const dir = thatPts[(j + 1) % thatPts.length].sub(thatPts[j]),
                     cross = direction.cross(dir),
                     gap = thatPts[j].sub(thisPts[i]);
 
