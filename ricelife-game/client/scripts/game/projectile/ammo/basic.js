@@ -162,6 +162,9 @@ export class Digger extends DefaultAmmo {
                     ).clone();
                 shot.drag = 0.002;
                 shot.acceleration.y = -300;
+                const displace = normal
+                    .mul(Math.max(...shot.shape.getBoundingBox().size) / 2);
+                shot.applyPosition(shot.position.add(displace));
                 this.userData.bounces++;
             } else {
                 const { reflect, displace } = Behaviors.computeBounce.call(this, normal);
