@@ -205,6 +205,23 @@ class PointerListener  {
     get activeDuration () { return this.isActive ? performance.now() - this.#tracking.down.stamp : 0 }
 }
 
+export class GravityController { // lighter-weight, seperate for web workers. computes a player's new Y position given a terrain and X position
+    static computePosition (position, terrain) { // returns an intersection hit
+        const pts = terrain.edgePoints;
+        const terrainElevations = pts.map(({y}) => y);
+        const terrainHeight = Math.max(...terrainElevations) - Math.min(...terrainElevations);
+        const maxHeight = position.y;
+        const ray = Ray(new Vector(position.x, maxHeight + 1), Vector.fromAngle((3 * Math.PI) / 2), terrainHeight);
+        const hits = terrain.raycast(ray);
+        const hasExiting = hits.some(({entering}) => !entering);
+        const hit = (hasExiting ? hits.filter(({entering}) => entering) : hits)
+            ?.toSorted((a, b) => b.point.y - a.point.y)?.at(0);
+        if (!hit)
+            console.warn(`[${this.constructor.name}] Warning: No valid terrain found for Y position at X`, hits);
+        return hit;
+    }
+}
+
 export class MovementController { // only moves along X axis
     #terrainHash;
     #terrain;
@@ -219,13 +236,18 @@ export class MovementController { // only moves along X axis
         this.#computeTerrainData();
     }
 
+    #setPlayer (x, y, angle) { // takes raw terrain normal(angle) and x,y coord, and sets player position and rotation with defined offsets
+        this.#player.position.apply(x, y + this.offsetY);
+        this.#player.rotation.body = angle - (Math.PI / 2);
+    }
     #computeTerrainData () {
         const hash = this.#terrain.hash;
         if (this.#terrainHash === hash) return;
         this.#terrainHash = hash;
         const pts = this.#terrain.edgePoints;
         this.#range = pts.map((pt) => pt.x).toSorted((a, b) => b - a).at(0); // [!] unsafe math
-        this.#terrainHeight = Math.max(...pts.map(({y}) => y));
+        const terrainElevations = pts.map(({y}) => y);
+        this.#terrainHeight = Math.max(...terrainElevations) - Math.min(...terrainElevations);
     }
 
     move (amount) {
@@ -248,34 +270,43 @@ export class MovementController { // only moves along X axis
         this.#player.rotation.body = hit.angle;
         return true;
     }
-
-    set (amount) {
+    set (x) {
         this.#computeTerrainData();
-        if (amount < 1 || amount >= this.#range) return;
+        if (x < 1 || x >= this.#range) return;
         const position = this.#player.position;
         const maxHeight = this.#player.height + position.y + this.offsetY; // next position should not be going OVER this - under is still fine. (player would be falling)
-        const ray = Ray(new Vector(amount, this.#terrainHeight), Vector.fromAngle(deg2rad(270)), this.#terrainHeight - 1);
+        const ray = Ray(new Vector(x, this.#terrainHeight), Vector.fromAngle((3 * Math.PI) / 2), this.#terrainHeight - 1);
         const hits = this.#terrain.raycast(ray);
-        const exiting = hits.some(({entering}) => !entering);
+        const hasExiting = hits.some(({entering}) => !entering);
 
         // remove duplicate/junk raycasting hits (i did some shit wrong)
-        const hit = (exiting ? hits.filter(({entering}) => !entering) : hits)
+        const hit = (hasExiting ? hits.filter(({entering}) => entering) : hits)
             ?.toSorted((a, b) => b.point.y - a.point.y)?.at(0);
         if (!hit) {
-            console.warn(`[${this.constructor.name}] Warning: No valid terrain found for Y position at X`, hits);
+            console.warn(`[${this.constructor.name}] Warning: No valid terrain found for Y position at X ${x}`, hits);
             return false;
         }
-
-        // setting position
-        position.x = amount;
-        position.y = hit.point.y + this.offsetY;
-        // setting rotation
-        this.#player.rotation.body = hit.angle - (Math.PI / 2);
+        this.#setPlayer(x, hit.point.y, hit.angle);
         return true;
     }
-
     apply (x, y) {
-        
+        this.#computeTerrainData();
+        if (x?.isVector) {
+            y = x.y;
+            x = x.x;
+        }
+        const maxHeight = this.#player.height + this.position.y + this.offsetY;
+        const ray = Ray(new Vector(x, maxHeight), Vector.fromAngle((3 * Math.PI) / 2), this.#terrainHeight);
+        const hits = this.#terrain.raycast(ray);
+        const hasExiting = hits.some(({entering}) => !entering);
+        const hit = (hasExiting ? hits.filter(({entering}) => entering) : hits)
+            ?.toSorted((a, b) => b.point.y - a.point.y)?.at(0);
+        if (!hit) {
+            console.warn(`[${this.constructor.name}] Warning: No valid terrain found for Y position from (${x}, ${y})`, hits);
+            return false;
+        }
+        this.#setPlayer(x, hit.point.y, hit.angle);
+        return true;
     }
 
     *#findValidPoints (targetX) { // [!] TODO: THIS WILL ALLOW PLAYERS TO JUMP OVER PIXEL GAPS (INTENDED) BUT ALSO ALLOWS THEM TO PHASE THROUGH WALLS IF THIN ENOUGH

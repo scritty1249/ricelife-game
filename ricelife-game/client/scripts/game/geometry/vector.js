@@ -181,8 +181,11 @@ export class Vector {
             return Math.atan2(sumSin, sumCos);
         }
     }
-    eq (vector) {
+    eq (vector) { // shorthand equals. stricter comparison (vectors only)
         return vector?.isVector && floatEqual(this.x, vector.x) && floatEqual(this.y, vector.y);
+    }
+    equals (x, y = null) {
+        return (y === null && floatEqual(this.x, x) && floatEqual(this.y, x)) || (floatEqual(this.x, x) && floatEqual(this.y, y));
     }
     apply (x, y = null) {
         if (x?.isVector) {

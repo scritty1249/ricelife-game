@@ -10,9 +10,12 @@ export class PlayerInstance extends TrackableObject  {
         const { data, hitpoints, position } = obj;
         const h = HitPoints.fromObject(hitpoints);
         const d = PlayerData.fromObject(data, modelVariant);
-        const p = Vector.fromObject(position);
         const other = new PlayerInstance(d, h);
-        other.onload = function () { this.mover.apply(p) }
+        if (position) {
+            const p = Vector.fromObject(position);
+            if (!p.equals(0)) other.onload = function () { this.mover.apply(p) }
+            else console.warn(`[${this.name}]: Invalid position data for player ${other.data.profile.name} (${other.data.profile.userid})`);
+        }
         return other;
     }
     #data;
