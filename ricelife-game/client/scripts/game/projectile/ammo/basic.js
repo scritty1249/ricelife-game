@@ -2,12 +2,13 @@ import { Ammo, Shot } from "../default.js";
 import { Blast } from "../blast.js";
 import { Circle, Vector, Color } from "../../geometry/geometry.js";
 import { deg2rad, rad2deg } from "../../utils/utils.js";
+import * as Properties from "../properties.js";
 import * as Behaviors from "../behaviors.js";
 
 // just for easy Ammo type construction
 class DefaultAmmo extends Ammo {
     // <this> context will be rebound to ShotStage
-    static collisionCallback (point, normal) { // default
+    static collisionCallback (point, normal, collisionFlags) { // default
         this.shot.current.velocity.mul(0, true);
         Behaviors.createBlasts.call(this);
     }
@@ -85,11 +86,14 @@ export class Flower extends DefaultAmmo {
 }
 
 export class Bouncer extends DefaultAmmo {
-    static collisionCallback (point, normal) {
+    static collisionCallback (point, normal, collisionFlags) {
         const { shot } = this;
         const { position, velocity } = shot.current;
-        const { reflect, displace } = Behaviors.computeBounce.call(this, normal);
-        if (this.userData.bounces < this.userData.maxBounces) {
+        if ((!this.userData.stopOnPlayer || !(collisionFlags & Properties.Collision.PLAYER)) // blow up instantly if hitting a player
+            && !(collisionFlags & Properties.Collision.STOP)
+            && this.userData.bounces < this.userData.maxBounces
+        ) {
+            const { reflect, displace } = Behaviors.computeBounce.call(this, normal);
             // update projectile
             shot.applyPosition(position.add(displace));
             velocity.apply(reflect.mul(this.userData.bounceVelocityMultiplier));
@@ -115,6 +119,7 @@ export class Bouncer extends DefaultAmmo {
     static bounceVelocityMultiplier = new Vector(.9, .9);
     static maxBounces = 3;
     static bounceGlowReduction = 50;
+    static stopOnPlayer = true;
     constructor (origin, angle, power = 1, resolution = 1) {
         super(origin, angle, power, resolution);
         // geometry config
@@ -136,18 +141,20 @@ export class Bouncer extends DefaultAmmo {
             onBounce: this.constructor.onBounce.bind(stage),
             onBounceCallback: this.constructor.onBounceCallback.bind(stage),
             bounceVelocityMultiplier: this.constructor.bounceVelocityMultiplier,
-            bounceGlowReduction: this.constructor.bounceGlowReduction
+            bounceGlowReduction: this.constructor.bounceGlowReduction,
+            stopOnPlayer: this.constructor.stopOnPlayer
         };
         stage.collisionCallback = this.constructor.collisionCallback;
     }
 }
 
 export class Digger extends DefaultAmmo {
-    static collisionCallback (point, normal) {
+    static collisionCallback (point, normal, collisionFlags) {
         const { shot } = this;
         const direction = shot.current.velocity.normalize();
-        const doBlast = normal === undefined || normal.y >= 0; // only apply blasts and count bounces if normal is not negative (colliding surface faces up)
-        if (this.userData.bounces < this.userData.maxBounces) {
+        const doBlast = normal === undefined || normal.y >= 0 // only apply blasts and count bounces if normal is not negative (colliding surface faces up)
+            || (collisionFlags & Properties.Collision.PLAYER); // or if hitting a player
+        if (!(collisionFlags & Properties.Collision.STOP) && this.userData.bounces < this.userData.maxBounces) {
             if (doBlast) {
                 // update projectile
                 const reflection = shot.current.velocity.apply(0,
@@ -225,7 +232,7 @@ export class PineShot extends DefaultAmmo {
             stage.blastTimeOffset += time;
         });
     }
-    static stemCollisionCallback (point, normal) {
+    static stemCollisionCallback (point, normal, collisionFlags) {
         const { shot } = this;
         const doBounce = normal.y >= 0; // only bounce if normal is not negative (colliding surface faces up)- otherwise go stage 2 (spawn needles) immedately
         this.updateCallback = this.userData.stageTransition;
@@ -241,7 +248,7 @@ export class PineShot extends DefaultAmmo {
             shot.current.velocity.apply(0, 0);
         }
     }
-    static needleCollisionCallback (point, normal) {
+    static needleCollisionCallback (point, normal, collisionFlags) {
         this.shot.current.velocity.apply(0, 0);
         Behaviors.createBlasts.call(this);
     }

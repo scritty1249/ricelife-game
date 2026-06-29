@@ -1,5 +1,6 @@
 import { TrackableObject, floatEqual, roundToPlace } from "../utils/utils.js";
 import { Circle, Vector, Color, Path, Ray, BoundingBox } from "../geometry/geometry.js";
+import * as Properties from "./properties.js";
 
 export class Projectile extends TrackableObject {
     #tracer = new Path();
@@ -246,7 +247,7 @@ export class ShotStage extends TrackableObject {
     #blasts;
     #time = 0; // global time, seperate from Shot time
     #delayTime; // don't start updating shot until this duration has passed
-    #collisionCallback; // <bound to This> (point (contact point), normal (of colliding surface)) => undefined
+    #collisionCallback; // <bound to This> (point (contact point), normal (of colliding surface), collisionFlags) => undefined
     #updateCallback; // <bound to This> () => undefined
     #colliders; // list of polygons that can be collided with
     #isFinished = false; // trip this flag once projectile stops moving, never set again to prevent overlapping stages
@@ -296,6 +297,7 @@ export class ShotStage extends TrackableObject {
             const bbox = shot.shape.getBoundingBox();
             let hitPoint = undefined;
             let hitDistance = undefined;
+            let clsnFlg = undefined; // [!] confusing and poor naming
             for (const point of points) {
                 const dir = point.sub(origin).normalize(true);
                 // only draw ray for front-facing points on the Shape
@@ -303,39 +305,49 @@ export class ShotStage extends TrackableObject {
                     rays.push(Ray(point.clone(), direction.clone(), distance));
             }
             for (const collider of colliders) {
-                const isDestructible = collider.userData?.destructible;
-                const isEnterOnly = collider.userData?.enterOnly;
+                // collision flags
+                const collisionFlags = collider.userData?.collision || 0;
+                const allowDestruction = collisionFlags & Properties.Collision.DESTRUCTION;
+                const allowEnter = collisionFlags & Properties.Collision.ENTER;
+                const allowExit = collisionFlags & Properties.Collision.EXIT;
+                const allowEnterOnly = (collisionFlags & Properties.Collision.ANY) === Properties.Collision.ENTER;
+                const allowExitOnly = (collisionFlags & Properties.Collision.ANY) === Properties.Collision.EXIT;
+                // [!] temporary fix- assign blasts to polygon holes for raycasting, then remove after
                 const colliderHoles = collider.holes;
                 const originalHoleCount = colliderHoles.length;
-                if (isDestructible) {
-                    // [!] temporary fix- assign blasts to polygon holes for raycasting, then remove after
+                if (allowDestruction) {
                     for (const blast of blasts)
-                        // push all existing blasts instead of only the intersecting ones. This way we don't force collider to recompute edges every time we move to a new area
+                        // push all existing blasts instead of only the intersecting ones. This way we don't force collider polygon to recompute edges every time shot moves between updates
                         colliderHoles.push(blast.shape.Polygon(resolution));
                 }
                 if (!traversalBbox.isIntersecting(collider.getBoundingBox())) continue;
                 // do raycasts
-                for (const ray of rays) {
+                let doRaycast = true;
+                for (let rayIdx = 0; rayIdx < rays.length && doRaycast; rayIdx++) {
+                    const ray = rays[rayIdx]
                     const hits = collider.raycast(ray);
                     let angle = undefined;
                     for (const hit of hits) {
-                        if (isEnterOnly && !hit.entering) {
-                            hitPoint = undefined;
+                        if ((allowEnterOnly && !hit.entering)
+                            || (allowExitOnly && hit.entering)
+                        ) {
                             hitDistance = undefined;
                             angle = undefined;
+                            doRaycast = false;
                             break;
                         }
-                        if ((!hit.hole || hit.entering)
+                        if (((allowExit && !hit.entering) || (allowEnter && hit.entering))
                             && (hitDistance === undefined || hit.distance < hitDistance)
                         ) {
                             hitPoint = hit.point;
                             hitDistance = hit.distance;
                             angle = hit.angle;
+                            clsnFlg = collisionFlags;
                         }
                     }
                     if (angle !== undefined) angles.push(Vector.fromAngle(angle));
                 }
-                if (isDestructible) {
+                if (allowDestruction) {
                     // remove blasts / temp holes
                     colliderHoles.splice(originalHoleCount, blasts.length);
                 }
@@ -345,7 +357,7 @@ export class ShotStage extends TrackableObject {
                     .mul(hitDistance, true)
                     .add(origin, true);
                 shot.applyPosition(target);
-                this.applyCollision(hitPoint, Vector.average(angles).normalize(true));
+                this.applyCollision(hitPoint, Vector.average(angles).normalize(true), clsnFlg);
                 return;
             }
         }
@@ -361,12 +373,13 @@ export class ShotStage extends TrackableObject {
     }
 
     // point is collision/contact point
-    applyCollision (point, normal) {
+    applyCollision (point, normal, collisionFlags) {
         const { time, shot } = this;
         const position = shot.position.clone();
         const velocity = shot.current.velocity.clone();
         const collision = {
             time,
+            collisionFlags,
             position,
             point,
             velocity,
@@ -374,7 +387,7 @@ export class ShotStage extends TrackableObject {
             resultVelocity: undefined // velocity after collision. Mainly for debugging
         }
         this.#record.collisions.push(collision);
-        this.collisionCallback?.(point, normal);
+        this.collisionCallback?.(point, normal, collisionFlags);
         collision.resultVelocity = shot.current.velocity.clone();
     }
     update (seconds) {
@@ -399,10 +412,10 @@ export class ShotStage extends TrackableObject {
                 if (legend.collisions.length > 0
                     && this.time >= legend.collisions[0].time
                 ) {
-                    const { time, position, point, velocity, normal } = legend.collisions.shift();
+                    const { time, collisionFlags, position, point, velocity, normal } = legend.collisions.shift();
                     shot.applyPosition(position);
                     shot.current.velocity.apply(velocity);
-                    this.applyCollision(point, normal);
+                    this.applyCollision(point, normal, collisionFlags);
                 } else {
                     shot.update(seconds);
                 }
@@ -439,8 +452,9 @@ export class ShotStage extends TrackableObject {
             duration: record.duration,
             collisions: Array.from(record.collisions,
                 decode
-                    ? ({time, position, point, velocity, normal, resultVelocity}) => [
+                    ? ({time, collisionFlags, position, point, velocity, normal, resultVelocity}) => [
                         time,
+                        collisionFlags,
                         [position.x, position.y],
                         [point.x, point.y],
                         [velocity.x, velocity.y],
@@ -457,8 +471,9 @@ export class ShotStage extends TrackableObject {
             this.#legend = {
                 duration: legend[0],
                 collisions: Array.from(legend[1],
-                    ([time, position, point, velocity, normal, resultVelocity]) => ({
+                    ([time, collisionFlags, position, point, velocity, normal, resultVelocity]) => ({
                         time: time,
+                        collisionFlags: collisionFlags,
                         position: new Vector(position[0], position[1]),
                         point: new Vector(point[0], point[1]),
                         velocity: new Vector(velocity[0], velocity[1]),

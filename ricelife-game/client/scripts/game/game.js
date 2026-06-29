@@ -5,9 +5,9 @@ import { drawTerrain, generateTerrain, generateWave } from "./terrain/terrain.js
 import { LoadImage, Spritesheet, Animation, ShapeAnimation, AnimationList } from "./animate/animate.js";
 import { WorkerPool } from "./workers/pool.js";
 import { AudioContext } from "./audio/audio.js";
-import { drawBlastAnimation } from "./projectile/blast.js";
 import { PlayerModel } from "./player/player.js";
 import { LobbyJSON } from "./lobby/json.js";
+import { Properties, drawBlastAnimation } from "./projectile/projectile.js";
 import * as Menu from "./menu/menu.js"
 import * as Ammo from "./projectile/ammo-types.js";
 
@@ -138,7 +138,7 @@ async function init (...loaded) {
     const Terrain = URL_PARAMS.get("map") == "flat"
         ? generateTerrain(new Path(new Vector(0, GROUND), new Vector(Display.size.x, GROUND)).subsection(GLOBAL_RESOLUTION), Display.size)
         : generateTerrain(generateWave(Display.size.x, GLOBAL_RESOLUTION, (v) => v.y += GROUND, .03, 40, 1.3, 15), Display.size);
-    Terrain.userData.destructible = true;
+    Terrain.userData.collision = Properties.Collision.DESTRUCTION | Properties.Collision.ANY;
 
     await Promise.all([
         Workers.createCache("blastBackground", "CANVAS", ...Display.size),
@@ -326,7 +326,7 @@ async function fireProjectile (shot, state, config) { // [!} laziness
     for (const player of Object.values(state.players))
         if (!player.isDead) {
             const hb = player.tank.getHitbox().Polygon();
-            hb.userData.enterOnly = player.id === config.player.id;
+            hb.userData.collision = Properties.Collision.PLAYER | Properties.Collision.ENTER;
             hb.subsection(1);
             colliders.push(hb)
         }

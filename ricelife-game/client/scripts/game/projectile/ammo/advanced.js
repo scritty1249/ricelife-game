@@ -1,6 +1,7 @@
 import { Vector, Color } from "../../geometry/geometry.js";
 import * as Basic from "./basic.js";
 import * as Behaviors from "../behaviors.js";
+import * as Properties from "../properties.js";
 
 export class MegaBouncer extends Basic.Bouncer {
     static onBounce () {
@@ -69,6 +70,7 @@ export class GigaBouncer extends MegaBouncer {
     }
     static onBounceCallback () {} // override, don't play bounce sfx
     static maxBounces = 2;
+    static stopOnPlayer = false; // keep bouncing after collidiing with player
 }
 
 export class Spreader extends Basic.BasicShot {
