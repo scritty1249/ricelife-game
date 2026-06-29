@@ -367,7 +367,8 @@ async function fireProjectile (shot, state, config) { // [!} laziness
             };
             for (let i = 0; i < blasts.length; i++) {
                 const blast = blasts.at(i);
-                const blastSize = blast.shape.getBoundingBox().size.length;
+                const blastBbox = blast.shape.getBoundingBox();
+                const blastSize = blastBbox.size.length;
                 // sound effects
                 const bassNode = config.audio.ctx.newBassNode();
                 bassNode.frequency.value = 200;
@@ -379,7 +380,7 @@ async function fireProjectile (shot, state, config) { // [!} laziness
                 ani.speed = 1.25;
                 ani.onstart.then(() => {
                     // shift player positions
-                    updateTerrain(state, polygon);
+                    updateTerrain(state, polygon, [blastBbox]);
                     // register damage
                     if (blast.damage) {
                         for (const player of Object.values(state.players)) {
@@ -435,14 +436,20 @@ function setTurn (state, toggle) {
     state.input.pointer.enabled = toggle;
 }
 
-function updateTerrain (state, polygon) {
+function updateTerrain (state, polygon, changedBBoxes = []) {
     state.terrain.apply(polygon);
-    for (const { tank, mover } of Object.values(state.players)) {
+    // if bboxes of changed areas are provided, only update player positions that lie within them.
+    //  otherwise, update all player positions
+    const allPlayers = Object.values(state.players);
+    const players = changedBBoxes?.length
+        ? allPlayers.filter(({tank}) => {
+            const { position } = tank;
+            return changedBBoxes.some((bbox) => bbox.isIntersecting(position));
+        }) : allPlayers;
+    for (const { data, tank, mover } of players) {
         // update positioning - account for "falling"
         tank.position.round(2);
-        // [!] hack solution
-        mover.move(0.0001); 
-        mover.move(-0.0001);
+        mover.apply(mover.position.x, mover.position.y);
     }
 }
 
