@@ -206,18 +206,19 @@ class PointerListener  {
 }
 
 export class GravityController { // lighter-weight, seperate for web workers. computes a player's new Y position given a terrain and X position
-    static computePosition (position, terrain) { // returns an intersection hit
+    static computePosition (position, heightOffset, terrain) { // returns an intersection hit
         const pts = terrain.edgePoints;
         const terrainElevations = pts.map(({y}) => y);
         const terrainHeight = Math.max(...terrainElevations) - Math.min(...terrainElevations);
-        const maxHeight = position.y;
-        const ray = Ray(new Vector(position.x, maxHeight + 1), Vector.fromAngle((3 * Math.PI) / 2), terrainHeight);
+        const ray = Ray(new Vector(position.x, position.y + heightOffset), Vector.fromAngle((3 * Math.PI) / 2), terrainHeight + 1);
         const hits = terrain.raycast(ray);
         const hasExiting = hits.some(({entering}) => !entering);
         const hit = (hasExiting ? hits.filter(({entering}) => entering) : hits)
             ?.toSorted((a, b) => b.point.y - a.point.y)?.at(0);
         if (!hit)
-            console.warn(`[${this.constructor.name}] Warning: No valid terrain found for Y position at X`, hits);
+            console.warn(`[${this.constructor.name}] Warning: No valid terrain found for Y position (from ${ray.at(0).y}) at X ${position.x}`, hits);
+        else
+            hit.angle -= Math.PI / 2;
         return hit;
     }
 }
@@ -274,7 +275,7 @@ export class MovementController { // only moves along X axis
         this.#computeTerrainData();
         if (x < 1 || x >= this.#range) return;
         const position = this.#player.position;
-        const maxHeight = this.#player.height + position.y + this.offsetY; // next position should not be going OVER this - under is still fine. (player would be falling)
+        const maxHeight = position.y + this.#player.height + this.offsetY; // next position should not be going OVER this - under is still fine. (player would be falling)
         const ray = Ray(new Vector(x, this.#terrainHeight), Vector.fromAngle((3 * Math.PI) / 2), this.#terrainHeight - 1);
         const hits = this.#terrain.raycast(ray);
         const hasExiting = hits.some(({entering}) => !entering);
@@ -295,7 +296,7 @@ export class MovementController { // only moves along X axis
             y = x.y;
             x = x.x;
         }
-        const maxHeight = this.#player.height + this.position.y + this.offsetY;
+        const maxHeight = y + this.#player.height + this.offsetY;
         const ray = Ray(new Vector(x, maxHeight), Vector.fromAngle((3 * Math.PI) / 2), this.#terrainHeight);
         const hits = this.#terrain.raycast(ray);
         const hasExiting = hits.some(({entering}) => !entering);

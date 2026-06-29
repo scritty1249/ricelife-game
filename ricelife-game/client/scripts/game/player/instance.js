@@ -14,7 +14,7 @@ export class PlayerInstance extends TrackableObject  {
         if (position) {
             const p = Vector.fromObject(position);
             if (!p.equals(0)) other.onload = function () { this.mover.apply(p) }
-            else console.warn(`[${this.name}]: Invalid position data for player ${other.data.profile.name} (${other.data.profile.userid})`);
+            else console.warn(`[${this.name}]: Invalid position from object for player ${other.data.profile.name} (${other.data.profile.userid})`);
         }
         return other;
     }

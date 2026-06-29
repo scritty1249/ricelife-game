@@ -178,7 +178,6 @@ export class Path extends TrackableObject { // points should be ordered clockwis
             }
             return [];
         }
-
         // this segements
         const thisSegmentCount = this.isClosed ? thisPts.length : thisPts.length - 1; 
         const thatSegmentCount = path.isClosed ? thatPts.length : thatPts.length - 1;

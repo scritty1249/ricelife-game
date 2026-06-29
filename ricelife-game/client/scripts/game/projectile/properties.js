@@ -7,9 +7,10 @@ export class Collision {
     // type of object being collided with
     static DESTRUCTION = 1 << 2;
     static PLAYER = 1 << 3;
-    static BOUNDARY = 1 << 4; // [!] map border. may be bouncey idk yet - KT
-    static STOP = 1 << 5; // instances that collide should stop and not perform any other TRAJECTORY behaviors (ex: don't bounce)
-    static TRIGGER = 1 << 6; // instances that collide with this should immedately count this as a "final" collision
+    static TERRAIN = 1 << 4;
+    static BOUNDARY = 1 << 5; // [!] map border. may be bouncey idk yet - KT
+    static STOP = 1 << 6; // instances that collide should stop and not perform any other TRAJECTORY behaviors (ex: don't bounce)
+    static TRIGGER = 1 << 7; // instances that collide with this should immedately count this as a "final" collision
     static #compositeFlags = [Collision.ANY];
     static toObject (flags) { // [!] for debugging
         const state = {};

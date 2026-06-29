@@ -223,7 +223,8 @@ export class Vector {
         hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
         return hash >>> 0; // unsigned 32-bit Integer
     }
-    get length () { return Math.sqrt(this.pow(2).sum()) }
+    get length () { return Math.sqrt(this.lengthSquared) }
+    get lengthSquared () { return this.pow(2).sum() }
     clone () { return new Vector(this.x, this.y) }
     toString () { return `(${this.x.toFixed(3)}, ${this.y.toFixed(3)})` }
     toJSON () { return [this.x, this.y] }

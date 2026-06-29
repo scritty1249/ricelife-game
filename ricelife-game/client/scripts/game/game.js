@@ -138,7 +138,7 @@ async function init (...loaded) {
     const Terrain = URL_PARAMS.get("map") == "flat"
         ? generateTerrain(new Path(new Vector(0, GROUND), new Vector(Display.size.x, GROUND)).subsection(GLOBAL_RESOLUTION), Display.size)
         : generateTerrain(generateWave(Display.size.x, GLOBAL_RESOLUTION, (v) => v.y += GROUND, .03, 40, 1.3, 15), Display.size);
-    Terrain.userData.collision = Properties.Collision.DESTRUCTION | Properties.Collision.ANY;
+    Terrain.userData.collision = Properties.Collision.DESTRUCTION | Properties.Collision.ANY | Properties.Collision.TERRAIN;
 
     await Promise.all([
         Workers.createCache("blastBackground", "CANVAS", ...Display.size),
@@ -327,7 +327,9 @@ async function fireProjectile (shot, state, config) { // [!} laziness
         if (!player.isDead) {
             const hb = player.tank.getHitbox().Polygon();
             hb.userData.collision = Properties.Collision.PLAYER | Properties.Collision.ENTER;
-            hb.subsection(1);
+            hb.userData.position = player.tank.position.round(2, true).toJSON();
+            hb.userData.rotation = player.tank.rotation.body;
+            hb.userData.heightOffset = player.tank.height + player.mover.offsetY;
             colliders.push(hb)
         }
     const landing = await state.threading.traceProjectile(colliders, projectile, config.traceIncrement, config.traceMaxTime);
@@ -446,7 +448,7 @@ function updateTerrain (state, polygon, changedBBoxes = []) {
             const { position } = tank;
             return changedBBoxes.some((bbox) => bbox.isIntersecting(position));
         }) : allPlayers;
-    for (const { data, tank, mover } of players) {
+    for (const { tank, mover } of players) {
         // update positioning - account for "falling"
         tank.position.round(2);
         mover.apply(mover.position.x, mover.position.y);

@@ -252,6 +252,7 @@ export class ShotStage extends TrackableObject {
     #colliders; // list of polygons that can be collided with
     #isFinished = false; // trip this flag once projectile stops moving, never set again to prevent overlapping stages
     #isStarted = false; // trip this flag once we start updating projectile, never set again to prevent tracking errors
+    #pushBlasts = false; // push new blasts to collider polygon holes
     #blastTimeOffset = 0; // offset time when creating new Blasts
     #finishedPromise = Promise.withResolvers();
     #legend; // when set, ShotStage will skip all collision checks and follow based on this
@@ -315,39 +316,48 @@ export class ShotStage extends TrackableObject {
                 // [!] temporary fix- assign blasts to polygon holes for raycasting, then remove after
                 const colliderHoles = collider.holes;
                 const originalHoleCount = colliderHoles.length;
-                if (allowDestruction) {
+                if (!this.pushBlasts && allowDestruction) {
                     for (const blast of blasts)
                         // push all existing blasts instead of only the intersecting ones. This way we don't force collider polygon to recompute edges every time shot moves between updates
                         colliderHoles.push(blast.shape.Polygon(resolution));
                 }
-                if (!traversalBbox.isIntersecting(collider.getBoundingBox())) continue;
-                // do raycasts
-                let doRaycast = true;
-                for (let rayIdx = 0; rayIdx < rays.length && doRaycast; rayIdx++) {
-                    const ray = rays[rayIdx]
-                    const hits = collider.raycast(ray);
-                    let angle = undefined;
-                    for (const hit of hits) {
-                        if ((allowEnterOnly && !hit.entering)
-                            || (allowExitOnly && hit.entering)
-                        ) {
-                            hitDistance = undefined;
-                            angle = undefined;
-                            doRaycast = false;
-                            break;
+                if (traversalBbox.isIntersecting(collider.getBoundingBox())) {
+                    // do raycasts
+                    let doRaycast = true;
+                    let pt = undefined;
+                    let dist = undefined;
+                    for (let rayIdx = 0; rayIdx < rays.length && doRaycast; rayIdx++) {
+                        const ray = rays[rayIdx]
+                        const hits = collider.raycast(ray);
+                        let angle = undefined;
+                        for (const hit of hits) {
+                            if ((allowEnterOnly && !hit.entering)
+                                || (allowExitOnly && hit.entering)
+                            ) {
+                                // don't save any hits or angles from this collider
+                                pt = undefined;
+                                dist = undefined;
+                                angle = undefined;
+                                doRaycast = false;
+                                break;
+                            }
+                            if (((allowExit && !hit.entering) || (allowEnter && hit.entering))
+                                && (hitDistance === undefined || hit.distance < hitDistance)
+                            ) {
+                                pt = hit.point;
+                                dist = hit.distance;
+                                angle = hit.angle;
+                                clsnFlg = collisionFlags;
+                            }
                         }
-                        if (((allowExit && !hit.entering) || (allowEnter && hit.entering))
-                            && (hitDistance === undefined || hit.distance < hitDistance)
-                        ) {
-                            hitPoint = hit.point;
-                            hitDistance = hit.distance;
-                            angle = hit.angle;
-                            clsnFlg = collisionFlags;
-                        }
+                        if (angle !== undefined) angles.push(Vector.fromAngle(angle));
                     }
-                    if (angle !== undefined) angles.push(Vector.fromAngle(angle));
+                    if (pt !== undefined && (hitDistance === undefined || dist < hitDistance)) {
+                        hitPoint = pt;
+                        hitDistance = dist;
+                    }
                 }
-                if (allowDestruction) {
+                if (!this.pushBlasts && allowDestruction) {
                     // remove blasts / temp holes
                     colliderHoles.splice(originalHoleCount, blasts.length);
                 }
@@ -439,6 +449,17 @@ export class ShotStage extends TrackableObject {
         hitbox.shape.applyTransformation();
         hitbox.delay += this.time + this.blastTimeOffset;
         this.blasts.push(hitbox);
+        if (this.pushBlasts) {
+            for (const collider of this.colliders) {
+                if ((collider.userData.collision & Properties.Collision.DESTRUCTION)
+                    && collider.getBoundingBox().isIntersecting(hitbox.shape.getBoundingBox())
+                ) {
+                    const poly = hitbox.shape.Polygon(1);
+                    if (poly.path.isClockwise) poly.path.points.reverse();
+                    collider.holes.push(poly);
+                }
+            }
+        }
         return hitbox; // for modifying, if needed
     }
     playSfx (sfxName) {
@@ -510,6 +531,8 @@ export class ShotStage extends TrackableObject {
     get updateCallback () { return this.#updateCallback }
     set updateCallback (callbackFn) { return (this.#updateCallback = callbackFn?.bind(this)) }
     get sfxCallback () { return this.#sfxCallback }
+    get pushBlasts () { return this.#pushBlasts }
+    set pushBlasts (value) { return (this.#pushBlasts = value) }
     get tracer () { return this.#tracer }
 }
 
@@ -616,6 +639,7 @@ export class MultiShotStage extends TrackableObject {
     get blastTimeOffset () { return this.#blastTimeOffset }
     set blastTimeOffset (value) { return (this.#blastTimeOffset = value) }
     get sfxCallback () { return this.#sfxCallback }
+    set pushBlasts (value) { this.stages.forEach((stage) => stage.pushBlasts = value); return value }
     get tracer () { return this.stages.map(({tracer}) => tracer) }
 }
 
@@ -689,25 +713,6 @@ export class Ammo extends TrackableObject {
         if (this.#stageIdx === 0 && this.#currentStage === undefined) this.#currentStage = this.#stages[this.#stageIdx];
         return stage;
     }
-    // returns blasts over a given time
-    trace (increment = 1/60, limit = 60, float64 = false) {
-        const ammo = this.clone(true);
-        const result = { finished: false, time: limit, state: ammo };
-        while (ammo.time < limit && !result.finished) {
-            // run the trace
-            ammo.update(increment);
-            if (ammo.isFinished) {
-                result.time = ammo.time;
-                result.finished = true;
-            }
-        }
-        if (!result.finished) console.info(`[${this.constructor.name}]: Trace timed out`);
-        result.legend = ammo.getLegend(); // [!] no need to pass as transfer, we shouldn't have a large amount of collisions
-        result.blasts = float64
-            ? ammo.blasts.map((blast) => blast.decode())
-            : [...ammo.blasts]; // dereference
-        return result;
-    }
     getBoundingBox (merge = true) {
         return this.currentStage?.getBoundingBox?.(merge) || new BoundingBox();
     }
@@ -742,4 +747,5 @@ export class Ammo extends TrackableObject {
     get isFinished () { return this.isStarted && this.#currentStage === undefined }
     get time () { return this.#time }
     set time (value) { return (this.#time = value) }
+    set pushBlasts (value) { this.stages.forEach((stage) => stage.pushBlasts = value); return value }
 }

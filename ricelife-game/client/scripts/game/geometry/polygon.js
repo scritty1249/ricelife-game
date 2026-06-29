@@ -217,14 +217,52 @@ export class Polygon extends TrackableObject { // points should be ordered clock
         }   
         throw new Error(`[${this.constructor.name}] Error: Unable to compute intersect of unsupported type ${typeof value}`);
     }
-
+    // isWithin (value, ignoreholes = false) {
+    //     if (value?.isVector) {
+    //         // bounding box check, is point even close to this polygon?
+    //         if (!this.getBoundingBox().isIntersecting(value)) return false;
+    //         let inside = false;
+    //         const { x, y } = value;
+    //         const path = this.path;
+    //         const len = path.length;
+    //         for (let i = 0, j = len - 1; i < len; j = i++) {
+    //             const pi = path.points[i];
+    //             const pj = path.points[j];
+    //             const diff = pi.sub(value).abs(true)
+    //             if (diff.x < Number.EPSILON && diff.y < Number.EPSILON) return false; // point lands directly on an edge vertex
+    //             const point = value.sub(pi);
+    //             const edge = pj.sub(pi)
+    //             const cross = point.cross(edge);
+    //             if (Math.abs(cross) < Number.EPSILON) {
+    //                 // colinear
+    //                 const dot = point.cross(edge);
+    //                 const lenSq = edge.lengthSquared;
+    //                 if (dot >= -Number.EPSILON && dot <= lenSq + Number.EPSILON) return false; // lies exactly along the edge
+    //             }
+    //             const intersect = ((pi.y > y) !== (pj.y > y))
+    //                 && (x < (pj.x - pi.x) * (y - pi.y) / (pj.y - pi.y) + pi.x);
+    //             if (intersect) inside = !inside;
+    //         }
+    //         return inside && (ignoreholes || !this.holes.some((hole) => hole.isWithin(value, !ignoreholes)));
+    //     } else if (value?.isPolygon) {
+    //         return value.path.points.some((point) => this.isWithin(point));
+    //     } else if (value?.isPath) { // counts surface contact/collision as intersection
+    //         return value.points.some((point) => this.isWithin(point));
+    //     } else if (value?.isShape) {
+    //         return value.isWithin(this);
+    //     }   
+    //     throw new Error(`[${this.constructor.name}] Error: Unable to compute with unsupported type ${typeof value}`);
+    // }
     raycast (ray) {
         const distance = ray.at(0).distance(ray.at(-1));
         const holes = this.holes;
         const hits = [];
         for (const path of this.edges)
             for (const inter of ray.intersections(path))
-                if (!holes.some(hole => hole.isIntersecting(inter.point)) && !hits.some(({point}) => point.eq(inter.point)))
+                if (!holes.some((hole) =>
+                        hole.isIntersecting(inter.point)) // if the hit doesn't lie within a hole
+                        && !hits.some(({point}) => // don't record a duplicate hit
+                            point.eq(inter.point)))
                     hits.push({
                         // [!] debugging. Values in here are passed by ref and SHOULD NOT be modified
                         _path: path,
@@ -336,7 +374,7 @@ export class Polygon extends TrackableObject { // points should be ordered clock
             for (const point of hole.path) {
                 if (
                     !this.isIntersecting(point, true) // does the hole path extend beyond the actual Polygon?
-                    || this.holes.some((h) => !h.eq(hole) && h.isIntersecting(point))
+                    || this.holes.some((h) => !h.eq(hole) && h.isIntersecting(point)) // is this hole inside of another?
                 ) {
                     // don't push this point
                     if (segment.length) segements.push(segment);

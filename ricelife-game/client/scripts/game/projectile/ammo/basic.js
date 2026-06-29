@@ -184,6 +184,7 @@ export class Digger extends DefaultAmmo {
     }
     static onBounce () {} // override, don't modify cosmetically
     static onBounceCallback () {} // override, don't play bounce sfx
+    static blastRadius = 40;
     static maxBounces = 4;
     static initalSpeed = 500;
     static drag = 0.003;
