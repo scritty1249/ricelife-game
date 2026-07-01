@@ -231,7 +231,7 @@ export class PineShot extends DefaultAmmo {
         const time = this.time;
         needleStage.stages.forEach((stage) => {
             const { shot } = stage;
-            shot.origin.apply(pos);
+            shot.origin.position.apply(pos);
             shot.applyPosition(pos);
             stage.blastTimeOffset += time;
         });

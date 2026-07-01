@@ -134,6 +134,12 @@ export class Path extends TrackableObject { // points should be ordered clockwis
                         index: i
                     };
             }
+            if (this.isClosed && Vector.isBetween(start, points.at(-1), points[0]))
+                return {
+                    angle: points.at(-1).angle(start),
+                    coeff: points.at(-1).distance(start) / points.at(-1).distance(points[0]),
+                    index: points.length - 1
+                };
             return false;
         }
         throw new Error(`[${this.constructor.name}]: Invalid argument(s), cannot check intersection of Path and ${typeof start}${end === null ? "" : `, ${typeof end}`}`);

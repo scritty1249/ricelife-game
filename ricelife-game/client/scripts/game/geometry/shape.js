@@ -150,6 +150,9 @@ export class Shape {
         else if (value?.isPoly) return this.isPolyInside(value);
         throw new Error(`[${this.constructor.name}] Error: Unable to check enclosure of unsupported type ${typeof value}`);
     }
+    isBordering (value) {
+        return this.isIntersecting(value) && !this.isInside(value);
+    }
     get isShape () { return true }
     get blob () { return this.#blob }
     get transformation () { return this.#transform }

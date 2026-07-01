@@ -115,9 +115,9 @@ self.onmessage = async (e) => {
             const proj = new AmmoType[ammo](Vector.fromObject(origin), angle, power, resolution);
             for (const collisionPoly of targetPolys) proj.colliders.push(collisionPoly);
             proj.pushBlasts = true;
-            const terrainPoly = targetPolys.find(({userData}) => userData.collision & Properties.Collision.TERRAIN);
+            const terrainPoly = proj.colliders.find(({userData}) => userData.collision & Properties.Collision.TERRAIN);
             const originalHoleCount = terrainPoly.holes.length;
-            const playerPolys = targetPolys.filter(({userData}) => userData.collision & Properties.Collision.PLAYER);
+            const playerPolys = proj.colliders.filter(({userData}) => userData.collision & Properties.Collision.PLAYER);
             playerPolys.forEach(({userData}) => {
                 userData.position = Vector.fromObject(userData.position);
             });

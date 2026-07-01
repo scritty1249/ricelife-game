@@ -5,30 +5,27 @@ import * as Properties from "./properties.js";
 export class Projectile extends TrackableObject {
     #tracer = new Path();
     #time = 0; // in seconds
+    #origin = {
+        position: new Vector(),
+        velocity: new Vector()
+    };
+    #current = {
+        position: new Vector(),
+        velocity: new Vector()
+    };
     constructor (origin, velocity, acceleration, drag) {
         super();
-        this.origin = origin.clone();
         this.drag = drag; // coefficient, values >1 will make projectiles move backwards infinitely
         this.acceleration = new Vector(acceleration);
-        this.velocity = new Vector(velocity);
-        this.current = {
-            position: new Vector(origin),
-            velocity: this.velocity.clone()
-        };
+
+        this.origin.position.apply(origin);
+        this.origin.velocity.apply(velocity);
+        this.current.position.apply(origin);
+        this.current.velocity.apply(velocity);
     }
 
-    get speed () {
-        return Math.sqrt(this.current.velocity.pow(2).sum());
-    }
-    get position () {
-        return this.current.position;
-    }
-    get isProjectile () {
-        return true
-    }
     updatePosition (seconds) {
-        const position = this.current.position;
-        const velocity = this.current.velocity;
+        const { position, velocity } = this;
         const acceleration = this.acceleration.clone();
         const v = velocity.mul(-this.drag * Math.sqrt(velocity.pow(2).sum()));
         if (velocity.x < 0)
@@ -39,8 +36,7 @@ export class Projectile extends TrackableObject {
         velocity.add(acceleration.add(v).mul(seconds, true), true);
     }
     projectPosition (seconds) {
-        const position = this.current.position;
-        const velocity = this.current.velocity;
+        const { position, velocity } = this;
         const acceleration = this.acceleration.clone();
         const v = velocity.mul(-this.drag * Math.sqrt(velocity.pow(2).sum()));
         if (velocity.x < 0)
@@ -53,7 +49,7 @@ export class Projectile extends TrackableObject {
         };
     }
     update (seconds = 1) {
-        this.#tracer.push(this.position.clone());
+        this.tracer.push(this.position.clone());
         if (!this.isStopped) this.updatePosition(seconds);
         this.#time += seconds;
         return this.position;
@@ -63,7 +59,7 @@ export class Projectile extends TrackableObject {
         if (this.isStopped) {
             return {
                 position: this.position.clone(),
-                velocity: this.current.velocity.clone(),
+                velocity: this.velocity.clone(),
                 time: this.time + seconds
             };
         } else {
@@ -79,9 +75,15 @@ export class Projectile extends TrackableObject {
     }
 
     get isProjectile () { return true }
+    get speed () { return this.velocity.length }
+    get position () { return this.current.position }
+    get velocity () { return this.current.velocity }
+    get direction () { return this.velocity.normalize() }
     get tracer () { return this.#tracer }
     get time () { return this.#time }
-    get isStopped () { return floatEqual(this.current.velocity.x, 0) && floatEqual(this.current.velocity.y, 0) }
+    get origin () { return this.#origin }
+    get current () { return this.#current }
+    get isStopped () { return floatEqual(this.speed, 0) }
     clone () { return new Projectile(this.origin, this.velocity, this.acceleration, this.drag) }
 }
 

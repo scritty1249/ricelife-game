@@ -143,7 +143,7 @@ async function init (...loaded) {
     await Promise.all([
         Workers.createCache("blastBackground", "CANVAS", ...Display.size),
         Workers.createCache("background", "CANVAS", ...Display.size),
-        Workers.insertCache("blastTerrain", "POLY", Terrain.Float64(1)),
+        Workers.insertCache("lastTerrainState", "POLY", Terrain.Float64(1)),
         ...players.map((p) => p.load(Terrain, Display.cursor))
     ]);
     console.info("[Main]: Worker caches initalized");
@@ -217,7 +217,7 @@ async function init (...loaded) {
         players: Object.fromEntries(Array.from(players, (p) => [p.id, p])),
         terrain: Terrain,
         lastStamp: performance.now(),
-        redrawJob: Workers.drawTerrain("background", "blastTerrain", config.terrain.fill, config.terrain.edge)
+        redrawJob: Workers.drawTerrain("background", "lastTerrainState", config.terrain.fill, config.terrain.edge)
             .then(() => Workers.updateCache("background"))
     };
     {
@@ -322,7 +322,7 @@ async function fireProjectile (shot, state, config) { // [!} laziness
     const projectile = new shot(launchOrigin, player.aimer.rotation + (3 * (Math.PI / 2)), player.aimer.power);
     projectile.colliders.push(state.terrain);
     const muzzleFlash = generateMuzzleFlash(state, config);
-    const colliders = ["blastTerrain"];
+    const colliders = ["lastTerrainState"];
     for (const player of Object.values(state.players))
         if (!player.isDead) {
             const hb = player.tank.getHitbox().Polygon();
@@ -346,7 +346,7 @@ async function fireProjectile (shot, state, config) { // [!} laziness
     }
     if (landing.blasts.length) {
         const blasts = landing.blasts; // should be sorted
-        state.redrawJob = state.threading.drawBlastedTerrains(1, "blastTerrain", config.display.size, config.terrain, ...blasts);
+        state.redrawJob = state.threading.drawBlastedTerrains(1, "lastTerrainState", config.display.size, config.terrain, ...blasts);
         const blastIntervals = await state.redrawJob;
         state.animations.blast = new AnimationList();
         const blastAudioLayer = config.audio.layers.blast;
