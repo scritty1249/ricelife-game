@@ -242,9 +242,7 @@ export class Polygon extends TrackableObject { // points should be ordered clock
         const hits = [];
         for (const edge of this.edges)
             for (const inter of ray.intersections(edge))
-                if (!holes.some((hole) =>
-                        hole.isInside(inter.point)) // if the hit doesn't lie within a hole
-                    && !hits.some(({point}) => // don't record a duplicate hit
+                if (!hits.some(({point}) => // don't record a duplicate hit
                         point.eq(inter.point)))
                     hits.push({
                         // [!] debugging. Values in here are passed by ref and SHOULD NOT be modified

@@ -188,34 +188,48 @@ export class Path extends TrackableObject { // points should be ordered clockwis
         const thisSegmentCount = this.isClosed ? thisPts.length : thisPts.length - 1; 
         const thatSegmentCount = path.isClosed ? thatPts.length : thatPts.length - 1;
         for (let i = 0; i < thisSegmentCount; i++) {
-            const direction = thisPts[(i + 1) % thisPts.length].sub(thisPts[i]); 
+            const thisStart = thisPts[i];
+            const thisEnd = thisPts[(i + 1) % thisPts.length];
+            const direction = thisEnd.sub(thisStart); 
             // that segments
             for (let j = 0; j < thatSegmentCount; j++) {
-                const dir = thatPts[(j + 1) % thatPts.length].sub(thatPts[j]),
+                const thatStart = thatPts[j];
+                const thatEnd = thatPts[(j + 1) % thatPts.length];
+                const inwardNormal = thatStart.normal(thatEnd);
+                const isEntering = direction.dot(inwardNormal) > 0;
+                if (thisStart.eq(thatStart)) {
+                    if (!intersections.some(inter => inter.point.eq(thisStart))) {
+                        const dir = thatEnd.sub(pOtherStart);
+                        intersections.push({
+                            point: thisStart.clone(),
+                            entering: isEntering,
+                            index: { self: i, other: j },
+                            coeff: { self: 0, other: 0 },
+                            angle: Math.atan2(direction.cross(dir), direction.dot(dir))
+                        });
+                    }
+                    continue;
+                }
+                const dir = thatEnd.sub(thatStart),
                     cross = direction.cross(dir),
-                    gap = thatPts[j].sub(thisPts[i]);
-
+                    gap = thatStart.sub(thisStart);
                 // skip segment if lines are parallel (cross product zero)
                 if (Math.abs(cross) < Number.EPSILON) continue;
-                const thisDistCoefficient = gap.cross(dir) / cross,
-                    thatDistCoefficient = gap.cross(direction) / cross;
-                const inwardNormal = thatPts[j].normal(thatPts[(j + 1) % thatPts.length]);
+                const thisDistCoeff = gap.cross(dir) / cross,
+                    thatDistCoeff = gap.cross(direction) / cross;
                 // sanity check: are we still within the segment's range?
-                if (thisDistCoefficient >= -Number.EPSILON
-                    && thisDistCoefficient <= 1 + Number.EPSILON
-                    && thatDistCoefficient >= -Number.EPSILON
-                    && thatDistCoefficient <= 1 + Number.EPSILON
+                if (thisDistCoeff >= -Number.EPSILON
+                    && thisDistCoeff <= 1 + Number.EPSILON
+                    && thatDistCoeff >= -Number.EPSILON
+                    && thatDistCoeff <= 1 + Number.EPSILON
                 ) {
                     intersections.push({
-                        point: thisPts[i].add(direction.mul(clamp(thisDistCoefficient, 0, 1))),
-                        entering: direction.dot(inwardNormal) > 0,
-                        index: {
-                            self: i,
-                            other: j
-                        },
+                        point: thisPts[i].add(direction.mul(clamp(thisDistCoeff, 0, 1))),
+                        entering: isEntering,
+                        index: { self: i, other: j },
                         coeff: { // percentage of segment distance covered
-                            self: thisDistCoefficient,
-                            other: thatDistCoefficient
+                            self: thisDistCoeff,
+                            other: thatDistCoeff
                         },
                         angle: Math.atan2(cross, direction.dot(dir)) // radians
                     });
