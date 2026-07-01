@@ -1,4 +1,4 @@
-import { TrackableObject, floatEqual, roundToPlace } from "../utils/utils.js";
+import { TrackableObject, floatEqual, rad2deg } from "../utils/utils.js";
 import { Circle, Vector, Color, Path, Ray, BoundingBox } from "../geometry/geometry.js";
 import * as Properties from "./properties.js";
 
@@ -318,7 +318,7 @@ export class ShotStage extends TrackableObject {
                 // [!] temporary fix- assign blasts to polygon holes for raycasting, then remove after
                 const colliderHoles = collider.holes;
                 const originalHoleCount = colliderHoles.length;
-                if (!this.pushBlasts && allowDestruction) {
+                if (!this.pushBlasts && allowDestruction && blasts.length) {
                     for (const blast of blasts)
                         // push all existing blasts instead of only the intersecting ones. This way we don't force collider polygon to recompute edges every time shot moves between updates
                         colliderHoles.push(blast.shape.Polygon(resolution));
@@ -359,7 +359,7 @@ export class ShotStage extends TrackableObject {
                         hitDistance = dist;
                     }
                 }
-                if (!this.pushBlasts && allowDestruction) {
+                if (!this.pushBlasts && allowDestruction && blasts.length) {
                     // remove blasts / temp holes
                     colliderHoles.splice(originalHoleCount, blasts.length);
                 }

@@ -32,13 +32,7 @@ export class Polygon extends TrackableObject { // points should be ordered clock
         const oldHoles = this.holes;
         const newHoles = [];
         for (const hole of oldHoles) {
-            if (hole.isIntersecting(this, true)
-                && !hole.edgePoints
-                    .every((pt) =>
-                        oldHoles.some((h) =>
-                            !h.eq(hole)
-                            && h.isIntersecting(pt)
-            ))) newHoles.push(hole);
+            if (oldHoles.every((h) => h.id === hole.id || !h.isInside(hole))) newHoles.push(hole);
         }
         oldHoles.splice(0, oldHoles.length);
         for (const hole of newHoles) oldHoles.push(hole);
@@ -179,7 +173,7 @@ export class Polygon extends TrackableObject { // points should be ordered clock
             newPolygon.holes.push(hole);
         } else if (polyPieces.length !== 0)
             newPolygon.path.apply(...polyPieces[0].path.points);
-        return newPolygon.reduceHoles();
+        return newPolygon; //.reduceHoles();
     }
 
     draw (cursor, close = true) { // only draw the path

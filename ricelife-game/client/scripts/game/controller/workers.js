@@ -169,9 +169,10 @@ export class WorkerController {
                     .then(() => this.#pool.cache[polyKey]));
                 cutJob = dj;
                 drawJob = dj;
-                if (i-1)
+                if (i-1 > 0)
                     polyJobs.at(-1)
-                        .then(() => this.destroyCache(polygonKeys[i-1]));
+                        .then(() =>
+                            this.destroyCache(polygonKeys[i-1]));
             }
             
             // syncronize everything

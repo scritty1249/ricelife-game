@@ -1,6 +1,6 @@
 import { InputListener, AppCanvas, WorkerController } from "./controller/controller.js";
 import { Vector, Color, Polygon, Ray, Path } from "./geometry/geometry.js";
-import { drawCircle, drawMarker, drawLine, drawText, outlineImage } from "./utils/utils.js";
+import { drawCircle, drawMarker, drawLine, drawText, outlineImage, rad2deg, wrapDeg } from "./utils/utils.js";
 import { drawTerrain, generateTerrain, generateWave } from "./terrain/terrain.js";
 import { LoadImage, Spritesheet, Animation, ShapeAnimation, AnimationList } from "./animate/animate.js";
 import { WorkerPool } from "./workers/pool.js";
@@ -534,7 +534,7 @@ function drawDebugOverlay (state, config) {
     // draw player body and barrel positions
     drawCircle(cursor, player.tank.barrelPos);
     drawCircle(cursor, new Vector(player.tank.position.x, player.tank.position.y), 5,  "green");
-    { // draw terrain outline. Draws holes weirdly though
+    { // draw terrain outline
         cursor.save();
         state.terrain.draw(cursor);
         cursor.clip("evenodd"); 
@@ -542,15 +542,6 @@ function drawDebugOverlay (state, config) {
         cursor.lineWidth = 4;
         cursor.stroke(); 
         cursor.restore();
-    }
-    {
-        // draw Y-axis positioning raycasters
-        const ray = Ray(new Vector(player.tank.position.x, 0), Vector.fromAngle(Math.PI/2), config.display.size.y - 20);
-        drawCircle(cursor, ray.at(0), 7, "purple")
-        drawCircle(cursor, ray.at(-1), 7, "white")
-        state.terrain.raycast(ray)
-            .toSorted((a, b) => b.point.y - a.point.y)
-            .forEach(({point, angle, entering}, i) => drawMarker(cursor, point, Vector.fromAngle(angle + Math.PI), 4, 20, entering ? "purple" : "white"));
     }
 
     if (state.projectile) {
@@ -609,11 +600,20 @@ function drawDebugOverlay (state, config) {
         const { position } = state.input.pointer;
         const c = state.terrain.isIntersecting(position) ? new Color(0, 200, 50, 1) : new Color(200, 200, 10, 1);
         drawCircle(cursor, position, 4, c);
-        drawText(cursor, position, position.toString(), c.toString());
+        drawText(cursor, position, `${position.toString()}, (${wrapDeg(rad2deg(player.tank.barrelPos.angle(position)).toFixed(0) - 90)})`, c.toString());
         c.a = .5;
         drawLine(cursor, player.tank.barrelPos, position, 2, c.toString());
     }
     if (state.input.keyboard.keyActive("debug+")) {
+        {
+            // draw Y-axis positioning raycasters
+            const ray = Ray(new Vector(player.tank.position.x, 0), Vector.fromAngle(Math.PI/2), config.display.size.y - 20);
+            drawCircle(cursor, ray.at(0), 7, "purple")
+            drawCircle(cursor, ray.at(-1), 7, "white")
+            state.terrain.raycast(ray)
+                .toSorted((a, b) => b.point.y - a.point.y)
+                .forEach(({point, angle, entering}, i) => drawMarker(cursor, point, Vector.fromAngle(angle + Math.PI), 4, 20, entering ? "purple" : "white"));
+        }
         // draw player hitboxes
         cursor.save();
         cursor.strokeStyle = "red";

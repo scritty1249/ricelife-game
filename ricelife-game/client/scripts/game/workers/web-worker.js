@@ -158,6 +158,7 @@ self.onmessage = async (e) => {
             result.legend = proj.getLegend(); // [!] no need to pass as transfer, we shouldn't have a large amount of collisions
             result.blasts = proj.blasts.map((blast) => blast.decode());
             if (terrainPoly.holes.length > originalHoleCount) terrainPoly.holes.splice(originalHoleCount, terrainPoly.holes.length - originalHoleCount);
+            
             postResponse(id, result);
         } else if (type === "CUTPOLY") {
             /* Payload expected:
