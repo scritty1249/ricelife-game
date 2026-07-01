@@ -195,6 +195,23 @@ export class WorkerPool extends TrackableObject {
             true
         );
     }
+    async hashCache (id) {
+        let worker = this.#cacheAt(id);
+        if (worker?.isBusy) {
+            if (this.#LOG_LEVEL >= 1) console.debug(`[${this.constructor.name}]: Waiting for cache ${id}`);
+            await worker.onAvailable;
+            worker = this.#cacheAt(cache);
+        }
+        if (worker === undefined) throw new Error(`[${this.constructor.name}]: Cache ${id} does not exist`);
+        return this.#postJob(
+            "", 
+            { cache: id, manager: true }, 
+            [],
+            "HASHCACHE",
+            worker,
+            true
+        ).then(({payload}) => payload.hash);
+    }
     async pushCache (type, payload, id = undefined) {
         const defaultedId = (id === undefined);
         const staleCacheWorker = defaultedId ? undefined : this.#cacheAt(id);

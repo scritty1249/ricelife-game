@@ -47,7 +47,7 @@ export class WorkerController {
                 payload.cuts.push(data);
                 transfer.push(...data.buffers);
             }
-            const data = await this.#pool.post("CUTPOLY", payload, transfer, [subjectid, destid]);
+            const data = await this.#pool.post("CUTPOLY", payload, transfer, subjectid === destid ? [subjectid] : [subjectid, destid]);
             return Polygon.fromObject(data.polygon, depth);
         }
     }
@@ -66,25 +66,29 @@ export class WorkerController {
             [cache]
         );
     }
-    async traceProjectile (polygonid, projectile, increment, limit) {
+    async traceProjectile (colliders, projectile, increment, limit) {
         const ammo = projectile.constructor.name;
         const { origin, velocity, acceleration, angle, resolution, power } = projectile;
+        const collidersData = colliders.map((collider) =>
+            collider?.isPolygon ? collider.Float64(collider.depth) : collider);
         const payload = {
             origin, angle, power, resolution, increment, limit, ammo,
-            collisions: [polygonid]
+            collisions: collidersData
         };
-        const landing = await this.#pool.post("INTERSECTPROJ", payload, [], [polygonid]);
+        const landing = await this.#pool.post(
+            "TRACESHOT",
+            payload,
+            collidersData
+                .filter((c) => typeof c !== "string")
+                ?.map?.(({buffers}) => buffers)
+                ?.flat?.(1) || [],
+            collidersData
+                .filter((c) => typeof c === "string"));
         // encode data
         if (landing) {
             if (landing.blasts?.length)
                 landing.blasts = landing.blasts.map((blast) =>
                     Blast.fromObject(blast));
-            for (let i = 0; i < landing.bounces?.length; i++) {
-                landing.bounces[i].point = Vector.fromObject(landing.bounces[i].point);
-                landing.bounces[i].normal = Vector.fromObject(landing.bounces[i].normal);
-                landing.bounces[i].reflection = Vector.fromObject(landing.bounces[i].reflection);
-                landing.bounces[i].direction = Vector.fromObject(landing.bounces[i].direction);
-            }
         }
         return landing;
     }
@@ -94,23 +98,30 @@ export class WorkerController {
         if (blasts.length === 0) {
             const poly = this.#pool.pullCache(polygonid, false, false)
                 .then(() => this.#pool.cache[polygonid]);
-            return {polygon: await poly, intervals: []};
+            return [{
+                delay: 0,
+                frame: undefined,
+                blasts: [],
+                polygon: await poly
+            }];
         } else if (blasts.length === 1) {
             const poly = this.cutPolygon(depth, polygonid, polygonid, blasts[0].shape.Polygon(1));
             const key = `${polygonid}_c0_${uuid()}`;
             const canvas = this.#pool.initCache("CANVAS", [canvasSize.x, canvasSize.y], key);
             await poly;
             await canvas;
-            const frame = await this.drawTerrain(key, polygonid, terrainConfig.fill, terrainConfig.edge)
+            const frame = poly
+                .then(() => canvas)
+                .then(() => this.drawTerrain(key, polygonid, terrainConfig.fill, terrainConfig.edge))
                 .then(() => this.#pool.pullCache(key, true, false))
                 .then(() => this.#pool.cache[key]);
-            return {polygon: await poly,
-                intervals: [{
-                    frame: frame,
-                    blasts: blasts,
-                    delay: blasts[0].delay
-                }]
-            };
+            const delay = blasts[0].delay || 0;
+            return [{
+                delay,
+                frame: await frame,
+                blasts: blasts,
+                polygon: await poly
+            }];
         } else {
             // group blasts that occur at the same time, draw these onto the same canvas
             const uniq = [];
@@ -123,6 +134,7 @@ export class WorkerController {
             .sort((a, b) => a[0] - b[0])
             .map(([_, blast]) => blast);
             // init promise arrays
+            const polyJobs = [];
             const frameJobs = [];
             const polygonJobs = [];
             const intervalDelays = [];
@@ -137,7 +149,6 @@ export class WorkerController {
             // setup promise chains
             let drawJob = Promise.resolve();
             let cutJob = Promise.resolve();
-            let polyJob = Promise.resolve();
             // do cut operations, and seperate the caches into different workers (load balancing)
             for (let i = 0; i < blastIntervals.length; i++) {
                 const interval = blastIntervals[i];
@@ -153,19 +164,21 @@ export class WorkerController {
                 frameJobs.push(dj
                     .then(() => this.#pool.pullCache(canvasKey, true, false))
                     .then(() => this.#pool.cache[canvasKey]));
+                polyJobs.push(cj
+                    .then(() => this.#pool.pullCache(polyKey, false, true))
+                    .then(() => this.#pool.cache[polyKey]));
                 cutJob = dj;
                 drawJob = dj;
-                if (i === blastIntervals.length - 1)
-                    polyJob = cj
-                        .then(() => this.#pool.pullCache(polyKey, false, false))
-                        .then(() => this.#pool.cache[polyKey]);
+                if (i-1 > 0)
+                    polyJobs.at(-1)
+                        .then(() =>
+                            this.destroyCache(polygonKeys[i-1]));
             }
             
             // syncronize everything
-            const polygon = await polyJob;
             const frames = await Promise.all(frameJobs);
+            const polygons = await Promise.all(polyJobs);
             const finalKey = await polygonKeys.at(-1);
-            await polyJob;
             // apply final cut polygon to original cache
             await this.#pool.copyCache(finalKey, polygonid, true, false);
             // package object into easier to parse structure
@@ -173,19 +186,22 @@ export class WorkerController {
             for (let i = 0; i < blastIntervals.length; i++) {
                 const interval = blastIntervals[i];
                 const frame = frames[i];
+                const polygon = polygons[i];
                 intervals.push({
+                    delay: interval[0].delay,
                     frame: frame,
                     blasts: interval,
-                    delay: interval[0].delay
+                    polygon: polygon
                 });
             }
-            return { polygon, intervals };
+            return intervals;
         }
     }
     async createCache (id, type, ...args) { return await this.#pool.initCache(type, args, id) }
     async insertCache (id, type, payload) { return await this.#pool.pushCache(type, payload, id) }
     async updateCache (id, transfer = false) { await this.#pool.pullCache(id, transfer, true) }
     async destroyCache (id) { return await this.#pool.dropCache(id) }
+    async hashCache (id) { return await this.#pool.hashCache(id) }
 
     get cache() { return this.#pool.cache }
 }

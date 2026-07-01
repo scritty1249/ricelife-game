@@ -1,6 +1,8 @@
-import { Vector } from "../geometry/geometry.js";
+import { Vector, BoundingBox } from "../geometry/geometry.js";
 
 export class AppCanvas {
+    #sizeHash;
+    #bbox;
     #cursor;
     #size;
     constructor (canvas, size = new Vector(1920, 1080)) {
@@ -10,7 +12,14 @@ export class AppCanvas {
         this.#cursor = Canvas2DContextCursorFactory(this.canvas);
     }
 
-    
+    getBoundingBox () {
+        const { hash } = this.size;
+        if (hash === this.#sizeHash) return this.#bbox;
+        this.#sizeHash = hash;
+        this.#bbox = new BoundingBox(undefined, this.size);
+        return this.#bbox;
+    }
+
     get cursor () { return this.#cursor }
     get size () { return this.#size }
 }
@@ -45,6 +54,11 @@ class Canvas2DContextCursor {
         x?.isVector
             ? this.#ctx.lineTo(x.x, this.normalizeY(x.y))
             : this.#ctx.lineTo(x, this.normalizeY(y));
+    }
+    fillRect (x, y, ...args) {
+        x?.isVector
+            ? this.#ctx.fillRect(x.x, this.normalizeY(x.y), y, ...args)
+            : this.#ctx.fillRect(x, this.normalizeY(y), ...args);
     }
     arc (x, y = null, ...args) {
         x?.isVector
@@ -91,6 +105,14 @@ class Canvas2DContextCursor {
     }
     get isCanvasCursor () {
         return true;
+    }
+    get hash () {
+        // pixels should be a Uint8ClampedArray
+        const pixels = this.#ctx.getImageData(0, 0, this.#size.x, this.#size.y)?.data;
+        let hash = 0;
+        for (const val of pixels)
+            hash = (hash * 31 + val) | 0; // 32-bit range
+        return hash >>> 0;
     }
 }
 

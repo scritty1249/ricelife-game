@@ -1,4 +1,4 @@
-import { TrackableObject, clamp } from "../utils/utils.js";
+import { TrackableObject, clamp, floatEqual } from "../utils/utils.js";
 import { Vector } from "./vector.js";
 
 export class Path extends TrackableObject { // points should be ordered clockwise (in positioning)
@@ -15,7 +15,24 @@ export class Path extends TrackableObject { // points should be ordered clockwis
             :   [...points];
     }
 
-    smooth (resolution = 1) {
+    // removes duplicate adjacent points from Path
+    reduce (mutate = false) {
+        const path = mutate ? this : this.clone(true);
+        if (path.length <= 1) return path;
+        const newPoints = [];
+        const points = path.points;
+        for (let i = 0; i < points.length - 1; i++) {
+            if (!points[i].eq(points[i+1])) newPoints.push(points[i]);
+        }
+        if (path.isClosed && !path.at(-1).eq(path.at(0)))
+            newPoints.push(path.at(-1));
+        else
+            newPoints.push(points.at(-1));
+        path.splice(0, path.length);
+        for (const point of newPoints) path.push(point);
+        return path;
+    }
+    subsection (resolution = 1) {
         if (this.length == 1) return;
         const newPoints = [];
         for (let i = 0; i < this.length - 1; i++) {
@@ -26,7 +43,51 @@ export class Path extends TrackableObject { // points should be ordered clockwis
         this.apply(...newPoints);
         return this; // for chaining
     }
+    // round off edges/turns that exceed a given angle (radians)
+    smooth (maxAngle = Math.PI / 4, mutate = false) {
+        const path = mutate ? this : this.clone(true);
+        const pts = path.points;
+        if (pts.length < 3) return path;
+        const newPoints = [];
+        const startIdx = path.isClosed ? 0 : 1;
+        const endIdx = path.isClosed ? pts.length : pts.length - 1;
 
+        if (!path.isClosed) newPoints.push(pts[0]);
+        for (let i = startIdx; i < endIdx; i++) {
+            const prev = pts[(i - 1 + pts.length) % pts.length];
+            const curr = pts[i % pts.length];
+            const next = pts[(i + 1) % pts.length];
+
+            if (floatEqual(prev.distance(curr), 0)
+                || floatEqual(curr.distance(next), 0)
+            ) {
+                // overlapping point, skip
+                newPoints.push(curr);
+                continue;
+            }
+            const dotProd = curr
+                .sub(prev)
+                .normalize(true)
+                .dot(next
+                    .sub(curr)
+                    .normalize(true));
+            const segmentAngle = Math.acos(Math.max(-1, Math.min(1, dotProd)));
+
+            if (segmentAngle > maxAngle) {
+                // smoothing
+                const q = curr.lerp(prev, 0.25);
+                const r = curr.lerp(next, 0.25);
+                newPoints.push(q, r);
+            } else {
+                // keep the same
+                newPoints.push(curr);
+            }
+        }
+        if (!path.isClosed) newPoints.push(pts[pts.length - 1]);
+        path.splice(0, path.length);
+        for (const pt of newPoints) path.push(pt);
+        return path;
+    }
     draw (cursor, close = true) { // only draw the path
         if (!this.#points.length) return;
         if (close) cursor.beginPath();
@@ -35,7 +96,6 @@ export class Path extends TrackableObject { // points should be ordered clockwis
             cursor.lineTo(point);
         if (close) cursor.stroke();
     }
-
     *lines () { // returns pairs of Vectors as Paths
         if (this.length <= 1) return;
         for (let i = 1; i < this.length; i++)
@@ -61,11 +121,25 @@ export class Path extends TrackableObject { // points should be ordered clockwis
             if (points.length === 1) return Vector.isBetween(points[0], start, end);
             for (let i = 0; i < points.length; i+=2)
                 if (Vector.segmentsIntersect(points[i], points[i+1], start, end)) return true;
-            return false;
+            return this.isClosed && Vector.segmentsIntersect(points.at(-1), points[0], start, end);
         } else if (start?.isVector) {
             if (points.length === 1) return points[0].eq(start);
-            for (let i = 0; i < points.length; i+=2)
-                if (Vector.isBetween(start, points[i], points[i+1])) return true;
+            for (let i = 0; i < points.length; i+=2) {
+                const pt1 = points[i];
+                const pt2 = points[i+1];
+                if (Vector.isBetween(start, pt1, pt2))
+                    return {
+                        angle: pt1.angle(start),
+                        coeff: pt1.distance(start) / pt1.distance(pt2),
+                        index: i
+                    };
+            }
+            if (this.isClosed && Vector.isBetween(start, points.at(-1), points[0]))
+                return {
+                    angle: points.at(-1).angle(start),
+                    coeff: points.at(-1).distance(start) / points.at(-1).distance(points[0]),
+                    index: points.length - 1
+                };
             return false;
         }
         throw new Error(`[${this.constructor.name}]: Invalid argument(s), cannot check intersection of Path and ${typeof start}${end === null ? "" : `, ${typeof end}`}`);
@@ -75,37 +149,87 @@ export class Path extends TrackableObject { // points should be ordered clockwis
         const intersections = [],
             thisPts = this.points,
             thatPts = path.points;
-
+        // idiot check
+        if (thisPts.length === 0 || thatPts.length === 0)
+            return [];
+        else if (thisPts.length === 1 && thatPts.length === 1)
+            return thisPts[0].eq(thatPts[0])
+                ? [{
+                    point: thisPts.clone(),
+                    entering: undefined,
+                    index: { self: 0, other: 0 },
+                    coeff: { self: 0, other: 0 },
+                    angle: 0 // [!] maybe this should be undefined? but would add lot of overhead to anything using this method -KT
+                }] : [];
+        else if (thisPts.length === 1) {
+            const inter = path.isIntersecting(thisPts[0]);
+            if (inter) { // inter should always be an Object when truthy, since we passed a Vector to isIntersecting
+                const otherIdx = inter.index;
+                inter.index = { self: 0, other: otherIdx };
+                const otherCoeff = inter.coeff;
+                inter.coeff = { self: 0, other: otherCoeff };
+                inter.entering = undefined;
+                return [inter];
+            }
+            return [];
+        } else if (thatPts.length === 1) {
+            const inter = this.isIntersecting(thatPts[0]);
+            if (inter) { // inter should always be an Object when truthy, since we passed a Vector to isIntersecting
+                const selfIdx = inter.index;
+                inter.index = { self: selfIdx, other: 0 };
+                const selfCoeff = inter.coeff;
+                inter.coeff = { self: selfCoeff, other: 0 };
+                inter.entering = undefined;
+                return [inter];
+            }
+            return [];
+        }
         // this segements
-        const segmentCount = this.isClosed ? thisPts.length : thisPts.length - 1; 
-        for (let i = 0; i < segmentCount; i++) {
-            const direction = thisPts[i + 1].sub(thisPts[i]); 
+        const thisSegmentCount = this.isClosed ? thisPts.length : thisPts.length - 1; 
+        const thatSegmentCount = path.isClosed ? thatPts.length : thatPts.length - 1;
+        for (let i = 0; i < thisSegmentCount; i++) {
+            const thisStart = thisPts[i];
+            const thisEnd = thisPts[(i + 1) % thisPts.length];
+            const direction = thisEnd.sub(thisStart); 
             // that segments
-            for (let j = 0; j < thatPts.length; j++) {
-                const dir = thatPts[(j + 1) % thatPts.length].sub(thatPts[j]),
+            for (let j = 0; j < thatSegmentCount; j++) {
+                const thatStart = thatPts[j];
+                const thatEnd = thatPts[(j + 1) % thatPts.length];
+                const inwardNormal = thatStart.normal(thatEnd);
+                const isEntering = direction.dot(inwardNormal) > 0;
+                if (thisStart.eq(thatStart)) {
+                    if (!intersections.some(inter => inter.point.eq(thisStart))) {
+                        const dir = thatEnd.sub(pOtherStart);
+                        intersections.push({
+                            point: thisStart.clone(),
+                            entering: isEntering,
+                            index: { self: i, other: j },
+                            coeff: { self: 0, other: 0 },
+                            angle: Math.atan2(direction.cross(dir), direction.dot(dir))
+                        });
+                    }
+                    continue;
+                }
+                const dir = thatEnd.sub(thatStart),
                     cross = direction.cross(dir),
-                    gap = thatPts[j].sub(thisPts[i]);
-
+                    gap = thatStart.sub(thisStart);
                 // skip segment if lines are parallel (cross product zero)
                 if (Math.abs(cross) < Number.EPSILON) continue;
-                const thisDistCoefficient = gap.cross(dir) / cross,
-                    thatDistCoefficient = gap.cross(direction) / cross;
+                const thisDistCoeff = gap.cross(dir) / cross,
+                    thatDistCoeff = gap.cross(direction) / cross;
                 // sanity check: are we still within the segment's range?
-                if (thisDistCoefficient >= -Number.EPSILON
-                    && thisDistCoefficient <= 1 + Number.EPSILON
-                    && thatDistCoefficient >= -Number.EPSILON
-                    && thatDistCoefficient <= 1 + Number.EPSILON
+                if (thisDistCoeff >= -Number.EPSILON
+                    && thisDistCoeff <= 1 + Number.EPSILON
+                    && thatDistCoeff >= -Number.EPSILON
+                    && thatDistCoeff <= 1 + Number.EPSILON
                 ) {
                     intersections.push({
-                        point: thisPts[i].add(direction.mul(clamp(thisDistCoefficient, 0, 1))),
-                        entering: cross > 0,
-                        index: {
-                            self: i,
-                            other: j
-                        },
+                        point: thisPts[i].add(direction.mul(clamp(thisDistCoeff, 0, 1))),
+                        entering: isEntering,
+                        index: { self: i, other: j },
                         coeff: { // percentage of segment distance covered
-                            self: thisDistCoefficient,
-                            other: thatDistCoefficient
+                            self: thisDistCoeff,
+                            other: thatDistCoeff
                         },
                         angle: Math.atan2(cross, direction.dot(dir)) // radians
                     });
@@ -248,9 +372,9 @@ export class BoundingBox {
         bbox.max.y = Math.max(bbox.min.y, bbox.max.y, other.min.y, other.max.y);
         return bbox;
     }
-    apply (min, max) {
-        this.min.apply(min);
-        this.max.apply(max);
+    apply (min = undefined, max = undefined) {
+        if (min) this.min.apply(min);
+        if (max) this.max.apply(max);
         return this; // for chaining
     }
     // deep clones by default, copies on init
@@ -273,6 +397,7 @@ export class BoundingBox {
     get max () { return this.#max }
     get size () { return this.max.sub(this.min).abs(true) }
     get hash () { return Vector.hashVectors([this.min, this.max]) }
+    get center () { return this.#min.lerp(this.#max, .5) }
 }
 
 export function *tweenPoints (previous, current, resolution) {

@@ -181,8 +181,11 @@ export class Vector {
             return Math.atan2(sumSin, sumCos);
         }
     }
-    eq (vector) {
+    eq (vector) { // shorthand equals. stricter comparison (vectors only)
         return vector?.isVector && floatEqual(this.x, vector.x) && floatEqual(this.y, vector.y);
+    }
+    equals (x, y = null) {
+        return (y === null && floatEqual(this.x, x) && floatEqual(this.y, x)) || (floatEqual(this.x, x) && floatEqual(this.y, y));
     }
     apply (x, y = null) {
         if (x?.isVector) {
@@ -220,11 +223,16 @@ export class Vector {
         hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
         return hash >>> 0; // unsigned 32-bit Integer
     }
-    get length () { return Math.sqrt(this.pow(2).sum()) }
+    get length () { return Math.sqrt(this.lengthSquared) }
+    get lengthSquared () { return this.pow(2).sum() }
     clone () { return new Vector(this.x, this.y) }
     toString () { return `(${this.x.toFixed(3)}, ${this.y.toFixed(3)})` }
-    toJSON () { return {x: this.x, y: this.y} }
-    static fromObject (object) { return new Vector(object?.x, object?.y) }
+    toJSON () { return [this.x, this.y] }
+    static fromObject (object) {
+        return Array.isArray(object)
+            ? new Vector(...object)
+            : new Vector(object?.x, object?.y);
+    }
     static fromAngle (radians) { return new Vector(Math.cos(radians), Math.sin(radians)) }
     static average (vectors = []) {
         if (!vectors.every((vec) => vec.isVector)) throw new Error(`[${this.constructor.name}]: Cannot find Vector average with non-Vector type(s)`);
@@ -254,6 +262,7 @@ export class Vector {
             }
             return hash >>> 0;
         }
+        return undefined;
     }
 }
 
@@ -263,7 +272,7 @@ export class Color {
     #g;
     #b;
     #a;
-    constructor (value, g = undefined, b = undefined, a = 1) {
+    constructor (value = "#000000", g = undefined, b = undefined, a = 1) {
         this.apply(value, g, b, a);
     }
 

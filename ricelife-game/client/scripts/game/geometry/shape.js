@@ -119,9 +119,9 @@ export class Shape {
     getBoundingBox () { return this.#bbox }
     // [!] holy shit man
     // children should overload for optimizations, but not needed
-    isPolygonIntersecting (value) { return value.isIntersecting(this.origin) || value.edgePoints(true, true).some((point) => this.isVectorIntersecting(point)) }
+    isPolygonIntersecting (value) { return value.isIntersecting(this.origin) || value.edgePoints.some((point) => this.isVectorIntersecting(point)) }
     isPolyIntersecting (value) { return this.isPolygonIntersecting(value.polygon) }
-    isPolygonInside (value) { return value.isIntersecting(this.origin) && value.edgePoints(false, true).every((point) => this.isVectorIntersecting(point)) }
+    isPolygonInside (value) { return value.isIntersecting(this.origin) && value.edgePoints.every((point) => this.isVectorIntersecting(point)) }
     isPolyInside (value) { return this.isPolygonInside(value.polygon) }
     // counts overlapping edge as an intersection
     isIntersecting (value) {
@@ -150,6 +150,9 @@ export class Shape {
         else if (value?.isPoly) return this.isPolyInside(value);
         throw new Error(`[${this.constructor.name}] Error: Unable to check enclosure of unsupported type ${typeof value}`);
     }
+    isBordering (value) {
+        return this.isIntersecting(value) && !this.isInside(value);
+    }
     get isShape () { return true }
     get blob () { return this.#blob }
     get transformation () { return this.#transform }
@@ -167,7 +170,7 @@ export class Shape {
     isPathInside (value) { return value.points.every((point) => this.isVectorIntersecting(point)) }
     isCircleInside (value) { throw new Error() }
     isTriangleInside (value) { throw new Error() }
-    get hash () { throw new Error() }
+    get hash () { return this.Polygon(1).hash }
     get origin () { return new Vector() }
     static fromObject (payload) {
         return Shape.TYPES[payload.data.type].fromObject(payload);
@@ -189,32 +192,28 @@ export class Circle extends Shape {
         const { radii, origin } = this.blob;
         return point.sub(origin, mutate).div(radii, true);
     }
-    #pathIntersecting (point, target = null, localize = true) {
-        const { radii, origin } = this.blob;
-        if (point?.isPath) {
-            target = point.at(-1);
-            point = point.at(0);
-        } else if (point?.isVector && target?.isVector) {
-            // localize to radii scale (so we can treat Circle as uniform radius)
-            const localizedPoint = localize ? this.#localizePoint(point) : point;
-            const localizedTarget = localize ? this.#localizePoint(target) : target;
-            const edge = localizedTarget.sub(localizedPoint);
-            const toCenter = localizedPoint.mul(-1);
-            const edgeLen = edge.dot(edge);
-            let t = edgeLen === 0 ? 0 : toCenter.dot(edge) / edgeLen;
-            t = Math.max(0, Math.min(1, t));
-            // closest between origin and target to Circle center
-            const closest = localizedPoint.add(edge.mul(t));
-            return closest.dot(closest) <= 1;
-        }
-        throw new Error(`[${this.constructor.name}]: Missing parameter(s)`);
+    #segementIntersecting (start, end, localize = true) {
+        // localize to radii scale (so we can treat Circle as uniform radius)
+        const localizedPoint = localize ? this.#localizePoint(start) : start;
+        const localizedTarget = localize ? this.#localizePoint(end) : end;
+        const edge = localizedTarget.sub(localizedPoint);
+        const toCenter = localizedPoint.mul(-1);
+        const edgeLen = edge.dot(edge);
+        let t = edgeLen === 0 ? 0 : toCenter.dot(edge) / edgeLen;
+        t = Math.max(0, Math.min(1, t));
+        // closest between origin and target to Circle center
+        const closest = localizedPoint.add(edge.mul(t));
+        return closest.dot(closest) <= 1;
     }
     isVectorIntersecting (value) {
         const { radii, origin } = this.blob;
         return this.#localizePoint(value, false).pow(2).sum() <= 1;
     }
     isPathIntersecting (value) {
-        return this.#pathIntersecting(value, null, true);
+        for (let i = 0; i < value.length; i += 2)
+            if (this.#segementIntersecting(value.at(i), value.at(i+1), true))
+                return true;
+        return value.isClosed && this.#segementIntersecting(value.at(-1), value.at(0), true);
     }
     isCircleIntersecting (value) {
         const { radii: radii1, origin: origin1 } = this.blob;
@@ -256,9 +255,9 @@ export class Circle extends Shape {
         const r = this.#localizePoint(value.blob.right);
         const l = this.#localizePoint(value.blob.left);
         // check if legs intersect
-        if (this.#pathIntersecting(o, r, false)
-            || this.#pathIntersecting(r, l, false)
-            || this.#pathIntersecting(l, o, false)) return true;
+        if (this.#segementIntersecting(o, r, false)
+            || this.#segementIntersecting(r, l, false)
+            || this.#segementIntersecting(l, o, false)) return true;
         // check if triangle is swallowed by circle
         if (o.dot(o) <= 1 && r.dot(r) <= 1 && l.dot(l) <= 1) return true;
         // is circle center in triangle
@@ -439,7 +438,7 @@ export class Triangle extends Shape {
     Polygon (resolution = 1) {
         const { origin, right, left } = this.blob;
         // polygons need to be in clockwise order
-        return new Polygon(origin, right, left).smooth(resolution);
+        return new Polygon(origin, right, left).subsection(resolution);
     }
     applyTransformation () {
         const { origin, right, left } = this.blob;
@@ -559,7 +558,7 @@ export class Poly extends Shape {
     }
 
     #isShapeInside (value) {
-        const points = this.polygon.edgePoints(false, true);
+        const points = this.polygon.edgePoints;
         // if any hole intersects with the Shape, it is not wholly "inside"
         if (this.polygon.holes.some((hole) => value.isPolygonIntersecting(hole))) return false;
         // otherwise, if no holes intersect with Shape, just need to check that every point in the Shape intersects with the Polygon
@@ -577,7 +576,7 @@ export class Poly extends Shape {
     }
     isPathInside (value) {
         if (!this.isPathIntersecting(value)) return false;
-        const paths = this.polygon.edgePoints(true, false);
+        const paths = this.polygon.edges;
         for (const path of paths)
             if (path.isIntersecting(path)) return false;
         return true;
@@ -590,7 +589,7 @@ export class Poly extends Shape {
     }
     Polygon (resolution = 1) {
         const polygon = this.polygon.clone(true);
-        polygon.smooth(resolution);
+        polygon.subsection(resolution);
         return polygon;
     }
     decode () {
@@ -615,7 +614,7 @@ export class Poly extends Shape {
     getBoundingBox () { return this.polygon.getBoundingBox() }
 
     get isPoly () { return true }
-    get hash () { return this.polygon.path.hash }
+    get hash () { return this.polygon.hash }
     get origin () { return this.polygon.center }
     get polygon () { return this.blob.polygon }
     static fromObject (payload) {

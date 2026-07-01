@@ -1,45 +1,31 @@
-import { TrackableObject, floatEqual, roundToPlace } from "../utils/utils.js";
+import { TrackableObject, floatEqual, rad2deg } from "../utils/utils.js";
 import { Circle, Vector, Color, Path, Ray, BoundingBox } from "../geometry/geometry.js";
+import * as Properties from "./properties.js";
 
 export class Projectile extends TrackableObject {
-    #tracer;
+    #tracer = new Path();
     #time = 0; // in seconds
+    #origin = {
+        position: new Vector(),
+        velocity: new Vector()
+    };
+    #current = {
+        position: new Vector(),
+        velocity: new Vector()
+    };
     constructor (origin, velocity, acceleration, drag) {
         super();
-        this.origin = origin.clone();
         this.drag = drag; // coefficient, values >1 will make projectiles move backwards infinitely
         this.acceleration = new Vector(acceleration);
-        this.velocity = new Vector(velocity);
-        this.current = {
-            position: new Vector(origin),
-            velocity: this.velocity.clone()
-        };
-        {
-            const tracer = new Path();
-            const _originalDraw = tracer.draw;
-            tracer.draw = function (cursor) {
-                cursor.save();
-                cursor.setLineDash([10, 20]);
-                cursor.strokeStyle = "rgba(255, 255, 255, .35)";
-                _originalDraw.call(this, cursor);
-                cursor.restore();
-            }
-            this.#tracer = tracer;
-        }
+
+        this.origin.position.apply(origin);
+        this.origin.velocity.apply(velocity);
+        this.current.position.apply(origin);
+        this.current.velocity.apply(velocity);
     }
 
-    get speed () {
-        return Math.sqrt(this.current.velocity.pow(2).sum());
-    }
-    get position () {
-        return this.current.position;
-    }
-    get isProjectile () {
-        return true
-    }
     updatePosition (seconds) {
-        const position = this.current.position;
-        const velocity = this.current.velocity;
+        const { position, velocity } = this;
         const acceleration = this.acceleration.clone();
         const v = velocity.mul(-this.drag * Math.sqrt(velocity.pow(2).sum()));
         if (velocity.x < 0)
@@ -50,8 +36,7 @@ export class Projectile extends TrackableObject {
         velocity.add(acceleration.add(v).mul(seconds, true), true);
     }
     projectPosition (seconds) {
-        const position = this.current.position;
-        const velocity = this.current.velocity;
+        const { position, velocity } = this;
         const acceleration = this.acceleration.clone();
         const v = velocity.mul(-this.drag * Math.sqrt(velocity.pow(2).sum()));
         if (velocity.x < 0)
@@ -64,7 +49,7 @@ export class Projectile extends TrackableObject {
         };
     }
     update (seconds = 1) {
-        this.#tracer.push(this.position.clone());
+        this.tracer.push(this.position.clone());
         if (!this.isStopped) this.updatePosition(seconds);
         this.#time += seconds;
         return this.position;
@@ -74,7 +59,7 @@ export class Projectile extends TrackableObject {
         if (this.isStopped) {
             return {
                 position: this.position.clone(),
-                velocity: this.current.velocity.clone(),
+                velocity: this.velocity.clone(),
                 time: this.time + seconds
             };
         } else {
@@ -88,20 +73,17 @@ export class Projectile extends TrackableObject {
         this.current.velocity.apply(this.velocity);
         this.#time = 0;
     }
-    isWithin (size) {
-        const { position } = this.current;
-        return (
-            position.x > 0
-            && position.x < size.x
-            && position.y > 0
-            && position.y < size.y
-        );
-    }
 
     get isProjectile () { return true }
+    get speed () { return this.velocity.length }
+    get position () { return this.current.position }
+    get velocity () { return this.current.velocity }
+    get direction () { return this.velocity.normalize() }
     get tracer () { return this.#tracer }
     get time () { return this.#time }
-    get isStopped () { return floatEqual(this.current.velocity.x, 0) && floatEqual(this.current.velocity.y, 0) }
+    get origin () { return this.#origin }
+    get current () { return this.#current }
+    get isStopped () { return floatEqual(this.speed, 0) }
     clone () { return new Projectile(this.origin, this.velocity, this.acceleration, this.drag) }
 }
 
@@ -267,11 +249,12 @@ export class ShotStage extends TrackableObject {
     #blasts;
     #time = 0; // global time, seperate from Shot time
     #delayTime; // don't start updating shot until this duration has passed
-    #collisionCallback; // <bound to This> (point (contact point), normal (of colliding surface)) => undefined
+    #collisionCallback; // <bound to This> (point (contact point), normal (of colliding surface), collisionFlags) => undefined
     #updateCallback; // <bound to This> () => undefined
     #colliders; // list of polygons that can be collided with
     #isFinished = false; // trip this flag once projectile stops moving, never set again to prevent overlapping stages
     #isStarted = false; // trip this flag once we start updating projectile, never set again to prevent tracking errors
+    #pushBlasts = false; // push new blasts to collider polygon holes
     #blastTimeOffset = 0; // offset time when creating new Blasts
     #finishedPromise = Promise.withResolvers();
     #legend; // when set, ShotStage will skip all collision checks and follow based on this
@@ -279,13 +262,16 @@ export class ShotStage extends TrackableObject {
         collisions: [],
         duration: 0
     };
-    constructor (shot, delay = 0, blastsReference = [], collisionsReference = []) {
+    #sfxCallback;
+    #tracer = new Path();
+    constructor (shot, delay = 0, blastsReference = [], collisionsReference = [], sfxCallbackReference = {}) {
         if (!shot?.isShot) throw new Error(`[${this.constructor.name}]: Invalid parameter - expected Shot, got ${typeof shot}`);
         super();
         this.#shot = shot;
         this.#delayTime = delay;
         this.#blasts = blastsReference; // by reference
         this.#colliders = collisionsReference; // by reference
+        this.#sfxCallback = sfxCallbackReference; // by reference
     }
 
     // Approximate if any collisions lie between current state and given projection
@@ -305,13 +291,16 @@ export class ShotStage extends TrackableObject {
             // collect "front facing" coordinates
             const diff = projection.velocity.sub(shot.current.velocity);
             const distance = shot.position.distance(projection.position);
+            const traversalBbox = shot.shape.getBoundingBox().merge(projection.shape.getBoundingBox(), false);
             const direction = diff.normalize();
             const origin = shot.shape.origin;
             const points = shot.shape.Polygon(resolution).path.points;
             const angles = [];
             const rays = [];
+            const bbox = shot.shape.getBoundingBox();
             let hitPoint = undefined;
             let hitDistance = undefined;
+            let clsnFlg = undefined; // [!] confusing and poor naming
             for (const point of points) {
                 const dir = point.sub(origin).normalize(true);
                 // only draw ray for front-facing points on the Shape
@@ -319,33 +308,68 @@ export class ShotStage extends TrackableObject {
                     rays.push(Ray(point.clone(), direction.clone(), distance));
             }
             for (const collider of colliders) {
+                // collision flags
+                const collisionFlags = collider.userData?.collision || 0;
+                const allowDestruction = collisionFlags & Properties.Collision.DESTRUCTION;
+                const allowEnter = collisionFlags & Properties.Collision.ENTER;
+                const allowExit = collisionFlags & Properties.Collision.EXIT;
+                const allowEnterOnly = (collisionFlags & Properties.Collision.ANY) === Properties.Collision.ENTER;
+                const allowExitOnly = (collisionFlags & Properties.Collision.ANY) === Properties.Collision.EXIT;
                 // [!] temporary fix- assign blasts to polygon holes for raycasting, then remove after
                 const colliderHoles = collider.holes;
                 const originalHoleCount = colliderHoles.length;
-                for (const blast of blasts)
-                    colliderHoles.push(blast.shape.Polygon(resolution));
-                // do raycasts
-                for (const ray of rays) {
-                    const hits = collider.raycast(ray);
-                    let angle = undefined;
-                    for (const hit of hits) {
-                        if ((!hit.hole || hit.entering) && (hitDistance === undefined || hit.distance < hitDistance)) {
-                            hitPoint = hit.point;
-                            hitDistance = hit.distance;
-                            angle = hit.angle;
-                        }
-                    }
-                    if (angle !== undefined) angles.push(Vector.fromAngle(angle));
+                if (!this.pushBlasts && allowDestruction && blasts.length) {
+                    for (const blast of blasts)
+                        // push all existing blasts instead of only the intersecting ones. This way we don't force collider polygon to recompute edges every time shot moves between updates
+                        colliderHoles.push(blast.shape.Polygon(resolution));
                 }
-                // remove blasts / temp holes
-                colliderHoles.splice(originalHoleCount, blasts.length);
+                if (traversalBbox.isIntersecting(collider.getBoundingBox())) {
+                    // do raycasts
+                    let doRaycast = true;
+                    let pt = undefined;
+                    let dist = undefined;
+                    for (let rayIdx = 0; rayIdx < rays.length && doRaycast; rayIdx++) {
+                        const ray = rays[rayIdx]
+                        const hits = collider.raycast(ray);
+                        let angle = undefined;
+                        for (const hit of hits) {
+                            if ((allowEnterOnly && !hit.entering)
+                                || (allowExitOnly && hit.entering)
+                            ) {
+                                // don't save any hits or angles from this collider
+                                pt = undefined;
+                                dist = undefined;
+                                angle = undefined;
+                                doRaycast = false;
+                                break;
+                            }
+                            if (((allowExit && !hit.entering) || (allowEnter && hit.entering))
+                                && (hitDistance === undefined || hit.distance < hitDistance)
+                            ) {
+                                pt = hit.point;
+                                dist = hit.distance;
+                                angle = hit.angle;
+                                clsnFlg = collisionFlags;
+                            }
+                        }
+                        if (angle !== undefined) angles.push(Vector.fromAngle(angle));
+                    }
+                    if (pt !== undefined && (hitDistance === undefined || dist < hitDistance)) {
+                        hitPoint = pt;
+                        hitDistance = dist;
+                    }
+                }
+                if (!this.pushBlasts && allowDestruction && blasts.length) {
+                    // remove blasts / temp holes
+                    colliderHoles.splice(originalHoleCount, blasts.length);
+                }
             }
             if (hitDistance !== undefined) {
                 const target = direction
                     .mul(hitDistance, true)
                     .add(origin, true);
                 shot.applyPosition(target);
-                this.applyCollision(hitPoint, Vector.average(angles).normalize(true));
+                this.applyCollision(hitPoint, Vector.average(angles).normalize(true), clsnFlg);
                 return;
             }
         }
@@ -353,17 +377,30 @@ export class ShotStage extends TrackableObject {
     }
     #setFinished () { // [!] does not check if already finished. Caller is responsible for making sure this is only used once
         this.#isFinished = true;
-        this.#record.duration = this.time;
         this.#finishedPromise.resolve();
+    }
+    #trackUpdate () { // [!] poorly named. Tracks data during update() calls
+        this.#record.duration = this.time;
+        this.tracer.push(this.shot.position.clone());
     }
 
     // point is collision/contact point
-    applyCollision (point, normal) {
+    applyCollision (point, normal, collisionFlags) {
         const { time, shot } = this;
         const position = shot.position.clone();
         const velocity = shot.current.velocity.clone();
-        this.#record.collisions.push({time, position, point, velocity, normal});
-        this.collisionCallback?.(point, normal);
+        const collision = {
+            time,
+            collisionFlags,
+            position,
+            point,
+            velocity,
+            normal,
+            resultVelocity: undefined // velocity after collision. Mainly for debugging
+        }
+        this.#record.collisions.push(collision);
+        this.collisionCallback?.(point, normal, collisionFlags);
+        collision.resultVelocity = shot.current.velocity.clone();
     }
     update (seconds) {
         try {
@@ -377,8 +414,9 @@ export class ShotStage extends TrackableObject {
             if (legend === undefined) {
                 const { shot } = this;
                 this.time += seconds;
-                this.#projectUpdate(seconds, 1);
+                this.#projectUpdate(seconds, 5);
                 this.updateCallback?.();
+                this.#trackUpdate();
                 if (!this.#isFinished && shot.isStopped)
                     this.#setFinished();
             } else {
@@ -386,14 +424,15 @@ export class ShotStage extends TrackableObject {
                 if (legend.collisions.length > 0
                     && this.time >= legend.collisions[0].time
                 ) {
-                    const { time, position, point, velocity, normal } = legend.collisions.shift();
+                    const { time, collisionFlags, position, point, velocity, normal } = legend.collisions.shift();
                     shot.applyPosition(position);
                     shot.current.velocity.apply(velocity);
-                    this.applyCollision(point, normal);
+                    this.applyCollision(point, normal, collisionFlags);
                 } else {
                     shot.update(seconds);
                 }
                 this.updateCallback?.();
+                this.#trackUpdate();
                 if (!this.#isFinished && this.time >= legend.duration)
                     this.#setFinished();
             }
@@ -412,19 +451,41 @@ export class ShotStage extends TrackableObject {
         hitbox.shape.applyTransformation();
         hitbox.delay += this.time + this.blastTimeOffset;
         this.blasts.push(hitbox);
+        if (this.pushBlasts) {
+            for (const collider of this.colliders) {
+                if ((collider.userData.collision & Properties.Collision.DESTRUCTION)
+                    && collider.getBoundingBox().isIntersecting(hitbox.shape.getBoundingBox())
+                ) {
+                    const poly = hitbox.shape.Polygon(1);
+                    if (poly.path.isClockwise) poly.path.points.reverse();
+                    collider.holes.push(poly);
+                }
+            }
+        }
         return hitbox; // for modifying, if needed
     }
-    isWithin (size) {
-        return this.shot.isWithin(size);
+    playSfx (sfxName) {
+        if (sfxName in this.sfxCallback) this.sfxCallback[sfxName]?.();
+        else console.warn(`[${this.constructor.name}]: Unable to play SFX "${sfxName}" -  callback does not exist`);
     }
-    getLegend () {
+    getLegend (decode = true) {
         // clones and returns everything in record. The resulting object should be safely passable between worker threads
-        const record = this.#record;
+        const record = this.#legend || this.#record;
         const legend = {
             duration: record.duration,
-            collisions: Array.from(record.collisions, ({time, position, point, velocity, normal}) => [
-                time, [position.x, position.y], [point.x, point.y], [velocity.x, velocity.y], [normal.x, normal.y]
-            ])
+            collisions: Array.from(record.collisions,
+                decode
+                    ? ({time, collisionFlags, position, point, velocity, normal, resultVelocity}) => [
+                        time,
+                        collisionFlags,
+                        [position.x, position.y],
+                        [point.x, point.y],
+                        [velocity.x, velocity.y],
+                        [normal.x, normal.y],
+                        [resultVelocity.x, resultVelocity.y]
+                    ]
+                    : (collision) => collision
+            )
         };
         return legend;
     }
@@ -433,12 +494,14 @@ export class ShotStage extends TrackableObject {
             this.#legend = {
                 duration: legend[0],
                 collisions: Array.from(legend[1],
-                    ([time, position, point, velocity, normal]) => ({
+                    ([time, collisionFlags, position, point, velocity, normal, resultVelocity]) => ({
                         time: time,
+                        collisionFlags: collisionFlags,
                         position: new Vector(position[0], position[1]),
                         point: new Vector(point[0], point[1]),
                         velocity: new Vector(velocity[0], velocity[1]),
-                        normal: new Vector(normal[0], normal[1])
+                        normal: new Vector(normal[0], normal[1]),
+                        resultVelocity: new Vector(resultVelocity[0], resultVelocity[1])
                     }))
             };
         } catch (error) {
@@ -469,6 +532,10 @@ export class ShotStage extends TrackableObject {
     set collisionCallback (callbackFn) { return (this.#collisionCallback = callbackFn?.bind(this)) }
     get updateCallback () { return this.#updateCallback }
     set updateCallback (callbackFn) { return (this.#updateCallback = callbackFn?.bind(this)) }
+    get sfxCallback () { return this.#sfxCallback }
+    get pushBlasts () { return this.#pushBlasts }
+    set pushBlasts (value) { return (this.#pushBlasts = value) }
+    get tracer () { return this.#tracer }
 }
 
 // Multiple shots at once
@@ -483,11 +550,13 @@ export class MultiShotStage extends TrackableObject {
     #isStarted = false; // trip this flag once we start updating stages, never set again to prevent tracking errors
     #finishedPromise = Promise.withResolvers();
     #isResolved = false;
-    constructor (delay = 0, blastsReference = [], collisionsReference = []) {
+    #sfxCallback;
+    constructor (delay = 0, blastsReference = [], collisionsReference = [], sfxCallbackReference = {}) {
         super();
         this.#delayTime = delay;
         this.#blasts = blastsReference;
         this.#colliders = collisionsReference;
+        this.#sfxCallback = sfxCallbackReference;
     }
 
     #updateStages (seconds) {
@@ -518,27 +587,26 @@ export class MultiShotStage extends TrackableObject {
     }
     // delay is amount of time before starting to update the shot
     newStage (shot, delay = 0) {
-        const stage = new ShotStage(shot, delay, this.blasts, this.colliders);
+        const stage = new ShotStage(shot, delay, this.blasts, this.colliders, this.sfxCallback);
         stage.blastTimeOffset = this.blastTimeOffset;
         this.#shotStages.push(stage);
         return stage;
     }
-    isWithin (size) {
-        return this.stages.some((stage) => stage.isWithin(size));
-    }
     // creates a fresh instance with the same ShotStages, callbacks, and delay. References and blast time offset are not copied.
-    clone (deep = false, blastsReference = [], collisionsReference = []) {
-        const multishot = new MultiShotStage(this.delay, blastsReference, collisionsReference);
+    clone (deep = false, blastsReference = [], collisionsReference = [], sfxCallbackReference = {}) {
+        const multishot = new MultiShotStage(this.delay, blastsReference, collisionsReference, sfxCallbackReference);
         for (const stage of this.stages) {
             const newStage = multishot.newStage(stage.shot.clone(deep), stage.delay);
             newStage.collisionCallback = stage.collisionCallback;
         }
         return multishot;
     }
-    getLegend () {
+    getLegend (decode = true) {
         return this.stages
-            .map((stage) => stage.getLegend())
-            .map(({duration, collisions}) => [duration, collisions])
+            .map((stage) => stage.getLegend(decode))
+            .map(decode
+                ? ({duration, collisions}) => [duration, collisions]
+                : (legend) => legend);
     }
     setLegend (legend) {
         try {
@@ -549,6 +617,14 @@ export class MultiShotStage extends TrackableObject {
             console.error(`[${this.constructor.name}]: Error parsing legend array`);
             throw error;
         }
+    }
+    getBoundingBox (merge = true) {
+        const bboxes = this.stages.map(({shot}) => shot.shape.getBoundingBox());
+        if (!merge) return bboxes;
+        const bbox = bboxes[0];
+        for (const bb of bboxes.slice(1))
+            bbox.merge(bb, true);
+        return bbox;
     }
 
     get isMultiShotStage () { return true }
@@ -564,10 +640,42 @@ export class MultiShotStage extends TrackableObject {
     set time (value) { return (this.#time = value) }
     get blastTimeOffset () { return this.#blastTimeOffset }
     set blastTimeOffset (value) { return (this.#blastTimeOffset = value) }
+    get sfxCallback () { return this.#sfxCallback }
+    set pushBlasts (value) { this.stages.forEach((stage) => stage.pushBlasts = value); return value }
+    get tracer () { return this.stages.map(({tracer}) => tracer) }
+}
+
+// bundle tracer to be seperated from Ammos
+class AmmoTracer {
+    #stages = new Array(); // 2D array, contains sequence of MultShotStage tracers (Paths)
+    #color = new Color(255, 255, 255, .35);
+    lineDash = new Array(10, 20);
+    constructor (stages) {
+        for (const stage of stages) {
+            if (!stage?.isMultiShotStage) throw new Error(`[${this.constructor.name}]: Invalid parameter array item, expected MultiShotStage, got ${typeof stage}`);
+            this.#stages.push(stage.tracer); // stage.tracer should be an Array of Paths
+        }
+    }
+
+    draw (cursor) {
+        cursor.save();
+        cursor.setLineDash(this.lineDash);
+        cursor.strokeStyle = this.color.toString();
+        for (const stageTrace of this.#stages)
+            for (const trace of stageTrace)
+                trace.draw(cursor, true);
+        cursor.restore();
+    }
+
+    get isAmmoTracer () { return true }
+    get color () { return this.#color }
 }
 
 // supports a sequence of shot or multishot stages
 export class Ammo extends TrackableObject {
+    static SFX = {
+        null: () => {}
+    };
     #time = 0;
     #colliders;
     #currentStage;
@@ -602,30 +710,13 @@ export class Ammo extends TrackableObject {
     }
     // create multishot stage by default
     newStage (delay = 0) {
-        const stage = new MultiShotStage(delay, this.blasts, this.colliders);
+        const stage = new MultiShotStage(delay, this.blasts, this.colliders, this.constructor.SFX);
         this.#stages.push(stage);
         if (this.#stageIdx === 0 && this.#currentStage === undefined) this.#currentStage = this.#stages[this.#stageIdx];
         return stage;
     }
-    // returns blasts over a given time
-    trace (increment = 1/60, limit = 60, float64 = false) {
-        const ammo = this.clone(true);
-        const result = { time: undefined, state: ammo };
-        while (ammo.time < limit && result.time === undefined) {
-            ammo.update(increment);
-            if (ammo.isFinished) result.time = ammo.time;
-        }
-        if (result.time === undefined) console.log("timeout");
-        result.legend = ammo.getLegend(); // [!] no need to pass as transfer, we shouldn't have a large amount of collisions
-        result.blasts = float64
-            ? ammo.blasts.map((blast) => blast.decode())
-            : [...ammo.blasts]; // dereference
-        return result;
-    }
-    isWithin (size) {
-        return this.currentStage === undefined
-            ? false
-            : this.currentStage.isWithin(size);
+    getBoundingBox (merge = true) {
+        return this.currentStage?.getBoundingBox?.(merge) || new BoundingBox();
     }
     clone (deep = false) {
         const stages = [];
@@ -633,10 +724,10 @@ export class Ammo extends TrackableObject {
         const ammo = new Ammo(this.colliders, stages);
         return ammo;
     }
-    getLegend () {
-        return this.stages.map((stage) => stage.getLegend())
+    getLegend (decode = true) {
+        return this.stages.map((stage) => stage.getLegend(decode));
     }
-    setLegend (legend) {
+    setLegend (legend) { // expects an decoded legend 
         try {
             const stages = this.stages;
             for (let i = 0; i < stages.length; i++)
@@ -646,6 +737,7 @@ export class Ammo extends TrackableObject {
             throw error;
         }
     }
+    getTracer () { return new AmmoTracer(this.stages) }
 
     get isAmmo () { return true }
     get colliders () { return this.#colliders }
@@ -657,4 +749,5 @@ export class Ammo extends TrackableObject {
     get isFinished () { return this.isStarted && this.#currentStage === undefined }
     get time () { return this.#time }
     set time (value) { return (this.#time = value) }
+    set pushBlasts (value) { this.stages.forEach((stage) => stage.pushBlasts = value); return value }
 }

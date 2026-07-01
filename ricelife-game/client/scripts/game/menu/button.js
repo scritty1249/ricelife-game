@@ -1,18 +1,19 @@
 import { TrackableObject, floatEqual } from "../utils/utils.js";
-import { Vector, Color } from "../geometry/geometry.js";
+import { Vector, Color, BoundingBox } from "../geometry/geometry.js";
 
 export class Icon extends TrackableObject {
-    #img
-    #boundingBoxSize = new Vector(); // can be cropped
+    #img;
+    #hash;
+    #bbox = new BoundingBox();
     #fontColor = new Color(0, 0, 0);
     text = "";
     fontSize = 24;
     fontFamily = "Arial";
+    #position = new Vector();
     constructor (image) {
         super();
         this.#img = image;
-        this.position = new Vector();
-        this.#boundingBoxSize.apply(this.#img.size);
+        this.#bbox.apply(undefined, this.#img.size);
     }
 
     draw (cursor) {
@@ -33,22 +34,30 @@ export class Icon extends TrackableObject {
         cursor.restore();
     }
 
-    isOver (point) { // expects global space coordinates
-        const { x, y } = point;
-        return (
-            x >= this.position.x &&
-            x <= this.position.x + this.boundingBoxSize.x &&
-            y <= this.position.y &&
-            y >= this.position.y - this.boundingBoxSize.y
-        );
+    getBoundingBox () {
+        const hash = Vector.hashVectors([this.position, this.#img.size]);
+        if (hash !== this.#hash) {
+            this.#hash = hash;
+            const { size } = this.#img;
+            const min = this.position.clone();
+            const max = min.clone();
+            min.y -= size.y;
+            max.x += size.x;
+            this.#bbox.apply(min, max);
+        }
+        return this.#bbox;
+    }
+
+    isOver (point) {
+        return this.getBoundingBox().isIntersecting(point);
     }
 
     get isIcon () { return true }
     get source () { return this.#img }
-    get boundingBoxSize () { return this.#boundingBoxSize }
     get width () { return this.#img.width }
     get height () { return this.#img.height }
     get fontColor () { return this.#fontColor }
+    get position () { return this.#position }
 }
 
 export class Button extends Icon {
@@ -62,6 +71,7 @@ export class Button extends Icon {
         super(image);
     }
 
+    get isButton () { return true }
     get onclick () { return this.#callback.onclick }
     set onclick(callbackFn) { return (this.#callback.onclick = callbackFn) }
     get onhold () { return this.#callback.onhold }

@@ -2,7 +2,8 @@
 import { Polygon, Color, Vector } from "../geometry/geometry.js";
 import { drawTerrain } from "../terrain/terrain.js";
 import { CACHE_TYPES } from "./types.js";
-import * as AmmoType from "../projectile/ammo-types.js";
+import { GravityController } from "../controller/controller.js";
+import { AmmoType, Properties } from "../projectile/projectile.js";
 
 const _queryString = self.location.search;
 const _urlParams = new URLSearchParams(_queryString);
@@ -12,12 +13,14 @@ const CACHE = {};
 const CHANNELS = {};
 const TRANSACTIONS = {};
 
+const CONSOLE_PREFIX = `[WebWorker] (${ID})`;
+
 function postSuccess (id) { postResponse(id) }
 
 function getCache (id) {
     // accesses cache and throws an error if it doesn't exist
     if (id in CACHE && CACHE[id] !== undefined) return CACHE[id];
-    throw new Error(`[WebWorker] (${ID}): Cache ${id} does not exist in this Worker`);
+    throw new Error(`${CONSOLE_PREFIX}: Cache ${id} does not exist in this Worker`);
 }
 
 function postFailure (id, err) {
@@ -40,7 +43,7 @@ function initCache (id, type, args) { // create new
     if (type in CACHE_TYPES) {
         const TYPE = CACHE_TYPES[type];
         if (id in CACHE) {
-            if (LOG_LEVEL >= 3) console.debug(`[WebWorker] (${ID}): Overwriting cache ${id} - INIT`);
+            if (LOG_LEVEL >= 3) console.debug(`${CONSOLE_PREFIX}: Overwriting cache ${id} - INIT`);
         }
         CACHE[id] = { type, data: TYPE.create(...args) };
         return true;
@@ -52,7 +55,7 @@ function createCache (id, type, payload, reference = false, isTransfer = false) 
     if (type in CACHE_TYPES) {
         const TYPE = CACHE_TYPES[type];
         if (id in CACHE) {
-            if (LOG_LEVEL >= 3) console.debug(`[WebWorker] (${ID}): Overwriting cache ${id} - ${isTransfer ? "TRANSFER" : "CREATE"}`);
+            if (LOG_LEVEL >= 3) console.debug(`${CONSOLE_PREFIX}: Overwriting cache ${id} - ${isTransfer ? "TRANSFER" : "CREATE"}`);
         }
         CACHE[id] = { type, data: reference ? TYPE.encodeReference(payload) : TYPE.encode(payload) };
         return true;
@@ -63,7 +66,7 @@ function createCache (id, type, payload, reference = false, isTransfer = false) 
 const onworkermessage = (e) => {
     const { command, id, payload } = e.data;
     const port = e.target;
-    if (LOG_LEVEL >= 2) console.debug(`[WebWorker] (${ID}): Transaction ${id} receieved from peer\n\t${command}: `,  payload);
+    if (LOG_LEVEL >= 2) console.debug(`${CONSOLE_PREFIX}: Transaction ${id} receieved from peer\n\t${command}: `,  payload);
     if (command === "CACHE") {
         if (createCache(payload.cache, payload.type, payload.data, false, true)) {
             port.postMessage({command: "ACK", id});
@@ -88,14 +91,14 @@ self.onmessage = async (e) => {
         payload
     } = e.data;
     try {
-        if (LOG_LEVEL >= 2) console.debug(`[WebWorker] (${ID}): Transaction ${id} receieved from parent\n\t${command ? command : type}: `,  payload);
+        if (LOG_LEVEL >= 2) console.debug(`${CONSOLE_PREFIX}: Transaction ${id} receieved from parent\n\t${command ? command : type}: `,  payload);
         if (command) {
             processManagerCommand(command, id, payload);
-        } else if (type === "INTERSECTPROJ") {
+        } else if (type === "TRACESHOT") {
             /* Payload expected:
              * {
              *    ammo: String,
-             *    collisions: [...Polygon64 | UUID],
+             *    collisions: [...Polygon64 | UUID], // at least one of these must have userData.collision flag set to Properties.Collision.TERRAIN
              *    origin: Vector,
              *    angle: Number, (radians)
              *    power: Number,
@@ -111,8 +114,51 @@ self.onmessage = async (e) => {
                     : Polygon.fromObject(target, target.depth));
             const proj = new AmmoType[ammo](Vector.fromObject(origin), angle, power, resolution);
             for (const collisionPoly of targetPolys) proj.colliders.push(collisionPoly);
-            const result = proj.trace(increment, limit, true);
-            delete result.state;
+            proj.pushBlasts = true;
+            const terrainPoly = proj.colliders.find(({userData}) => userData.collision & Properties.Collision.TERRAIN);
+            const originalHoleCount = terrainPoly.holes.length;
+            const playerPolys = proj.colliders.filter(({userData}) => userData.collision & Properties.Collision.PLAYER);
+            playerPolys.forEach(({userData}) => {
+                userData.position = Vector.fromObject(userData.position);
+            });
+            const result = { finished: false, time: limit };
+            let blastsCount;
+            while (proj.time < limit && !result.finished) {
+                blastsCount = proj.blasts.length;
+                // run the trace
+                proj.update(increment);
+                // check if done
+                if (proj.isFinished) {
+                    result.time = proj.time;
+                    result.finished = true;
+                    break;
+                }
+                // update player hitboxes
+                // [!] does not track if player dies. Need to do that - KT
+                if (playerPolys.length && proj.blasts.length !== blastsCount) { // why would there ever be less?
+                    const newBlasts = proj.blasts.slice(blastsCount);
+                    for (const player of playerPolys) {
+                        if (!newBlasts.some((b) => b.shape.isIntersecting(player))) continue;
+                        // update positioning - account for "falling"
+                        const { position, rotation, heightOffset } = player.userData;
+                        const hit = GravityController.computePosition(position, heightOffset, terrainPoly);
+                        if (hit) {
+                            const { angle, point } = hit;
+                            const offset = point.sub(position);
+                            player.path.forEach((pt) => pt
+                                .pivot(angle - rotation, position, true)
+                                .add(offset, true));
+                            position.add(offset, true);
+                            player.userData.rotation = angle;
+                        }
+                    }
+                }
+            }
+            if (!result.finished) console.debug(`${CONSOLE_PREFIX}: Trace operation timed out in Transaction ${id}`);
+            result.legend = proj.getLegend(); // [!] no need to pass as transfer, we shouldn't have a large amount of collisions
+            result.blasts = proj.blasts.map((blast) => blast.decode());
+            if (terrainPoly.holes.length > originalHoleCount) terrainPoly.holes.splice(originalHoleCount, terrainPoly.holes.length - originalHoleCount);
+            
             postResponse(id, result);
         } else if (type === "CUTPOLY") {
             /* Payload expected:
@@ -124,20 +170,16 @@ self.onmessage = async (e) => {
              * }
              */
             const { subject, cuts, callback, cache } = payload;
-            const isUuid = typeof subject === "string";
-            const depth = isUuid
-                ? getCache(subject).data?.depth
-                : subject.depth;
-            const polygon = isUuid
-                ? (cache === subject)
+            const polygon = typeof subject === "string"
+                ? cache === subject
                     ? getCache(subject).data?.poly
                     : getCache(subject).data?.poly?.clone(true)
-                : Polygon.fromObject(subject, depth);
+                : Polygon.fromObject(subject, subject.depth);
             for (const cut of cuts) {
                 polygon.cut(
                     typeof cut === "string"
                         ? getCache(cut).data?.poly
-                        : Polygon.fromObject(cut, depth),
+                        : Polygon.fromObject(cut, cut.depth),
                     true
                 );
             }
@@ -233,6 +275,15 @@ async function processManagerCommand (command, id, payload) {
             CHANNELS[worker].onmessage = onworkermessage;
             CHANNELS[worker].start();
             postSuccess(id);
+        } else if (command === "HASHCACHE") {
+            /* Payload expected:
+             * {
+             *    cache: UUID
+             * }
+             */
+            const { cache } = payload;
+            const { type, data } = getCache(cache);
+            postResponse(id, {hash: CACHE_TYPES[type].hash(data) });
         } else if (command === "INITCACHE") {
            /* Payload expected:
             * {

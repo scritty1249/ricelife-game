@@ -1,0 +1,170 @@
+{
+    "self": "1000241160",
+    "players": [
+        {
+            "position": [0, 0],
+            "hitpoints": [
+                {
+                    "type": "Health",
+                    "increase": 1,
+                    "decrease": 1,
+                    "amount": 100,
+                    "regen": 0,
+                    "max": 100,
+                    "reserve": 0
+                },
+                {
+                    "type": "Shield",
+                    "increase": 1,
+                    "decrease": 1,
+                    "amount": 35,
+                    "regen": 3.34,
+                    "max": 35,
+                    "reserve": 0
+                }
+            ],
+            "data": {
+                "model": "basic",
+                "team": 0,
+                "profile": {
+                    "name": "Blurple",
+                    "avatar": "https://cdn.discordapp.com/embed/avatars/0.png",
+                    "fontFamily": "serif",
+                    "userid": "1000241160"
+                }
+            }
+        },
+        {
+            "position": [0, 0],
+            "hitpoints": [
+                {
+                    "type": "Health",
+                    "increase": 1,
+                    "decrease": 1,
+                    "amount": 100,
+                    "regen": 0,
+                    "max": 100,
+                    "reserve": 0
+                },
+                {
+                    "type": "Shield",
+                    "increase": 1,
+                    "decrease": 1,
+                    "amount": 35,
+                    "regen": 3.34,
+                    "max": 35,
+                    "reserve": 0
+                }
+            ],
+            "data": {
+                "model": "basic",
+                "team": 0,
+                "profile": {
+                    "name": "Greyple",
+                    "avatar": "https://cdn.discordapp.com/embed/avatars/1.png",
+                    "fontFamily": "serif",
+                    "userid": "1000241161"
+                }
+            }
+        },
+        {
+            "position": [0, 0],
+            "hitpoints": [
+                {
+                    "type": "Health",
+                    "increase": 1,
+                    "decrease": 1,
+                    "amount": 100,
+                    "regen": 0,
+                    "max": 100,
+                    "reserve": 0
+                },
+                {
+                    "type": "Shield",
+                    "increase": 1,
+                    "decrease": 1,
+                    "amount": 35,
+                    "regen": 3.34,
+                    "max": 35,
+                    "reserve": 0
+                }
+            ],
+            "data": {
+                "model": "basic",
+                "team": 1,
+                "profile": {
+                    "name": "Green",
+                    "avatar": "https://cdn.discordapp.com/embed/avatars/2.png",
+                    "fontFamily": "serif",
+                    "userid": "1000241162"
+                }
+            }
+        },
+        {
+            "position": [0, 0],
+            "hitpoints": [
+                {
+                    "type": "Health",
+                    "increase": 1,
+                    "decrease": 1,
+                    "amount": 100,
+                    "regen": 0,
+                    "max": 100,
+                    "reserve": 0
+                },
+                {
+                    "type": "Shield",
+                    "increase": 1,
+                    "decrease": 1,
+                    "amount": 35,
+                    "regen": 3.34,
+                    "max": 35,
+                    "reserve": 0
+                }
+            ],
+            "data": {
+                "model": "basic",
+                "team": 1,
+                "profile": {
+                    "name": "Yellow",
+                    "avatar": "https://cdn.discordapp.com/embed/avatars/3.png",
+                    "fontFamily": "serif",
+                    "userid": "1000241163"
+                }
+            }
+        },
+        {
+            "position": [0, 0],
+            "hitpoints": [
+                {
+                    "type": "Health",
+                    "increase": 1,
+                    "decrease": 1,
+                    "amount": 100,
+                    "regen": 0,
+                    "max": 100,
+                    "reserve": 0
+                },
+                {
+                    "type": "Shield",
+                    "increase": 1,
+                    "decrease": 1,
+                    "amount": 35,
+                    "regen": 3.34,
+                    "max": 35,
+                    "reserve": 0
+                }
+            ],
+            "data": {
+                "model": "basic",
+                "team": 1,
+                "profile": {
+                    "name": "Red",
+                    "avatar": "https://cdn.discordapp.com/embed/avatars/4.png",
+                    "fontFamily": "serif",
+                    "userid": "1000241164"
+                }
+            }
+        }
+    ]
+}

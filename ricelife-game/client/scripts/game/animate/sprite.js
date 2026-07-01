@@ -7,9 +7,11 @@ export class Spritesheet extends LoadImage {
     #length;
     #frames = [];
     #offset = new Vector(); // offset is applied using canvas coordinates (0,0) is top left, offset is applied before scaling
-    constructor (src, frameWidth, frameHeight, offset = new Vector()) {
+    #framerate; // completely optional. Only used to associate a consistet value with this specific source, it should not be used or interacted with at all within this class.
+    constructor (src, frameWidth, frameHeight, framerate = undefined, offset = new Vector()) {
         super(src);
         this.#offset.apply(offset);
+        this.#framerate = framerate;
         this.#frameSize.x = frameWidth;
         this.#frameSize.y = frameHeight;
         {
@@ -40,6 +42,7 @@ export class Spritesheet extends LoadImage {
         ss.origin.apply(this.origin);
         ss.scale.apply(this.scale);
         ss.rotation = this.rotation;
+        ss.framerate = this.framerate;
         return ss;
     }
 
@@ -47,6 +50,8 @@ export class Spritesheet extends LoadImage {
     get frameSize () { return this.#frameSize } // raw size. Scaled size can be found in the individual frames. [!] is this too convoluted?
     get length () { return this.#length }
     get isSpritesheet () { return true }
+    get framerate () { return this.#framerate }
+    set framerate (frames) { return (this.#framerate = frames) }
 }
 
 class SpriteFrame {

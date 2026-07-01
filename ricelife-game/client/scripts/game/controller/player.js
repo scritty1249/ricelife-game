@@ -11,6 +11,12 @@ export class InputListener { // wrapper for K&M input
     ) {
         this.#keyboard = new KeyboardListener(window, keyCodeMap);
         this.#pointer = new PointerListener(appCanvas, clickThresholdMs, pointerCallbacks);
+        appCanvas.addEventListener("pointerleave", () => this.resetState());
+    }
+
+    resetState () {
+        this.keyboard.resetState();
+        this.pointer.resetState();
     }
 
     get keyboard () { return this.#keyboard }
@@ -41,7 +47,7 @@ class KeyboardListener {
     #setKeyState (event, keyDown) {
         if (Object.hasOwn(this.#keyCodeMap, event.code)) {
             this.#activeKeys[this.#keyCodeMap[event.code]][event.code] = keyDown;
-            event.preventDefault();
+            event?.preventDefault?.();
         }
     }
 
@@ -51,6 +57,15 @@ class KeyboardListener {
             return Object.values(mapped)?.some((active) => active);
         return undefined;
     }
+    resetKeyState (keyCode) {
+        this.#setKeyState({code: keyCode}, false);
+    }
+    resetState () {
+        for (const mapping of Object.values(this.#activeKeys))
+            for (const key of Object.keys(mapping))
+                mapping[key] = false;
+    }
+
 
     get listeningTo () { return this.#listeningTo }
     get activeKeys() { return this.#activeKeysProxy }
@@ -100,8 +115,10 @@ class PointerListener  {
     }
     #clearHoldTimeout () {
         this.#holding.isHolding = false;
-        if (this.#holding.timeout)
+        if (this.#holding.timeout) {
             clearTimeout(this.#holding.timeout);
+            this.#holding.timeout = undefined;
+        }
     }
 
     #updateDown (event) { // keep up and down event callbacks seperate for (marginal) perfomance boost
@@ -171,6 +188,14 @@ class PointerListener  {
         return point; // for chaining
     }
 
+    resetState () {
+        this.#clearHoldTimeout();
+        this.#tracking.down.position.apply(0);
+        this.#tracking.down.stamp = undefined;
+        this.#tracking.up.position.apply(0);
+        this.#tracking.up.stamp = undefined;
+    }
+
     get position () { return this.#tracking.position.clone() }
     get isHolding () { return this.#holding.isHolding = (this.isActive && this.#holding.isHolding) }
     get isActive () { return this.#tracking.down.stamp !== undefined && this.#tracking.up.stamp === undefined }
@@ -180,20 +205,54 @@ class PointerListener  {
     get activeDuration () { return this.isActive ? performance.now() - this.#tracking.down.stamp : 0 }
 }
 
+export class GravityController { // lighter-weight, seperate for web workers. computes a player's new Y position given a terrain and X position
+    static computePosition (position, heightOffset, terrain) { // returns an intersection hit
+        const pts = terrain.edgePoints;
+        const terrainElevations = pts.map(({y}) => y);
+        const terrainHeight = Math.max(...terrainElevations) - Math.min(...terrainElevations);
+        const ray = Ray(new Vector(position.x, position.y + heightOffset), Vector.fromAngle((3 * Math.PI) / 2), terrainHeight + 1);
+        const hits = terrain.raycast(ray);
+        const hasExiting = hits.some(({entering}) => !entering);
+        const hit = (hasExiting ? hits.filter(({entering}) => entering) : hits)
+            ?.toSorted((a, b) => b.point.y - a.point.y)?.at(0);
+        if (!hit)
+            console.warn(`[${this.constructor.name}] Warning: No valid terrain found for Y position (from ${ray.at(0).y}) at X ${position.x}`, hits);
+        else
+            hit.angle -= Math.PI / 2;
+        return hit;
+    }
+}
+
 export class MovementController { // only moves along X axis
+    #terrainHash;
     #terrain;
     #range;
     #terrainHeight;
     #player;
+    #maxAngle = (5 * Math.PI) / 12; // 75 degrees, forward and back
     constructor (terrain, tank, offsetY = 0) {
         this.#player = tank;
         this.#terrain = terrain;
-        this.#range = this.#terrain.path.points.slice(0, -2).map((pt) => pt.x).toSorted((a, b) => b - a).at(0); // [!] unsafe math
-        this.#terrainHeight = Math.max(...this.#terrain.path.points.map(({y}) => y));
         this.offsetY = offsetY;
+        this.#computeTerrainData();
     }
 
-    move (amount, resolution = .01) {
+    #setPlayer (x, y, angle) { // takes raw terrain normal(angle) and x,y coord, and sets player position and rotation with defined offsets
+        this.#player.position.apply(x, y + this.offsetY);
+        this.#player.rotation.body = angle - (Math.PI / 2);
+    }
+    #computeTerrainData () {
+        const hash = this.#terrain.hash;
+        if (this.#terrainHash === hash) return;
+        this.#terrainHash = hash;
+        const pts = this.#terrain.edgePoints;
+        this.#range = pts.map((pt) => pt.x).toSorted((a, b) => b - a).at(0); // [!] unsafe math
+        const terrainElevations = pts.map(({y}) => y);
+        this.#terrainHeight = Math.max(...terrainElevations) - Math.min(...terrainElevations);
+    }
+
+    move (amount) {
+        this.#computeTerrainData();
         if (Math.abs(amount) >= this.#range || floatEqual(amount, 0)) return;
         const position = this.#player.position;
         const movingRight = amount > 0;
@@ -201,8 +260,10 @@ export class MovementController { // only moves along X axis
 
         const hits = [...this.#findValidPoints(targetX)];
         if (!hits.length) return false;
-
         const hit = hits.at(0); // should already be sorted in decesnding order (from targetX to origin)
+        if ((hit.angle >= this.#maxAngle && movingRight)
+            || (hit.angle <= -this.#maxAngle && !movingRight)) return false;
+
         // setting position
         position.x = hit.point.x;
         position.y = hit.point.y + this.offsetY;
@@ -210,32 +271,42 @@ export class MovementController { // only moves along X axis
         this.#player.rotation.body = hit.angle;
         return true;
     }
-
-    set (amount, resolution = .01) {
-        if (amount < 1 || amount >= this.#range) return;
+    set (x) {
+        this.#computeTerrainData();
+        if (x < 1 || x >= this.#range) return;
         const position = this.#player.position;
-
-        const maxHeight = this.#player.height + position.y + this.offsetY; // next position should not be going OVER this - under is still fine. (player would be falling)
-        const ray = Ray(new Vector(amount, this.#terrainHeight), Vector.fromAngle(deg2rad(270)), this.#terrainHeight - 1);
+        const maxHeight = position.y + this.#player.height + this.offsetY; // next position should not be going OVER this - under is still fine. (player would be falling)
+        const ray = Ray(new Vector(x, this.#terrainHeight), Vector.fromAngle((3 * Math.PI) / 2), this.#terrainHeight - 1);
         const hits = this.#terrain.raycast(ray);
-        const exiting = hits.some(({entering}) => !entering);
-
+        const hasExiting = hits.some(({entering}) => !entering);
 
         // remove duplicate/junk raycasting hits (i did some shit wrong)
-        const hit = (exiting ? hits.filter(({entering}) => !entering) : hits)
+        const hit = (hasExiting ? hits.filter(({entering}) => entering) : hits)
             ?.toSorted((a, b) => b.point.y - a.point.y)?.at(0);
         if (!hit) {
-            console.warn(`[${this.constructor.name}] Warning: No valid terrain found for Y position at X`, hits);
+            console.warn(`[${this.constructor.name}] Warning: No valid terrain found for Y position at X ${x}`, hits);
             return false;
         }
-
-        const angle = this.#normalizeAngle(hit.angle, hit.entering);
-
-        // setting position
-        position.x = amount;
-        position.y = hit.point.y + this.offsetY;
-        // setting rotation
-        this.#player.rotation.body = angle;
+        this.#setPlayer(x, hit.point.y, hit.angle);
+        return true;
+    }
+    apply (x, y) {
+        this.#computeTerrainData();
+        if (x?.isVector) {
+            y = x.y;
+            x = x.x;
+        }
+        const maxHeight = y + this.#player.height + this.offsetY;
+        const ray = Ray(new Vector(x, maxHeight), Vector.fromAngle((3 * Math.PI) / 2), this.#terrainHeight);
+        const hits = this.#terrain.raycast(ray);
+        const hasExiting = hits.some(({entering}) => !entering);
+        const hit = (hasExiting ? hits.filter(({entering}) => entering) : hits)
+            ?.toSorted((a, b) => b.point.y - a.point.y)?.at(0);
+        if (!hit) {
+            console.warn(`[${this.constructor.name}] Warning: No valid terrain found for Y position from (${x}, ${y})`, hits);
+            return false;
+        }
+        this.#setPlayer(x, hit.point.y, hit.angle);
         return true;
     }
 
@@ -274,7 +345,7 @@ export class MovementController { // only moves along X axis
     }
 
     #normalizeAngle (radians, pointingOut) {
-        return radians + ((pointingOut ? 3 : 1) * (Math.PI / 2));
+        return (radians + ((pointingOut ? 3 : 1) * (Math.PI / 2))) % (2 * Math.PI);
     }
 }
 

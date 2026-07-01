@@ -6,36 +6,55 @@ export class Polygon extends TrackableObject { // points should be ordered clock
     #path;
     #holes = new Array(); // hole paths must be reordered to counter clockwise positioning
     #bbox = new BoundingBox();
-    #pathHash; // used to check if bbox needs to be recomputed
     #edgeHash; // used to check if edge points need to be recomputed
-    #innerEdgeSegments;
-    #outerEdgeSegments;
+    #edgeSegments = new Array();
+    #edgeSegmentPoints = new Array();
+    userData = {};
     constructor (...points) {
         super();
-        this.#holes.apply = function (...holes) {
-            this.splice(0, this.length);
-            for (const hole of holes) {
-                if (!hole.isPolygon) throw new Error(`[${this.constructor.name}] Error: Holes must be Polygons, not ${typeof hole}`);
-                this.push(hole);
-            }
-        }
         this.#path = (points.length == 1 && points[0]?.isPath)
             ? points[0]
             : new Path(...points);
         this.#path.isClosed = true;
+        {
+            this.#holes.apply = function (...holes) {
+                this.splice(0, this.length);
+                for (const hole of holes) {
+                    if (!hole.isPolygon) throw new Error(`[${this.constructor.name}] Error: Holes must be Polygons, not ${typeof hole}`);
+                    this.push(hole);
+                }
+            }
+        }
     }
 
-    smooth (resolution = 1) {
+    // optimize polygons, remove holes that are completely swallowed / overlapping with other holes
+    reduceHoles () {
+        const oldHoles = this.holes;
+        const newHoles = [];
+        for (const hole of oldHoles) {
+            if (oldHoles.every((h) => h.id === hole.id || !h.isInside(hole))) newHoles.push(hole);
+        }
+        oldHoles.splice(0, oldHoles.length);
+        for (const hole of newHoles) oldHoles.push(hole);
+        return this; // for chaining
+    }
+    // round off harsh corners
+    smooth (maxAngle = Math.PI / 4, mutate = false) {
+        const poly = mutate ? this : this.clone(true);
+        poly.path.smooth(maxAngle, true);
+        return poly; // for chaining
+    }
+    subsection (resolution = 1) {
         if (resolution === 1) return;
         const path = this.path;
         if (path.points.length <= 1) return;
         const last = path.at(-1);
-        path.smooth(resolution);
+        path.subsection(resolution);
         // smooth connection between first and last points
         for (const point of tweenPoints(last, path.at(0), resolution))
             path.push(point);
         for (const hole of this.holes)
-            hole.smooth(resolution);
+            hole.subsection(resolution);
     }
     overlap (poly, flatten = false) { // returns an array of Path segments that are overlapping with the given polygon
         if (!poly?.isPolygon) throw new Error(`[${this.constructor.name}] Error: Cannot overlap with non-Polygon type ${typeof poly}`);
@@ -154,7 +173,7 @@ export class Polygon extends TrackableObject { // points should be ordered clock
             newPolygon.holes.push(hole);
         } else if (polyPieces.length !== 0)
             newPolygon.path.apply(...polyPieces[0].path.points);
-        return newPolygon;
+        return newPolygon; //.reduceHoles();
     }
 
     draw (cursor, close = true) { // only draw the path
@@ -192,49 +211,58 @@ export class Polygon extends TrackableObject { // points should be ordered clock
         }   
         throw new Error(`[${this.constructor.name}] Error: Unable to compute intersect of unsupported type ${typeof value}`);
     }
-
+    isBordering (value) {
+        if (value?.isVector) {
+            if (!this.getBoundingBox().isIntersecting(value)) return false;
+            for (const edge of this.edges)
+                if (edge.isIntersecting(value))
+                    return true;
+            return false;
+        } else if (value?.isPolygon) {
+            return value.edges.every((path) => this.isBordering(path) || !this.isIntersecting(path));
+        } else if (value?.isPath) {
+            return value.points.every((point) => this.isBordering(point) || !this.isIntersecting(point));
+        } else if (value?.isShape) {
+            return value.isBordering(this);
+        }   
+        throw new Error(`[${this.constructor.name}] Error: Unable to compute border of unsupported type ${typeof value}`);
+    }
+    isInside (value) {
+        return this.isIntersecting(value) && !this.isBordering(value);
+    }
     raycast (ray) {
         const distance = ray.at(0).distance(ray.at(-1));
         const holes = this.holes;
         const hits = [];
-        for (const path of this.edgePoints(true, false))
-            for (const inter of ray.intersections(path))
-                if (!holes.some(hole => hole.isIntersecting(inter.point)) && !hits.some(({point}) => point.eq(inter.point)))
+        for (const edge of this.edges)
+            for (const inter of ray.intersections(edge))
+                if (!hits.some(({point}) => // don't record a duplicate hit
+                        point.eq(inter.point)))
                     hits.push({
+                        // [!] debugging. Values in here are passed by ref and SHOULD NOT be modified
+                        _path: edge,
+                        _inter: inter,
+
                         point: inter.point,
                         distance: inter.coeff.self * distance,
                         angle: inter.angle,
                         entering: inter.entering
                     });
-        for (let idx = 0; idx < holes.length; idx++) {
-            const hole = holes[idx];
-            const holeHits = hole.raycast(ray);
-            for (const hit of holeHits) {
-                hit.angle -= (2 * Math.PI) / 3;
-                hit.hole = true;
-                if (this.isIntersecting(hit.point, true)
-                    && !holes.some((h, i) => i !== idx && h.isIntersecting(hit.point))
-                    && hits.some(({point}) => point.eq(hit.point)))
-                    hits.push(hit);
-            }
-        }
         return hits;
     }
 
     getBoundingBox () {
-        if (this.#pathHash === this.path.hash) return this.#bbox;
-        const points = this.edgePoints(false, true);
-        if (!points.length) return [new Vector(), new Vector()];
+        const points = this.edgePoints;
+        if (!points.length) return new BoundingBox();
         const min = points[0].clone();
         const max = points[0].clone();
-        for (const point of this.edgePoints(false, true)) {
+        for (const point of points) {
             if (point.x < min.x) min.x = point.x;
             if (point.y < min.y) min.y = point.y;
             if (point.x > max.x) max.x = point.x;
             if (point.y > max.y) max.y = point.y;
         }
         this.#bbox.apply(min, max);
-        this.#pathHash = this.path.hash;
         return this.#bbox;
     }
 
@@ -267,6 +295,7 @@ export class Polygon extends TrackableObject { // points should be ordered clock
         data.path = this.path.Float64();
         data.holes = depth > 0 ? this.holes.map((hole) => hole.Float64(depth-1)) : [];
         data.buffers = [data.path.buffer];
+        if (this.userData) data.userData = this.userData;
         for (const hole of data.holes.flat(depth))
             data.buffers.push(hole.path.buffer);
         return data;
@@ -285,59 +314,86 @@ export class Polygon extends TrackableObject { // points should be ordered clock
 
         return total.div(this.path.length);
     }
-    edgePoints (innerEdges = true, flatten = true) { // returns ordered points from polygon outside of any holes, and holes that do not overlap with any other holes (inside edges)
-        const edgeHash = Vector.hashVectors(this.path.points.concat(Array.from(
+    get hash () {
+        // only returns the hash of the points, does not actually count ID
+        return Vector.hashVectors(this.path.points.concat(Array.from(
             this.holes, ({path}) => path.points
         ).flat(1)));
-        const segments = [];
-        if (this.#edgeHash !== edgeHash) {
-            this.#edgeHash = edgeHash;
-            this.#outerEdgeSegments = [];
-            this.#innerEdgeSegments = [];
-            let segment = new Path();
-            // outer edge points
-            for (const point of this.path) {
-                if (this.holes.some((hole) => hole.isIntersecting(point))) {
+    }
+    get edges () { // [!] can be expensive
+        this.updateEdges();
+        return this.#edgeSegments;
+    }
+    get edgePoints () {
+        this.updateEdges();
+        return this.#edgeSegmentPoints;
+    }
+    #computeEdgeSegments () {
+        // gather all segments
+        const segements = [];
+        let segment = new Path();
+        // outer edge points
+        for (const point of this.path) {
+            if (this.holes.some((hole) => hole.isIntersecting(point))) {
+                // don't push this point
+                if (segment.length) segements.push(segment);
+                segment = new Path();
+            } else {
+                segment.push(point.clone());
+            }
+        }
+        if (segment.length) segements.push(segment);
+        // inner (hole) edge points
+        segment = new Path();
+        for (const hole of this.holes) {
+            for (const point of hole.path) {
+                if (
+                    !this.isIntersecting(point, true) // does the hole path extend beyond the actual Polygon?
+                    || this.holes.some((h) => !h.eq(hole) && h.isIntersecting(point)) // is this hole inside of another?
+                ) {
                     // don't push this point
-                    if (segment.length) this.#outerEdgeSegments.push(segment);
+                    if (segment.length) segements.push(segment);
                     segment = new Path();
                 } else {
                     segment.push(point.clone());
                 }
             }
-            if (segment.length) this.#outerEdgeSegments.push(segment);
-            // inner edge points
-            segment = new Path();
-            for (const hole of this.holes) {
-                for (const point of hole.path) {
-                    if (
-                        !this.isIntersecting(point, true) // does the hole path extend beyond the actual Polygon?
-                        || this.holes.some((h) => !h.eq(hole) && h.isIntersecting(point))
-                    ) {
-                        // don't push this point
-                        if (segment.length) this.#innerEdgeSegments.push(segment);
-                        segment = new Path();
-                    } else {
-                        segment.push(point.clone());
+        }
+        if (segment.length) segements.push(segment);
+        // reconnect segments
+        this.#edgeSegments = [];
+        const SMOOTHING_TOLERANCE = 1; // merge paths within a tolerance (distance) of N unit gap between ends
+        while (segements.length > 0) {
+            let current = segements.shift();
+            let foundMatch = true;
+            while (foundMatch) {
+                foundMatch = false;
+                for (let i = 0; i < segements.length; i++) {
+                    if (current.at(-1).distance(segements[i].at(0)) <= SMOOTHING_TOLERANCE) {
+                        for (const pt of segements[i].slice(1)) current.push(pt); 
+                        segements.splice(i, 1);
+                        foundMatch = true;
+                        break;
                     }
                 }
             }
-            if (segment.length) this.#innerEdgeSegments.push(segment);
+            this.#edgeSegments.push(current);
         }
-        for (const path of this.#outerEdgeSegments)
-                segments.push(path.clone(true));
-        if (innerEdges)
-            for (const path of this.#innerEdgeSegments)
-                segments.push(path.clone(true));
-        if (flatten) {
-            // unpack
-            const result = [];
-            for (const path of segments)
-                for (const point of path)
-                    result.push(point)
-            return result;
+        for (const edge of this.#edgeSegments)
+            if (edge.length > 2 && edge.at(-1).distance(edge.at(0)) <= SMOOTHING_TOLERANCE)
+                edge.isClosed = true;
+        this.#edgeSegmentPoints = this.#edgeSegments
+            .map(({points}) => points)
+            .flat(1);
+    }
+    updateEdges () { // check and set
+        const edgeHash = this.hash;
+        if (this.#edgeHash !== edgeHash) {
+            this.#edgeHash = edgeHash;
+            this.#computeEdgeSegments();
+            return true;
         }
-        return segments;
+        return false;
     }
     edgeNodes (ignoreHoles = false) {
         const nodes = this.path.pointNodes;
@@ -369,10 +425,12 @@ export class Polygon extends TrackableObject { // points should be ordered clock
     clone (deep = false) {
         const poly = new Polygon(this.path.clone(deep));
         poly.holes.apply(...this.holes.map(hole => hole.clone(deep)));
+        poly.userData = deep ? structuredClone(this.userData) : this.userData;
         return poly;
     }
     static fromObject (data, depth) {
         const polygon = new Polygon(Path.fromArray(data.path));
+        if (data.userData) polygon.userData = data.userData;
         if (depth)
             for (const hole of data.holes) {
                 const poly = this.fromObject(hole, depth-1);
@@ -383,3 +441,68 @@ export class Polygon extends TrackableObject { // points should be ordered clock
     }
 }
 
+// basically a bounding box that defines all four corner points (supports rotations)
+// supposed to be lightweight
+export class Hitbox {
+    #edges = new Path(
+        new Vector(),
+        new Vector(),
+        new Vector(),
+        new Vector(),
+    );
+    constructor (topLeft, topRight, bottomRight, bottomLeft) {
+        this.#edges.isClosed = true;
+        this.#edges.at(0).apply(topLeft);
+        this.#edges.at(1).apply(topRight);
+        this.#edges.at(2).apply(bottomRight);
+        this.#edges.at(3).apply(bottomLeft);
+    }
+    #isShapeIntersecting (shape) {
+        return shape.isIntersecting(this.edges);
+    }
+    #isHitboxIntersecting (hitbox) {
+        return this.edges.points.some((pt) => hitbox.isIntersecting(pt))
+            || hitbox.edges.points.some((pt) => this.#isPointIntersecting(pt));
+    }
+    #isPointIntersecting (point) {    
+        const [tl, tr, br, bl] = this.edges.points;
+        const cross1 = tr.sub(tl).cross(point.sub(tl));
+        const cross2 = br.sub(tr).cross(point.sub(tr));
+        const cross3 = bl.sub(br).cross(point.sub(br));
+        const cross4 = tl.sub(bl).cross(point.sub(bl));
+        return (cross1 >= 0 && cross2 >= 0 && cross3 >= 0 && cross4 >= 0)
+            || (cross1 <= 0 && cross2 <= 0 && cross3 <= 0 && cross4 <= 0);
+    }
+    #isBoundingBoxIntersecting (bbox) {
+        return this.#isPointIntersecting(bbox.min)
+            || this.#isPointIntersecting(bbox.max)
+            || this.edges.points.some((pt) => bbox.isIntersecting(pt));
+    }
+    isIntersecting (value) {
+        if (value?.isVector) {
+            return this.#isPointIntersecting(value);
+        } else if (value?.isHitbox) {
+            return this.#isHitboxIntersecting(value);
+        } else if (value?.isBoundingBox) {
+            return this.#isBoundingBoxIntersecting(value);
+        } else if (value?.isShape) {
+            return this.#isShapeIntersecting(value);
+        } else return false; // dont throw errors on unknown types
+    }
+    draw (cursor, close = true) {
+        if (close) cursor.beginPath();
+        cursor.moveTo(this.topLeft);
+        cursor.lineTo(this.topRight);
+        cursor.lineTo(this.bottomRight);
+        cursor.lineTo(this.bottomLeft);
+        if (close) cursor.closePath();
+    }
+    Polygon () { return new Polygon(this.edges.clone(true)) }
+    get isHitbox () { return true }
+    get edges () { return this.#edges }
+    get topLeft () { return this.#edges.at(0) }
+    get topRight () { return this.#edges.at(1) }
+    get bottomRight () { return this.#edges.at(2) }
+    get bottomLeft () { return this.#edges.at(3) }
+    get center () { return Vector.average(this.#edges.points) }
+}
