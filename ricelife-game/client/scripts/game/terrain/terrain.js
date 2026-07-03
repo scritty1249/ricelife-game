@@ -1,4 +1,5 @@
 import { Vector, Path, Polygon, Poly } from "../geometry/geometry.js";
+import { Properties } from "../projectile/projectile.js";
 
 export function drawTerrain (cursor, polygon, fillColor, edgeColor, gradientWidth, resolution) { // fill and edge colors are expected to be Color objects
     cursor.save();
@@ -57,14 +58,6 @@ export function drawTerrain (cursor, polygon, fillColor, edgeColor, gradientWidt
     topEdge.draw(cursor);
     for (const openEdge of holeTopEdges)
         openEdge.draw(cursor);
-    // for (let i = 0; i <= gradientWidth; i += resolution) {
-    //     const alpha = (1 - (i / gradientWidth)).toFixed(2)**10;
-    //     cursor.lineWidth = i * 2;
-    //     cursor.strokeStyle = `rgba(${edgeColor.r}, ${edgeColor.g}, ${edgeColor.b}, ${alpha})`;
-    //     topEdge.draw(cursor);
-    //     for (const openHoleEdge of holeTopEdges)
-    //         openHoleEdge.draw(cursor);
-    // }
     cursor.restore();
     cursor.restore();
 }
@@ -74,7 +67,9 @@ export function generateTerrain (path, maxSize) {
         new Vector(maxSize.x, 0),
         new Vector(0, 0)
     );
-    return new Polygon(path);
+    const polygon = new Polygon(path)
+    polygon.userData.collision = Properties.Collision.DESTRUCTION | Properties.Collision.ANY | Properties.Collision.TERRAIN;
+    return polygon;
 };
 
 export function generateWave(length, resolution = 1, modifier = (vector) => {}, freq = 0.03, amplitude = 40, smoothness = 1.3, randomness = 15) {

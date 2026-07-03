@@ -138,7 +138,6 @@ async function init (...loaded) {
     const Terrain = URL_PARAMS.get("map") == "flat"
         ? generateTerrain(new Path(new Vector(0, GROUND), new Vector(Display.size.x, GROUND)).subsection(GLOBAL_RESOLUTION), Display.size)
         : generateTerrain(generateWave(Display.size.x, GLOBAL_RESOLUTION, (v) => v.y += GROUND, .03, 40, 1.3, 15), Display.size);
-    Terrain.userData.collision = Properties.Collision.DESTRUCTION | Properties.Collision.ANY | Properties.Collision.TERRAIN;
 
     await Promise.all([
         Workers.createCache("blastBackground", "CANVAS", ...Display.size),
