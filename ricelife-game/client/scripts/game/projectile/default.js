@@ -441,6 +441,20 @@ export class ShotStage extends TrackableObject {
         const { isStarted, isFinished, shot, delay, time } = this;
         if (isStarted && !isFinished && time > delay) shot.draw(cursor);
     }
+    drawGlow (cursor) {
+        const { isStarted, isFinished, shot, delay, time } = this;
+        if (isStarted && !isFinished && time > delay) {
+            shot.drawTailGlow(cursor);
+            shot.drawMainGlow(cursor);
+        }
+    }
+    drawBody (cursor) {
+        const { isStarted, isFinished, shot, delay, time } = this;
+        if (isStarted && !isFinished && time > delay) {
+            shot.drawTail(cursor);
+            shot.drawShot(cursor);
+        }
+    }
     applyBlast (blast) {
         const hitbox = blast.clone(true);
         hitbox.shape.transformation.offset.add(this.shot.position, true);
@@ -581,6 +595,12 @@ export class MultiShotStage extends TrackableObject {
     draw (cursor) {
         for (const stage of this.stages) stage.draw(cursor); // each stage knows whether to draw itself or not
     }
+    drawGlow (cursor) {
+        for (const stage of this.stages) stage.drawGlow(cursor);
+    }
+    drawBody (cursor) {
+        for (const stage of this.stages) stage.drawBody(cursor);
+    }
     // delay is amount of time before starting to update the shot
     newStage (shot, delay = 0) {
         const stage = new ShotStage(shot, delay, this.blasts, this.colliders, this.sfxCallback);
@@ -689,7 +709,10 @@ export class Ammo extends TrackableObject {
     }
 
     draw (cursor) {
-        if (!this.isFinished) this.#currentStage.draw(cursor);
+        if (!this.isFinished) {
+            this.#currentStage.drawGlow(cursor);
+            this.#currentStage.drawBody(cursor);
+        }
     }
     nextStage () {
         this.#currentStage = this.#stages[++this.#stageIdx];
