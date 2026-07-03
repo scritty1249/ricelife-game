@@ -1,5 +1,5 @@
-import { Vector, Path, Ray, Circle, Color, Triangle } from "../geometry/geometry.js";
-import { rad2deg, deg2rad, floatEqual, clamp, normalizeAngle, TrackableObject } from "../utils/utils.js";
+import { Vector, Ray, Circle, Color, Triangle } from "../geometry/geometry.js";
+import { floatEqual, clamp, TrackableObject } from "../utils/utils.js";
 
 export class InputListener { // wrapper for K&M input
     #keyboard;
@@ -229,7 +229,6 @@ export class MovementController { // only moves along X axis
     #range;
     #terrainHeight;
     #player;
-    #maxAngle = (5 * Math.PI) / 12; // 75 degrees, forward and back
     constructor (terrain, tank, offsetY = 0) {
         this.#player = tank;
         this.#terrain = terrain;
@@ -238,8 +237,13 @@ export class MovementController { // only moves along X axis
     }
 
     #setPlayer (x, y, angle) { // takes raw terrain normal(angle) and x,y coord, and sets player position and rotation with defined offsets
-        this.#player.position.apply(x, y + this.offsetY);
+        const offset = this.#calculateOffset(angle);
+        this.#player.position.apply(x, y + offset);
         this.#player.rotation.body = angle - (Math.PI / 2);
+    }
+    #calculateOffset (bodyAngle) {
+        const angle = bodyAngle || this.#player.rotation.body + (Math.PI / 2);
+        return this.offsetY * Math.sin(angle);
     }
     #computeTerrainData () {
         const hash = this.#terrain.hash;
@@ -250,58 +254,33 @@ export class MovementController { // only moves along X axis
         const terrainElevations = pts.map(({y}) => y);
         this.#terrainHeight = Math.max(...terrainElevations) - Math.min(...terrainElevations);
     }
+    #raycastPosition (x, y = undefined) {
+        const maxHeight = (y || this.#player.position.y) + (this.#player.height / 2);
+        const ray = Ray(new Vector(x, maxHeight), Vector.fromAngle((3 * Math.PI) / 2), maxHeight + 1);
+        const hits = this.#terrain.raycast(ray);
+        if (!hits.length) return undefined;
+        const hasExiting = hits.some(({entering}) => !entering);
+        const hit = (hasExiting ? hits.filter(({entering}) => entering) : hits)
+            ?.toSorted((a, b) => b.point.y - a.point.y)?.at(0);
+        return hit;
+    }
 
     move (amount) {
         this.#computeTerrainData();
         if (Math.abs(amount) >= this.#range || floatEqual(amount, 0)) return;
-        const position = this.#player.position;
-        const movingRight = amount > 0;
-        const targetX = position.x + amount;
-
-        const hits = [...this.#findValidPoints(targetX)];
-        if (!hits.length) return false;
-        const hit = hits.at(0); // should already be sorted in decesnding order (from targetX to origin)
-        if ((hit.angle >= this.#maxAngle && movingRight)
-            || (hit.angle <= -this.#maxAngle && !movingRight)) return false;
-
-        // setting position
-        position.x = hit.point.x;
-        position.y = hit.point.y + this.offsetY;
-        // setting rotation
-        this.#player.rotation.body = hit.angle;
+        const targetX = this.#player.position.x + amount;
+        const hit = this.#raycastPosition(targetX);
+        if (!hit) return false;
+        this.#setPlayer(hit.point.x, hit.point.y, hit.angle);
         return true;
     }
-    set (x) {
-        this.#computeTerrainData();
-        if (x < 1 || x >= this.#range) return;
-        const position = this.#player.position;
-        const maxHeight = position.y + this.#player.height + this.offsetY; // next position should not be going OVER this - under is still fine. (player would be falling)
-        const ray = Ray(new Vector(x, this.#terrainHeight), Vector.fromAngle((3 * Math.PI) / 2), this.#terrainHeight - 1);
-        const hits = this.#terrain.raycast(ray);
-        const hasExiting = hits.some(({entering}) => !entering);
-
-        // remove duplicate/junk raycasting hits (i did some shit wrong)
-        const hit = (hasExiting ? hits.filter(({entering}) => entering) : hits)
-            ?.toSorted((a, b) => b.point.y - a.point.y)?.at(0);
-        if (!hit) {
-            console.warn(`[${this.constructor.name}] Warning: No valid terrain found for Y position at X ${x}`, hits);
-            return false;
-        }
-        this.#setPlayer(x, hit.point.y, hit.angle);
-        return true;
-    }
-    apply (x, y) {
+    apply (x, y = 0) {
         this.#computeTerrainData();
         if (x?.isVector) {
             y = x.y;
             x = x.x;
         }
-        const maxHeight = y + this.#player.height + this.offsetY;
-        const ray = Ray(new Vector(x, maxHeight), Vector.fromAngle((3 * Math.PI) / 2), this.#terrainHeight);
-        const hits = this.#terrain.raycast(ray);
-        const hasExiting = hits.some(({entering}) => !entering);
-        const hit = (hasExiting ? hits.filter(({entering}) => entering) : hits)
-            ?.toSorted((a, b) => b.point.y - a.point.y)?.at(0);
+        const hit = this.#raycastPosition(x, y);
         if (!hit) {
             console.warn(`[${this.constructor.name}] Warning: No valid terrain found for Y position from (${x}, ${y})`, hits);
             return false;
@@ -309,43 +288,9 @@ export class MovementController { // only moves along X axis
         this.#setPlayer(x, hit.point.y, hit.angle);
         return true;
     }
-
-    *#findValidPoints (targetX) { // [!] TODO: THIS WILL ALLOW PLAYERS TO JUMP OVER PIXEL GAPS (INTENDED) BUT ALSO ALLOWS THEM TO PHASE THROUGH WALLS IF THIN ENOUGH
-        const { position, width } = this.#player;
-        const ray = Ray(new Vector(), Vector.fromAngle(Math.PI/2), this.#terrainHeight - 1);
-        const movingRight = targetX > position.x;
-        const maxHeight = position.y + (this.#player.height / 2); // next position should not be going OVER this - under is still fine. (player would be falling)
-        const nodes = this.#terrain.edgeNodes(true);
-        const overlappingHoles = this.#terrain.holes.filter((hole) => hole.isIntersecting(ray));
-        const slices = [];
-        for (const node of nodes
-                .filter(({point}) =>
-                    point.y < maxHeight
-                    && (floatEqual(point.x, targetX)
-                    || (movingRight && point.x + (width + 1) > position.x && point.x <= targetX)
-                    || (!movingRight && point.x - (width + 1) < position.x && point.x >= targetX))
-                    && !overlappingHoles.some((hole) => hole.isIntersecting(point)))
-                .toSorted((a, b) => Math.abs(targetX - a.point.x) - Math.abs(targetX - b.point.x))) // sort distance from closest to furthest to targetX
-            // add to exisiting slice
-            if (floatEqual(node.point.x, slices.at(-1)?.at(0)?.point?.x)) slices.at(-1).push(node);
-            // push a new slice
-            else slices.push([node]);
-        for (const slice of slices) {
-            slice.sort((a, b) => Math.abs(position.y - b.point.y) - Math.abs(position.y - a.point.y));
-            const { point, prevNode, nextNode, hole } = slice.at(0);
-            ray.x = point.x;
-            const inter = Path.intersectAngle(ray.at(0), ray.at(-1), prevNode, nextNode);
-            const angle = this.#normalizeAngle(inter.angle, inter.entering);
-            yield { point, angle, entering: inter.entering };
-        }
-    }
     
     get position () {
         return this.#player.position;
-    }
-
-    #normalizeAngle (radians, pointingOut) {
-        return (radians + ((pointingOut ? 3 : 1) * (Math.PI / 2))) % (2 * Math.PI);
     }
 }
 

@@ -288,7 +288,7 @@ async function init (...loaded) {
                 x = (Math.floor(Math.random() * (range + 1)) * spacing) + min;
             }
             spots.add(x);
-            mover.set(x);
+            mover.apply(x, Display.size.y + 1);
             aimer.update(players[0].tank.position.add({x: 0, y: Display.size.y})); // aim straight up and set power to 100% (1)
         }
     }
