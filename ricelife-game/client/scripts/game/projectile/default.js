@@ -92,8 +92,8 @@ export class Shot extends Projectile {
     // configuration
     static tailLength = 10;
     static tailColor = new Color(255, 255, 255, .55);
-    static glowRadius = 25;
-    static glowResolution = 5;
+    static glowRadius = 20;
+    static glowResolution = 10;
     static glowColor = new Color(255, 0, 0, .4);
     static mainColor = new Color(255, 255, 255);
     // instance
@@ -120,15 +120,11 @@ export class Shot extends Projectile {
 
     #drawGlow (cursor, shape) {
         cursor.save();
+        cursor.filter = `blur(${this.glowResolution}px)`;
         shape.draw(cursor);
-        for (let i = this.glowResolution; i <= this.glowRadius; i += this.glowResolution) {
-            const color = this.glowColor.clone();
-            const factor = (1 - (i / this.glowRadius));
-            color.a *= factor;
-            cursor.strokeStyle = color.toString();
-            cursor.lineWidth = i;
-            cursor.stroke();
-        }
+        cursor.strokeStyle = this.glowColor.toString();
+        cursor.lineWidth = this.glowRadius;
+        cursor.stroke();
         // mask out projectile space itself
         cursor.globalCompositeOperation = "destination-out";
         cursor.fill();
