@@ -59,7 +59,7 @@ export class PlayerInstance extends TrackableObject  {
         this.#applyStyling();
         this.#tank = new TankController(this.data.model.body, this.data.model.barrel, new Vector());
         this.#aimer = new AimController(this.tank, this.tank.width * 3);
-        this.#mover = new MovementController(terrain, this.tank,  -(this.tank.offset.body.y / 10));
+        this.#mover = new MovementController(terrain, this.tank,  -(this.tank.offset.body.y / 10), this.tank.height / 2);
         this.#isLoaded = true;
         for (const onload of this.onload) onload?.();
         return this; // for chaining

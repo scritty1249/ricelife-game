@@ -229,10 +229,13 @@ export class MovementController { // only moves along X axis
     #range;
     #terrainHeight;
     #player;
-    constructor (terrain, tank, offsetY = 0) {
+    offsetY;
+    climbHeight;
+    constructor (terrain, tank, offsetY = 0, climbHeight = undefined) {
         this.#player = tank;
         this.#terrain = terrain;
         this.offsetY = offsetY;
+        this.climbHeight = climbHeight;
         this.#computeTerrainData();
     }
 
@@ -255,7 +258,8 @@ export class MovementController { // only moves along X axis
         this.#terrainHeight = Math.max(...terrainElevations) - Math.min(...terrainElevations);
     }
     #raycastPosition (x, y = undefined) {
-        const maxHeight = (y || this.#player.position.y) + (this.#player.height / 2);
+        const maxHeight = (y || this.#player.position.y)
+            + (this.climbHeight * Math.sin(this.#player.rotation.body + (Math.PI/2)));
         const ray = Ray(new Vector(x, maxHeight), Vector.fromAngle((3 * Math.PI) / 2), maxHeight + 1);
         const hits = this.#terrain.raycast(ray);
         if (!hits.length) return undefined;
