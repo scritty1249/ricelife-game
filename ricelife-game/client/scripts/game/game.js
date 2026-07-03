@@ -648,9 +648,11 @@ function drawDebugOverlay (state, config) {
                 ? (3 * Math.PI) / 2
                 : Math.PI / 2;
             drawMarker(cursor, point, Vector.fromAngle(angle + offset), 4, 20, c);
-            hits[i]._path.draw(cursor, true);
-            cursor.stroke();
-            drawCircle(cursor, hits[i]._path.at(0), 5, "orange");
+            if (hits[i]?._path?.isPath) {
+                hits[i]._path.draw(cursor, true);
+                cursor.stroke();
+                drawCircle(cursor, hits[i]._path.at(0), 5, "orange");
+            }
         }
         cursor.restore();
     }
@@ -680,7 +682,6 @@ function animate (state, config) {
 
     if (elapsed < config.frameInterval) { // run any between-frame logic
     } else if (state.landing?.intersect && (state.redrawJob?.isWorkerJob && !state.redrawJob.fulfilled)) { // wait for loading to finish before updating game loop
-        console.log(true);
     } else { // redraw frame
         state.lastStamp = nowStamp - (elapsed % config.frameInterval);
         // check if background needs to be updated

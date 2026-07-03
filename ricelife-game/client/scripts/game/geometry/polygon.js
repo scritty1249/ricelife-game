@@ -25,17 +25,17 @@ export class Polygon extends TrackableObject { // points should be ordered clock
                 }
             }
         }
+        this.updateEdges(true); // [!] if edges are not computed on init, Polygons inside of Web Workers compute incorrect edge paths for entire instance lifetime. IDK why - KT
     }
 
     // optimize polygons, remove holes that are completely swallowed / overlapping with other holes
     reduceHoles () {
-        const oldHoles = this.holes;
-        const newHoles = [];
-        for (const hole of oldHoles) {
-            if (oldHoles.every((h) => h.id === hole.id || !h.isInside(hole))) newHoles.push(hole);
+        const { holes } = this;
+        const newHoles = holes.filter((hole) => holes.some((h) => h.isInside(hole)));
+        if (holes.length !== newHoles.length) {
+            holes.splice(0, holes.length)
+            for (const hole of newHoles) holes.push(hole);
         }
-        oldHoles.splice(0, oldHoles.length);
-        for (const hole of newHoles) oldHoles.push(hole);
         return this; // for chaining
     }
     // round off harsh corners
@@ -55,6 +55,7 @@ export class Polygon extends TrackableObject { // points should be ordered clock
             path.push(point);
         for (const hole of this.holes)
             hole.subsection(resolution);
+        return this; // for chaining
     }
     overlap (poly, flatten = false) { // returns an array of Path segments that are overlapping with the given polygon
         if (!poly?.isPolygon) throw new Error(`[${this.constructor.name}] Error: Cannot overlap with non-Polygon type ${typeof poly}`);
@@ -80,55 +81,53 @@ export class Polygon extends TrackableObject { // points should be ordered clock
     // [!] I have no idea what I'm doing!
     cut (poly, mutate = false) { // https://en.wikipedia.org/wiki/Greiner%E2%80%93Hormann_clipping_algorithm
         if (!poly?.isPolygon) throw new Error(`[${this.constructor.name}] Error: Cannot cut with non-Polygon type ${typeof poly}`);
-        const newPolygon = mutate ? this : this.clone();
+        const newPolygon = mutate ? this : this.clone(true);
+        if (!newPolygon.isIntersecting(poly)) return newPolygon;
 
-        // FUCKIN LINKED LISTS?
         const _nodeMap = (p) => ({ pt: p, isIntersect: false, distance: 0, entry: false, visited: false, next: null, prev: null, neighbor: null });
-        const _link = (list) => {
-            for (let i = 0; i < list.length; i++) {
-                list[i].next = list[(i + 1) % list.length];
-                list[i].next.prev = list[i];
-            }
-        };
         const thisPts = this.path.points,
             polyPts = poly.path.points,
             listThis = thisPts.map(_nodeMap),
             listPoly = polyPts.map(_nodeMap);
 
-        // setup neighbors (two way linked list) - (ew)
-        _link(listThis);
-        _link(listPoly);
-
-        // i dont even remember what the fuck this was for when i wrote it man...
-        const intersections = newPolygon.#getIntersections(poly);
-        if (intersections.length === 0) {
-            if (newPolygon.isIntersecting(polyPts[0])) {
-                const hole = poly.clone();
+        {
+            // FUCKIN LINKED LISTS?
+            const _link = (list) => {
+                for (let i = 0; i < list.length; i++) {
+                    list[i].next = list[(i + 1) % list.length];
+                    list[i].next.prev = list[i];
+                }
+            };
+            // setup neighbors (two way linked list) - (ew)
+            _link(listThis);
+            _link(listPoly);
+            const intersections = newPolygon.path.intersections(poly.path);
+            if (intersections.length === 0) {
+                const hole = poly.clone(true);
                 if (newPolygon.isClockwise) hole.path.points.reverse();
                 newPolygon.holes.push(hole);
+                return newPolygon;
             }
-            return newPolygon;
-        }
+            // populate node/point details
+            for (const inter of intersections) {
+                const thisNode = { pt: inter.point, isIntersect: true, distance: inter.coeff.self, entry: inter.entering, visited: false };
+                const thatNode = { pt: inter.point, isIntersect: true, distance: inter.coeff.other, entry: !inter.entering, visited: false };
 
-        // populate node/point details
-        for (const inter of intersections) {
-            const thisNode = { pt: inter.point, isIntersect: true, distance: inter.coeff.self, entry: inter.entering, visited: false };
-            const thatNode = { pt: inter.point, isIntersect: true, distance: inter.coeff.other, entry: !inter.entering, visited: false };
+                thisNode.neighbor = thatNode;
+                thatNode.neighbor = thisNode;
 
-            thisNode.neighbor = thatNode;
-            thatNode.neighbor = thisNode;
+                let afterThis = listThis[inter.index.self];
+                if (!afterThis) afterThis = listThis[0]; // fallback, close LL early
+                while (afterThis.next.isIntersect && afterThis.next.distance < inter.coeff.self) afterThis = afterThis.next;
+                thisNode.next = afterThis.next; thisNode.prev = afterThis;
+                thisNode.next.prev = thisNode; afterThis.next = thisNode;
 
-            let afterThis = listThis[inter.index.self];
-            if (!afterThis) afterThis = listThis[0]; // fallback, close LL early
-            while (afterThis.next.isIntersect && afterThis.next.distance < inter.coeff.self) afterThis = afterThis.next;
-            thisNode.next = afterThis.next; thisNode.prev = afterThis;
-            thisNode.next.prev = thisNode; afterThis.next = thisNode;
-
-            let afterThat = listPoly[inter.index.other];
-            if (!afterThat) afterThat = listPoly[0]; // fallback
-            while (afterThat.next.isIntersect && afterThat.next.distance < inter.coeff.other) afterThat = afterThat.next;
-            thatNode.next = afterThat.next; thatNode.prev = afterThat;
-            thatNode.next.prev = thatNode; afterThat.next = thatNode;
+                let afterThat = listPoly[inter.index.other];
+                if (!afterThat) afterThat = listPoly[0]; // fallback
+                while (afterThat.next.isIntersect && afterThat.next.distance < inter.coeff.other) afterThat = afterThat.next;
+                thatNode.next = afterThat.next; thatNode.prev = afterThat;
+                thatNode.next.prev = thatNode; afterThat.next = thatNode;
+            }
         }
 
         // BLACKBOXED LOGIC - WHAT THE HELL IS THIS?
@@ -173,7 +172,7 @@ export class Polygon extends TrackableObject { // points should be ordered clock
             newPolygon.holes.push(hole);
         } else if (polyPieces.length !== 0)
             newPolygon.path.apply(...polyPieces[0].path.points);
-        return newPolygon; //.reduceHoles();
+        return newPolygon.reduceHoles();
     }
 
     draw (cursor, close = true) { // only draw the path
@@ -280,15 +279,6 @@ export class Polygon extends TrackableObject { // points should be ordered clock
         return poly;
     }
 
-    #getIntersections (polygon) { // this will shift the starting point of the Path, but should preserve the order.
-        const thisPath = this.path.clone(),
-            thatPath = polygon.path.clone();
-        // close the paths
-        if (thisPath.length > 2) thisPath.push(thisPath.at(-1));
-        if (thatPath.length > 2) thatPath.push(thatPath.at(-1));
-        return thisPath.intersections(thatPath);
-    }
-
     Float64 (depth = undefined) {
         if (!Number.isInteger(depth) || depth < 0) throw new Error(`[${this.constructor.name}]: Invalid depth ${depth}`);
         const data = {depth};
@@ -386,9 +376,9 @@ export class Polygon extends TrackableObject { // points should be ordered clock
             .map(({points}) => points)
             .flat(1);
     }
-    updateEdges () { // check and set
+    updateEdges (force = false) { // check and set
         const edgeHash = this.hash;
-        if (this.#edgeHash !== edgeHash) {
+        if (force || this.#edgeHash !== edgeHash) {
             this.#edgeHash = edgeHash;
             this.#computeEdgeSegments();
             return true;

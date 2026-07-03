@@ -158,7 +158,6 @@ self.onmessage = async (e) => {
             result.legend = proj.getLegend(); // [!] no need to pass as transfer, we shouldn't have a large amount of collisions
             result.blasts = proj.blasts.map((blast) => blast.decode());
             if (terrainPoly.holes.length > originalHoleCount) terrainPoly.holes.splice(originalHoleCount, terrainPoly.holes.length - originalHoleCount);
-            
             postResponse(id, result);
         } else if (type === "CUTPOLY") {
             /* Payload expected:
@@ -175,6 +174,7 @@ self.onmessage = async (e) => {
                     ? getCache(subject).data?.poly
                     : getCache(subject).data?.poly?.clone(true)
                 : Polygon.fromObject(subject, subject.depth);
+            console.log(polygon.holes.length);
             for (const cut of cuts) {
                 polygon.cut(
                     typeof cut === "string"
@@ -183,6 +183,7 @@ self.onmessage = async (e) => {
                     true
                 );
             }
+            console.log(cuts.length, polygon.holes.length);
             if (subject !== cache) createCache(cache, "POLY", polygon);
             const result = {};
             let bufs = [];

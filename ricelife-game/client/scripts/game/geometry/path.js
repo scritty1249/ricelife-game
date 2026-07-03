@@ -318,9 +318,11 @@ export class Path extends TrackableObject { // points should be ordered clockwis
         return `[Path] <${this.#points.map((pt) => pt.toString()).join(", ")}>`;
     }
     clone (deep = false) {
-        return deep
+        const path = deep
             ? new Path(...this.#points.map((pt) => pt.clone()))
             : new Path(...this.#points);
+        path.isClosed = this.isClosed;
+        return path;
     }
     static fromArray (arr) {
         if (arr.length % 2 === 1) throw new Error(`[${this.constructor.name}] Error: Cannot initalize new Path from uneven array of length ${arr.length.toString()}`);

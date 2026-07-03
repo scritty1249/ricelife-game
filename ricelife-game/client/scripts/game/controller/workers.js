@@ -108,8 +108,6 @@ export class WorkerController {
             const poly = this.cutPolygon(depth, polygonid, polygonid, blasts[0].shape.Polygon(1));
             const key = `${polygonid}_c0_${uuid()}`;
             const canvas = this.#pool.initCache("CANVAS", [canvasSize.x, canvasSize.y], key);
-            await poly;
-            await canvas;
             const frame = poly
                 .then(() => canvas)
                 .then(() => this.drawTerrain(key, polygonid, terrainConfig.fill, terrainConfig.edge))
