@@ -20,7 +20,7 @@ export class WorkerController {
         await this.#pool.post("CUTPOLY", payload, transfer, [subject]);
     }
 
-    async drawTerrain (cache, polygonid, fillColor, edgeColor, gradientWidth = 150, resolution = 1) {
+    async drawTerrain (cache, polygonid, fillColor, edgeColor, gradientWidth = 75, resolution = 15) {
         await this.#pool.post(
             "DRAWTERRAIN", 
             {

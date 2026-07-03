@@ -51,14 +51,20 @@ export function drawTerrain (cursor, polygon, fillColor, edgeColor, gradientWidt
     polygon.draw(cursor);
     cursor.clip();
     cursor.globalCompositeOperation = "source-atop";
-    for (let i = 0; i <= gradientWidth; i += resolution) {
-        const alpha = (1 - (i / gradientWidth)).toFixed(2)**10;
-        cursor.lineWidth = i * 2;
-        cursor.strokeStyle = `rgba(${edgeColor.r}, ${edgeColor.g}, ${edgeColor.b}, ${alpha})`;
-        topEdge.draw(cursor);
-        for (const openHoleEdge of holeTopEdges)
-            openHoleEdge.draw(cursor);
-    }
+    cursor.filter = `blur(${resolution}px)`;
+    cursor.lineWidth = gradientWidth;
+    cursor.strokeStyle = edgeColor.toRGBA();
+    topEdge.draw(cursor);
+    for (const openEdge of holeTopEdges)
+        openEdge.draw(cursor);
+    // for (let i = 0; i <= gradientWidth; i += resolution) {
+    //     const alpha = (1 - (i / gradientWidth)).toFixed(2)**10;
+    //     cursor.lineWidth = i * 2;
+    //     cursor.strokeStyle = `rgba(${edgeColor.r}, ${edgeColor.g}, ${edgeColor.b}, ${alpha})`;
+    //     topEdge.draw(cursor);
+    //     for (const openHoleEdge of holeTopEdges)
+    //         openHoleEdge.draw(cursor);
+    // }
     cursor.restore();
     cursor.restore();
 }
