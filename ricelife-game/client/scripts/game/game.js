@@ -323,13 +323,13 @@ async function fireProjectile (shot, state, config) { // [!} laziness
     projectile.colliders.push(state.terrain);
     const muzzleFlash = generateMuzzleFlash(state, config);
     const colliders = ["lastTerrainState"];
-    for (const player of Object.values(state.players))
-        if (!player.isDead) {
-            const hb = player.tank.getHitbox().Polygon();
+    for (const plyr of Object.values(state.players))
+        if (!plyr.isDead) {
+            const hb = plyr.tank.getHitbox().Polygon();
             hb.userData.collision = Properties.Collision.PLAYER | Properties.Collision.ENTER;
-            hb.userData.position = player.tank.position.round(2, true).toJSON();
-            hb.userData.rotation = player.tank.rotation.body;
-            hb.userData.heightOffset = player.tank.height + player.mover.offsetY;
+            hb.userData.position = plyr.tank.position.round(2, true).toJSON();
+            hb.userData.rotation = plyr.tank.rotation.body;
+            hb.userData.heightOffset = plyr.tank.height + plyr.mover.offsetY;
             colliders.push(hb)
         }
     const landing = await state.threading.traceProjectile(colliders, projectile, config.traceIncrement, config.traceMaxTime);
@@ -385,14 +385,14 @@ async function fireProjectile (shot, state, config) { // [!} laziness
                     updateTerrain(state, polygon, [blastBbox]);
                     // register damage
                     if (blast.damage) {
-                        for (const player of Object.values(state.players)) {
-                            if (!player.tank.getHitbox().isIntersecting(blast.shape)) continue;
-                            player.hitpoints.damage(blast.damage);
-                            console.info(`[Main]: Registered ${blast.damage} damage on ${player.data.profile.name} from ${player.data.profile.name}`);
-                            if (player.isDead) {
+                        for (const plyr of Object.values(state.players)) {
+                            if (!plyr.tank.getHitbox().isIntersecting(blast.shape)) continue;
+                            plyr.hitpoints.damage(blast.damage);
+                            console.info(`[Main]: Registered ${blast.damage} damage on ${plyr.data.profile.name} from ${player.data.profile.name}`);
+                            if (plyr.isDead) {
                                 const ss = config.animated.explosion.clone();
-                                ss.rotation = player.tank.rotation.body;
-                                const an = new Animation(player.tank.relativePosition, ss, ss.framerate);
+                                ss.rotation = plyr.tank.rotation.body;
+                                const an = new Animation(plyr.tank.relativePosition, ss, ss.framerate);
                                 an.play();
                                 state.animations.global.push(an);
                             }
