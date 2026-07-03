@@ -174,7 +174,6 @@ self.onmessage = async (e) => {
                     ? getCache(subject).data?.poly
                     : getCache(subject).data?.poly?.clone(true)
                 : Polygon.fromObject(subject, subject.depth);
-            console.log(polygon.holes.length);
             for (const cut of cuts) {
                 polygon.cut(
                     typeof cut === "string"
@@ -183,7 +182,6 @@ self.onmessage = async (e) => {
                     true
                 );
             }
-            console.log(cuts.length, polygon.holes.length);
             if (subject !== cache) createCache(cache, "POLY", polygon);
             const result = {};
             let bufs = [];
