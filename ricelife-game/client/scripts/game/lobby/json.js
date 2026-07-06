@@ -6,7 +6,7 @@ export class LobbyJSON {
     #mainPlayerId;
     #mainPlayerTeam;
     #playerInstances;
-
+    #ammoTypes;
     // models and avatars are full of unique links of images / assets to load
     #playerModels;
     #playerAvatars;
@@ -34,6 +34,7 @@ export class LobbyJSON {
      *          decrease: Number
      *      data: PlayerData
      *          model: String (model type)
+     *          ammo: Array <String>
      *          team: Integer
      *          profile: PlayerProfile
      *              name: String
@@ -51,12 +52,15 @@ export class LobbyJSON {
             const teams = new Set();
             this.#playerAvatars = new Set();
             this.#playerModels = new Set();
+            this.#ammoTypes = new Set();
             this.#playerInstances = {};
             for (const playerJson of obj.players) {
                 this.#playerInstances[playerJson.data.profile.userid] = playerJson;
                 teams.add(playerJson.data.team);
                 this.#playerAvatars.add(playerJson.data.profile.avatar);
                 this.#playerModels.add(playerJson.data.model);
+                for (const ammoType of playerJson.data.ammo)
+                    this.#ammoTypes.add(ammoType);
             }
             this.#teamCount = teams.size;
         }
@@ -71,6 +75,7 @@ export class LobbyJSON {
     // pass non-primitives by value
     models () { return Array.from(this.#playerModels) }
     avatars () { return Array.from(this.#playerAvatars) }
+    ammoTypes () { return Array.from(this.#ammoTypes) }
     teamCount () { return this.#teamCount }
     mainPlayerTeam () { return this.#mainPlayerTeam }
     mainPlayerId () { return this.#mainPlayerId }

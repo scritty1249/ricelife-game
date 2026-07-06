@@ -2,8 +2,8 @@
 import { Polygon, Color, Vector } from "../geometry/geometry.js";
 import { drawTerrain } from "../terrain/terrain.js";
 import { CACHE_TYPES } from "./types.js";
-import { GravityController } from "../controller/controller.js";
-import { AmmoType, Properties } from "../projectile/projectile.js";
+import { Properties, traceAmmo } from "../projectile/projectile.js";
+import { AmmoPool } from "../lobby/lobby.js"; 
 
 const _queryString = self.location.search;
 const _urlParams = new URLSearchParams(_queryString);
@@ -12,8 +12,9 @@ const LOG_LEVEL = _urlParams.get("logLevel");
 const CACHE = {};
 const CHANNELS = {};
 const TRANSACTIONS = {};
-
 const CONSOLE_PREFIX = `[WebWorker] (${ID})`;
+const AMMO_TYPES = new AmmoPool(new URL('.', import.meta.url).pathname + "../projectile/types");
+
 
 function postSuccess (id) { postResponse(id) }
 
@@ -108,56 +109,13 @@ self.onmessage = async (e) => {
              * }
              */
             const { ammo, collisions, origin, angle, power, resolution, increment, limit } = payload;
+            if (!AMMO_TYPES.has(ammo)) AMMO_TYPES.add(ammo);
             const targetPolys = collisions.map((target) =>
                 typeof target === "string"
                     ? getCache(target).data?.poly
                     : Polygon.fromObject(target, target.depth));
-            const proj = new AmmoType[ammo](Vector.fromObject(origin), angle, power, resolution);
-            for (const collisionPoly of targetPolys) proj.colliders.push(collisionPoly);
-            proj.pushBlasts = true;
-            const terrainPoly = proj.colliders.find(({userData}) => userData.collision & Properties.Collision.TERRAIN);
-            const originalHoleCount = terrainPoly.holes.length;
-            const playerPolys = proj.colliders.filter(({userData}) => userData.collision & Properties.Collision.PLAYER);
-            playerPolys.forEach(({userData}) => {
-                userData.position = Vector.fromObject(userData.position);
-            });
-            const result = { finished: false, time: limit };
-            let blastsCount;
-            while (proj.time < limit && !result.finished) {
-                blastsCount = proj.blasts.length;
-                // run the trace
-                proj.update(increment);
-                // check if done
-                if (proj.isFinished) {
-                    result.time = proj.time;
-                    result.finished = true;
-                    break;
-                }
-                // update player hitboxes
-                // [!] does not track if player dies. Need to do that - KT
-                if (playerPolys.length && proj.blasts.length !== blastsCount) { // why would there ever be less?
-                    const newBlasts = proj.blasts.slice(blastsCount);
-                    for (const player of playerPolys) {
-                        if (!newBlasts.some((b) => b.shape.isIntersecting(player))) continue;
-                        // update positioning - account for "falling"
-                        const { position, rotation, heightOffset } = player.userData;
-                        const hit = GravityController.computePosition(position, heightOffset, terrainPoly);
-                        if (hit) {
-                            const { angle, point } = hit;
-                            const offset = point.sub(position);
-                            player.path.forEach((pt) => pt
-                                .pivot(angle - rotation, position, true)
-                                .add(offset, true));
-                            position.add(offset, true);
-                            player.userData.rotation = angle;
-                        }
-                    }
-                }
-            }
+            const result = traceAmmo((await AMMO_TYPES.onready(ammo)), Vector.fromObject(origin), angle, power, resolution, increment, limit, targetPolys);
             if (!result.finished) console.debug(`${CONSOLE_PREFIX}: Trace operation timed out in Transaction ${id}`);
-            result.legend = proj.getLegend(); // [!] no need to pass as transfer, we shouldn't have a large amount of collisions
-            result.blasts = proj.blasts.map((blast) => blast.decode());
-            if (terrainPoly.holes.length > originalHoleCount) terrainPoly.holes.splice(originalHoleCount, terrainPoly.holes.length - originalHoleCount);
             postResponse(id, result);
         } else if (type === "CUTPOLY") {
             /* Payload expected:

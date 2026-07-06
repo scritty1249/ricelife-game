@@ -31,7 +31,18 @@
                     "avatar": "https://cdn.discordapp.com/embed/avatars/0.png",
                     "fontFamily": "serif",
                     "userid": "1000241160"
-                }
+                },
+                "ammo": [
+                    "Basic",
+                    "Spreader",
+                    "Flower",
+                    "Digger",
+                    "Bouncer",
+                    "MegaBouncer",
+                    "GigaBouncer",
+                    "Pine",
+                    "Sniper"
+                ]
             }
         },
         {
@@ -64,7 +75,18 @@
                     "avatar": "https://cdn.discordapp.com/embed/avatars/1.png",
                     "fontFamily": "serif",
                     "userid": "1000241161"
-                }
+                },
+                "ammo": [
+                    "Basic",
+                    "Spreader",
+                    "Flower",
+                    "Digger",
+                    "Bouncer",
+                    "MegaBouncer",
+                    "GigaBouncer",
+                    "Pine",
+                    "Sniper"
+                ]
             }
         },
         {
@@ -97,7 +119,18 @@
                     "avatar": "https://cdn.discordapp.com/embed/avatars/2.png",
                     "fontFamily": "serif",
                     "userid": "1000241162"
-                }
+                },
+                "ammo": [
+                    "Basic",
+                    "Spreader",
+                    "Flower",
+                    "Digger",
+                    "Bouncer",
+                    "MegaBouncer",
+                    "GigaBouncer",
+                    "Pine",
+                    "Sniper"
+                ]
             }
         },
         {
@@ -130,7 +163,18 @@
                     "avatar": "https://cdn.discordapp.com/embed/avatars/3.png",
                     "fontFamily": "serif",
                     "userid": "1000241163"
-                }
+                },
+                "ammo": [
+                    "Basic",
+                    "Spreader",
+                    "Flower",
+                    "Digger",
+                    "Bouncer",
+                    "MegaBouncer",
+                    "GigaBouncer",
+                    "Pine",
+                    "Sniper"
+                ]
             }
         },
         {
@@ -163,7 +207,18 @@
                     "avatar": "https://cdn.discordapp.com/embed/avatars/4.png",
                     "fontFamily": "serif",
                     "userid": "1000241164"
-                }
+                },
+                "ammo": [
+                    "Basic",
+                    "Spreader",
+                    "Flower",
+                    "Digger",
+                    "Bouncer",
+                    "MegaBouncer",
+                    "GigaBouncer",
+                    "Pine",
+                    "Sniper"
+                ]
             }
         }
     ]

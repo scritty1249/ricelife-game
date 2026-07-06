@@ -1,9 +1,7 @@
-import { Vector, Color } from "../../geometry/geometry.js";
-import * as Basic from "./basic.js";
-import * as Behaviors from "../behaviors.js";
-import * as Properties from "../properties.js";
+import Bouncer from "./bouncer.js";
+import { Vector } from "../../geometry/vector.js";
 
-export class MegaBouncer extends Basic.Bouncer {
+export default class MegaBouncer extends Bouncer {
     static onBounce () {
         const { shot } = this;
         const { maxBounces } = this.userData;
@@ -61,55 +59,5 @@ export class MegaBouncer extends Basic.Bouncer {
         stage.userData.bounceGlowRadiusLimit = this.constructor.bounceGlowRadiusLimit;
         stage.userData.bounceBlastScaleFactor = this.constructor.bounceBlastScaleFactor;
         stage.userData.bounceDamageMultiplier = this.constructor.bounceDamageMultiplier;
-    }
-}
-
-export class GigaBouncer extends MegaBouncer {
-    static onBounce () {
-        Behaviors.createBlasts.call(this);
-    }
-    static onBounceCallback () {} // override, don't play bounce sfx
-    static maxBounces = 2;
-    static stopOnPlayer = false; // keep bouncing after collidiing with player
-}
-
-export class Spreader extends Basic.BasicShot {
-    static radius =  7.5;
-    static blastRadius = 25;
-    constructor (origin, angle, power = 1, resolution = 1) {
-        super(origin, angle, power, resolution);
-        const stage = this.stages[0].stages[0];
-        // adjust cosmetics
-        stage.shot.glowColor.apply(0, 212, 255);
-        stage.shot.mainColor.apply(255, 105, 180);
-        // change hitbox
-        const { blastRadius } = this.constructor;
-        const ogBlast = stage.userData.hitbox[0];
-        ogBlast.damage = 10;
-        const leftBlast = ogBlast.clone(true);
-        leftBlast.shape.moveTo(-blastRadius * 1.75);
-        leftBlast.delay = 0.25;
-        const rightBlast = leftBlast.clone(true);
-        rightBlast.shape.moveTo(-rightBlast.shape.origin.x);
-        rightBlast.delay = 0.5;
-        stage.userData.hitbox.push(leftBlast, rightBlast);
-    }
-}
-
-export class Sniper extends Basic.BasicShot {
-    constructor (origin, angle, power = 1, resolution = 1) {
-        super(origin, angle, power, resolution);
-        const stage = this.stages[0].stages[0];
-        const blast = stage.userData.hitbox[0];
-        const shot = stage.shot;
-        // adjust sizing
-        blast.damage = 60;
-        blast.shape.radius = 15;
-        shot.velocity.mul(5, true);
-        shot.current.velocity.mul(5, true);
-        shot.shape.radius = 3;
-        // adjust cosmetics
-        shot.glowRadius = 3;
-        shot.tailLength = 70;
     }
 }

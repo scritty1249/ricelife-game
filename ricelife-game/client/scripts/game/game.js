@@ -6,10 +6,9 @@ import { LoadImage, Spritesheet, Animation, ShapeAnimation, AnimationList } from
 import { WorkerPool } from "./workers/pool.js";
 import { AudioContext } from "./audio/audio.js";
 import { PlayerModel } from "./player/player.js";
-import { LobbyJSON } from "./lobby/json.js";
+import { LobbyJSON, AmmoPool } from "./lobby/lobby.js";
 import { Properties, drawBlastAnimation } from "./projectile/projectile.js";
 import * as Menu from "./menu/menu.js"
-import * as Ammo from "./projectile/ammo-types.js";
 
 const BUSY_SECONDS_THRESHOLD = 1.5; // time in seconds before the "busy" screen pops up while tracing shots
 const MAX_SHOT_TRACE_SECONDS = 30; // will trigger a landing early if timeout is exceeded- however a landing will only be traced within this time frame so early landings shouldn't be happening... -KT
@@ -66,6 +65,10 @@ export async function load () {
     const LobbyRawData = new LobbyJSON(LOBBY_DATA);
     const players = Array.from(LobbyRawData.playerInstances());
 
+    const Ammo = new AmmoPool(
+        new URL('.', import.meta.url).pathname + "projectile/types",
+        ...LobbyRawData.ammoTypes()
+    );
 
     // setup audio
     const AudioCtx = new AudioContext();
@@ -104,6 +107,7 @@ export async function load () {
     await Promise.all([
         WorkerManager.initPromise
             .catch(() => console.error("[Main] Error: WorkerPool size is zero")),
+        Ammo.onload,
         ...Object.values(vfx).map((fx) => fx.onload),
         ...Object.values(sfx).map((fx) => fx.onload),
         ...Object.values(buttons).map((btn) => btn.onload),
@@ -123,13 +127,13 @@ export async function load () {
         );
     }
 
-    init(WorkerManager, audio, players, buttons, vfx, sfx);
+    init(WorkerManager, Ammo, audio, players, buttons, vfx, sfx);
 }
 
 
 // WorkerManager, audio, await playerData, await buttons, await vfx, await sfx
 async function init (...loaded) {
-    const [ WorkerManager, {AudioCtx, AudioPlayer, audioLayers}, players, buttons, vfx, sfx ] = loaded;
+    const [ WorkerManager, Ammo, {AudioCtx, AudioPlayer, audioLayers}, players, buttons, vfx, sfx ] = loaded;
     const Workers = new WorkerController(WorkerManager);
     const Display = new AppCanvas(window.appCanvas, new Vector(1920, 1080));
     const UIInterface = new Menu.Interface();
@@ -153,6 +157,7 @@ async function init (...loaded) {
         fps: FPS,
         frameInterval: 1000 / FPS,
         display: Display,
+        ammo: Ammo,
         audio: {
             sources: sfx, // audio sources
             layers: audioLayers,
@@ -190,24 +195,14 @@ async function init (...loaded) {
         threading: Workers,
         interface: UIInterface,
         isTurn: Inputs.pointer.enabled,
-        activeShot: Ammo.BasicShot,
+        activeShot: Ammo.keys[0],
         debug: {}, // [!] store debugging related stuff here
         
         // uncertain about these. will likely refactor out in near future don't implement too much that relies on these
         projectile: undefined,
         tracer: undefined,
         landing: undefined,
-        projectileTypes: {
-            shot1: Ammo.BasicShot,
-            shot2: Ammo.Spreader,
-            shot3: Ammo.Flower,
-            shot4: Ammo.Digger,
-            shot5: Ammo.Bouncer,
-            shot6: Ammo.MegaBouncer,
-            shot7: Ammo.GigaBouncer,
-            shot8: Ammo.PineShot,
-            shot9: Ammo.Sniper
-        },
+        projectileTypes: Ammo.keys,
         animations: { global: Animations },
         impactData: [],
         drawProjectile: true,
@@ -222,8 +217,8 @@ async function init (...loaded) {
     {
         // setup functions that required loaded assets
         const bounceSfxFn = function () { config.audio.player.add(config.audio.sources.bouncer.Instance().play(), true); }
-        Ammo.Bouncer.SFX.bounce = bounceSfxFn;
-        Ammo.MegaBouncer.SFX.bounce = bounceSfxFn;
+        Ammo.get("Bouncer").SFX.bounce = bounceSfxFn;
+        Ammo.get("MegaBouncer").SFX.bounce = bounceSfxFn;
     }
     {
         // setting up UI
@@ -245,18 +240,17 @@ async function init (...loaded) {
         const shotTypeIcon = new Menu.Icon(shotTypeImage);
         shotTypeIcon.position.apply(520, 150);
         shotTypeIcon.fontSize = 16;
-        shotTypeIcon.text = state.activeShot.name;
+        shotTypeIcon.text = state.activeShot;
 
         const btns = [fireButton, selectButton, rightButton, leftButton, shotTypeIcon];
         let shotIdx = 0;
-        const shotMax = Object.keys(state.projectileTypes).length;
         // setting up button callbacks
         rightButton.onclick = rightButton.onhold = () => config.player.mover.move(config.moveIncr);
         leftButton.onclick = leftButton.onhold = () => config.player.mover.move(-config.moveIncr);
         selectButton.onclick = () => {
-            shotIdx = (shotIdx+1)%shotMax;
-            state.activeShot = state.projectileTypes[`shot${shotIdx+1}`];
-            shotTypeIcon.text = state.activeShot.name;
+            shotIdx = (shotIdx + 1) % state.projectileTypes.length;
+            state.activeShot = state.projectileTypes[shotIdx];
+            shotTypeIcon.text = state.activeShot;
         };
         fireButton.onclick = () => {
             if (state.projectile === undefined)
@@ -318,14 +312,14 @@ async function fireProjectile (shot, state, config) { // [!} laziness
     const launchOrigin = state.terrain.isIntersecting(player.tank.barrelPos)
         ? player.tank.relativePosition
         : player.tank.barrelPos;
-    const projectile = new shot(launchOrigin, player.aimer.rotation + (3 * (Math.PI / 2)), player.aimer.power);
+    const projectile = new (config.ammo.get(shot))(launchOrigin, player.aimer.rotation + (3 * (Math.PI / 2)), player.aimer.power);
     projectile.colliders.push(state.terrain);
     const muzzleFlash = generateMuzzleFlash(state, config);
     const colliders = ["lastTerrainState"];
     for (const plyr of Object.values(state.players))
         if (!plyr.isDead) {
             const hb = plyr.tank.getHitbox().Polygon();
-            hb.userData.collision = Properties.Collision.PLAYER | Properties.Collision.ENTER;
+            hb.userData.collision = Properties.PLAYER | Properties.ENTER;
             hb.userData.position = plyr.tank.position.round(2, true).toJSON();
             hb.userData.rotation = plyr.tank.rotation.body;
             hb.userData.heightOffset = plyr.tank.height + plyr.mover.offsetY;
@@ -471,18 +465,12 @@ function handleInput (state, config) {
         if (!keyboard.keyActive("debug+")) {
             if (state.projectile === undefined) {
                 if (keyboard.keyActive("shootActive"))
-                    fireProjectile(state.activeShot, state, config);
-                else
-                    for (const [keyMapping, shotType] of Object.entries(state.projectileTypes))
-                        if (keyboard.keyActive(keyMapping)) {
-                            fireProjectile(shotType, state, config)
-                                .catch((error) => {
-                                    console.error("[Main]: Projectile trace error");
-                                    config.dispatchEvent.error();
-                                    throw error;
-                                });
-                            break;
-                        }
+                    fireProjectile(state.activeShot, state, config)
+                    .catch((error) => {
+                        console.error("[Main]: Projectile trace error");
+                        config.dispatchEvent.error();
+                        throw error;
+                    });
             }
             player.tank.position.round(1/GLOBAL_RESOLUTION);
             if (keyboard.keyActive("mv+")) {
