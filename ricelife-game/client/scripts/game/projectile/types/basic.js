@@ -11,7 +11,7 @@ export default class Basic extends Default {
         const { initalSpeed, drag, radius, blastRadius } = this.constructor;
         const acceleration = this.constructor.acceleration.clone();
         // convert params for Shot(s)
-        const velocity = Vector.fromAngle(angle).mul(400 * power);
+        const velocity = Vector.fromAngle(angle).mul(initalSpeed * power);
         // init geometry
         const shape = new Circle(radius, origin);
         const shot = new Shot(origin, velocity, acceleration, drag, shape);

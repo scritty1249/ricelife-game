@@ -23,7 +23,7 @@ export default class Default extends Ammo {
         this.power = power;
         this.resolution = resolution;
         // convert params for Shot(s)
-        this.initalVelocity = Vector.fromAngle(angle).mul(400 * power);
+        this.initalVelocity = Vector.fromAngle(angle).mul(this.constructor.initalSpeed * power);
         // setup stages
         for (let i = 0; i < this.constructor.stageCount; i++) this.newStage();
     }

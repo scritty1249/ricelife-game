@@ -173,11 +173,13 @@ export class ShotStage extends TrackableObject {
             if (legend === undefined) {
                 const { shot } = this;
                 this.time += seconds;
-                this.#projectUpdate(seconds, 5);
-                this.updateCallback?.();
-                this.#trackUpdate();
-                if (!this.#isFinished && shot.isStopped)
-                    this.#setFinished();
+                if (!this.#isFinished) {
+                    this.#projectUpdate(seconds, 5);
+                    this.updateCallback?.();
+                    this.#trackUpdate();
+                    if (!this.#isFinished && shot.isStopped)
+                        this.#setFinished();
+                }
             } else {
                 this.time += seconds;
                 if (legend.collisions.length > 0
