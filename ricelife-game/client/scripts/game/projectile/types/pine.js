@@ -102,7 +102,6 @@ export default class Pine extends Default {
             const vel = needleLaunchSpeed.mul({x: (relativeIdx / halfCount), y: 0.25});
             const newNeedleShot = needleShot.clone(true);
             newNeedleShot.velocity.apply(vel);
-            newNeedleShot.current.velocity.apply(vel);
             const needleShotStage = needleStage.newStage(newNeedleShot);
             needleShotStage.userData = { hitbox };
             needleShotStage.collisionCallback = needleCollisionCallback;

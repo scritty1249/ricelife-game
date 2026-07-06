@@ -83,7 +83,7 @@ export class Projectile extends TrackableObject {
     get origin () { return this.#origin }
     get current () { return this.#current }
     get isStopped () { return floatEqual(this.speed, 0) }
-    clone () { return new Projectile(this.origin, this.velocity, this.acceleration, this.drag) }
+    clone () { return new Projectile(this.#origin.position, this.#origin.velocity, this.acceleration, this.drag) }
 }
 
 // projectile with a shape / hitbox
