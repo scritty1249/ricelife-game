@@ -6,9 +6,11 @@ import { Shot } from "../shot.js";
 
 export default class Rapid extends Default {
     static burstCount = 12;
-    static burstDelay = .2; // seconds
+    static burstDelay = .15; // seconds
+    static initalSpeed = 550;
+    static drag = 0.0005;
     static radius = 5;
-    static blastRadius = 6;
+    static blastRadius = 7;
     constructor (origin, angle, power = 1, resolution = 1) {
         super(origin, angle, power, resolution);
         // geometry config
@@ -30,6 +32,8 @@ export default class Rapid extends Default {
             );
             const velocity = Vector.fromAngle(ang).mul(initalSpeed * power);
             const shot = new Shot(origin, velocity, acceleration, drag, shape);
+            shot.glowRadius = 12;
+            shot.glowColor.apply(255, 255, 255, .4);
             const stage = multi.newStage(shot.clone(true), i * burstDelay);
             stage.userData = { hitbox };
             stage.collisionCallback = collisionCallback;
