@@ -51,6 +51,22 @@ class KeyboardListener {
         }
     }
 
+    onNextPress (keyCode = undefined) {
+        const { promise, resolve } = Promise.withResolvers();
+        const element = this.#listeningTo;
+        if (keyCode) {
+            const callback = function (event) {
+                if (event.code === keyCode) {
+                    element.removeEventListener("keydown", callback);
+                    resolve(event);
+                }
+            }
+            element.addEventListener("keydown", callback);
+        } else {
+            element.addEventListener("keydown", resolve, { once: true });
+        }
+        return promise;
+    }
     keyActive (mapping) {
         const mapped = this.activeKeys[mapping];
         if (mapped)
@@ -120,7 +136,6 @@ class PointerListener  {
             this.#holding.timeout = undefined;
         }
     }
-
     #updateDown (event) { // keep up and down event callbacks seperate for (marginal) perfomance boost
         this.#updatePosition(event);
         this.#tracking.up.stamp = undefined; // clear data from last down event
@@ -128,7 +143,6 @@ class PointerListener  {
         this.#tracking.down.position.apply(this.#tracking.position);
         this.#setHoldTimeout();
     }
-
     #updateUp (event) {
         this.#updatePosition(event);
         // click detection
@@ -138,7 +152,6 @@ class PointerListener  {
         this.#tracking.up.position.apply(this.#tracking.position);
         this.#clearHoldTimeout();
     }
-
     #updateMove (event) {
         this.#updatePosition(event);
         this.#setHoldTimeout();
@@ -151,7 +164,6 @@ class PointerListener  {
         this.#tracking.position.apply(clientX, clientY);
         this.#normalizePoint(this.#tracking.position);
     }
-
     #updateOffset (element) {
         const { position, up, down } = this.#tracking;
         {
@@ -173,19 +185,23 @@ class PointerListener  {
         if (down.stamp !== undefined)
             this.#normalizePoint(down.position);
     }
-
     #normalizePoint (point) { // this is a mutating operation!
         point.y = this.#elementSize.y - point.y;
         point.sub(this.#offset, true);
         point.mul(this.#scale, true);
         return point; // for chaining
     }
-
     #denormalizePoint (point) {
         point.div(this.#scale, true);
         point.add(this.#offset, true);
         point.y += this.#elementSize.y;
         return point; // for chaining
+    }
+    // return a promise that runs on next event
+    #onNextEvent (eventType) {
+        const { promise, resolve } = Promise.withResolvers();
+        this.#listeningTo.addEventListener(eventType, resolve, { once: true });
+        return promise;
     }
 
     resetState () {
@@ -194,6 +210,12 @@ class PointerListener  {
         this.#tracking.down.stamp = undefined;
         this.#tracking.up.position.apply(0);
         this.#tracking.up.stamp = undefined;
+    }
+    onNextClick () {
+        return this.#onNextEvent("pointerdown");
+    }
+    onNextMove () {
+        return this.#onNextEvent("pointermove"); 
     }
 
     get position () { return this.#tracking.position.clone() }

@@ -43,6 +43,7 @@ export class Ammo extends TrackableObject {
     #stageIdx = 0;
     #blasts = new Array();
     #decodeParams = new Array(); // to pass between threads
+    #launchCallback;
     constructor (colliders = [], stages = []) {
         super();
         this.#colliders = colliders;
@@ -74,6 +75,7 @@ export class Ammo extends TrackableObject {
     // create multishot stage by default
     newStage (delay = 0) {
         const stage = new MultiShotStage(delay, this.blasts, this.colliders, this.constructor.SFX);
+        stage.launchCallback = this.launchCallback;
         this.#stages.push(stage);
         if (this.#stageIdx === 0 && this.#currentStage === undefined) this.#currentStage = this.#stages[this.#stageIdx];
         return stage;
@@ -114,6 +116,12 @@ export class Ammo extends TrackableObject {
     get isFinished () { return this.isStarted && this.#currentStage === undefined }
     get time () { return this.#time }
     set time (value) { return (this.#time = value) }
+    get launchCallback () { return this.#launchCallback }
+    set launchCallback (callbackFn) {
+        for (const stage of this.stages)
+            stage.launchCallback = callbackFn;
+        return (this.#launchCallback = callbackFn);
+    }
     set pushBlasts (value) { this.stages.forEach((stage) => stage.pushBlasts = value); return value }
 }
 

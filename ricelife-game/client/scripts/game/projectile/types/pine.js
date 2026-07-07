@@ -106,6 +106,7 @@ export default class Pine extends Default {
             const needleShotStage = needleStage.newStage(newNeedleShot);
             needleShotStage.userData = { hitbox };
             needleShotStage.collisionCallback = needleCollisionCallback;
+            needleShotStage.playLaunchCallback = false;
             needleShots.push(newNeedleShot);
         }
     }

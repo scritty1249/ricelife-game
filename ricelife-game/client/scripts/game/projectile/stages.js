@@ -10,6 +10,7 @@ export class ShotStage extends TrackableObject {
     #delayTime; // don't start updating shot until this duration has passed
     #collisionCallback; // <bound to This> (point (contact point), normal (of colliding surface), collisionFlags) => undefined
     #updateCallback; // <bound to This> () => undefined
+    #launchCallback; // <bound to This> () => undefined
     #colliders; // list of polygons that can be collided with
     #isFinished = false; // trip this flag once projectile stops moving, never set again to prevent overlapping stages
     #isStarted = false; // trip this flag once we start updating projectile, never set again to prevent tracking errors
@@ -23,6 +24,8 @@ export class ShotStage extends TrackableObject {
     };
     #sfxCallback;
     #tracer = new Path();
+    #hasLaunched = false;
+    #playLaunchCallback = true;
     constructor (shot, delay = 0, blastsReference = [], collisionsReference = [], sfxCallbackReference = {}) {
         if (!shot?.isShot) throw new Error(`[${this.constructor.name}]: Invalid parameter - expected Shot, got ${typeof shot}`);
         super();
@@ -167,10 +170,13 @@ export class ShotStage extends TrackableObject {
             if (this.time <= this.delay) {
                 this.time += seconds;
                 return;   
-            };
+            } else if (!this.#hasLaunched) {
+                if (this.playLaunchCallback)
+                    this.launchCallback?.();
+                this.#hasLaunched = true;
+            }
             const { shot } = this;
-            const legend = this.#legend;
-            if (legend === undefined) {
+            if (this.isTracing) {
                 const { shot } = this;
                 this.time += seconds;
                 if (!this.#isFinished) {
@@ -181,6 +187,7 @@ export class ShotStage extends TrackableObject {
                         this.#setFinished();
                 }
             } else {
+                const legend = this.#legend;
                 this.time += seconds;
                 if (legend.collisions.length > 0
                     && this.time >= legend.collisions[0].time
@@ -240,6 +247,7 @@ export class ShotStage extends TrackableObject {
         return hitbox; // for modifying, if needed
     }
     playSfx (sfxName) {
+        if (this.isTracing) return;
         if (sfxName in this.sfxCallback) this.sfxCallback[sfxName]?.();
         else console.warn(`[${this.constructor.name}]: Unable to play SFX "${sfxName}" -  callback does not exist`);
     }
@@ -294,6 +302,7 @@ export class ShotStage extends TrackableObject {
     get isShotStage () { return true }
     get isFinished () { return this.#isFinished }
     get isStarted () { return this.#isStarted } // [!] stage tracking- may be redundant
+    get isTracing () { return this.#legend === undefined }
     get delay () { return this.#delayTime }
     get shot () { return this.#shot }
     get blasts () { return this.#blasts }
@@ -308,6 +317,10 @@ export class ShotStage extends TrackableObject {
     get updateCallback () { return this.#updateCallback }
     set updateCallback (callbackFn) { return (this.#updateCallback = callbackFn?.bind(this)) }
     get sfxCallback () { return this.#sfxCallback }
+    get launchCallback () { return this.#launchCallback }
+    set launchCallback (callbackFn) { return (this.#launchCallback = callbackFn?.bind(this)) }
+    get playLaunchCallback () { return this.#playLaunchCallback }
+    set playLaunchCallback (bool) { return (this.#playLaunchCallback = bool) }
     get pushBlasts () { return this.#pushBlasts }
     set pushBlasts (value) { return (this.#pushBlasts = value) }
     get tracer () { return this.#tracer }
@@ -326,6 +339,7 @@ export class MultiShotStage extends TrackableObject {
     #finishedPromise = Promise.withResolvers();
     #isResolved = false;
     #sfxCallback;
+    #launchCallback;
     constructor (delay = 0, blastsReference = [], collisionsReference = [], sfxCallbackReference = {}) {
         super();
         this.#delayTime = delay;
@@ -370,6 +384,7 @@ export class MultiShotStage extends TrackableObject {
     newStage (shot, delay = 0) {
         const stage = new ShotStage(shot, delay, this.blasts, this.colliders, this.sfxCallback);
         stage.blastTimeOffset = this.blastTimeOffset;
+        stage.launchCallback = this.launchCallback;
         this.#shotStages.push(stage);
         return stage;
     }
@@ -422,6 +437,12 @@ export class MultiShotStage extends TrackableObject {
     get blastTimeOffset () { return this.#blastTimeOffset }
     set blastTimeOffset (value) { return (this.#blastTimeOffset = value) }
     get sfxCallback () { return this.#sfxCallback }
+    get launchCallback () { return this.#launchCallback }
+    set launchCallback (callbackFn) {
+        for (const stage of this.stages)
+            stage.launchCallback = callbackFn;
+        return (this.#launchCallback = callbackFn);
+    }
     set pushBlasts (value) { this.stages.forEach((stage) => stage.pushBlasts = value); return value }
     get tracer () { return this.stages.map(({tracer}) => tracer) }
 }

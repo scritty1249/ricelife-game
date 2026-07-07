@@ -314,7 +314,7 @@ async function fireProjectile (shot, state, config) { // [!} laziness
         : player.tank.barrelPos;
     const projectile = new (config.ammo.get(shot))(launchOrigin, player.aimer.rotation + (3 * (Math.PI / 2)), player.aimer.power);
     projectile.colliders.push(state.terrain);
-    const muzzleFlash = generateMuzzleFlash(state, config);
+    projectile.launchCallback = projectileLaunchCallbackFactory(state, config);
     const colliders = ["lastTerrainState"];
     for (const plyr of Object.values(state.players))
         if (!plyr.isDead) {
@@ -403,22 +403,39 @@ async function fireProjectile (shot, state, config) { // [!} laziness
         state.animations.global.push(...state.animations.blast);
     }
     await state.redrawJob;
+    if (wasSetBusy) {
+        config.dispatchEvent.ready();
+        state.input.pointer.onNextClick()
+            .then(() => setProjectile(state, projectile, landing));
+    } else {
+        clearTimeout(state.dispatchBusyTimeout);
+        setProjectile(state, projectile, landing);
+    }
+}
+
+function projectileLaunchCallbackFactory (state, config) {
+    return function () {
+        const blastSizes = this.userData.hitbox
+            ?.filter((blast) => blast?.shape?.isCircle)
+            ?.map(({shape}) => shape.radii.length * 2) || [1];
+        const blastAverageSize = blastSizes.reduce((a, b) => a + b) / blastSizes.length;
+        const blastMagnitude = blastAverageSize / Math.max(config.player.tank.width, config.player.tank.height);
+        const muzzleFlashSize = (blastMagnitude * 400) * (config.player.aimer.power**3);
+        generateMuzzleFlash(state, config, muzzleFlashSize).play(); // [!] may be more efficient to preload animations instead of generating them while showing projectile onscreen
+        config.audio.player.add(config.audio.sources.fire.Instance().play(), true);
+    }
+}
+
+function setProjectile (state, projectile, landing) {
     state.landing = landing;
     state.projectile = projectile;
     state.tracer = projectile.getTracer();
-    if (wasSetBusy) {
-        config.dispatchEvent.ready();
-    } else {
-        clearTimeout(state.dispatchBusyTimeout);
-    }
-    muzzleFlash.play();
-    config.audio.player.add(config.audio.sources.fire.Instance().play(), true);
 }
 
-function generateMuzzleFlash (state, config) { // [!] laziness
+function generateMuzzleFlash (state, config, width = 600) {
     const player = config.player;
     const ss = config.animated.muzzleFlash.clone();
-    ss.width = 600 * (player.aimer.power**3);
+    ss.width = width;
     ss.rotation = player.aimer.rotation + Math.PI;
     const ani = new Animation(player.tank.barrelPos, ss, ss.framerate);
     ani.speed = 2.3;
