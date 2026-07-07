@@ -5,12 +5,13 @@ import { Blast } from "../blast.js";
 import { Shot } from "../shot.js";
 
 export default class Flower extends Default {
+    static petalCount = 7;
     static radius = 7.5;
     static blastRadius = 35;
     constructor (origin, angle, power = 1, resolution = 1) {
         super(origin, angle, power, resolution);
         // geometry config        
-        const { initalSpeed, drag, radius, blastRadius } = this.constructor;
+        const { initalSpeed, drag, radius, petalCount, blastRadius } = this.constructor;
         const acceleration = this.constructor.acceleration.clone();
         // convert params for Shot(s)
         const velocity = Vector.fromAngle(angle).mul(400 * power);
@@ -21,10 +22,17 @@ export default class Flower extends Default {
         shot.glowRadius = 20;
         shot.glowResolution = 3;
         const hitbox = [];
-        Array.from([0, 360/7, 720/7, 1080/7, 1440/7, 1800/7, 2160/7], (angle, i) => {
-                const rad = deg2rad(angle);
-                return new Circle(blastRadius, Vector.fromAngle(rad).mul(radius + (blastRadius * 1.75)))})
-            .forEach((shape, i) => hitbox.push(new Blast(shape, (i * 100) / 1000, 10)));
+        const fullCircle = Math.PI * 2;
+        for (let i = 0; i < petalCount; i++) {
+            const angle = (i / petalCount) * fullCircle;
+            const blast = new Blast(
+                new Circle(blastRadius, Vector
+                    .fromAngle(angle).mul(radius + (blastRadius * 1.75))),
+                i / 10,
+                10
+            );
+            hitbox.push(blast);
+        }
         // generate stages
         const stage = this.stages[0].newStage(shot);
         stage.userData = { hitbox };
