@@ -72,7 +72,8 @@ export class WorkerController {
         const collidersData = colliders.map((collider) =>
             collider?.isPolygon ? collider.Float64(collider.depth) : collider);
         const payload = {
-            origin, angle, power, resolution, increment, limit, ammo,
+            increment, limit, ammo,
+            params: projectile.decode(),
             collisions: collidersData
         };
         const landing = await this.#pool.post(

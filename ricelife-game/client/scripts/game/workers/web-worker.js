@@ -99,22 +99,19 @@ self.onmessage = async (e) => {
             /* Payload expected:
              * {
              *    ammo: String,
+             *    params: Array,
              *    collisions: [...Polygon64 | UUID], // at least one of these must have userData.collision flag set to Properties.Collision.TERRAIN
-             *    origin: Vector,
-             *    angle: Number, (radians)
-             *    power: Number,
-             *    resolution: Number,
              *    increment: Number,
              *    limit: Number
              * }
              */
-            const { ammo, collisions, origin, angle, power, resolution, increment, limit } = payload;
+            const { ammo, collisions, params, increment, limit } = payload;
             if (!AMMO_TYPES.has(ammo)) AMMO_TYPES.add(ammo);
             const targetPolys = collisions.map((target) =>
                 typeof target === "string"
                     ? getCache(target).data?.poly
                     : Polygon.fromObject(target, target.depth));
-            const result = traceAmmo((await AMMO_TYPES.onready(ammo)), Vector.fromObject(origin), angle, power, resolution, increment, limit, targetPolys);
+            const result = traceAmmo((await AMMO_TYPES.onready(ammo)), params, increment, limit, targetPolys);
             if (!result.finished) console.debug(`${CONSOLE_PREFIX}: Trace operation timed out in Transaction ${id}`);
             postResponse(id, result);
         } else if (type === "CUTPOLY") {

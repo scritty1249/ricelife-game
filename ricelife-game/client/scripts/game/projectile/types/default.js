@@ -4,6 +4,11 @@ import { Behavior } from "../collision/collision.js";
 
 // just for easy Ammo type construction
 export default class Default extends Ammo {
+    static encode (...params) {
+        const [o, angle, power, resolution, _ = undefined] = params;
+        const origin = Vector.fromObject(o);
+        return new this(origin, angle, power, resolution);
+    }
     // <this> context will be rebound to ShotStage
     static collisionCallback (point, normal, collisionFlags) { // default
         this.shot.current.velocity.mul(0, true);
@@ -22,6 +27,14 @@ export default class Default extends Ammo {
         this.angle = angle;
         this.power = power;
         this.resolution = resolution;
+        // store params for decoding
+        this.decodeParams.splice(
+            0, this.decodeParams.length,
+            origin.toJSON(),
+            angle,
+            power,
+            resolution
+        );
         // convert params for Shot(s)
         this.initalVelocity = Vector.fromAngle(angle).mul(this.constructor.initalSpeed * power);
         // setup stages

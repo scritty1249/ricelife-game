@@ -42,6 +42,7 @@ export class Ammo extends TrackableObject {
     #stages = new Array();
     #stageIdx = 0;
     #blasts = new Array();
+    #decodeParams = new Array(); // to pass between threads
     constructor (colliders = [], stages = []) {
         super();
         this.#colliders = colliders;
@@ -100,8 +101,10 @@ export class Ammo extends TrackableObject {
         }
     }
     getTracer () { return new AmmoTracer(this.stages) }
+    decode () { return this.decodeParams }
 
     get isAmmo () { return true }
+    get decodeParams () { return this.#decodeParams }
     get colliders () { return this.#colliders }
     get blasts () { return this.#blasts }
     get stages () { return this.#stages }
@@ -116,15 +119,12 @@ export class Ammo extends TrackableObject {
 
 export function traceAmmo (
     ammoType, // constructor
-    origin, // vector
-    angle, // radians
-    power, // Float (0-1)
-    resolution, // Integer
+    params, // Array
     increment, // Float
     limit, // Float
     collisions // [...Polygon]
 ) {
-    const ammo = new ammoType(origin, angle, power, resolution);
+    const ammo = ammoType.encode(...params);
     for (const collisionPoly of collisions) ammo.colliders.push(collisionPoly);
     ammo.pushBlasts = true;
     const terrainPoly = ammo.colliders.find(({userData}) => userData.collision & Properties.TERRAIN);
