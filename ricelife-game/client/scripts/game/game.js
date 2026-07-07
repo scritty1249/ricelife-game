@@ -1,4 +1,4 @@
-import { InputListener, AppCanvas, WorkerController } from "./controller/controller.js";
+import { InputListener, AppCanvas, WorkerController, FramerateCounter } from "./controller/controller.js";
 import { Vector, Color, Polygon, Ray, Path } from "./geometry/geometry.js";
 import { drawCircle, drawMarker, drawLine, drawText, outlineImage, rad2deg, wrapDeg } from "./utils/utils.js";
 import { drawTerrain, generateTerrain, generateWave } from "./terrain/terrain.js";
@@ -156,6 +156,7 @@ async function init (...loaded) {
         busyThreshold: 1000 * BUSY_SECONDS_THRESHOLD,
         fps: FPS,
         frameInterval: 1000 / FPS,
+        frameCounter: new FramerateCounter(30),
         display: Display,
         ammo: Ammo,
         audio: {
@@ -662,6 +663,17 @@ function drawDebugOverlay (state, config) {
     }
 }
 
+function drawFramerate (config, color = "red", font = "24px serif") {
+    const { cursor, size } = config.display;
+    cursor.save();
+    cursor.textBaseline = "top";
+    cursor.textAlign = "end";
+    cursor.fillStyle = color;
+    cursor.font = font;
+    cursor.fillText(config.frameCounter.fps, size.x - 10, size.y - 10);
+    cursor.restore();
+}
+
 function drawFrame (state, config) {
     const { cursor } = config.display;
     cursor.clear();
@@ -676,6 +688,7 @@ function drawFrame (state, config) {
         player.drawProfile(cursor);
     }
     if (state.isTurn) state.interface.draw(cursor, 1);
+    drawFramerate(config);
 }
 
 function animate (state, config) {
@@ -683,8 +696,10 @@ function animate (state, config) {
     const elapsed = nowStamp - state.lastStamp;
     const player = config.player;
     let waitPromise = state.threading.cache.background && !state.redrawJob ? Promise.resolve() : state.redrawJob;
+    let draw = true;
 
     if (elapsed < config.frameInterval) { // run any between-frame logic
+        draw = false;
     } else if (state.landing?.intersect && (state.redrawJob?.isWorkerJob && !state.redrawJob.fulfilled)) { // wait for loading to finish before updating game loop
     } else { // redraw frame
         state.lastStamp = nowStamp - (elapsed % config.frameInterval);
@@ -740,11 +755,14 @@ function animate (state, config) {
         }
     }
     waitPromise.then(() => {
-        // Draw the screen (main game loop - related polygons and images)
-        drawFrame(state, config);
-        if (DEBUG_ENABLED())
-            // [!] testing
-            drawDebugOverlay(state, config);
+        if (draw) {
+            // Draw the screen (main game loop - related polygons and images)
+            drawFrame(state, config);
+            config.frameCounter.update();
+            if (DEBUG_ENABLED())
+                // [!] testing
+                drawDebugOverlay(state, config);
+        }
         handleInput(state, config);
         requestAnimationFrame(() => animate(state, config));
     }).catch((error) => {
