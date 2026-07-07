@@ -1,4 +1,4 @@
-import { InputListener, AppCanvas, WorkerController, FramerateCounter } from "./controller/controller.js";
+import { InputListener, AppCanvas, WorkerController, FramerateCounter, Interval } from "./controller/controller.js";
 import { Vector, Color, Polygon, Ray, Path } from "./geometry/geometry.js";
 import { drawCircle, drawMarker, drawLine, drawText, outlineImage, rad2deg, wrapDeg } from "./utils/utils.js";
 import { drawTerrain, generateTerrain, generateWave } from "./terrain/terrain.js";
@@ -16,6 +16,7 @@ const FPS = 60;
 const GROUND = 350;
 const GLOBAL_RESOLUTION = Math.floor((1/3) * 10) / 10;
 const CLICK_DURATION_MS = 90;
+const TICKSPEED = 100; // milliseconds
 const INPUT_MAP = {
     Escape: "esc",
     KeyW: "mv+",
@@ -154,9 +155,9 @@ async function init (...loaded) {
 
     config = {
         busyThreshold: 1000 * BUSY_SECONDS_THRESHOLD,
-        fps: FPS,
-        frameInterval: 1000 / FPS,
         frameCounter: new FramerateCounter(30),
+        frameInterval: new Interval(1000 / FPS),
+        tickInterval: new Interval(TICKSPEED),
         display: Display,
         ammo: Ammo,
         audio: {
@@ -182,7 +183,6 @@ async function init (...loaded) {
         moveIncr: 1,
         aimIncr: (Math.PI / 180),
         powerIncr: .005,
-        traceIncrement: 1 / FPS,
         traceMaxTime: MAX_SHOT_TRACE_SECONDS,
         terrain: {
             edge: new Color("#00e8f0"),
@@ -326,7 +326,7 @@ async function fireProjectile (shot, state, config) { // [!} laziness
             hb.userData.heightOffset = plyr.tank.height + plyr.mover.offsetY;
             colliders.push(hb)
         }
-    const landing = await state.threading.traceProjectile(colliders, projectile, config.traceIncrement, config.traceMaxTime);
+    const landing = await state.threading.traceProjectile(colliders, projectile, config.tickInterval.interval / 1000, config.traceMaxTime);
     projectile.setLegend(landing.legend);
     state.impactData = [];
     if (state.debug) {
@@ -692,76 +692,71 @@ function drawFrame (state, config) {
 }
 
 function animate (state, config) {
-    const nowStamp = performance.now();
-    const elapsed = nowStamp - state.lastStamp;
     const player = config.player;
     let waitPromise = state.threading.cache.background && !state.redrawJob ? Promise.resolve() : state.redrawJob;
-    let draw = true;
-
-    if (elapsed < config.frameInterval) { // run any between-frame logic
-        draw = false;
-    } else if (state.landing?.intersect && (state.redrawJob?.isWorkerJob && !state.redrawJob.fulfilled)) { // wait for loading to finish before updating game loop
-    } else { // redraw frame
-        state.lastStamp = nowStamp - (elapsed % config.frameInterval);
-        // check if background needs to be updated
-        const blastAnimationsFinished = (!state.animations.blast || state.animations.blast.ended);
-        if (state.projectile) {
-            // trigger blast animations
-            for (const impact of state.impactData) {
-                if (impact.triggered) continue;
-                if (impact.time <= state.projectile.time) impact.play();
-            }
-            // update projectile
-            state.projectile.update(config.traceIncrement, [state.terrain]);
-            // are we done with projectile?
-            const endProjectileEarly =
-                (state.projectile.time >= config.traceMaxTime) // time out shots even if a landing exists
-                || (!state.landing.finished
-                    // time out early if theres no landing and it flew offscreen
-                    && !state.projectile.getBoundingBox().isIntersecting(config.display.getBoundingBox())
-                );
-            const isTimedout =
-                !(state.landing.finished && state.projectile.time >= state.landing.time - Number.EPSILON)
-                && endProjectileEarly;
-
-            if (endProjectileEarly) {
-                if (!blastAnimationsFinished) {
-                    // play any paused blast animations prematurely
-                    // shouldn't restart already playing animations
-                    state.animations.blast?.play();
+    if (config.tickInterval.ready) {
+        if (state.landing?.intersect && (state.redrawJob?.isWorkerJob && !state.redrawJob.fulfilled)) { // wait for loading to finish before updating game loop
+        } else { // redraw frame
+            // check if background needs to be updated
+            const blastAnimationsFinished = (!state.animations.blast || state.animations.blast.ended);
+            if (state.projectile) {
+                // trigger blast animations
+                for (const impact of state.impactData) {
+                    if (impact.triggered) continue;
+                    if (impact.time <= state.projectile.time) impact.play();
                 }
-                if (isTimedout) console.info("[Main]: Projectile timed out");
-                state.projectile = undefined;
-            } else if (state.projectile.isStopped && !blastAnimationsFinished) {
-                state.drawProjectile = false;
-            }
-            if ( // [!] could be written better
-                state.animations.blast?.ended
-                || (!state.animations.blast && isTimedout)
-            ) {
-                waitPromise = waitPromise
-                    .then(() => state.redrawJob)
-                    .then(() => {
-                        // reset projectile related state info
-                        state.projectile = state.landing = undefined;
-                        state.drawProjectile = true;
-                        state.impactData = [];
-                        delete state.animations.blast;
-                        // unlock player
-                        setTurn(state, true);
-                        return (state.redrawJob = Promise.resolve());
-                    });
+                // update projectile
+                state.projectile.update(config.tickInterval.delta / 1000, [state.terrain]);
+                // are we done with projectile?
+                const endProjectileEarly =
+                    (state.projectile.time >= config.traceMaxTime) // time out shots even if a landing exists
+                    || (!state.landing.finished
+                        // time out early if theres no landing and it flew offscreen
+                        && !state.projectile.getBoundingBox().isIntersecting(config.display.getBoundingBox())
+                    );
+                const isTimedout =
+                    !(state.landing.finished && state.projectile.time >= state.landing.time - Number.EPSILON)
+                    && endProjectileEarly;
+
+                if (endProjectileEarly) {
+                    if (!blastAnimationsFinished) {
+                        // play any paused blast animations prematurely
+                        // shouldn't restart already playing animations
+                        state.animations.blast?.play();
+                    }
+                    if (isTimedout) console.info("[Main]: Projectile timed out");
+                    state.projectile = undefined;
+                } else if (state.projectile.isStopped && !blastAnimationsFinished) {
+                    state.drawProjectile = false;
+                }
+                if ( // [!] could be written better
+                    state.animations.blast?.ended
+                    || (!state.animations.blast && isTimedout)
+                ) {
+                    waitPromise = waitPromise
+                        .then(() => state.redrawJob)
+                        .then(() => {
+                            // reset projectile related state info
+                            state.projectile = state.landing = undefined;
+                            state.drawProjectile = true;
+                            state.impactData = [];
+                            delete state.animations.blast;
+                            // unlock player
+                            setTurn(state, true);
+                            return (state.redrawJob = Promise.resolve());
+                        });
+                }
             }
         }
     }
     waitPromise.then(() => {
-        if (draw) {
+        if (config.frameInterval.ready) {
             // Draw the screen (main game loop - related polygons and images)
             drawFrame(state, config);
-            config.frameCounter.update();
             if (DEBUG_ENABLED())
                 // [!] testing
                 drawDebugOverlay(state, config);
+            config.frameCounter.update();
         }
         handleInput(state, config);
         requestAnimationFrame(() => animate(state, config));

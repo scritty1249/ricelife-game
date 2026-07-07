@@ -26,6 +26,31 @@ export class FramerateCounter {
     set length (number) { return (this.#historyLength = number) }
 }
 
+// everything this is in milliseconds
+export class Interval {
+    #interval;
+    #lastInterval = performance.now();
+    // milliseconds
+    constructor (interval) { this.#interval = interval }
+
+    #delta (time) { return time - this.#lastInterval }
+
+    freeze () { this.#lastInterval = performance.now() - this.interval }
+
+    get interval () { return this.#interval }
+    get delta () { return performance.now() - this.#lastInterval }
+    // check and set
+    get ready () {
+        const now = performance.now();
+        const delta = this.#delta(now);
+        if (delta >= this.#interval) { // access directly for speed
+            this.#lastInterval = now;
+            return true;
+        }
+        return false;
+    }
+}
+
 export class AppCanvas {
     #sizeHash;
     #bbox;
