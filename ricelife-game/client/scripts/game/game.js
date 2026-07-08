@@ -131,7 +131,6 @@ export async function load () {
     init(WorkerManager, Ammo, audio, players, buttons, vfx, sfx);
 }
 
-
 // WorkerManager, audio, await playerData, await buttons, await vfx, await sfx
 async function init (...loaded) {
     const [ WorkerManager, Ammo, {AudioCtx, AudioPlayer, audioLayers}, players, buttons, vfx, sfx ] = loaded;

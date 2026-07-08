@@ -6,10 +6,10 @@ import { TankController, AimController, MovementController } from "../controller
 
 // wrapper for anything player related. includes controllers
 export class PlayerInstance extends TrackableObject  {
-    static fromObject (obj, modelVariant = "ally") {
+    static fromObject (obj) {
         const { data, hitpoints, position } = obj;
         const h = HitPoints.fromObject(hitpoints);
-        const d = PlayerData.fromObject(data, modelVariant);
+        const d = PlayerData.fromObject(data);
         const other = new PlayerInstance(d, h);
         if (position) {
             const p = Vector.fromObject(position);
@@ -36,8 +36,6 @@ export class PlayerInstance extends TrackableObject  {
     #applyStyling () {
         const { profile, model } = this.data;
         model.body.width = 50;
-        model.barrel.scale.apply(model.body.scale);
-
         profile.fontSize = 18;
         const nameWidth = profile.getNameWidth(this.#canvasCursor);
         const profileLinePadding = 5;
@@ -52,10 +50,10 @@ export class PlayerInstance extends TrackableObject  {
         this.hitpoints.barWidth = model.body.width;
     }
 
-    async load (terrain, cursor) {
+    async load (terrain, body, barrel, cursor) {
         if (this.#isLoaded) throw new Error(`[${this.constructor.name}]: Failed to load - already loaded`);
         this.#canvasCursor = cursor;
-        await this.data.onload;
+        await this.data.load(body, barrel);
         this.#applyStyling();
         this.#tank = new TankController(this.data.model.body, this.data.model.barrel, new Vector());
         this.#aimer = new AimController(this.tank, this.tank.width * 3);

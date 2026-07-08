@@ -11,12 +11,17 @@ export class InputListener { // wrapper for K&M input
     ) {
         this.#keyboard = new KeyboardListener(window, keyCodeMap);
         this.#pointer = new PointerListener(appCanvas, clickThresholdMs, pointerCallbacks);
-        appCanvas.addEventListener("pointerleave", () => this.resetState());
+        this.pointer.listeningTo.addEventListener("pointerleave", this.resetState);
     }
 
     resetState () {
         this.keyboard.resetState();
         this.pointer.resetState();
+    }
+    close () {
+        this.pointer.listeningTo.removeEventListener("pointerleave", this.resetState);
+        this.keyboard.close();
+        this.pointer.close();
     }
 
     get keyboard () { return this.#keyboard }
@@ -40,10 +45,12 @@ class KeyboardListener {
             deleteProperty: () => false
         });
         this.#listeningTo = listenTo; // track the object
-        this.#listeningTo.addEventListener("keydown", (event) => this.#setKeyState(event, true));
-        this.#listeningTo.addEventListener("keyup", (event) => this.#setKeyState(event, false));
+        this.#listeningTo.addEventListener("keydown", this.#keyDownListener);
+        this.#listeningTo.addEventListener("keyup", this.#keyUpListener);
     }
 
+    #keyDownListener (event) { this.#setKeyState(event, true) }
+    #keyUpListener (event) { this.#setKeyState(event, false) }
     #setKeyState (event, keyDown) {
         if (Object.hasOwn(this.#keyCodeMap, event.code)) {
             this.#activeKeys[this.#keyCodeMap[event.code]][event.code] = keyDown;
@@ -81,7 +88,11 @@ class KeyboardListener {
             for (const key of Object.keys(mapping))
                 mapping[key] = false;
     }
-
+    close () {
+        this.resetState();
+        this.#listeningTo.removeEventListener("keydown", this.#keyDownListener);
+        this.#listeningTo.removeEventListener("keyup", this.#keyUpListener);
+    }
 
     get listeningTo () { return this.#listeningTo }
     get activeKeys() { return this.#activeKeysProxy }
@@ -117,9 +128,9 @@ class PointerListener  {
         this.#resizeObserver = new ResizeObserver(([{target}]) => this.#updateOffset(target));
         this.#updateOffset(this.#listeningTo);
         this.#resizeObserver.observe(this.#listeningTo);
-        this.#listeningTo.addEventListener("pointermove", (event) => this.#updateMove(event));
-        this.#listeningTo.addEventListener("pointerdown", (event) => this.#updateDown(event));
-        this.#listeningTo.addEventListener("pointerup", (event) => this.#updateUp(event));
+        this.#listeningTo.addEventListener("pointermove", this.#updateMove);
+        this.#listeningTo.addEventListener("pointerdown", this.#updateDown);
+        this.#listeningTo.addEventListener("pointerup", this.#updateUp);
     }
 
     #setHoldTimeout () {
@@ -217,7 +228,14 @@ class PointerListener  {
     onNextMove () {
         return this.#onNextEvent("pointermove"); 
     }
+    close () {
+        this.resetState();
+        this.#listeningTo.removeEventListener("pointermove", this.#updateMove);
+        this.#listeningTo.removeEventListener("pointerdown", this.#updateDown);
+        this.#listeningTo.removeEventListener("pointerup", this.#updateUp);
+    }
 
+    get listeningTo () { return this.#listeningTo }
     get position () { return this.#tracking.position.clone() }
     get isHolding () { return this.#holding.isHolding = (this.isActive && this.#holding.isHolding) }
     get isActive () { return this.#tracking.down.stamp !== undefined && this.#tracking.up.stamp === undefined }

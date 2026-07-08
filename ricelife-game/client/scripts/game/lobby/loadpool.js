@@ -1,4 +1,5 @@
 import { TrackableObject } from "../utils/utils.js";
+import { LoadImage } from "../animate/image.js";
 
 export class LoadPool extends TrackableObject {
     #pool = {};
@@ -84,4 +85,24 @@ export class AmmoPool extends LoadPool {
 
     get isAmmoPool () { return true }
     get importPath () { return this.#importPath }
+}
+
+export class AssetPool extends LoadPool {
+    add (...kwargs) {
+        if (!kwargs?.length) return;
+        const entries = [];
+        for (let i = 0; i < kwargs.length; i+=2) {
+            const key = kwargs[i];
+            const args = kwargs[i+1];
+            const type = args.shift();
+            const callback = args.shift();
+            const promise = new type(...args).onload;
+            if (callback) promise.then(callback);
+            entries.push(key, promise);
+        }
+        super.add(...entries);
+        return this; // for chaining
+    }
+
+    get isAssetPool () { return true }
 }
