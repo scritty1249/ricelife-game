@@ -250,7 +250,7 @@ export class GravityController { // lighter-weight, seperate for web workers. co
         const pts = terrain.edgePoints;
         const terrainElevations = pts.map(({y}) => y);
         const terrainHeight = Math.max(...terrainElevations) - Math.min(...terrainElevations);
-        const ray = Ray(new Vector(position.x, position.y + heightOffset), Vector.fromAngle((3 * Math.PI) / 2), terrainHeight + 1);
+        const ray = new Ray(new Vector(position.x, position.y + heightOffset), Vector.fromAngle((3 * Math.PI) / 2), terrainHeight + 1);
         const hits = terrain.raycast(ray);
         const hasExiting = hits.some(({entering}) => !entering);
         const hit = (hasExiting ? hits.filter(({entering}) => entering) : hits)
@@ -300,7 +300,7 @@ export class MovementController { // only moves along X axis
     #raycastPosition (x, y = undefined) {
         const maxHeight = (y || this.#player.position.y)
             + (this.climbHeight * Math.sin(this.#player.rotation.body + (Math.PI/2)));
-        const ray = Ray(new Vector(x, maxHeight), Vector.fromAngle((3 * Math.PI) / 2), maxHeight + 1);
+        const ray = new Ray(new Vector(x, maxHeight), Vector.fromAngle((3 * Math.PI) / 2), maxHeight + 1);
         const hits = this.#terrain.raycast(ray);
         if (!hits.length) return undefined;
         const hasExiting = hits.some(({entering}) => !entering);

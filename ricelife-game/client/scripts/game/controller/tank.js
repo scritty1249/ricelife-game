@@ -62,7 +62,7 @@ export class TankController {
     get relativePosition () { return this.position.add(this.offset.body) }
     get width () { return this.#source.body.size.x }
     get height () { return this.#source.body.size.y }
-    get barrelPos () { // gets coord at tip of barrel
+    get barrelPosition () { // gets coord at tip of barrel
         const origin = this.position.add(this.offset.barrel);
         const angle = this.rotation.barrel + (3 * (Math.PI / 2));
         return origin.project(angle, this.#source.barrel.size.y);

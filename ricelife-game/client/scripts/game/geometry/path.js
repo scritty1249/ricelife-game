@@ -412,8 +412,11 @@ export function *tweenPoints (previous, current, resolution) {
     }
 }
 
-export function Ray (origin, direction, distance = undefined) {
-    return distance === undefined
-        ? new Path(origin, direction)
-        : new Path(origin, origin.add(direction.mul(distance)));
+export class Ray extends Path {
+    constructor (origin, direction, distance = undefined) {
+        if (distance === undefined) super(origin, direction);
+        else super(origin, origin.add(direction.mul(distance)));
+    }
+
+    get isRay () { return true }
 }

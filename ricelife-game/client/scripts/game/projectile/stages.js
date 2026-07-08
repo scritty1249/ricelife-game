@@ -68,7 +68,7 @@ export class ShotStage extends TrackableObject {
                 const dir = point.sub(origin).normalize(true);
                 // only draw ray for front-facing points on the Shape
                 if (direction.dot(dir) >= 0)
-                    rays.push(Ray(point.clone(), direction.clone(), distance));
+                    rays.push(new Ray(point.clone(), direction.clone(), distance));
             }
             for (const collider of colliders) {
                 // collision flags

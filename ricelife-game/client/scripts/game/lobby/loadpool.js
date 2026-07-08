@@ -11,6 +11,7 @@ export class LoadPool extends TrackableObject {
 
     constructor () {
         super();
+        this.#regeneratePromise();
     }
 
     // [!] replaces old onload without transfering Promise chains
