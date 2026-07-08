@@ -710,10 +710,10 @@ function animate (state, config) {
                 // are we done with projectile?
                 const endProjectileEarly =
                     (state.projectile.time >= config.traceMaxTime) // time out shots even if a landing exists
-                    || (!state.landing.finished
+                    || ((!state.landing.finished || state.animations.blast.ended)
                         // time out early if theres no landing and it flew offscreen
-                        && !state.projectile.isInsideDisplay
-                    );
+                        //  or if all the blasts are done, and it flew offscreen
+                        && !state.projectile.isInsideDisplay);
                 const isTimedout =
                     !(state.landing.finished && state.projectile.time >= state.landing.time - Number.EPSILON)
                     && endProjectileEarly;
