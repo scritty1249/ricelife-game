@@ -172,6 +172,7 @@ export class Shape {
     isTriangleInside (value) { throw new Error() }
     get hash () { return this.Polygon(1).hash }
     get origin () { return new Vector() }
+    get center () { return new Vector() }
     static fromObject (payload) {
         return Shape.TYPES[payload.data.type].fromObject(payload);
     }
@@ -355,6 +356,7 @@ export class Circle extends Shape {
         return value;
     }
     get origin () { return this.blob.origin }
+    get center () { return this.blob.origin.clone() }
     static fromObject (payload) {
         const { blob, globalTransform } = payload.data;
         const { origin, radii } = blob;
@@ -537,6 +539,10 @@ export class Triangle extends Shape {
         return value;
     }
     get origin () { return this.blob.origin }
+    get center () {
+        const { origin, right, left } = this.blob;
+        return origin.add(right).add(left, true).div(3, true);
+    }
     static fromObject (payload) {
         const { blob, globalTransform } = payload.data;
         const { origin, right, left } = blob;
@@ -616,6 +622,7 @@ export class Poly extends Shape {
     get isPoly () { return true }
     get hash () { return this.polygon.hash }
     get origin () { return this.polygon.center }
+    get center () { return this.polygon.center }
     get polygon () { return this.blob.polygon }
     static fromObject (payload) {
         const { blob, globalTransform } = payload.data;

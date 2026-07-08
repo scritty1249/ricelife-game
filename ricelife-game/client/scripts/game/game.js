@@ -227,14 +227,14 @@ async function init (...loaded) {
         rightImage.height = 100;
         leftImage.height = 100;
         shotTypeImage.height = 80;
-        const fireButton = new Menu.Button(fireImage);
-        fireButton.position.apply(75, 150);
-        const selectButton = new Menu.Button(selectImage);
-        selectButton.position.apply(300, 150);
-        const rightButton = new Menu.Button(rightImage);
-        rightButton.position.apply(Display.size.x - rightImage.width - 75, 150);
-        const leftButton = new Menu.Button(leftImage);
-        leftButton.position.apply(rightButton.position.x - leftImage.width - 25, 150);
+        const fireButton = new Menu.IconButton(fireImage);
+        fireButton.setPosition(75, 150);
+        const selectButton = new Menu.IconButton(selectImage);
+        selectButton.setPosition(300, 150);
+        const rightButton = new Menu.IconButton(rightImage);
+        rightButton.setPosition(Display.size.x - rightImage.width - 75, 150);
+        const leftButton = new Menu.IconButton(leftImage);
+        leftButton.setPosition(rightButton.getPosition().x - leftImage.width - 25, 150);
 
         const shotTypeIcon = new Menu.Icon(shotTypeImage);
         shotTypeIcon.position.apply(520, 150);

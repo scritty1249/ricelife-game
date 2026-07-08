@@ -44,6 +44,7 @@ export class LoadImage extends TrackableObject {
     draw (cursor, dx, dy, normalize = true) {
         this.drawCrop(cursor, dx, dy, this.size.x, this.size.y, 0, 0, this.#size.x, this.#size.y, this.#origin, normalize);
     }
+    // [!] justified to top left
     drawCrop (cursor, dx, dy, dWidth, dHeight, sx, sy, sWidth, sHeight, origin, normalize = true) {
         cursor.save();
         const cos = Math.cos(-this.rotation);
