@@ -281,14 +281,12 @@ export class Color {
         if (typeof value === "string"
             && (matches = value.match(Color.#hexPattern)))
             [_, this.r, this.g, this.b, this.a] = Array.from(matches, (match) => parseInt(match, 16));
-        else if (Object.hasOwn(value, "r")
-            && Object.hasOwn(value, "g")
-            && Object.hasOwn(value, "b"))
+        else if (typeof value === "object" && "r" in value && "g" in value && "b" in value)
             ({r: this.r, g: this.g, b: this.b, a: this.a} = value);
         else if (b !== undefined)
             [this.r, this.g, this.b, this.a] = [value, g, b, a];
         else
-            throw new Error(`[${this.constructor.name}] Error: Cannot apply invalid type`);
+            throw new Error(`[${this.constructor.name}]: Cannot apply invalid type ${typeof value}`);
         if (!Number.isFinite(this.a))
             this.a = 1
     }

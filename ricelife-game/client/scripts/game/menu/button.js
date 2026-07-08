@@ -1,5 +1,5 @@
 import { TrackableObject, floatEqual } from "../utils/utils.js";
-import { Vector, Color, BoundingBox } from "../geometry/geometry.js";
+import { Vector, Color, BoundingBox, Polygon, Poly } from "../geometry/geometry.js";
 
 export class Icon extends TrackableObject {
     #img;
@@ -65,8 +65,6 @@ export class Button extends TrackableObject {
         super();
     }
 
-    isOver (point) { return this.getBoundingBox().isIntersecting(point) }
-
     get isButton () { return true }
     get onclick () { return this.#callback.onclick }
     set onclick(callbackFn) { return (this.#callback.onclick = callbackFn) }
@@ -77,6 +75,7 @@ export class Button extends TrackableObject {
 
     // [!] should be overridden by children
     draw (cursor) {}
+    isOver (point) { return false }
     getBoundingBox () { return new BoundingBox() }
     setPosition (x, y = null) {}
     getPosition () { return new Vector() }
@@ -96,6 +95,7 @@ export class IconButton extends Button {
     getBoundingBox () { return this.icon.getBoundingBox() }
     setPosition (x, y = null) { this.icon.position.apply(x, y) }
     getPosition () { return this.icon.position.clone() }
+    isOver (point) { return this.getBoundingBox().isIntersecting(point) }
 
     get isIconButton () { return true }
     get icon () { return this.#icon }
@@ -108,14 +108,15 @@ export class ShapeButton extends Button {
     #strokeColor = new Color(0, 0, 0, 0);
     #shape;
     constructor (shape, fill = undefined, stroke = undefined) {
+        super();
         this.#shape = shape;
         if (fill?.isColor) this.fillColor.apply(fill);
         if (stroke?.isColor) this.strokeColor.apply(stroke);
     }
 
     draw (cursor) {
-        const hasFill = floatEqual(this.fillColor.a, 0);
-        const hasStroke = floatEqual(this.strokeColor.a, 0);
+        const hasFill = !floatEqual(this.fillColor.a, 0);
+        const hasStroke = !floatEqual(this.strokeColor.a, 0);
         cursor.save();
         if (hasFill) cursor.fillStyle = this.fillColor.toString();
         if (hasStroke) cursor.strokeStyle = this.strokeColor.toString();
@@ -136,6 +137,7 @@ export class ShapeButton extends Button {
         transformation.restore();
     }
     getPosition () { return this.shape.origin.clone() }
+    isOver (point) { return this.shape.isIntersecting(point) }
 
     get isShapeButton () { return true }
     get fillColor () { return this.#fillColor }
@@ -143,4 +145,19 @@ export class ShapeButton extends Button {
     get shape () { return this.#shape }
     get width () { return this.getBoundingBox().width }
     get height () { return this.getBoundingBox().height }
+}
+
+export class HexagonButton extends ShapeButton {
+    static *#generateSides (length) {
+        for (let i = 0; i < 6; i++)
+            yield Vector.fromAngle((i * Math.PI) / 3 + Math.PI / 2)
+                .mul(length, true);
+    }
+
+    constructor (legLength = 10, fill = undefined, stroke = undefined) {
+        const hexagon = new Polygon(...HexagonButton.#generateSides(legLength));
+        super(new Poly(hexagon), fill, stroke);
+    }
+
+    isHexagonButton () { return true }
 }
