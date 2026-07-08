@@ -44,6 +44,7 @@ export class Ammo extends TrackableObject {
     #blasts = new Array();
     #decodeParams = new Array(); // to pass between threads
     #launchCallback;
+    #displayBoundingBox;
     constructor (colliders = [], stages = []) {
         super();
         this.#colliders = colliders;
@@ -76,6 +77,7 @@ export class Ammo extends TrackableObject {
     newStage (delay = 0) {
         const stage = new MultiShotStage(delay, this.blasts, this.colliders, this.constructor.SFX);
         stage.launchCallback = this.launchCallback;
+        stage.displayBoundingBox = this.displayBoundingBox;
         this.#stages.push(stage);
         if (this.#stageIdx === 0 && this.#currentStage === undefined) this.#currentStage = this.#stages[this.#stageIdx];
         return stage;
@@ -106,6 +108,7 @@ export class Ammo extends TrackableObject {
     decode () { return this.decodeParams }
 
     get isAmmo () { return true }
+    get isInsideDisplay () { return this.stages.some(({isInsideDisplay}) => isInsideDisplay) } // [!] will return shot as in-bounds if a display bbox is not set
     get decodeParams () { return this.#decodeParams }
     get colliders () { return this.#colliders }
     get blasts () { return this.#blasts }
@@ -121,6 +124,12 @@ export class Ammo extends TrackableObject {
         for (const stage of this.stages)
             stage.launchCallback = callbackFn;
         return (this.#launchCallback = callbackFn);
+    }
+    get displayBoundingBox () { return this.#displayBoundingBox }
+    set displayBoundingBox (bbox) {
+        for (const stage of this.stages)
+            stage.displayBoundingBox = bbox;
+        return (this.#displayBoundingBox = bbox);
     }
     set pushBlasts (value) { this.stages.forEach((stage) => stage.pushBlasts = value); return value }
 }

@@ -26,6 +26,7 @@ export class ShotStage extends TrackableObject {
     #tracer = new Path();
     #hasLaunched = false;
     #playLaunchCallback = true;
+    #displayBoundingBox; // optimization- when set, will only draw shot if bounding box intersects with it
     constructor (shot, delay = 0, blastsReference = [], collisionsReference = [], sfxCallbackReference = {}) {
         if (!shot?.isShot) throw new Error(`[${this.constructor.name}]: Invalid parameter - expected Shot, got ${typeof shot}`);
         super();
@@ -210,10 +211,12 @@ export class ShotStage extends TrackableObject {
         }
     }
     draw (cursor) {
+        if (!this.isInsideDisplay) return;
         const { isStarted, isFinished, shot, delay, time } = this;
         if (isStarted && !isFinished && time > delay) shot.draw(cursor);
     }
     drawGlow (cursor) {
+        if (!this.isInsideDisplay) return;
         const { isStarted, isFinished, shot, delay, time } = this;
         if (isStarted && !isFinished && time > delay) {
             shot.drawTailGlow(cursor);
@@ -221,6 +224,7 @@ export class ShotStage extends TrackableObject {
         }
     }
     drawBody (cursor) {
+        if (!this.isInsideDisplay) return;
         const { isStarted, isFinished, shot, delay, time } = this;
         if (isStarted && !isFinished && time > delay) {
             shot.drawTail(cursor);
@@ -303,6 +307,11 @@ export class ShotStage extends TrackableObject {
     get isFinished () { return this.#isFinished }
     get isStarted () { return this.#isStarted } // [!] stage tracking- may be redundant
     get isTracing () { return this.#legend === undefined }
+    get isInsideDisplay () { // [!] will return shot as in-bounds if a display bbox is not set
+        const { displayBoundingBox, shot } = this;
+        if (!displayBoundingBox) return true;
+        return displayBoundingBox.isIntersecting(shot.getBoundingBox(true));
+    }
     get delay () { return this.#delayTime }
     get shot () { return this.#shot }
     get blasts () { return this.#blasts }
@@ -323,6 +332,8 @@ export class ShotStage extends TrackableObject {
     set playLaunchCallback (bool) { return (this.#playLaunchCallback = bool) }
     get pushBlasts () { return this.#pushBlasts }
     set pushBlasts (value) { return (this.#pushBlasts = value) }
+    get displayBoundingBox () { return this.#displayBoundingBox }
+    set displayBoundingBox (bbox) { return (this.#displayBoundingBox = bbox) }
     get tracer () { return this.#tracer }
 }
 
@@ -340,6 +351,7 @@ export class MultiShotStage extends TrackableObject {
     #isResolved = false;
     #sfxCallback;
     #launchCallback;
+    #displayBoundingBox;
     constructor (delay = 0, blastsReference = [], collisionsReference = [], sfxCallbackReference = {}) {
         super();
         this.#delayTime = delay;
@@ -385,6 +397,7 @@ export class MultiShotStage extends TrackableObject {
         const stage = new ShotStage(shot, delay, this.blasts, this.colliders, this.sfxCallback);
         stage.blastTimeOffset = this.blastTimeOffset;
         stage.launchCallback = this.launchCallback;
+        stage.displayBoundingBox = this.displayBoundingBox;
         this.#shotStages.push(stage);
         return stage;
     }
@@ -429,6 +442,7 @@ export class MultiShotStage extends TrackableObject {
     get colliders () { return this.#colliders } 
     get isFinished () { return this.size === 0 || this.stages.every(({isFinished}) => isFinished) }
     get isStarted () { return this.#isStarted } // [!] stage tracking- may be redundant
+    get isInsideDisplay () { return this.stages.some(({isInsideDisplay}) => isInsideDisplay) } // [!] will return shot as in-bounds if a display bbox is not set
     get delay () { return this.#delayTime }
     get stages () { return this.#shotStages }
     get onend () { return this.#finishedPromise.promise }
@@ -442,6 +456,12 @@ export class MultiShotStage extends TrackableObject {
         for (const stage of this.stages)
             stage.launchCallback = callbackFn;
         return (this.#launchCallback = callbackFn);
+    }
+    get displayBoundingBox () { return this.#displayBoundingBox }
+    set displayBoundingBox (bbox) {
+        for (const stage of this.stages)
+            stage.displayBoundingBox = bbox;
+        return (this.#displayBoundingBox = bbox);
     }
     set pushBlasts (value) { this.stages.forEach((stage) => stage.pushBlasts = value); return value }
     get tracer () { return this.stages.map(({tracer}) => tracer) }

@@ -314,6 +314,7 @@ async function fireProjectile (shot, state, config) { // [!} laziness
     const projectile = new (config.ammo.get(shot))(launchOrigin, player.aimer.rotation + (3 * (Math.PI / 2)), player.aimer.power);
     projectile.colliders.push(state.terrain);
     projectile.launchCallback = projectileLaunchCallbackFactory(state, config);
+    projectile.displayBoundingBox = config.display.getBoundingBox();
     const colliders = ["lastTerrainState"];
     for (const plyr of Object.values(state.players))
         if (!plyr.isDead) {
@@ -711,7 +712,7 @@ function animate (state, config) {
                     (state.projectile.time >= config.traceMaxTime) // time out shots even if a landing exists
                     || (!state.landing.finished
                         // time out early if theres no landing and it flew offscreen
-                        && !state.projectile.getBoundingBox().isIntersecting(config.display.getBoundingBox())
+                        && !state.projectile.isInsideDisplay
                     );
                 const isTimedout =
                     !(state.landing.finished && state.projectile.time >= state.landing.time - Number.EPSILON)

@@ -130,6 +130,32 @@ export class Shot extends Projectile {
         cursor.globalCompositeOperation = "source-over";
         cursor.restore();
     }
+    // call just before updating position
+    #updateTail () {
+        // reset scaling
+        const minScale = 1 / this.tail.length;
+        for (let i = 0; i < this.tail.length; i++) {
+            const tail = this.tail[i];
+            const scale = minScale + (i / this.tail.length);
+            tail.transformation.save();
+            tail.transformation.reset();
+            tail.transformation.scale.apply(scale === 0 ? 0 : 1 / scale);
+            tail.applyTransformation();
+            tail.transformation.restore();
+        }
+        this.tail.push(this.shape.clone(true));
+        if (this.tail.length >= this.tailLength) this.tail.shift();
+        // apply new scaling
+        for (let i = 0; i < this.tail.length; i++) {
+            const tail = this.tail[i];
+            const scale = minScale + (i / this.tail.length);
+            tail.transformation.save();
+            tail.transformation.reset();
+            tail.transformation.scale.apply(scale);
+            tail.applyTransformation();
+            tail.transformation.restore();
+        }
+    }
 
     draw (cursor) {
         this.drawTailGlow(cursor);
@@ -147,18 +173,8 @@ export class Shot extends Projectile {
     drawTail (cursor) {
         cursor.save();
         cursor.fillStyle = this.tailColor.toString();
-        const minScale = 1 / this.tail.length;
-        for (let i = 0; i < this.tail.length; i++) {
-            const tail = this.tail[i];
-            const scale = minScale + (i / this.tail.length);
-            tail.transformation.save();
-            tail.transformation.reset();
-            tail.transformation.scale.apply(scale);
-            tail.applyTransformation();
+        for (const tail of this.tail) {
             tail.draw(cursor, true);
-            tail.transformation.scale.apply(scale === 0 ? 0 : 1 / scale);
-            tail.applyTransformation();
-            tail.transformation.restore();
             cursor.fill();
         }
         cursor.restore();
@@ -169,29 +185,19 @@ export class Shot extends Projectile {
     drawTailGlow (cursor) {
         cursor.save();
         cursor.fillStyle = this.tailColor.toString();
-        const minScale = 1 / this.tail.length;
-        for (let i = 0; i < this.tail.length; i++) {
-            const tail = this.tail[i];
-            const scale = minScale + (i / this.tail.length);
-            tail.transformation.save();
-            tail.transformation.reset();
-            tail.transformation.scale.apply(scale);
-            tail.applyTransformation();
+        for (const tail of this.tail) {
             this.#drawGlow(cursor, tail);
-            tail.transformation.scale.apply(scale === 0 ? 0 : 1 / scale);
-            tail.applyTransformation();
-            tail.transformation.restore();
             cursor.fill();
         }
         cursor.restore();
     }
-    applyPosition (vector) {
+    applyPosition (vector, updateTail = false) {
+        if (updateTail) this.#updateTail();
         this.shape.moveTo(vector);
         this.position.apply(vector);
     }
     update (seconds = 1) {
-        if (this.tail.length >= this.tailLength) this.tail.shift();
-        this.tail.push(this.shape.clone(true));
+        this.#updateTail();
         this.shape.moveTo(super.update(seconds));
         return this.position; // for chaining
     }
@@ -220,6 +226,23 @@ export class Shot extends Projectile {
             }
         } else return undefined; // signal nothing is intersecting
         return intersections;
+    }
+    // get bounding box of shape, optionally include bounding box of visual effects (ex: glow, tail)
+    // [!] returns a clone if includeFx = true
+    getBoundingBox (includeFx = false) {
+        const { shape } =  this;
+        if (!includeFx) return shape.getBoundingBox();
+        const bbox = shape.getBoundingBox().clone();
+        const glowSize = this.glowRadius + this.glowResolution;
+        bbox.min.sub(glowSize, true);
+        bbox.max.add(glowSize, true);
+        for (const tail of this.tail) {
+            const bb = tail.getBoundingBox().clone();
+            bb.min.sub(glowSize, true);
+            bb.max.add(glowSize, true);
+            bbox.merge(bb, true);
+        }
+        return bbox;
     }
     clone (deep = false) { 
         const shot = new Shot(this.origin.position, this.origin.velocity, this.acceleration, this.drag, this.shape.clone(deep));
