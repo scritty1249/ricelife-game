@@ -16,7 +16,7 @@ const FPS = 60;
 const GROUND = 350;
 const GLOBAL_RESOLUTION = Math.floor((1/3) * 10) / 10;
 const CLICK_DURATION_MS = 90;
-const TICKSPEED = 100; // milliseconds
+const TICKSPEED = 10; // milliseconds, must be lower than framerate
 const INPUT_MAP = {
     Escape: "esc",
     KeyW: "mv+",
@@ -208,10 +208,8 @@ async function init (...loaded) {
         impactData: [],
         drawProjectile: true,
 
-
         players: Object.fromEntries(Array.from(players, (p) => [p.id, p])),
         terrain: Terrain,
-        lastStamp: performance.now(),
         redrawJob: Workers.drawTerrain("background", "lastTerrainState", config.terrain.fill, config.terrain.edge)
             .then(() => Workers.updateCache("background"))
     };
@@ -694,6 +692,7 @@ function drawFrame (state, config) {
 function animate (state, config) {
     const player = config.player;
     let waitPromise = state.threading.cache.background && !state.redrawJob ? Promise.resolve() : state.redrawJob;
+    const delta = config.tickInterval.delta;
     if (config.tickInterval.ready) {
         if (state.landing?.intersect && (state.redrawJob?.isWorkerJob && !state.redrawJob.fulfilled)) { // wait for loading to finish before updating game loop
         } else { // redraw frame
@@ -706,7 +705,7 @@ function animate (state, config) {
                     if (impact.time <= state.projectile.time) impact.play();
                 }
                 // update projectile
-                state.projectile.update(config.tickInterval.delta / 1000, [state.terrain]);
+                state.projectile.update(delta / 1000, [state.terrain]);
                 // are we done with projectile?
                 const endProjectileEarly =
                     (state.projectile.time >= config.traceMaxTime) // time out shots even if a landing exists

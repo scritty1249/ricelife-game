@@ -16,9 +16,11 @@ export default class Rapid extends Default {
     static burstAccuracy = .4; // percentage chance that the angle will be within tight spread
     static burstCount = 12;
     static burstDelay = .15; // seconds
+
+    static acceleration = new Vector(30, -140);
     static initalSpeed = 550;
     static drag = 0.0005;
-    static radius = 5;
+    static radius = 3;
     static blastRadius = 7;
     constructor (origin, angle, power = 1, resolution = 1, seed = Random.seed()) {
         super(origin, angle, power, resolution);
