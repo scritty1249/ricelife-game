@@ -631,7 +631,7 @@ export class RoundController extends LoopController {
         if (Global.flags.DEBUG) this.#drawDebugOverlay();
         this.#drawFramerate();
     }
-    async loop (delta) {
+    async tick (delta) {
         const { Animations, Global, store, flags } = this;
         if (store.shot.map?.intersect && (store.prerender?.isWorkerJob && !store.prerender.fulfilled)) { // wait for loading to finish before updating game loop
         } else { // do next tick / game update

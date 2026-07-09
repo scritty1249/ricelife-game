@@ -70,9 +70,14 @@ export class MainController extends LoopController {
             },
             "./assets/blast/explosion_ss_512x512.png", 512, 512, 25];
     }
+    #assertLoop (loop) {
+        if (!loop?.isLoopController) throw new Error(`[${this.constructor.name}]: ${loop?.constructor?.name || typeof loop} is not a LoopController`);
+        else if (!("animate" in loop && typeof loop.animate === "function")) throw new Error(`[${this.constructor.name}]: ${loop?.constructor?.name || typeof loop} is not animatable`);
+    }
 
     async transferLoop (newLoop) {
         this.state = this.constructor.STATES.Busy;
+        this.#assertLoop(newLoop); // panic if we don't get a valid loop
         const { activeLoop } = this;
         if (activeLoop) {
             if (activeLoop.Threaded) await activeLoop.close();
@@ -85,17 +90,19 @@ export class MainController extends LoopController {
         this.state = this.constructor.STATES.Ready;
     }
     async loop () {
+        this.tick();
+        super.loop();
+    }
+    async tick () {
         if (this.state === this.constructor.STATES.Ready
             && this.activeLoop?.state === this.constructor.STATES.Ready
         ) {
-            const { delta } = this.TickInterval;
-            if (this.TickInterval.ready) await this.activeLoop?.loop?.(delta);
+            if (this.TickInterval.ready) await this.activeLoop?.tick?.(this.TickInterval.lastDelta);
             if (this.FrameInterval.ready) {
                 this.activeLoop.animate();
                 this.FrameCounter.update();
             }
         }
-        requestAnimationFrame(() => super.loop());
     }
     close () {
         this.state = this.constructor.STATES.Busy;

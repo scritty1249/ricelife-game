@@ -26,10 +26,13 @@ export class LoopController extends TrackableObject {
         this.#Audio.Player = audioContext.Layer();
     }
 
-    async loop (delta = undefined) {
+    async loop () {
         if (this.flags.EXIT) return;
-        this.loop(delta);
+        // don't loop unless method has been overrided by child
+        if (this.constructor !== LoopController)
+            requestAnimationFrame(() => this.loop());
     }
+    async tick (delta) {}
     async loadAsset (key, ...args) { return this.AssetPool.add(key, args?.length ? args : this.AssetTable[key]).onload }
     exit () { this.flags.EXIT = true }
     close () {
