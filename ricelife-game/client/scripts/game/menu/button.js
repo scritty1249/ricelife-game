@@ -146,18 +146,3 @@ export class ShapeButton extends Button {
     get width () { return this.getBoundingBox().width }
     get height () { return this.getBoundingBox().height }
 }
-
-export class HexagonButton extends ShapeButton {
-    static *#generateSides (length) {
-        for (let i = 0; i < 6; i++)
-            yield Vector.fromAngle((i * Math.PI) / 3 + Math.PI / 2)
-                .mul(length, true);
-    }
-
-    constructor (legLength = 10, fill = undefined, stroke = undefined) {
-        const hexagon = new Polygon(...HexagonButton.#generateSides(legLength));
-        super(new Poly(hexagon), fill, stroke);
-    }
-
-    isHexagonButton () { return true }
-}
