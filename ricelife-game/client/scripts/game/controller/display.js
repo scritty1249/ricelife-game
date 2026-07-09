@@ -76,6 +76,7 @@ export class AppCanvas {
 
     get cursor () { return this.#cursor }
     get size () { return this.#size }
+    get center () { return this.size.div(2) }
 }
 
 // Transforms world coorindates to canvas drawing coordinates. May be redundant / excessive
