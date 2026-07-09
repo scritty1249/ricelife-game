@@ -33,7 +33,6 @@ The demo is available on Github Pages at: https://scritty1249.github.io/ricelife
 #### Controls
 - **W,A,S,D:** Forward, Left, Backward, Right
 - **Space:** Shoot currently selected ammo type
-- **1-9,0:** Shoot ammo type 1-10
 - **Arrow Up:** Increase shot power
 - **Arrow Down:** Decrease shot power
 - **Arrow Left:** Aim Left
@@ -41,13 +40,3 @@ The demo is available on Github Pages at: https://scritty1249.github.io/ricelife
 
 > Mouse and Touch support:\
 > *Dragging from anywhere inside of the aiming circle around the player's character will also set the aim and shot power*
-
-#### Debugging support
-The follow URL query parameters will have visible impact on the demo.
-- `debug = true`**:** Will enable the debugger overlay, showing extra information about raycasters and collision boxes.
-    - This can also be done by setting `debugTools = true` on the window object (*global console scope*). This value takes precedence over the `debug` URL parameter.
-- `map = flat`**:** Will load flat terrain.
-    - Setting this parameter to anything else or omitting it will cause the terrain generation to default to the normal, randomized, curvy terrain.
-
-## Known Bugs
-- Players may be able to phase through vertical terrain (*"walls"*) if the terrain is thin enough
