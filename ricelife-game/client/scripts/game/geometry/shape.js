@@ -638,7 +638,7 @@ export class Poly extends Shape {
 // [!] origin is at polygon center, instead of tip
 export class Equigon extends Poly {
     static *#generateSides (sides, length) {
-        const step = (2 * Math.PI) / sideCount;
+        const step = (2 * Math.PI) / sides;
         const radius = length / (2 * Math.sin(Math.PI / sides));
         for (let i = 0; i < sides; i++)
             yield Vector.fromAngle((i * step) + Math.PI / 2)

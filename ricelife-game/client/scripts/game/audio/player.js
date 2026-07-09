@@ -241,10 +241,10 @@ class AudioLayer extends TrackableObject {
         this.#input.connect(this.#gain);
     }
 
-    play () { for (const item of this.#items) item.play() }
-    pause () { for (const item of this.#items) item.pause() }
-    stop () { for (const item of this.#items) item.stop() }
-    reset () { for (const item of this.#items) item.reset() }
+    play () { for (const item of this.items) item.play() }
+    pause () { for (const item of this.items) item.pause() }
+    stop () { for (const item of this.items) item.stop() }
+    reset () { for (const item of this.items) item.reset() }
     add (audio, ephemeral = false) { // ephemeral will delete the audio after it is finished playing
         // can accept AudioInstance or AudioLayer
         audio.connect(this.#input);
