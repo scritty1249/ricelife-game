@@ -64,7 +64,7 @@ export class Transformation {
     toJSON () { return {scale: this.scale.toJSON(), offset: this.offset.toJSON(), rotation: this.angle } } // pass rotation as radians (Number) to save memory
 
     get isTransformation () { return true }
-    get hasUpdate () { return this.scale.eq(Transformation.#DEFAULT.scl) && this.offset.eq(Transformation.#DEFAULT.off) && this.rotation.eq(Transformation.#DEFAULT.rot) }
+    get hasUpdate () { return this.scale.eq(Transformation.#DEFAULT.scl) || this.offset.eq(Transformation.#DEFAULT.off) || this.rotation.eq(Transformation.#DEFAULT.rot) }
     get scale () { return this.#scale }
     set scale (value) { return this.#scale.apply(value) }
     get offset () { return this.#offset }
