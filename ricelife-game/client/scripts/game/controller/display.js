@@ -1,7 +1,7 @@
 import { Vector, BoundingBox } from "../geometry/geometry.js";
 
 // counts framerate
-export class FramerateCounter {
+export class FrameCounter {
     #historyLength;
     #history = new Array();
     #lastUpdateAt = performance.now();

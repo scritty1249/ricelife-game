@@ -201,6 +201,8 @@ export class WorkerController {
     async updateCache (id, transfer = false) { await this.#pool.pullCache(id, transfer, true) }
     async destroyCache (id) { return await this.#pool.dropCache(id) }
     async hashCache (id) { return await this.#pool.hashCache(id) }
+    terminate () { this.#pool.terminate() }
 
     get cache() { return this.#pool.cache }
+    get onload () { return this.#pool.onload }
 }

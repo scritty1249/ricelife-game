@@ -27,8 +27,8 @@
                 "model": "basic",
                 "team": 0,
                 "profile": {
-                    "name": "Blurple",
-                    "avatar": "https://cdn.discordapp.com/embed/avatars/0.png",
+                    "name": "Greyple",
+                    "avatar": "https://cdn.discordapp.com/embed/avatars/1.png",
                     "fontFamily": "serif",
                     "userid": "1000241160"
                 },
@@ -72,8 +72,8 @@
                 "model": "basic",
                 "team": 0,
                 "profile": {
-                    "name": "Greyple",
-                    "avatar": "https://cdn.discordapp.com/embed/avatars/1.png",
+                    "name": "Blurple",
+                    "avatar": "https://cdn.discordapp.com/embed/avatars/0.png",
                     "fontFamily": "serif",
                     "userid": "1000241161"
                 },

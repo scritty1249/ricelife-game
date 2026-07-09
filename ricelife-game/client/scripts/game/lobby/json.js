@@ -47,6 +47,17 @@ export class LobbyJSON {
         if (this.#isLoaded) return;
         this.#isLoaded = true;
         {
+            // set main player id
+            this.#mainPlayerId = obj.self;
+            // set main player team
+            for (const { data } of obj.players) {
+                if (data.profile.userid === this.#mainPlayerId) {
+                    this.#mainPlayerTeam = data.team;
+                    break;
+                }
+            }
+        }
+        {
             // count number of teams
             // collect all model types
             const teams = new Set();
@@ -58,23 +69,21 @@ export class LobbyJSON {
                 this.#playerInstances[playerJson.data.profile.userid] = playerJson;
                 teams.add(playerJson.data.team);
                 this.#playerAvatars.add(playerJson.data.profile.avatar);
-                this.#playerModels.add(playerJson.data.model);
+                this.#playerModels.add(
+                    playerJson.data.model + "/"
+                    + (playerJson.data.profile.userid === this.#mainPlayerId
+                        ? "self" : playerJson.data.team === this.#mainPlayerTeam
+                            ? "ally" : "enemy"));
                 for (const ammoType of playerJson.data.ammo)
                     this.#ammoTypes.add(ammoType);
             }
             this.#teamCount = teams.size;
         }
-        {
-            // set main player id
-            // set main player team id (find outside of loop, so we can determine if it exists in the lobby or not)
-            this.#mainPlayerId = obj.self;
-            this.#mainPlayerTeam = this.#playerInstances[this.#mainPlayerId].data.team;
-        }
     }
 
     // pass non-primitives by value
-    models () { return Array.from(this.#playerModels) }
     avatars () { return Array.from(this.#playerAvatars) }
+    modelTypes () { return Array.from(this.#playerModels) }
     ammoTypes () { return Array.from(this.#ammoTypes) }
     teamCount () { return this.#teamCount }
     mainPlayerTeam () { return this.#mainPlayerTeam }
@@ -83,15 +92,13 @@ export class LobbyJSON {
     *playerInstances () {
         {
             // return "main" player first
-            const main = PlayerInstance.fromObject(this.#playerInstances[this.#mainPlayerId], "self");
+            const main = PlayerInstance.fromObject(this.#playerInstances[this.#mainPlayerId]);
             main.isMain = true;
             yield main;
         } 
         for (const [id, obj] of Object.entries(this.#playerInstances)) {
             if (id === this.#mainPlayerId) continue;
-            const modelVariant = obj.data.team === this.#mainPlayerTeam
-                    ? "ally" : "enemy";
-            yield PlayerInstance.fromObject(obj, modelVariant);
+            yield PlayerInstance.fromObject(obj);
         }
     }
 }

@@ -4,9 +4,9 @@ import { HitPoints } from "./hitpoints.js";
 
 // wraps all player related data
 export class PlayerData {
-    static fromObject (obj, modelVariant = "ally") {
+    static fromObject (obj) {
         const { profile, model, team } = obj;
-        const m = new PlayerModel(`${model}_${modelVariant}`);
+        const m = new PlayerModel(model);
         const p = PlayerProfile.fromObject(profile);
         return new PlayerData(m, p, team);
     }
@@ -19,6 +19,10 @@ export class PlayerData {
         this.#team = team;
     }
 
+    async load (bodyImage, barrelImage) {
+        this.model.load(bodyImage, barrelImage);
+        return await this.onload;
+    }
     toJSON () {
         return {
             profile: this.profile.toJSON(),

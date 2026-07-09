@@ -11,12 +11,17 @@ export class InputListener { // wrapper for K&M input
     ) {
         this.#keyboard = new KeyboardListener(window, keyCodeMap);
         this.#pointer = new PointerListener(appCanvas, clickThresholdMs, pointerCallbacks);
-        appCanvas.addEventListener("pointerleave", () => this.resetState());
+        this.pointer.listeningTo.addEventListener("pointerleave", this.resetState);
     }
 
-    resetState () {
+    resetState = () => {
         this.keyboard.resetState();
         this.pointer.resetState();
+    }
+    close () {
+        this.pointer.listeningTo.removeEventListener("pointerleave", this.resetState);
+        this.keyboard.close();
+        this.pointer.close();
     }
 
     get keyboard () { return this.#keyboard }
@@ -40,10 +45,12 @@ class KeyboardListener {
             deleteProperty: () => false
         });
         this.#listeningTo = listenTo; // track the object
-        this.#listeningTo.addEventListener("keydown", (event) => this.#setKeyState(event, true));
-        this.#listeningTo.addEventListener("keyup", (event) => this.#setKeyState(event, false));
+        this.#listeningTo.addEventListener("keydown", this.#keyDownListener);
+        this.#listeningTo.addEventListener("keyup", this.#keyUpListener);
     }
 
+    #keyDownListener = (event) => this.#setKeyState(event, true)
+    #keyUpListener = (event) => this.#setKeyState(event, false)
     #setKeyState (event, keyDown) {
         if (Object.hasOwn(this.#keyCodeMap, event.code)) {
             this.#activeKeys[this.#keyCodeMap[event.code]][event.code] = keyDown;
@@ -81,7 +88,11 @@ class KeyboardListener {
             for (const key of Object.keys(mapping))
                 mapping[key] = false;
     }
-
+    close () {
+        this.resetState();
+        this.#listeningTo.removeEventListener("keydown", this.#keyDownListener);
+        this.#listeningTo.removeEventListener("keyup", this.#keyUpListener);
+    }
 
     get listeningTo () { return this.#listeningTo }
     get activeKeys() { return this.#activeKeysProxy }
@@ -117,9 +128,9 @@ class PointerListener  {
         this.#resizeObserver = new ResizeObserver(([{target}]) => this.#updateOffset(target));
         this.#updateOffset(this.#listeningTo);
         this.#resizeObserver.observe(this.#listeningTo);
-        this.#listeningTo.addEventListener("pointermove", (event) => this.#updateMove(event));
-        this.#listeningTo.addEventListener("pointerdown", (event) => this.#updateDown(event));
-        this.#listeningTo.addEventListener("pointerup", (event) => this.#updateUp(event));
+        this.#listeningTo.addEventListener("pointermove", this.#updateMove);
+        this.#listeningTo.addEventListener("pointerdown", this.#updateDown);
+        this.#listeningTo.addEventListener("pointerup", this.#updateUp);
     }
 
     #setHoldTimeout () {
@@ -136,14 +147,14 @@ class PointerListener  {
             this.#holding.timeout = undefined;
         }
     }
-    #updateDown (event) { // keep up and down event callbacks seperate for (marginal) perfomance boost
+    #updateDown = (event) => { // keep up and down event callbacks seperate for (marginal) perfomance boost
         this.#updatePosition(event);
         this.#tracking.up.stamp = undefined; // clear data from last down event
         this.#tracking.down.stamp = performance.now();
         this.#tracking.down.position.apply(this.#tracking.position);
         this.#setHoldTimeout();
     }
-    #updateUp (event) {
+    #updateUp = (event) => {
         this.#updatePosition(event);
         // click detection
         if (this.activeDuration <= this.#clickMs + Number.EPSILON && this.enabled)
@@ -152,7 +163,7 @@ class PointerListener  {
         this.#tracking.up.position.apply(this.#tracking.position);
         this.#clearHoldTimeout();
     }
-    #updateMove (event) {
+    #updateMove = (event) => {
         this.#updatePosition(event);
         this.#setHoldTimeout();
         // drag detection
@@ -217,7 +228,14 @@ class PointerListener  {
     onNextMove () {
         return this.#onNextEvent("pointermove"); 
     }
+    close () {
+        this.resetState();
+        this.#listeningTo.removeEventListener("pointermove", this.#updateMove);
+        this.#listeningTo.removeEventListener("pointerdown", this.#updateDown);
+        this.#listeningTo.removeEventListener("pointerup", this.#updateUp);
+    }
 
+    get listeningTo () { return this.#listeningTo }
     get position () { return this.#tracking.position.clone() }
     get isHolding () { return this.#holding.isHolding = (this.isActive && this.#holding.isHolding) }
     get isActive () { return this.#tracking.down.stamp !== undefined && this.#tracking.up.stamp === undefined }
@@ -232,7 +250,7 @@ export class GravityController { // lighter-weight, seperate for web workers. co
         const pts = terrain.edgePoints;
         const terrainElevations = pts.map(({y}) => y);
         const terrainHeight = Math.max(...terrainElevations) - Math.min(...terrainElevations);
-        const ray = Ray(new Vector(position.x, position.y + heightOffset), Vector.fromAngle((3 * Math.PI) / 2), terrainHeight + 1);
+        const ray = new Ray(new Vector(position.x, position.y + heightOffset), Vector.fromAngle((3 * Math.PI) / 2), terrainHeight + 1);
         const hits = terrain.raycast(ray);
         const hasExiting = hits.some(({entering}) => !entering);
         const hit = (hasExiting ? hits.filter(({entering}) => entering) : hits)
@@ -282,7 +300,7 @@ export class MovementController { // only moves along X axis
     #raycastPosition (x, y = undefined) {
         const maxHeight = (y || this.#player.position.y)
             + (this.climbHeight * Math.sin(this.#player.rotation.body + (Math.PI/2)));
-        const ray = Ray(new Vector(x, maxHeight), Vector.fromAngle((3 * Math.PI) / 2), maxHeight + 1);
+        const ray = new Ray(new Vector(x, maxHeight), Vector.fromAngle((3 * Math.PI) / 2), maxHeight + 1);
         const hits = this.#terrain.raycast(ray);
         if (!hits.length) return undefined;
         const hasExiting = hits.some(({entering}) => !entering);

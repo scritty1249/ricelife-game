@@ -1,4 +1,5 @@
 import { TrackableObject } from "../utils/utils.js";
+import { LoadImage } from "../animate/image.js";
 
 export class LoadPool extends TrackableObject {
     #pool = {};
@@ -10,27 +11,31 @@ export class LoadPool extends TrackableObject {
 
     constructor () {
         super();
+        this.#regeneratePromise();
     }
 
     // [!] replaces old onload without transfering Promise chains
     #regeneratePromise () {
         this.#ready = false;
         this.#loadPromise = Promise.withResolvers();
-        Promise.all(Object.values(this.#pool)
-            .filter(({ready}) => !ready)
-            .map(({value}) => value))
-            .then(() => {
-                this.#loadPromise.resolve(this);
+        const { resolve } = this.#loadPromise;
+        Promise.all(
+            Array.from(
+                Object.values(this.#pool),
+                ({promise}) => promise
+            )).then(() => {
+                resolve(this);
                 this.#ready = true;
             });
     }
     #newEntry (key, promise) {
         if (this.has(key)) console.warn(`[${this.constructor.name}]: Overwriting ${this.ready(key) ? "loaded" : "loading"} entry ${key}`);
-        const entry = { promise, value: undefined, ready: false };
-        entry.promise.then((value) => {
+        const entry = { promise: undefined, value: undefined, ready: false };
+        entry.promise = promise.then((value) => {
             entry.value = value;
             this.#readySize++;
             entry.ready = true; // set a flag to filter for pending promises later
+            return value;
         });
         this.#size++;
         this.#pool[key] = entry;
@@ -48,7 +53,11 @@ export class LoadPool extends TrackableObject {
     }
     has (key) { return key in this.#pool }
     ready (key) { return this.#pool[key]?.ready }
-    get (key) { return this.#pool[key]?.value }
+    get (key) {
+        if (this.has(key) && !this.ready(key))
+            console.warn(`[${this.constructor.name}]: Accessed entry "${key}" before loading finished`);
+        return this.#pool[key]?.value;
+    }
     onready (key) { return this.#pool[key]?.promise || Promise.resolve(undefined) }
 
     get isLoadPool () { return true }
@@ -84,4 +93,24 @@ export class AmmoPool extends LoadPool {
 
     get isAmmoPool () { return true }
     get importPath () { return this.#importPath }
+}
+
+export class AssetPool extends LoadPool {
+    add (...kwargs) {
+        if (!kwargs?.length) return;
+        const entries = [];
+        for (let i = 0; i < kwargs.length; i+=2) {
+            const key = kwargs[i];
+            const args = kwargs[i+1];
+            const type = args.shift();
+            const callback = args.shift();
+            const promise = type(...args).onload
+            if (callback) promise.then(callback);
+            entries.push(key, promise);
+        }
+        super.add(...entries);
+        return this; // for chaining
+    }
+
+    get isAssetPool () { return true }
 }
