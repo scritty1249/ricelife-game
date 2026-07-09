@@ -3,11 +3,14 @@ import { AnimationList, Animation, ShapeAnimation } from "../../animate/animate.
 import { Vector, Color, Ray } from "../../geometry/geometry.js";
 import { LoopController } from "./loop.js";
 import { InputListener } from "../player.js";
+import { WorkerController } from "../workers.js";
 import { drawBlastAnimation } from "../../projectile/projectile.js";
 import { generateTerrain, generateWave } from "../../terrain/terrain.js";
 import { WorkerPool } from "../../workers/workers.js";
-import { drawCircle, drawLine, drawMarker, drawText, wrapDeg, rad2deg } from "../../utils/utils.js"; // [!] all for debug overlay
+import { Properties } from "../../projectile/projectile.js";
 import * as Menu from "../../menu/menu.js"
+
+import { drawCircle, drawLine, drawMarker, drawText, wrapDeg, rad2deg } from "../../utils/utils.js"; // [!] all for debug overlay
 
 export class RoundController extends LoopController {
     static SETTINGS = {
@@ -56,38 +59,43 @@ export class RoundController extends LoopController {
     #Animations = {
         Main: new AnimationList()
     };
-    #onload = Promise.withResolvers();
+    #loadPromise;
     constructor (mainController, lobbyData) {
         super(mainController.Audio.Context);
         this.#Main = mainController;
         this.#init(lobbyData);
-        this.#load()
+        this.#loadPromise = this.#load()
             .then(() => this.#setupInterface())
             .then(() => this.#setupSfx())
             .then(() => distributePlayers(this.Global.Display.size, this.Players)) // [!] temporary
-            .then(() => {
-                this.state = this.constructor.STATES.Ready;
-                this.#onload.resolve(this);
-            });
+            .then(() => this.state = this.constructor.STATES.Ready)
+            .catch((err) => console.error(`[${this.constructor.name}]:`, err));
     }
 
     #init (lobby) {
         this.flags.isTurn = true;
         this.store.prerender = Promise.resolve();
+        this.store.cacheKey = {
+            terrain: "lastTerrainState",
+            background: "backgroundCanvas"
+        };
         this.store.shot = {
             tracer: undefined,
             current: undefined,
             legend: undefined,
             selected: undefined,
             map: undefined,
+            types: undefined,
             impacts: [],
         };
 
         this.#Interface = new Menu.Interface();
         this.#Input = new InputListener(this.Global.Display.canvas, this.Global.constructor.SETTINGS.CLICK_DURATION_MS, this.constructor.INPUT_MAP, this.Interface);
-        this.#Threaded = new WorkerPool(new URL(`../../workers/web-worker.js`, import.meta.url), 4, 3);
+        this.#Threaded = new WorkerController(new WorkerPool(new URL(`../../workers/web-worker.js`, import.meta.url), 4, 3));
         this.#LobbyData = new LobbyJSON(lobby);
-        this.AmmoPool.add(...this.LobbyData.ammoTypes());
+        this.store.shot.types = this.LobbyData.ammoTypes();
+        this.store.shot.selected = this.store.shot.types.at(0);
+        this.AmmoPool.add(...this.store.shot.types);
         this.#Players = Array.from(this.LobbyData.playerInstances());
         this.#ActivePlayer = this.Players.at(0);
 
@@ -103,8 +111,8 @@ export class RoundController extends LoopController {
             this.loadAsset(modelType + "/body");
             this.loadAsset(modelType + "/barrel");
         }
-        // load interface assets
-        for (const assetKey of ["fireBtn", "selectBtn", "shotType", "leftBtn", "rightBtn"]) {
+        // load interface assets\
+        for (const assetKey of ["fireBtn", "selectBtn", "shotType", "leftBtn", "rightBtn", "blast", "muzzleFlash", "fire", "bouncer"]) {
             this.loadAsset(assetKey, ...this.Global.AssetTable[assetKey]);
         }
     }
@@ -117,7 +125,7 @@ export class RoundController extends LoopController {
         // for debug overlay
         st.legend = shot.getLegend(false);
         st.collisions = [];
-        for (const multi of store.legend)
+        for (const multi of st.legend)
             for (const legend of multi)
                 for (const collision of legend.collisions)
                     st.collisions.push(collision);
@@ -142,7 +150,7 @@ export class RoundController extends LoopController {
     }
     #launchCallbackFactory () {
         const self = this;
-        const createMuzzleFlash = this.#createMuzzleFlash;
+        const createMuzzleFlash = this.#createMuzzleFlash.bind(this);
         return function () {
             const { tank, aimer } = self.ActivePlayer;
             const blastSizes = this.userData.hitbox
@@ -177,8 +185,9 @@ export class RoundController extends LoopController {
         }
     }
     #preloadImpact (blastInterval) {
-        const { AssetPool } = this;
+        const { AssetPool, Threaded } = this;
         const { Context, Layer } = this.Audio;
+        const { background } = this.store.cacheKey;
         const { frame, delay, blasts, polygon } = blastInterval;
         // bundle callbacks with data to call later
         const impact = {
@@ -189,8 +198,8 @@ export class RoundController extends LoopController {
             animations: new AnimationList(),
             play: function () {
                 // update canvas
-                store.threading.cache.background?.close?.();
-                store.threading.cache.background = this.frame;
+                Threaded.cache[background]?.close?.();
+                Threaded.cache[background] = this.frame;
                 this.animations.play();
                 this.triggered = true;
             }
@@ -227,7 +236,7 @@ export class RoundController extends LoopController {
         cursor.textAlign = "end";
         cursor.fillStyle = "red";
         cursor.font = "24px serif";
-        cursor.fillText(Glboal.FrameCounter.fps, size.x - 10, size.y - 10);
+        cursor.fillText(Global.FrameCounter.fps, size.x - 10, size.y - 10);
         cursor.restore();
     }
     #drawDebugOverlay () {
@@ -248,16 +257,16 @@ export class RoundController extends LoopController {
         drawCircle(cursor, new Vector(ActivePlayer.tank.position.x, ActivePlayer.tank.position.y), 5,  "green");
         { // draw terrain outline
             cursor.save();
-            state.terrain.draw(cursor);
+            Terrain.draw(cursor);
             cursor.clip("evenodd"); 
             cursor.strokeStyle = "blue";
             cursor.lineWidth = 4;
             cursor.stroke(); 
             cursor.restore();
         }
-        if (store.map) {
+        if (store.shot.map) {
             // draw collision details
-            if (store.collisions) {
+            if (store.shot.collisions) {
                 const _lineLength = 35;
                 const red = new Color(255, 0, 0, .5)
                     .toString();
@@ -265,7 +274,7 @@ export class RoundController extends LoopController {
                     .toString();
                 const blue = new Color(0, 0, 255, .5)
                     .toString();
-                store.collisions.forEach(({position, point, resultVelocity, velocity, normal}) => {
+                store.shot.collisions.forEach(({position, point, resultVelocity, velocity, normal}) => {
                     drawCircle(cursor, position, 3, blue); // shot position during collision
                     drawLine(cursor, point, point.add(normal.normalize().mul(_lineLength)), 2, green); // normal
                     drawLine(cursor, point, point.add(velocity.normalize().mul(_lineLength)), 2, blue); // direction (incoming)
@@ -273,17 +282,17 @@ export class RoundController extends LoopController {
                 });
             }
             // draw blasts
-            if (store.map.blasts?.length) {
+            if (store.shot.map.blasts?.length) {
                 const c = new Color(255, 165, 0, .15);
                 cursor.save();
                 cursor.fillStyle = c.toString();
-                for (const { shape } of store.map.blasts) {
+                for (const { shape } of store.shot.map.blasts) {
                     shape.draw(cursor, true);
                     cursor.fill();
                 }
                 cursor.restore();
                 c.a = 1;
-                for (const { position } of store.map.blasts) {
+                for (const { position } of store.shot.map.blasts) {
                     drawCircle(cursor, position, 3, c.toString());
                 }
             }
@@ -339,7 +348,7 @@ export class RoundController extends LoopController {
                 : Input.keyboard.keyActive("shot2")
                     ? 2 // only show hits from non-holes
                     : 0; // show all hits
-            const hits = Terrain.raycast(new Ray(player.tank.barrelPosition, position))
+            const hits = Terrain.raycast(new Ray(ActivePlayer.tank.barrelPosition, position))
                 .filter(({hole}) => 
                     (mode === 0)
                     || (mode === 1 && hole)
@@ -392,19 +401,20 @@ export class RoundController extends LoopController {
 
         shotIco.position.apply(520, 150);
         shotIco.fontSize = 16;
-        shotIco.text = ""; // [!] placeholder
+        shotIco.text = store.shot.selected;
 
         // setting up button callbacks
         rightBtn.onclick = rightBtn.onhold = () => ActivePlayer.mover.move(MOVE_SPEED);
         leftBtn.onclick = leftBtn.onhold = () => ActivePlayer.mover.move(-MOVE_SPEED);
-        selectButton.onclick = () => {
-            // [!] placeholder
-            console.log("cycled");
+        selectBtn.onclick = () => {
+            // [!] placeholder, inefficient, rework entiely when selection menu is added
+            const index = store.shot.types.findIndex((type) => type === store.shot.selected);
+            store.shot.selected = store.shot.types[(index + 1) % store.shot.types.length];
+            shotIco.text = store.shot.selected;
         };
-        const launchShot = this.launchShot;
-        fireButton.onclick = () => {
+        fireBtn.onclick = () => {
             if (store.shot.current === undefined)
-                launchShot();
+                this.launchShot();
         }
 
         Interface.insert() // draw layer zero after background but before terrain
@@ -419,17 +429,18 @@ export class RoundController extends LoopController {
         AmmoPool.get("Bouncer").SFX.bounce = bounceSfxFn;
         AmmoPool.get("MegaBouncer").SFX.bounce = bounceSfxFn;
     }
-    async #prerenderMap (map) {
-        const { Audio, Animations, store } = this;
+    async #preloadMap (map) {
+        const { Audio, Threaded, Global, Animations, Terrain, store } = this;
+        const { TERRAIN_EDGE, TERRAIN_FILL } = this.constructor.SETTINGS;
         const { blasts } = map; // should be sorted
-        store.prerender = store.Threaded.drawBlastedTerrains(1, "lastTerrainState", config.display.size, config.terrain, ...blasts);
+        store.prerender = Threaded.drawBlastedTerrains(1, this.store.cacheKey.terrain, Global.Display.size, {edge: TERRAIN_EDGE, fill: TERRAIN_FILL}, ...blasts);
         Animations.blasts = new AnimationList();
-        store.impacts = [];
+        store.shot.impacts = [];
         const blastIntervals = await store.prerender;
         for (const blastInterval of blastIntervals) {
             const impact = this.#preloadImpact(blastInterval)
             Animations.blasts.push(...impact.animations);
-            store.impacts.push(impact);
+            store.shot.impacts.push(impact);
         }
         Animations.Main.push(...Animations.blasts);
     }
@@ -446,7 +457,9 @@ export class RoundController extends LoopController {
         await this.AssetPool.onload;
         const waitPromises = [];
         for (const Player of this.Players) {
-            const team = Player.data.team === this.ActivePlayer.team ? "ally" : "enemy";
+            const team = Player.id === this.ActivePlayer.id
+                ? "self" : Player.data.team === this.ActivePlayer.data.team
+                    ? "ally" : "enemy";
             const modelType = `${Player.data.model.type}/${team}/`;
             waitPromises.push(Player.load(Terrain, this.AssetPool.get(modelType + "body"), this.AssetPool.get(modelType + "barrel"), Global.Display.cursor));
         }
@@ -454,13 +467,12 @@ export class RoundController extends LoopController {
         await this.Threaded.onload;
         waitPromises.push(
             this.AmmoPool.onload,
-            this.Threaded.createCache("blastBackground", "CANVAS", ...this.Display.size),
-            this.Threaded.createCache("background", "CANVAS", ...this.Display.size),
-            this.Threaded.insertCache("lastTerrainState", "POLY", Terrain.Float64(1))
+            this.Threaded.createCache(this.store.cacheKey.background, "CANVAS", ...this.Global.Display.size),
+            this.Threaded.insertCache(this.store.cacheKey.terrain, "POLY", Terrain.Float64(1))
         );
         await Promise.all(waitPromises);
-        await this.Threaded.drawTerrain("background", "lastTerrainState", SETTINGS.TERRAIN_FILL, SETTINGS.TERRAIN_EDGE)
-            .then(() => this.Threaded.updateCache("background"));
+        await this.Threaded.drawTerrain(this.store.cacheKey.background, this.store.cacheKey.terrain, SETTINGS.TERRAIN_FILL, SETTINGS.TERRAIN_EDGE)
+            .then(() => this.Threaded.updateCache(this.store.cacheKey.background));
     }
 
     async launchShot () {
@@ -481,7 +493,7 @@ export class RoundController extends LoopController {
             this.constructor.SETTINGS.SHOT_TRACE_LIMIT
         );
         if (map.blasts.length)
-            this.#prerenderMap(map);
+            this.#preloadMap(map);
         await store.prerender;
         // if (wasSetBusy) {
         //     config.dispatchEvent.ready();
@@ -515,8 +527,9 @@ export class RoundController extends LoopController {
         return undefined;
     }
     createShot () {
-        const { Global, store } = this;
-        const shot = new AmmoPool.get(store.shot.selected)(...this.getShotLaunchData());
+        const { Global, AmmoPool, store } = this;
+        const type = AmmoPool.get(store.shot.selected);
+        const shot = new type(...this.getShotLaunchData());
         shot.colliders.push(store.terrain);
         shot.launchCallback = this.#launchCallbackFactory();
         shot.displayBoundingBox = Global.Display.getBoundingBox();
@@ -524,7 +537,7 @@ export class RoundController extends LoopController {
     }
     getShotColliders () {
         const { Players } = this;
-        const colliders = ["lastTerrainState"];
+        const colliders = [this.store.cacheKey.terrain];
         for (const Player of Players)
             if (!Player.isDead) {
                 const playerHitbox = Player.tank.getHitbox().Polygon();
@@ -568,11 +581,10 @@ export class RoundController extends LoopController {
                         this.launchShot()
                             .catch((error) => {
                                 console.error(`[${this.constructor.name}]: Projectile trace error`);
-                                config.dispatchEvent.error();
                                 throw error;
                             });
                 }
-                ActivePlayer.tank.position.round(1/Global.Settings.RESOLUTION);
+                ActivePlayer.tank.position.round(1/Global.constructor.SETTINGS.RESOLUTION);
                 if (keyboard.keyActive("mv+")) {
                     ActivePlayer.mover.move(MOVE_SPEED);
                 }
@@ -603,19 +615,19 @@ export class RoundController extends LoopController {
         }
     }
     animate () {
-        const { ActivePlayer, Animations, Global, Threaded, flags, store } = this;
+        const { ActivePlayer, Animations, Global, Interface, Threaded, Players, flags, store } = this;
         const { cursor } = Global.Display;
         cursor.clear();
-        if (flags.isTurn) this.Interface.draw(cursor, 0, 1);
-        for (const { tank, isDead } of this.Players)
+        if (flags.isTurn) Interface.draw(cursor, 0, 1);
+        for (const { tank, isDead } of Players)
             if (!isDead) tank.draw(cursor);
-        cursor.drawImage(Threaded.cache.background, 0, 0);
+        cursor.drawImage(Threaded.cache[store.cacheKey.background], 0, 0);
         if (store.shot.tracer) store.shot.tracer.draw(cursor);
         if (store.shot.current && store.shot.current.time > 0) store.shot.current.draw(cursor);
-        Animations.global.update(cursor);
-        for (const Player of this.Players)
+        Animations.Main.update(cursor);
+        for (const Player of Players)
             Player.drawProfile(cursor);
-        if (store.isTurn) this.Interface.draw(cursor, 1);
+        if (flags.isTurn) Interface.draw(cursor, 1);
         if (Global.flags.DEBUG) this.#drawDebugOverlay();
         this.#drawFramerate();
     }
@@ -628,7 +640,7 @@ export class RoundController extends LoopController {
             const { map, current: shot } = store.shot;
             if (shot) {
                 // trigger blast animations
-                for (const impact of store.impacts) {
+                for (const impact of store.shot.impacts) {
                     if (impact.triggered) continue;
                     if (impact.time <= shot.time) impact.play();
                 }
@@ -636,7 +648,7 @@ export class RoundController extends LoopController {
                 shot.update(delta / 1000);
                 // are we done with projectile?
                 const endProjectileEarly =
-                    (shot.time >= config.traceMaxTime) // time out shots even if a landing exists
+                    (shot.time >= this.constructor.SETTINGS.SHOT_TRACE_LIMIT) // time out shots even if a landing exists
                     || ((!map.finished || Animations.blasts.ended)
                         // time out early if theres no landing and it flew offscreen
                         //  or if all the blasts are done, and it flew offscreen
@@ -666,6 +678,7 @@ export class RoundController extends LoopController {
                 }
             }
         }
+        this.handleInput();
     }
     close () {
         this.state = this.constructor.STATES.Busy;
@@ -684,7 +697,7 @@ export class RoundController extends LoopController {
     get Input () { return this.#Input }
     get Terrain () { return this.#Terrain }
     get Animations () { return this.#Animations }
-    get onload () { return this.#onload.promise }
+    get onload () { return this.#loadPromise }
 }
 
 function distributePlayers (displaySize, players) {

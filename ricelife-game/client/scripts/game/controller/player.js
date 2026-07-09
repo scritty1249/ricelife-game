@@ -14,7 +14,7 @@ export class InputListener { // wrapper for K&M input
         this.pointer.listeningTo.addEventListener("pointerleave", this.resetState);
     }
 
-    resetState () {
+    resetState = () => {
         this.keyboard.resetState();
         this.pointer.resetState();
     }
@@ -49,8 +49,8 @@ class KeyboardListener {
         this.#listeningTo.addEventListener("keyup", this.#keyUpListener);
     }
 
-    #keyDownListener (event) { this.#setKeyState(event, true) }
-    #keyUpListener (event) { this.#setKeyState(event, false) }
+    #keyDownListener = (event) => this.#setKeyState(event, true)
+    #keyUpListener = (event) => this.#setKeyState(event, false)
     #setKeyState (event, keyDown) {
         if (Object.hasOwn(this.#keyCodeMap, event.code)) {
             this.#activeKeys[this.#keyCodeMap[event.code]][event.code] = keyDown;
@@ -147,14 +147,14 @@ class PointerListener  {
             this.#holding.timeout = undefined;
         }
     }
-    #updateDown (event) { // keep up and down event callbacks seperate for (marginal) perfomance boost
+    #updateDown = (event) => { // keep up and down event callbacks seperate for (marginal) perfomance boost
         this.#updatePosition(event);
         this.#tracking.up.stamp = undefined; // clear data from last down event
         this.#tracking.down.stamp = performance.now();
         this.#tracking.down.position.apply(this.#tracking.position);
         this.#setHoldTimeout();
     }
-    #updateUp (event) {
+    #updateUp = (event) => {
         this.#updatePosition(event);
         // click detection
         if (this.activeDuration <= this.#clickMs + Number.EPSILON && this.enabled)
@@ -163,7 +163,7 @@ class PointerListener  {
         this.#tracking.up.position.apply(this.#tracking.position);
         this.#clearHoldTimeout();
     }
-    #updateMove (event) {
+    #updateMove = (event) => {
         this.#updatePosition(event);
         this.#setHoldTimeout();
         // drag detection

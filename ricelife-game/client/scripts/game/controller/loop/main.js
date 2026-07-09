@@ -11,12 +11,16 @@ export class MainController extends LoopController {
         TICKSPEED: 10, // milliseconds, must be lower than framerate
         FPS: 60
     };
-    static #AudioCtx = new AudioContext();
+    static #AudioCtx;
     static #AssetType = {
-        Sprite: Spritesheet,
-        Image: LoadImage,
-        Audio: MainController.#AudioCtx.Source
+        Sprite: (...args) => new Spritesheet(...args),
+        Image: (...args) => new LoadImage(...args),
+        Audio: undefined
     };
+    static #loadAudioContext () {
+        this.#AudioCtx = new AudioContext();
+        this.#AssetType.Audio = (...args) => this.#AudioCtx.Source(...args);
+    }
     static get AssetType () { return this.#AssetType }
     #Loops = {};
     #active;
@@ -25,6 +29,8 @@ export class MainController extends LoopController {
     #FrameInterval;
     #TickInterval;
     constructor () {
+        // load a context if one doesn't exist already
+        if (!MainController.#AudioCtx) MainController.#loadAudioContext();
         super(MainController.#AudioCtx);
         this.#init();
         this.AssetPool.onload.then(() => this.state = this.constructor.STATES.Ready);
@@ -65,10 +71,6 @@ export class MainController extends LoopController {
             "./assets/blast/explosion_ss_512x512.png", 512, 512, 25];
     }
 
-    animate () {
-        this.activeLoop.animate();
-        this.FrameCounter.update();
-    }
     async transferLoop (newLoop) {
         this.state = this.constructor.STATES.Busy;
         const { activeLoop } = this;
@@ -79,15 +81,21 @@ export class MainController extends LoopController {
         }
         this.#Loops[newLoop.id] = newLoop;
         this.#active = newLoop.id;
-        newLoop.onload.then(() => this.state = this.constructor.STATES.Ready);
+        await newLoop.onload;
+        this.state = this.constructor.STATES.Ready;
     }
     async loop () {
-        if (this.state === this.constructor.STATES.Ready) {
+        if (this.state === this.constructor.STATES.Ready
+            && this.activeLoop?.state === this.constructor.STATES.Ready
+        ) {
             const { delta } = this.TickInterval;
             if (this.TickInterval.ready) await this.activeLoop?.loop?.(delta);
-            if (this.FrameInterval.ready) this.animate();
+            if (this.FrameInterval.ready) {
+                this.activeLoop.animate();
+                this.FrameCounter.update();
+            }
         }
-        requestAnimationFrame(super.loop);
+        requestAnimationFrame(() => super.loop());
     }
     close () {
         this.state = this.constructor.STATES.Busy;

@@ -36,6 +36,7 @@ export class PlayerInstance extends TrackableObject  {
     #applyStyling () {
         const { profile, model } = this.data;
         model.body.width = 50;
+        model.barrel.scale.apply(model.body.scale);
         profile.fontSize = 18;
         const nameWidth = profile.getNameWidth(this.#canvasCursor);
         const profileLinePadding = 5;
