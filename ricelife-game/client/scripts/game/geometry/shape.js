@@ -46,6 +46,7 @@ export class Transformation {
     add (transformation, mutate = false) {
         if (!transformation?.isTransformation) throw new Error(`[${this.constructor.name}]: Cannot add non-Transformation type ${typeof transformation}`);
         const trans = mutate ? this : this.clone();
+        console.log(trans.toString());
         trans.scale.mul(transformation.scale, true);
         trans.angle = trans.angle + transformation.angle;
         trans.offset.add(transformation.offset, true);
@@ -60,6 +61,7 @@ export class Transformation {
     save () { this.#stack.push(this.clone()) }
     restore () { this.apply(this.#stack.pop()) }
     clone () { return new this.constructor(this.scale, this.offset, this.rotation) }
+    toString() { return `[${this.constructor.name}] < Scale ${this.scale.toString()}, Offset ${this.offset.toString()}, Angle ${this.angle} >` }
     toJSON () { return {scale: this.scale.toJSON(), offset: this.offset.toJSON(), rotation: this.angle } } // pass rotation as radians (Number) to save memory
 
     get isTransformation () { return true }
@@ -97,7 +99,7 @@ export class Shape {
     toJSON () { return {blob: this.blob, origin: this.origin.toJSON(), globalTransform: this.globalTransformation.toJSON(), type: this.constructor.TYPE} }
     decode () { return {isShape: true, data: this.toJSON(), buffers: []} }
     applyTransformation () { // children can manipulate blob data before super calling this methood
-        if (this.transformation.hasUpdate) this.globalTransformation.add(this.transformation);
+        if (this.transformation.hasUpdate) this.globalTransformation.add(this.transformation, true);
         this.transformation.reset();
     }
     overlap (other, flatten = false) {
