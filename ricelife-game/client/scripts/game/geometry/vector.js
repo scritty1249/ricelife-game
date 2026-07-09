@@ -154,6 +154,11 @@ export class Vector {
         if (!vector?.isVector) throw new Error(`[${this.constructor.name}] Error: Cannot calculate distance between Vector and non-Vector type ${typeof vector}`);
         return Math.hypot(vector.x - this.x, vector.y - this.y);
     }
+    reflect (origin, mutate = false) {
+        if (!origin?.isVector) throw new Error(`[${this.constructor.name}] Error: Cannot reflect across non-Vector type ${typeof vector}`);
+        const vec = origin.add(origin.sub(this));
+        return mutate ? this.apply(vec) : vec;
+    }
     dot (vector) { // dot product
         if (!vector?.isVector) throw new Error(`[${this.constructor.name}] Error: Cannot calculate dot product of Vector and non-Vector type ${typeof vector}`);
         return this.mul(vector).sum();
