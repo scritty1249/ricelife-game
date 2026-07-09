@@ -46,7 +46,6 @@ export class Transformation {
     add (transformation, mutate = false) {
         if (!transformation?.isTransformation) throw new Error(`[${this.constructor.name}]: Cannot add non-Transformation type ${typeof transformation}`);
         const trans = mutate ? this : this.clone();
-        console.log(trans.toString());
         trans.scale.mul(transformation.scale, true);
         trans.angle = trans.angle + transformation.angle;
         trans.offset.add(transformation.offset, true);
