@@ -29,7 +29,7 @@ export class LoopController extends TrackableObject {
     async loop () {
         if (this.flags.EXIT) return;
         // don't loop unless method has been overrided by child
-        if (this.constructor !== LoopController)
+        if (this.loop !== LoopController.prototype.loop)
             requestAnimationFrame(() => this.loop());
     }
     async tick (delta) {}

@@ -1,7 +1,7 @@
 import { AmmoPool, LobbyJSON } from "../../lobby/lobby.js";
 import { AnimationList, Animation, ShapeAnimation } from "../../animate/animate.js";
 import { Vector, Color, Ray } from "../../geometry/geometry.js";
-import { LoopController } from "./loop.js";
+import { PhaseController } from "./main.js";
 import { InputListener } from "../player.js";
 import { WorkerController } from "../workers.js";
 import { drawBlastAnimation } from "../../projectile/projectile.js";
@@ -12,7 +12,7 @@ import * as Menu from "../../menu/menu.js"
 
 import { drawCircle, drawLine, drawMarker, drawText, wrapDeg, rad2deg } from "../../utils/utils.js"; // [!] all for debug overlay
 
-export class RoundController extends LoopController {
+export class RoundController extends PhaseController {
     static SETTINGS = {
         BUSY_SECONDS_THRESHOLD: 1.5, // time in seconds before the "busy" screen pops up while tracing shots
         SHOT_TRACE_LIMIT: 30, // (seconds) will trigger a landing early if timeout is exceeded- however a landing will only be traced within this time frame so early landings shouldn't be happening... -KT
@@ -53,7 +53,6 @@ export class RoundController extends LoopController {
     #Players;
     #Threaded;
     #Interface;
-    #Main;
     #Terrain;
     #Input;
     #Animations = {
@@ -61,8 +60,7 @@ export class RoundController extends LoopController {
     };
     #loadPromise;
     constructor (mainController, lobbyData) {
-        super(mainController.Audio.Context);
-        this.#Main = mainController;
+        super(mainController);
         this.#init(lobbyData);
         this.#loadPromise = this.#load()
             .then(() => this.#setupInterface())
@@ -227,17 +225,6 @@ export class RoundController extends LoopController {
             impact.animations.push(ani);
         }
         return impact;
-    }
-    #drawFramerate () {
-        const { Global } = this;
-        const { cursor, size } = Global.Display;
-        cursor.save();
-        cursor.textBaseline = "top";
-        cursor.textAlign = "end";
-        cursor.fillStyle = "red";
-        cursor.font = "24px serif";
-        cursor.fillText(Global.FrameCounter.fps, size.x - 10, size.y - 10);
-        cursor.restore();
     }
     #drawDebugOverlay () {
         const { ActivePlayer, Terrain, Interface, Input, store, flags } = this;
@@ -629,7 +616,6 @@ export class RoundController extends LoopController {
             Player.drawProfile(cursor);
         if (flags.isTurn) Interface.draw(cursor, 1);
         if (Global.flags.DEBUG) this.#drawDebugOverlay();
-        this.#drawFramerate();
     }
     async tick (delta) {
         const { Animations, Global, store, flags } = this;
@@ -687,12 +673,12 @@ export class RoundController extends LoopController {
         super.close();
     }
 
+    get isRoundController () { return true }
     get AmmoPool () { return this.#AmmoPool }
     get LobbyData () { return this.#LobbyData }
     get ActivePlayer () { return this.#ActivePlayer }
     get Players () { return this.#Players }
     get Threaded () { return this.#Threaded }
-    get Global () { return this.#Main }
     get Interface () { return this.#Interface }
     get Input () { return this.#Input }
     get Terrain () { return this.#Terrain }

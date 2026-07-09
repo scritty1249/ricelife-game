@@ -70,14 +70,20 @@ export class MainController extends LoopController {
             },
             "./assets/blast/explosion_ss_512x512.png", 512, 512, 25];
     }
-    #assertLoop (loop) {
-        if (!loop?.isLoopController) throw new Error(`[${this.constructor.name}]: ${loop?.constructor?.name || typeof loop} is not a LoopController`);
-        else if (!("animate" in loop && typeof loop.animate === "function")) throw new Error(`[${this.constructor.name}]: ${loop?.constructor?.name || typeof loop} is not animatable`);
+    #drawFramerate () {
+        const { cursor, size } = this.Display;
+        cursor.save();
+        cursor.textBaseline = "top";
+        cursor.textAlign = "end";
+        cursor.fillStyle = "red";
+        cursor.font = "24px serif";
+        cursor.fillText(this.FrameCounter.fps, size.x - 10, size.y - 10);
+        cursor.restore();
     }
 
+    // expects PhaseController
     async transferLoop (newLoop) {
         this.state = this.constructor.STATES.Busy;
-        this.#assertLoop(newLoop); // panic if we don't get a valid loop
         const { activeLoop } = this;
         if (activeLoop) {
             if (activeLoop.Threaded) await activeLoop.close();
@@ -100,6 +106,7 @@ export class MainController extends LoopController {
             if (this.TickInterval.ready) await this.activeLoop?.tick?.(this.TickInterval.lastDelta);
             if (this.FrameInterval.ready) {
                 this.activeLoop.animate();
+                if (this.flags.DEBUG) this.#drawFramerate();
                 this.FrameCounter.update();
             }
         }
@@ -111,9 +118,21 @@ export class MainController extends LoopController {
         super.close();
     }
     
+    get isMainController () { return true }
     get Display () { return this.#Display }
     get FrameCounter () { return this.#FrameCounter }
     get FrameInterval () { return this.#FrameInterval }
     get TickInterval () { return this.#TickInterval }
     get activeLoop () { return this.#Loops[this.#active] }
+}
+
+export class PhaseController extends LoopController {
+    #Global;
+    constructor (mainController) {
+        super(mainController.Audio.Context);
+        this.#Global = mainController;
+    }
+    animate () {}
+    get isPhaseController () { return true }
+    get Global () { return this.#Global }
 }
