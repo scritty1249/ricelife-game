@@ -7,6 +7,12 @@ export class Interface { // pointer events are prioritized in FIFO order
         this.push(...layers);
     }
 
+    *#iterate (start = 0, end = -1, reverse = true) {
+        const stop = (end < 0) ? (end === -1 ? this.length : this.length + (end % this.length)) : end;
+        if (reverse) for (let i = stop - 1; i >= start; i--) yield this.layer(i);
+        else for (let i = start; i < stop; i++) yield this.layer(i);
+    }
+
     layer (index) { return this.#layers.at(index) }
     insert (index = -1) {
         const layer = new InterfaceLayer();
@@ -20,39 +26,40 @@ export class Interface { // pointer events are prioritized in FIFO order
             this.#layers.push(layer);
         }
     }
-
-    onclick (point) {
-        let item = undefined;
-        for (const layer of this.#iterate())
-            if ((item = layer.isClicked(point)) !== undefined) break;
-        if (item !== undefined) item.onclick(point);
-    }
-
     ondrag (point, origin) {
         let item = undefined;
         for (const layer of this.#iterate())
             if ((item = layer.isDragged(origin)) !== undefined) break;
         if (item !== undefined) item.ondrag(point);
     }
-
     onhold (point) {
         let item = undefined;
         for (const layer of this.#iterate())
             if ((item = layer.isHeld(point)) !== undefined) break;
         if (item !== undefined) item.onhold(point);
     }
-
+    onpress (point) {
+        let item = undefined;
+        for (const layer of this.#iterate())
+            if ((item = layer.isPressed(point)) !== undefined) break;
+        if (item !== undefined) item.onpress(point);
+    }
+    onrelease (point, delta) {
+        let item = undefined;
+        for (const layer of this.#iterate())
+            if ((item = layer.isReleased(point)) !== undefined) break;
+        if (item !== undefined) item.onrelease(point, delta);
+    }
+    onclick (point, pressed) {
+        let item = undefined;
+        for (const layer of this.#iterate())
+            if ((item = layer.isClicked(point, pressed)) !== undefined) break;
+        if (item !== undefined) item.onclick(point);
+    }
     draw (cursor, start = 0, end = -1) { for (const layer of this.#iterate(start, end, false)) layer.draw(cursor) }
     slice (start = 0, end = -1) { return new Interface(...this.#layers.slice(start, end)) }
-
     *[Symbol.iterator]() {
         yield *this.#layers;
-    }
-
-    *#iterate (start = 0, end = -1, reverse = true) {
-        const stop = (end < 0) ? (end === -1 ? this.length : this.length + (end % this.length)) : end;
-        if (reverse) for (let i = stop - 1; i >= start; i--) yield this.layer(i);
-        else for (let i = start; i < stop; i++) yield this.layer(i);
     }
 
     get isInterface () { return true }
@@ -82,12 +89,13 @@ class InterfaceLayer extends TrackableObject { // pointer events are prioritized
     get (id) {
         return this.#items.get(id);
     }
-    isClicked (point) {
+    isClicked (point, pressed) {
         for (const item of this.items) {
             if (
                 this.#supportsCursorEvents(item)
                 && this.#supportsClickEvents(item)
                 && item.isOver(point)
+                && (!pressed || item.isOver(pressed))
             ) return item;
         }
         return undefined;
@@ -107,6 +115,26 @@ class InterfaceLayer extends TrackableObject { // pointer events are prioritized
             if (
                 this.#supportsCursorEvents(item)
                 && this.#supportsHoldEvents(item)
+                && item.isOver(point)
+            ) return item;
+        }
+        return undefined;
+    }
+    isPressed (point) {
+        for (const item of this.items) {
+            if (
+                this.#supportsCursorEvents(item)
+                && this.#supportsPressEvents(item)
+                && item.isOver(point)
+            ) return item;
+        }
+        return undefined;
+    }
+    isReleased (point) {
+        for (const item of this.items) {
+            if (
+                this.#supportsCursorEvents(item)
+                && this.#supportsReleaseEvents(item)
                 && item.isOver(point)
             ) return item;
         }
@@ -132,6 +160,8 @@ class InterfaceLayer extends TrackableObject { // pointer events are prioritized
     #supportsClickEvents (item) { return typeof item?.onclick === "function" }
     #supportsHoldEvents (item) { return typeof item?.onhold === "function" }
     #supportsDragEvents (item) { return typeof item?.ondrag === "function" }
+    #supportsPressEvents (item) { return typeof item?.onpress === "function" }
+    #supportsReleaseEvents (item) { return typeof item?.onrelease === "function" }
 
     get isInterfaceLayer () { return true }
     get items () { return [...this.#items.values()].reverse() } // [!] reverse call causes lag / horribly inefficient

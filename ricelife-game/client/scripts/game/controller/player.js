@@ -26,6 +26,11 @@ export class InputListener { // wrapper for K&M input
 
     get keyboard () { return this.#keyboard }
     get pointer () { return this.#pointer }
+    set enabled (bool) {
+        this.keyboard.enabled = bool;
+        this.pointer.enabled = bool;
+        return bool;
+    }
 }
 
 class KeyboardListener {
@@ -33,6 +38,7 @@ class KeyboardListener {
     #activeKeys;
     #activeKeysProxy;
     #listeningTo;
+    enabled = true;
     constructor (listenTo, keyCodeMap) {
         this.#keyCodeMap = keyCodeMap;
         this.#activeKeys = {};
@@ -52,28 +58,26 @@ class KeyboardListener {
     #keyDownListener = (event) => this.#setKeyState(event, true)
     #keyUpListener = (event) => this.#setKeyState(event, false)
     #setKeyState (event, keyDown) {
-        if (Object.hasOwn(this.#keyCodeMap, event.code)) {
+        if (this.enabled && Object.hasOwn(this.#keyCodeMap, event.code)) {
             this.#activeKeys[this.#keyCodeMap[event.code]][event.code] = keyDown;
             event?.preventDefault?.();
         }
     }
-
-    onNextPress (keyCode = undefined) {
+    #onNextEvent (eventType, keyCode = undefined) {
         const { promise, resolve } = Promise.withResolvers();
         const element = this.#listeningTo;
-        if (keyCode) {
-            const callback = function (event) {
-                if (event.code === keyCode) {
-                    element.removeEventListener("keydown", callback);
-                    resolve(event);
-                }
+        const handler = (event) => {
+            if (this.enabled && (keyCode === undefined || event.code === keyCode)) {
+                element.removeEventListener(eventType, handler);
+                resolve(event);
             }
-            element.addEventListener("keydown", callback);
-        } else {
-            element.addEventListener("keydown", resolve, { once: true });
         }
+        element.addEventListener(eventType, handler);
         return promise;
     }
+
+    onNextPress (keyCode = undefined) { return this.#onNextEvent("keydown", keyCode) }
+    onNextRelease (keyCode = undefined) { return this.#onNextEvent("keyup", keyCode) }
     keyActive (mapping) {
         const mapped = this.activeKeys[mapping];
         if (mapped)
@@ -120,6 +124,7 @@ class PointerListener  {
             stamp: undefined   
         }
     };
+    #clickEventPromises = new Array();
     enabled = true; // blocks callbacks if set to false, but will still track pointer
     constructor (listenTo, clickThresholdMs, callbackFns) {
         this.callbackFns = callbackFns;
@@ -148,27 +153,34 @@ class PointerListener  {
         }
     }
     #updateDown = (event) => { // keep up and down event callbacks seperate for (marginal) perfomance boost
+        if (!this.enabled) return;
         this.#updatePosition(event);
         this.#tracking.up.stamp = undefined; // clear data from last down event
         this.#tracking.down.stamp = performance.now();
         this.#tracking.down.position.apply(this.#tracking.position);
         this.#setHoldTimeout();
+        this.callbackFns?.onpress?.(this.position);
     }
     #updateUp = (event) => {
+        if (!this.enabled) return;
         this.#updatePosition(event);
-        // click detection
-        if (this.activeDuration <= this.#clickMs + Number.EPSILON && this.enabled)
-            this.callbackFns?.onclick(this.position);
         this.#tracking.up.stamp = performance.now();
         this.#tracking.up.position.apply(this.#tracking.position);
         this.#clearHoldTimeout();
+        this.callbackFns?.onrelease?.(this.position, this.#tracking.up.position.sub(this.#tracking.down.position) || new Vector(0, 0));
+        // click detection
+        if (this.activeDuration <= this.#clickMs + Number.EPSILON) {
+            this.#clickEventPromises.splice(0, this.#clickEventPromises.length)
+                .forEach((resolve) => resolve(event));
+            this.callbackFns?.onclick?.(this.position, this.#tracking.down.position);
+        }
     }
     #updateMove = (event) => {
         this.#updatePosition(event);
         this.#setHoldTimeout();
         // drag detection
         if (this.activeDuration >= this.#clickMs - Number.EPSILON && this.enabled)
-            this.callbackFns?.ondrag(this.position, this.#tracking.down.position); // pass origin position by reference to avoid making duplicates
+            this.callbackFns?.ondrag?.(this.position, this.#tracking.down.position); // pass origin position by reference to avoid making duplicates
     }
     #updatePosition (event) {
         const { clientX, clientY } = event;
@@ -211,7 +223,14 @@ class PointerListener  {
     // return a promise that runs on next event
     #onNextEvent (eventType) {
         const { promise, resolve } = Promise.withResolvers();
-        this.#listeningTo.addEventListener(eventType, resolve, { once: true });
+        const element = this.#listeningTo;
+        const handler = (event) => {
+            if (this.enabled) {
+                element.removeEventListener(eventType, handler);
+                resolve(event);
+            }
+        }
+        element.addEventListener(eventType, handler);
         return promise;
     }
 
@@ -223,10 +242,18 @@ class PointerListener  {
         this.#tracking.up.stamp = undefined;
     }
     onNextClick () {
-        return this.#onNextEvent("pointerdown");
+        const { resolve, promise } = Promise.withResolvers();
+        this.#clickEventPromises.push(resolve);
+        return promise;
     }
     onNextMove () {
         return this.#onNextEvent("pointermove"); 
+    }
+    onNextPress () {
+        return this.#onNextEvent("pointerdown");
+    }
+    onNextRelease () {
+        return this.#onNextEvent("pointerup");
     }
     close () {
         this.resetState();
@@ -237,9 +264,9 @@ class PointerListener  {
 
     get listeningTo () { return this.#listeningTo }
     get position () { return this.#tracking.position.clone() }
-    get isHolding () { return this.#holding.isHolding = (this.isActive && this.#holding.isHolding) }
-    get isActive () { return this.#tracking.down.stamp !== undefined && this.#tracking.up.stamp === undefined }
-    get isDragging () { return this.activeDuration >= this.#clickMs - Number.EPSILON }
+    get isHolding () { return this.#holding.isHolding = (this.isActive && this.#holding.isHolding) && this.enabled }
+    get isActive () { return this.#tracking.down.stamp !== undefined && this.#tracking.up.stamp === undefined && this.enabled }
+    get isDragging () { return this.activeDuration >= this.#clickMs - Number.EPSILON && this.enabled }
     get dragStart () { return this.isDragging ? this.#tracking.down.position.clone() : undefined }
     // milliseconds 
     get activeDuration () { return this.isActive ? performance.now() - this.#tracking.down.stamp : 0 }

@@ -59,7 +59,9 @@ export class Button extends TrackableObject {
         // these need to be set as non-functions by default for isSupported checks to work
         onclick: undefined,
         onhold: undefined,
-        ondrag: undefined
+        ondrag: undefined,
+        onpress: undefined,
+        onrelease: undefined
     };
     constructor () {
         super();
