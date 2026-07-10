@@ -2,6 +2,7 @@ import { AmmoPool, LobbyJSON } from "../../lobby/lobby.js";
 import { AnimationList, Animation, ShapeAnimation } from "../../animate/animate.js";
 import { Vector, Color, Ray } from "../../geometry/geometry.js";
 import { PhaseController } from "./main.js";
+import { SelectionController, ShotSelection } from "./select.js";
 import { InputListener } from "../player.js";
 import { WorkerController } from "../workers.js";
 import { drawBlastAnimation } from "../../projectile/projectile.js";
@@ -55,6 +56,7 @@ export class RoundController extends PhaseController {
     #Interface;
     #Terrain;
     #Input;
+    #SelectionPhase;
     #Animations = {
         Main: new AnimationList()
     };
@@ -63,7 +65,9 @@ export class RoundController extends PhaseController {
         super(mainController);
         this.#init(lobbyData);
         this.#loadPromise = this.#load()
+            .then(() => this.#setupSelectPhase())
             .then(() => this.#setupInterface())
+            .then(() => this.#selectShot(this.store.shot.types[0]))
             .then(() => this.#setupSfx())
             .then(() => distributePlayers(this.Global.Display.size, this.Players)) // [!] temporary
             .then(() => this.state = this.constructor.STATES.Ready)
@@ -72,6 +76,7 @@ export class RoundController extends PhaseController {
 
     #init (lobby) {
         this.flags.isTurn = true;
+        this.flags.SELECTING = false;
         this.store.prerender = Promise.resolve();
         this.store.cacheKey = {
             terrain: "lastTerrainState",
@@ -113,6 +118,15 @@ export class RoundController extends PhaseController {
         for (const assetKey of ["fireBtn", "selectBtn", "shotType", "leftBtn", "rightBtn", "blast", "muzzleFlash", "fire", "bouncer"]) {
             this.loadAsset(assetKey, ...this.Global.AssetTable[assetKey]);
         }
+    }
+    #setupSelectPhase () {
+        const selections = [];
+        for (const type of this.store.shot.types) {
+            const selection = new ShotSelection(type);
+            selection.glowColor.apply(255, 0, 0, .6);
+            selections.push(selection);
+        }
+        this.#SelectionPhase = new SelectionController(this.Global, selections);
     }
     #setShot (shot, map) {
         const { shot: st } = this.store;
@@ -388,16 +402,19 @@ export class RoundController extends PhaseController {
 
         shotIco.position.apply(520, 150);
         shotIco.fontSize = 16;
-        shotIco.text = store.shot.selected;
+        this.store.shotIcon = shotIco;
 
         // setting up button callbacks
         rightBtn.onclick = rightBtn.onhold = () => ActivePlayer.mover.move(MOVE_SPEED);
         leftBtn.onclick = leftBtn.onhold = () => ActivePlayer.mover.move(-MOVE_SPEED);
         selectBtn.onclick = () => {
-            // [!] placeholder, inefficient, rework entiely when selection menu is added
-            const index = store.shot.types.findIndex((type) => type === store.shot.selected);
-            store.shot.selected = store.shot.types[(index + 1) % store.shot.types.length];
-            shotIco.text = store.shot.selected;
+            // // [!] placeholder, inefficient, rework entiely when selection menu is added
+            // const index = store.shot.types.findIndex((type) => type === store.shot.selected);
+            // store.shot.selected = store.shot.types[(index + 1) % store.shot.types.length];
+            // shotIco.text = store.shot.selected;
+            this.SelectionPhase.start();
+            this.Input.enabled = false;
+            this.flags.SELECTING = true;
         };
         fireBtn.onclick = () => {
             if (store.shot.current === undefined)
@@ -415,6 +432,10 @@ export class RoundController extends PhaseController {
         const bounceSfxFn = function () { Player.add(AssetPool.get("bouncer").Instance().play(), true); }
         AmmoPool.get("Bouncer").SFX.bounce = bounceSfxFn;
         AmmoPool.get("MegaBouncer").SFX.bounce = bounceSfxFn;
+    }
+    #selectShot (type) {
+        this.store.shot.selected = type;
+        this.store.shotIcon.text = type;
     }
     async #preloadMap (map) {
         const { Audio, Threaded, Global, Animations, Terrain, store } = this;
@@ -601,10 +622,10 @@ export class RoundController extends PhaseController {
             }
         }
     }
-    animate () {
+    animate (clear = true) {
         const { ActivePlayer, Animations, Global, Interface, Threaded, Players, flags, store } = this;
         const { cursor } = Global.Display;
-        cursor.clear();
+        if (clear) cursor.clear();
         if (flags.isTurn) Interface.draw(cursor, 0, 1);
         for (const { tank, isDead } of Players)
             if (!isDead) tank.draw(cursor);
@@ -616,9 +637,21 @@ export class RoundController extends PhaseController {
             Player.drawProfile(cursor);
         if (flags.isTurn) Interface.draw(cursor, 1);
         if (Global.flags.DEBUG) this.#drawDebugOverlay();
+        if (flags.SELECTING) this.SelectionPhase.animate(false);
     }
     async tick (delta) {
         const { Animations, Global, store, flags } = this;
+        if (flags.SELECTING) {
+            if (this.SelectionPhase.state === this.constructor.STATES.Raise) {
+                flags.SELECTING = false;
+                this.Input.enabled = true;
+                if (this.SelectionPhase.store.SELECTED) this.#selectShot(this.SelectionPhase.store.SELECTED);
+                this.SelectionPhase.reset();
+            } else {
+                await this.SelectionPhase.tick(delta);
+                return;
+            }
+        }
         if (store.shot.map?.intersect && (store.prerender?.isWorkerJob && !store.prerender.fulfilled)) { // wait for loading to finish before updating game loop
         } else { // do next tick / game update
             // check if background needs to be updated
@@ -683,6 +716,7 @@ export class RoundController extends PhaseController {
     get Input () { return this.#Input }
     get Terrain () { return this.#Terrain }
     get Animations () { return this.#Animations }
+    get SelectionPhase () { return this.#SelectionPhase }
     get onload () { return this.#loadPromise }
 }
 

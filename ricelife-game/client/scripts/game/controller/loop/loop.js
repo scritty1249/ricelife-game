@@ -6,7 +6,8 @@ export class LoopController extends TrackableObject {
         Crashed: -1,
         Closed: 0,
         Ready: 1,
-        Busy: 2,
+        Raise: 2,
+        Busy: 3,
     };
     #AssetPool = new AssetPool();
     #AssetTable = {};

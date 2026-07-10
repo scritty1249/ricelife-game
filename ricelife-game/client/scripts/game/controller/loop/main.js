@@ -105,7 +105,7 @@ export class MainController extends LoopController {
         ) {
             if (this.TickInterval.ready) await this.activeLoop?.tick?.(this.TickInterval.lastDelta);
             if (this.FrameInterval.ready) {
-                this.activeLoop.animate();
+                this.activeLoop.animate(true);
                 if (this.flags.DEBUG) this.#drawFramerate();
                 this.FrameCounter.update();
             }
@@ -132,7 +132,7 @@ export class PhaseController extends LoopController {
         super(mainController.Audio.Context);
         this.#Global = mainController;
     }
-    animate () {}
+    animate (clear = true) {}
     get isPhaseController () { return true }
     get Global () { return this.#Global }
 }

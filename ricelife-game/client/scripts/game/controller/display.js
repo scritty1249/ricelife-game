@@ -59,8 +59,10 @@ export class AppCanvas {
     #bbox;
     #cursor;
     #size;
+    #center; // [!] does not update with size
     constructor (canvas, size = new Vector(1920, 1080)) {
         this.#size = size;
+        this.#center = size.div(2);
         this.canvas = canvas;
         [this.canvas.width, this.canvas.height] = this.#size;
         this.#cursor = Canvas2DContextCursorFactory(this.canvas);
@@ -76,7 +78,7 @@ export class AppCanvas {
 
     get cursor () { return this.#cursor }
     get size () { return this.#size }
-    get center () { return this.size.div(2) }
+    get center () { return this.#center }
 }
 
 // Transforms world coorindates to canvas drawing coordinates. May be redundant / excessive
@@ -91,6 +93,16 @@ class Canvas2DContextCursor {
 
     normalizeY (y) {
         return this.#size.y - y;
+    }
+    screenshot (promise = true) {
+        if (promise) { // this is more efficient than synchronous method
+            return createImageBitmap(this.#ctx.canvas);
+        } else {
+            const offscreen = new OffscreenCanvas(...this.#size);
+            const ctx = offscreen.getContext("2d");
+            ctx.drawImage(this.#ctx.canvas, 0, 0);
+            return offscreen.transferToImageBitmap(); 
+        }
     }
     clear () {
         this.#ctx.clearRect(0, 0, this.#size.x, this.#size.y);

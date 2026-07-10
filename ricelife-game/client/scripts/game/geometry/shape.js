@@ -611,7 +611,13 @@ export class Poly extends Shape {
         this.polygon.draw(cursor);
     }
     applyTransformation () {
-        for (const point of this.polygon.path) this.transformation.set(point, true);
+        // center at (0, 0)
+        const offset = this.polygon.center;
+        for (const point of this.polygon.path) {
+            point.sub(offset, true);
+            this.transformation.set(point, true);
+            point.add(offset, true);
+        }
         super.applyTransformation(); // reset transformations
     }
     clone () { // does not carry over pending transformations
