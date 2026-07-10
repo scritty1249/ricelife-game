@@ -103,6 +103,12 @@ export class Vector {
         vec.y = Math.floor(vec.y);
         return vec;
     }
+    ceil (mutate = false) {
+        const vec = mutate ? this : this.clone();
+        vec.x = Math.ceil(vec.x);
+        vec.y = Math.ceil(vec.y);
+        return vec;
+    }
     precision (precision, mutate = false) {
         const vec = mutate ? this : this.clone();
         const power = 10**precision;
@@ -155,7 +161,7 @@ export class Vector {
         return Math.hypot(vector.x - this.x, vector.y - this.y);
     }
     reflect (origin, mutate = false) {
-        if (!origin?.isVector) throw new Error(`[${this.constructor.name}] Error: Cannot reflect across non-Vector type ${typeof vector}`);
+        if (!origin?.isVector) throw new Error(`[${this.constructor.name}] Error: Cannot reflect across non-Vector type ${typeof origin}`);
         const vec = origin.add(origin.sub(this));
         return mutate ? this.apply(vec) : vec;
     }
