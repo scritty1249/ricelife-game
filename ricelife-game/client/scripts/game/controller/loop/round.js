@@ -123,7 +123,11 @@ export class RoundController extends PhaseController {
         const selections = [];
         for (const type of this.store.shot.types) {
             const selection = new ShotSelection(type);
-            selection.glowColor.apply(255, 0, 0, .6);
+            const typeConstructor = this.AmmoPool.get(type);
+            selection.glowColor.apply(typeConstructor.glowColor);
+            selection.glowColor.a = .8;
+            selection.fontColor.apply(typeConstructor.mainColor);
+            selection.fontColor.a = 1;
             selections.push(selection);
         }
         this.#SelectionPhase = new SelectionController(this.Global, selections);
