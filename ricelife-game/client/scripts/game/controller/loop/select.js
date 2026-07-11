@@ -10,15 +10,17 @@ export class SelectionController extends PhaseController {
         const { userData } = this.shape.polygon;
         const { selection } = userData;
         const { fillColor, fontColor, borderColor, borderWidth, name } = selection;
+        const textOffset = selection.constructor.textOffsetScale.mul(this.shape.center).add(this.shape.center, true);
         cursor.save();
         this.shape.draw(cursor, true);
-        if (fillColor.visible) {
+        if (!selection.hasGlow ) {
             cursor.save();
             cursor.fillStyle = fillColor.toRGBA();
             cursor.fill();
             cursor.restore();
         }
         if (selection.hasGlow) {
+            // border glow
             const { glowColor, glowRadius, glowResolution } = selection;
             cursor.save();
             cursor.filter = `blur(${glowResolution}px)`;
@@ -27,16 +29,17 @@ export class SelectionController extends PhaseController {
             cursor.lineWidth = glowRadius;
             cursor.stroke();
             cursor.globalCompositeOperation = "destination-out";
+            cursor.filter = SelectionController.tileFillFilter;
+            cursor.fillStyle = fillColor.toRGBA();
             cursor.fill();
             cursor.globalCompositeOperation = "source-over";
-            cursor.restore();
+            cursor.restore();            
         }
         if (borderColor.visible && borderWidth) {
             cursor.strokeStyle = borderColor.toRGBA();
             cursor.lineWidth = borderWidth;
             cursor.stroke();
         }
-        const textOffset = selection.constructor.textOffsetScale.mul(this.shape.center).add(this.shape.center, true);
         this.drawText(cursor);
         cursor.restore();
     }
@@ -50,6 +53,7 @@ export class SelectionController extends PhaseController {
         MIN_TILE_SIZE: 100,
         MAX_TILE_SIZE: 300,
     };
+    static tileFillFilter = "blur(10px)"; // [!] setting this over 30px causes massive framerate drop
     static backgroundFilter = "blur(20px) brightness(30%)";
     static minSelectionSize = 150;
     static maxSelectionSize = 300;
@@ -291,8 +295,8 @@ export class ShotSelection {
     glowResolution = 10;
     #icon;
     #glowColor = new Color(0, 0, 0, 0);
-    #borderColor = new Color(255, 240, 240);
-    #fillColor = new Color(70, 70, 70);
+    #borderColor = new Color(255, 255, 255);
+    #fillColor = new Color(70, 70, 70, .8);
     #fontColor = new Color(255, 255, 255);
 
     constructor (name, icon) {
