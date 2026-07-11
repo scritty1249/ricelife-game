@@ -57,6 +57,7 @@ export class SelectionController extends PhaseController {
     static backgroundFilter = "blur(20px) brightness(30%)";
     static minSelectionSize = 150;
     static maxSelectionSize = 300;
+    static tileSpacingScale = -.2;
     #Interface;
     #ResizeObserver;
     #loadPromise;
@@ -65,7 +66,7 @@ export class SelectionController extends PhaseController {
         this.#init(shotSelections);
         this.#loadPromise = this.#load()
             .then(() => this.#setupInterface())
-            .then(() => this.#computeTileLayout(5))
+            .then(() => this.#computeTileLayout())
             .then(() => this.#setupTiles())
             .then(() => this.#resetTilePositions())
             .then(() => this.#updateTiles())
@@ -108,10 +109,12 @@ export class SelectionController extends PhaseController {
         this.store.tileLayer = this.Interface.insert();
     }
     // padding in pixels
-    #computeTileLayout (padding = 0) {
+    #computeTileLayout () {
         // create template tile
         const { MIN_TILE_SIZE, MAX_TILE_SIZE } = this.constructor.SETTINGS;
+        const { tileSpacingScale } = this.constructor;
         const legLength = clamp(this.Global.Display.size.max() / 2, MIN_TILE_SIZE, MAX_TILE_SIZE);
+        const padding = legLength * tileSpacingScale;
         const shape = new Equigon(6, legLength);
         shape.transformation.scale.y = 0.85;
         shape.applyTransformation();
