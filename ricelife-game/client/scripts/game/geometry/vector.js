@@ -312,6 +312,7 @@ export class Color {
     clone () { return new Color(this.r, this.g, this.b, this.a) }
 
     get isColor () { return true }
+    get visible () { return !floatEqual(this.a, 0) }
     get r () { return this.#r }
     get g () { return this.#g }
     get b () { return this.#b }

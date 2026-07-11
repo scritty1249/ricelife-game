@@ -5,10 +5,6 @@ export class Icon extends TrackableObject {
     #img;
     #hash;
     #bbox = new BoundingBox();
-    #fontColor = new Color(0, 0, 0);
-    text = "";
-    fontSize = 24;
-    fontFamily = "Arial";
     #position = new Vector();
     constructor (image) {
         super();
@@ -18,18 +14,6 @@ export class Icon extends TrackableObject {
 
     draw (cursor) {
         this.#img.draw(cursor, this.position.x, this.position.y);
-        this.#drawText(cursor);
-    }
-
-    #drawText (cursor) {
-        if (floatEqual(this.fontColor.a, 0) || !this.text) return;
-        cursor.save();
-        cursor.font = `bold ${this.fontSize}px ${this.fontFamily}`;
-        cursor.fillStyle = this.fontColor.toString();
-        cursor.textAlign = "center";
-        cursor.textBaseline = "middle";
-        cursor.fillText(this.text, this.position.x + (this.width / 2), this.position.y - (this.height / 2));
-        cursor.restore();
     }
 
     getBoundingBox () {
@@ -50,7 +34,6 @@ export class Icon extends TrackableObject {
     get source () { return this.#img }
     get width () { return this.#img.width }
     get height () { return this.#img.height }
-    get fontColor () { return this.#fontColor }
     get position () { return this.#position }
 }
 
@@ -63,27 +46,50 @@ export class Button extends TrackableObject {
         onpress: undefined,
         onrelease: undefined
     };
+    #fontColor = new Color(0, 0, 0, 1);
+    fontSize = 24;
+    fontFamily = "Arial";
+    text = "";
     constructor () {
         super();
     }
 
+    draw (cursor) {
+        this.drawButton(cursor);
+        this.drawText(cursor);
+    }
+    drawText (cursor, offset = undefined) {
+        if (floatEqual(this.fontColor.a, 0) || !this.text) return;
+        cursor.save();
+        cursor.font = `bold ${this.fontStyle}`;
+        cursor.fillStyle = this.fontColor.toString();
+        cursor.textAlign = "center";
+        cursor.textBaseline = "middle";
+        const position = this.getPosition(); // clone
+        if (offset?.isVector)
+            position.add(offset, true);
+        cursor.fillText(this.text, position);
+        cursor.restore();
+    }
+
     get isButton () { return true }
     get onclick () { return this.#callback.onclick }
-    set onclick(callbackFn) { return (this.#callback.onclick = callbackFn) }
+    set onclick (callbackFn) { return (this.#callback.onclick = callbackFn) }
     get onhold () { return this.#callback.onhold }
-    set onhold(callbackFn) { return (this.#callback.onhold = callbackFn) }
+    set onhold (callbackFn) { return (this.#callback.onhold = callbackFn) }
     get ondrag () { return this.#callback.ondrag }
-    set ondrag(callbackFn) { return (this.#callback.ondrag = callbackFn) }
+    set ondrag (callbackFn) { return (this.#callback.ondrag = callbackFn) }
 
     // [!] should be overridden by children
-    draw (cursor) {}
+    drawButton (cursor) {}
     isOver (point) { return false }
     getBoundingBox () { return new BoundingBox() }
     setPosition (x, y = null) {}
     getPosition () { return new Vector() }
     get width () { return 0 }
     get height () { return 0 }
-    get position () { return new Vector() }
+    get fontColor () { return this.#fontColor }
+    get fontStyle () { return `${this.fontSize}px ${this.fontFamily}` }
 }
 
 export class IconButton extends Button {
@@ -93,7 +99,12 @@ export class IconButton extends Button {
         this.#icon = new Icon(image);
     }
 
-    draw (cursor) { this.icon.draw(cursor) }
+    drawButton (cursor) { this.icon.draw(cursor) }
+    drawText (cursor, offset = undefined) {
+        const centerOffset = new Vector(this.width / 2, -this.height / 2);
+        if (offset?.isVector) super.drawText(cursor, offset.add(centerOffset));
+        else super.drawText(cursor, centerOffset);
+    }
     getBoundingBox () { return this.icon.getBoundingBox() }
     setPosition (x, y = null) { this.icon.position.apply(x, y) }
     getPosition () { return this.icon.position.clone() }
@@ -116,7 +127,7 @@ export class ShapeButton extends Button {
         if (stroke?.isColor) this.strokeColor.apply(stroke);
     }
 
-    draw (cursor) {
+    drawButton (cursor) {
         const hasFill = !floatEqual(this.fillColor.a, 0);
         const hasStroke = !floatEqual(this.strokeColor.a, 0);
         cursor.save();

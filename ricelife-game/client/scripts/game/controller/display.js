@@ -80,7 +80,6 @@ export class AppCanvas {
     #computeLayout () {
         this.#size.apply(this.canvas.width, this.canvas.height);
         this.#center = this.size.div(2);
-        console.log(this);
     }
 
     getBoundingBox () {

@@ -398,6 +398,8 @@ export class BoundingBox {
     get min () { return this.#min }
     get max () { return this.#max }
     get size () { return this.max.sub(this.min).abs(true) }
+    get width () { return this.size.x }
+    get height () { return this.size.y }
     get hash () { return Vector.hashVectors([this.min, this.max]) }
     get center () { return this.#min.lerp(this.#max, .5) }
 }

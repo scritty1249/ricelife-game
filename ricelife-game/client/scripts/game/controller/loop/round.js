@@ -394,27 +394,20 @@ export class RoundController extends PhaseController {
         const selectBtn = new Menu.IconButton(selectImg);
         const leftBtn = new Menu.IconButton(leftImg);
         const rightBtn = new Menu.IconButton(rightImg);
-        const shotIco = new Menu.Icon(shotImg);
+        const shotIco = new Menu.IconButton(shotImg); // dont make clickable
 
         fireBtn.setPosition(75, 150);
         selectBtn.setPosition(300, 150);
         rightBtn.setPosition(this.Global.Display.size.x - rightImg.width - 75, 150);
         leftBtn.setPosition(rightBtn.getPosition().x - leftImg.width - 25, 150);
-
-        shotIco.position.apply(520, 150);
+        shotIco.setPosition(520, 150);
         shotIco.fontSize = 16;
         this.store.shotIcon = shotIco;
 
         // setting up button callbacks
         rightBtn.onclick = rightBtn.onhold = () => ActivePlayer.mover.move(MOVE_SPEED);
         leftBtn.onclick = leftBtn.onhold = () => ActivePlayer.mover.move(-MOVE_SPEED);
-        selectBtn.onclick = () => {
-            // // [!] placeholder, inefficient, rework entiely when selection menu is added
-            // const index = store.shot.types.findIndex((type) => type === store.shot.selected);
-            // store.shot.selected = store.shot.types[(index + 1) % store.shot.types.length];
-            // shotIco.text = store.shot.selected;
-            this.openSelect();
-        };
+        selectBtn.onclick = () => this.openSelect();
         fireBtn.onclick = () => {
             if (store.shot.current === undefined)
                 this.launchShot();
@@ -435,6 +428,19 @@ export class RoundController extends PhaseController {
     #selectShot (type) {
         this.store.shot.selected = type;
         this.store.shotIcon.text = type;
+    }
+    #getSelectionBackground () {
+        const { cursor } = this.Global.Display;
+        const doScreenshot = this.SelectionPhase.constructor.backgroundFilter;
+        this.store.snapshot?.close?.();
+        if (doScreenshot) {
+            cursor.save();
+            cursor.filter = this.SelectionPhase.constructor.backgroundFilter;
+            this.animate(true);
+            cursor.restore();
+        }
+        this.store.snapshot = cursor.screenshot(false);
+        if (doScreenshot) this.animate(true); // [!] may be redundant since this should always be called before switching to selection menu anyways...? -KT
     }
     async #preloadMap (map) {
         const { Audio, Threaded, Global, Animations, Terrain, store } = this;
@@ -485,6 +491,7 @@ export class RoundController extends PhaseController {
     async launchShot () {
         const { ActivePlayer, AmmoPool, Global, store, flags } = this;
         flags.isTurn = false;
+        this.Global.Input.enabled = false;
         // [!] start timeout to dispatch busy event here
         // let wasSetBusy = false;
         // store.dispatchBusyTimeout = setTimeout(() => {
@@ -513,6 +520,7 @@ export class RoundController extends PhaseController {
         this.#setShot(shot, map);
     }
     openSelect () {
+        this.#getSelectionBackground();
         this.SelectionPhase.start();
         this.Global.Input.keyMap = {};
         this.Global.Input.pointerMap = this.SelectionPhase.Interface;
@@ -524,6 +532,8 @@ export class RoundController extends PhaseController {
         this.SelectionPhase.reset();
         this.Global.Input.keyMap = this.constructor.INPUT_MAP;
         this.Global.Input.pointerMap = this.Interface;
+        this.store.snapshot?.close?.();
+        this.store.snapshot = undefined;
     }
     updateTerrain (polygon, changedBBoxes = []) {
         if (this.Terrain.hash !== polygon.hash)
@@ -638,18 +648,23 @@ export class RoundController extends PhaseController {
         const { ActivePlayer, Animations, Global, Interface, Threaded, Players, flags, store } = this;
         const { cursor } = Global.Display;
         if (clear) cursor.clear();
-        if (flags.isTurn) Interface.draw(cursor, 0, 1);
-        for (const { tank, isDead } of Players)
-            if (!isDead) tank.draw(cursor);
-        cursor.drawImage(Threaded.cache[store.cacheKey.background], 0, 0);
-        if (store.shot.tracer) store.shot.tracer.draw(cursor);
-        if (store.shot.current && store.shot.current.time > 0) store.shot.current.draw(cursor);
-        Animations.Main.update(cursor);
-        for (const Player of Players)
-            Player.drawProfile(cursor);
-        if (flags.isTurn) Interface.draw(cursor, 1);
-        if (Global.flags.DEBUG) this.#drawDebugOverlay();
-        if (flags.SELECTING) this.SelectionPhase.animate(false);
+        if (flags.SELECTING) {
+            cursor.drawImage(this.store.snapshot, 0, 0);
+            this.SelectionPhase.animate(false);
+        } else {
+            if (flags.isTurn) Interface.draw(cursor, 0, 1);
+            for (const { tank, isDead } of Players)
+                if (!isDead) tank.draw(cursor);
+            cursor.drawImage(Threaded.cache[store.cacheKey.background], 0, 0);
+            if (store.shot.tracer) store.shot.tracer.draw(cursor);
+            if (store.shot.current && store.shot.current.time > 0) store.shot.current.draw(cursor);
+            Animations.Main.update(cursor);
+            for (const Player of Players)
+                Player.drawProfile(cursor);
+            if (flags.isTurn) Interface.draw(cursor, 1);
+            if (Global.flags.DEBUG) this.#drawDebugOverlay();
+            
+        }
     }
     async tick (delta) {
         const { Animations, Global, store, flags } = this;
@@ -702,6 +717,7 @@ export class RoundController extends PhaseController {
                     this.#clearShot();
                     // unlock player
                     flags.isTurn = true;
+                    this.Global.Input.enabled = true;
                     store.prerender = Promise.resolve();
                 }
             }

@@ -40,7 +40,7 @@ class KeyboardListener {
     #activeKeys;
     #activeKeysProxy;
     #listeningTo;
-    enabled = true;
+    #enabled = true;
     constructor (windowElement, keyCodeMap) {
         this.#keyCodeMap = keyCodeMap;
         this.#initKeyMap();
@@ -110,6 +110,11 @@ class KeyboardListener {
         this.#initKeyMap();
         return result;
     }
+    get enabled () { return this.#enabled }
+    set enabled (bool) {
+        this.resetState();
+        return (this.#enabled = bool);
+    }
 }
 
 class PointerListener  {
@@ -136,7 +141,7 @@ class PointerListener  {
         }
     };
     #clickEventPromises = new Array();
-    enabled = true; // blocks callbacks if set to false, but will still track pointer
+    #enabled = true; // blocks callbacks if set to false, but will still track pointer
     constructor (appCanvas, clickThresholdMs, callbackFns) {
         this.#callbackFns = callbackFns;
         this.#clickMs = clickThresholdMs;
@@ -283,6 +288,11 @@ class PointerListener  {
     // milliseconds 
     get activeDuration () { return this.isActive ? performance.now() - this.#tracking.down.stamp : 0 }
     set callbackFns (callbackMap) { return (this.#callbackFns = callbackMap) }
+    get enabled () { return this.#enabled }
+    set enabled (bool) {
+        this.resetState();
+        return (this.#enabled = bool);
+    }
 }
 
 export class GravityController { // lighter-weight, seperate for web workers. computes a player's new Y position given a terrain and X position

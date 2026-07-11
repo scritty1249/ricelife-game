@@ -5,6 +5,41 @@ import { drawCircle, clamp, floatEqual } from "../../utils/utils.js";
 import * as Menu from "../../menu/menu.js"
 
 export class SelectionController extends PhaseController {
+    // bound to ShapeButton (Tile)
+    static tileDrawFn (cursor) {
+        const { userData } = this.shape.polygon;
+        const { selection } = userData;
+        const { fillColor, fontColor, borderColor, borderWidth, name } = selection;
+        cursor.save();
+        this.shape.draw(cursor, true);
+        if (fillColor.visible) {
+            cursor.save();
+            cursor.fillStyle = fillColor.toRGBA();
+            cursor.fill();
+            cursor.restore();
+        }
+        if (selection.hasGlow) {
+            const { glowColor, glowRadius, glowResolution } = selection;
+            cursor.save();
+            cursor.filter = `blur(${glowResolution}px)`;
+            this.shape.draw(cursor, true);
+            cursor.strokeStyle = glowColor.toString();
+            cursor.lineWidth = glowRadius;
+            cursor.stroke();
+            cursor.globalCompositeOperation = "destination-out";
+            cursor.fill();
+            cursor.globalCompositeOperation = "source-over";
+            cursor.restore();
+        }
+        if (borderColor.visible && borderWidth) {
+            cursor.strokeStyle = borderColor.toRGBA();
+            cursor.lineWidth = borderWidth;
+            cursor.stroke();
+        }
+        const textOffset = selection.constructor.textOffsetScale.mul(this.shape.center).add(this.shape.center, true);
+        this.drawText(cursor);
+        cursor.restore();
+    }
     static SETTINGS = {
         DEFAULT_INVERT_CONTROLS: true,
         // values for grow and shrink effects while traversing menu
@@ -15,6 +50,7 @@ export class SelectionController extends PhaseController {
         MIN_TILE_SIZE: 100,
         MAX_TILE_SIZE: 300,
     };
+    static backgroundFilter = "blur(20px) brightness(30%)";
     static minSelectionSize = 150;
     static maxSelectionSize = 300;
     #Interface;
@@ -25,6 +61,7 @@ export class SelectionController extends PhaseController {
         this.#setupInterface();
         this.#computeTileLayout(5);
         this.#setupTiles();
+        this.#resetTilePositions();
         this.#updateTiles();
         this.state = this.constructor.STATES.Ready;
     }
@@ -79,9 +116,17 @@ export class SelectionController extends PhaseController {
         
     }
     #setupTiles () {
-        const { selectionShape, tileSpace, tileCount, tileLayer } = this.store;
+        const { selections, tileLayer, tileCount, selectionShape } = this.store;
+        for (let i = 0; i < tileCount; i++) {
+            tileLayer.push(
+                this.#setupTile(selectionShape.clone(true), this.store.selections[i % this.store.selections.length])
+            )
+        }
+    }
+    #resetTilePositions () {
+        const { tileSpace, tileCount, tileLayer } = this.store;
         const { center } = this.Global.Display;
-
+        const tiles = tileLayer.items;
         const coords = [];
         for (let q = -tileCount; q <= tileCount; q++) {
             const rMin = Math.max(-tileCount, -q - tileCount);
@@ -97,14 +142,12 @@ export class SelectionController extends PhaseController {
             if (a.distance !== b.distance) return a.distance - b.distance;
             return a.q - b.q || a.r - b.r;
         });
-        for (let i = 0; i < tileCount; i++) {
+        for (let i = 0; i < tileCount && tiles.length; i++) {
             const { q, r } = coords[i];
-            const shape = selectionShape.clone(true);
+            const shape = tiles[i].shape;
+            shape.moveTo(center);
             shape.transformation.offset.apply(tileSpace.x * (q + r / 2), tileSpace.y * r);
-            shape.transformation.offset.add(center, true);
             shape.applyTransformation();
-            const tileButton = this.#setupTile(shape, this.store.selections[i % this.store.selections.length]);
-            tileLayer.push(tileButton);
         }
     }
     #setupTile (shape, selection) {
@@ -116,6 +159,12 @@ export class SelectionController extends PhaseController {
             this.store.SELECTED = userData.selection.name;
             this.state = this.constructor.STATES.Raise;
         }
+        // styling
+        btn.text = selection.name;
+        btn.fontColor.apply(selection.fontColor);
+        btn.fillColor.apply(selection.fillColor);
+        btn.strokeColor.apply(selection.borderColor);
+        btn.draw = this.constructor.tileDrawFn.bind(btn);
         return btn;
     }
     #wrapTilePosition (tile) {
@@ -205,7 +254,8 @@ export class SelectionController extends PhaseController {
         this.trackActive = false;
         this.store.lastDrawnPosition.apply(this.Global.Display.center);
         this.store.lastActivePosition.apply(this.store.lastDrawnPosition);
-        // [!] reset tile positions
+        this.#resetTilePositions();
+        this.#updateTiles();
     }
     animate (clear = true) {
         const { cursor } = this.Global.Display;
@@ -232,12 +282,16 @@ export class SelectionController extends PhaseController {
 }
 
 export class ShotSelection {
+    static textOffsetScale = new Vector(0, -.3);
     name;
     fontSize = 24;
     fontFamily = "serif";
+    borderWidth = 5;
+    glowRadius = 25;
+    glowResolution = 10;
     #icon;
     #glowColor = new Color(0, 0, 0, 0);
-    #borderColor = new Color(255, 255, 255);
+    #borderColor = new Color(255, 240, 240);
     #fillColor = new Color(70, 70, 70);
     #fontColor = new Color(255, 255, 255);
 
@@ -247,9 +301,11 @@ export class ShotSelection {
     }
 
     get isShotSelection () { return true }
+    get hasGlow () { return this.glowColor.visible && this.glowRadius && this.glowResolution }
     get icon () { return this.#icon }
-    get hasGlow () { return floatEqual(this.glowColor.a, 0) }
     get fontColor () { return this.#fontColor }
     get glowColor () { return this.#glowColor }
+    get borderColor () { return this.#borderColor }
+    get fillColor () { return this.#fillColor }
     get fontStyle () { return `${this.fontSize}px ${this.fontFamily}` }
 }
