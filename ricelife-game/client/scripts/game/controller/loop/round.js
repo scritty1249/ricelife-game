@@ -115,7 +115,7 @@ export class RoundController extends PhaseController {
             this.loadAsset(modelType + "/barrel");
         }
         // load interface assets\
-        for (const assetKey of ["fireBtn", "selectBtn", "shotType", "leftBtn", "rightBtn", "blast", "muzzleFlash", "fire", "bouncer"]) {
+        for (const assetKey of ["fireBtn", "selectBtn", "shotType", "leftBtn", "rightBtn", "blast", "muzzleFlash", "explosion", "fire", "bouncer"]) {
             this.loadAsset(assetKey, ...this.Global.AssetTable[assetKey]);
         }
     }
@@ -180,7 +180,7 @@ export class RoundController extends PhaseController {
         const sprite = this.AssetPool.get("explosion").clone();
         sprite.rotation = tank.rotation.body;
         const ani = new Animation(tank.relativePosition, sprite, sprite.framerate);
-        store.animations.global.push(ani);
+        this.Animations.Main.push(ani);
         return ani;
     }
     #createBlastAnimation (blast) {
