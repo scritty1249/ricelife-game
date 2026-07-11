@@ -55,7 +55,6 @@ export class RoundController extends PhaseController {
     #Threaded;
     #Interface;
     #Terrain;
-    #Input;
     #SelectionPhase;
     #Animations = {
         Main: new AnimationList()
@@ -93,7 +92,8 @@ export class RoundController extends PhaseController {
         };
 
         this.#Interface = new Menu.Interface();
-        this.#Input = new InputListener(this.Global.Display.canvas, this.Global.constructor.SETTINGS.CLICK_DURATION_MS, this.constructor.INPUT_MAP, this.Interface);
+        this.Global.Input.keyMap = this.constructor.INPUT_MAP;
+        this.Global.Input.pointerMap = this.Interface;
         this.#Threaded = new WorkerController(new WorkerPool(new URL(`../../workers/web-worker.js`, import.meta.url), 4, 3));
         this.#LobbyData = new LobbyJSON(lobby);
         this.store.shot.types = this.LobbyData.ammoTypes();
@@ -241,9 +241,10 @@ export class RoundController extends PhaseController {
         return impact;
     }
     #drawDebugOverlay () {
-        const { ActivePlayer, Terrain, Interface, Input, store, flags } = this;
-        const { cursor } = this.Global.Display;
-        const displaySize = this.Global.Display.size;
+        const { ActivePlayer, Terrain, Interface, store, flags } = this;
+        const { Input, Display } = this.Global;
+        const { cursor } = Display;
+        const displaySize = Display.size;
         // draw any holes in terrain
         for (const hole of Terrain.holes) {
             cursor.save();
@@ -412,9 +413,7 @@ export class RoundController extends PhaseController {
             // const index = store.shot.types.findIndex((type) => type === store.shot.selected);
             // store.shot.selected = store.shot.types[(index + 1) % store.shot.types.length];
             // shotIco.text = store.shot.selected;
-            this.SelectionPhase.start();
-            this.Input.enabled = false;
-            this.flags.SELECTING = true;
+            this.openSelect();
         };
         fireBtn.onclick = () => {
             if (store.shot.current === undefined)
@@ -513,6 +512,19 @@ export class RoundController extends PhaseController {
         // }
         this.#setShot(shot, map);
     }
+    openSelect () {
+        this.SelectionPhase.start();
+        this.Global.Input.keyMap = {};
+        this.Global.Input.pointerMap = this.SelectionPhase.Interface;
+        this.flags.SELECTING = true;
+    }
+    closeSelect () {
+        this.flags.SELECTING = false;
+        if (this.SelectionPhase.store.SELECTED) this.#selectShot(this.SelectionPhase.store.SELECTED);
+        this.SelectionPhase.reset();
+        this.Global.Input.keyMap = this.constructor.INPUT_MAP;
+        this.Global.Input.pointerMap = this.Interface;
+    }
     updateTerrain (polygon, changedBBoxes = []) {
         if (this.Terrain.hash !== polygon.hash)
             this.Terrain.apply(polygon);
@@ -571,7 +583,7 @@ export class RoundController extends PhaseController {
     handleInput () {
         const { ActivePlayer, Interface, Global, flags, store } = this;
         const { AIM_SENSITIVITY, MOVE_SPEED, POWER_SENSITIVITY } = this.constructor.SETTINGS;
-        const { keyboard, pointer } = this.Input;
+        const { keyboard, pointer } = Global.Input;
         if (keyboard.keyActive("esc")) {
             // pause menu logic
         }
@@ -643,10 +655,7 @@ export class RoundController extends PhaseController {
         const { Animations, Global, store, flags } = this;
         if (flags.SELECTING) {
             if (this.SelectionPhase.state === this.constructor.STATES.Raise) {
-                flags.SELECTING = false;
-                this.Input.enabled = true;
-                if (this.SelectionPhase.store.SELECTED) this.#selectShot(this.SelectionPhase.store.SELECTED);
-                this.SelectionPhase.reset();
+                this.closeSelect();
             } else {
                 await this.SelectionPhase.tick(delta);
                 return;
@@ -701,7 +710,6 @@ export class RoundController extends PhaseController {
     }
     close () {
         this.state = this.constructor.STATES.Busy;
-        this.Input.close();
         this.Threaded.terminate();
         super.close();
     }
@@ -713,7 +721,6 @@ export class RoundController extends PhaseController {
     get Players () { return this.#Players }
     get Threaded () { return this.#Threaded }
     get Interface () { return this.#Interface }
-    get Input () { return this.#Input }
     get Terrain () { return this.#Terrain }
     get Animations () { return this.#Animations }
     get SelectionPhase () { return this.#SelectionPhase }

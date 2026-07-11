@@ -58,14 +58,29 @@ export class AppCanvas {
     #sizeHash;
     #bbox;
     #cursor;
+    #resizeObserver;
     #size;
+    #resizeCallbacks = new Set();
     #center; // [!] does not update with size
     constructor (canvas, size = new Vector(1920, 1080)) {
         this.#size = size;
         this.#center = size.div(2);
         this.canvas = canvas;
         [this.canvas.width, this.canvas.height] = this.#size;
+        this.#resizeObserver = new ResizeObserver(() => this.#onResize());
+        this.#computeLayout();
         this.#cursor = Canvas2DContextCursorFactory(this.canvas);
+    }
+
+    #onResize () {
+        this.#computeLayout();
+        for (const callback of this.#resizeCallbacks)
+            callback?.(this);
+    }
+    #computeLayout () {
+        this.#size.apply(this.canvas.width, this.canvas.height);
+        this.#center = this.size.div(2);
+        console.log(this);
     }
 
     getBoundingBox () {
@@ -74,6 +89,12 @@ export class AppCanvas {
         this.#sizeHash = hash;
         this.#bbox = new BoundingBox(undefined, this.size);
         return this.#bbox;
+    }
+    removeResizeListener (handler) {
+        this.#resizeCallbacks.delete(handler);
+    }
+    addResizeListener (handler) {
+        this.#resizeCallbacks.add(handler);
     }
 
     get cursor () { return this.#cursor }

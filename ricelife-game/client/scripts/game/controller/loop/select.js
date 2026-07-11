@@ -7,33 +7,26 @@ import * as Menu from "../../menu/menu.js"
 export class SelectionController extends PhaseController {
     static SETTINGS = {
         DEFAULT_INVERT_CONTROLS: true,
+        // values for grow and shrink effects while traversing menu
         MIN_TILE_SCALE: 0.15,
         MAX_TILE_SCALE: 1.5,
         TILE_SCALE_RATE: 2, // [!] must be an Integer
+        // limits for inital tile size relative to viewport dimensions
+        MIN_TILE_SIZE: 100,
+        MAX_TILE_SIZE: 300,
     };
     static minSelectionSize = 150;
     static maxSelectionSize = 300;
     #Interface;
-    #Input;
+    #ResizeObserver;
     constructor (mainController, shotSelections = []) {
         super(mainController);
         this.#init(shotSelections);
-        this.#resize();
         this.#setupInterface();
         this.#computeTileLayout(5);
         this.#setupTiles();
         this.#updateTiles();
         this.state = this.constructor.STATES.Ready;
-    }
-
-    #resize () {
-        // this.Global.Display.size.max() / (2 * this.constructor.minSelectionSize);
-        // this.Global.Display.size.max() / (2 * this.constructor.maxSelectionSize);
-        // [!] temporary
-        const shape = new Equigon(6, 200);
-        shape.transformation.scale.y = 0.85;
-        shape.applyTransformation();
-        this.store.selectionShape = shape;
     }
     #init (selections) {
         this.store.SELECTED = undefined;
@@ -48,8 +41,6 @@ export class SelectionController extends PhaseController {
             this.store.selections.push(selection);
         }
         this.#Interface = new Menu.Interface();
-        this.#Input = new InputListener(this.Global.Display.canvas, this.Global.constructor.SETTINGS.CLICK_DURATION_MS, {}, this.Interface);
-        this.Input.enabled = false;
     }
     #setupInterface () {
         const underButton = this.Global.Display.getBoundingBox().clone();
@@ -62,12 +53,20 @@ export class SelectionController extends PhaseController {
         this.Interface.insert().push(underButton);
         this.store.tileLayer = this.Interface.insert();
     }
+    // padding in pixels
     #computeTileLayout (padding = 0) {
+        // create template tile
+        const { MIN_TILE_SIZE, MAX_TILE_SIZE } = this.constructor.SETTINGS;
+        const legLength = clamp(this.Global.Display.size.max() / 2, MIN_TILE_SIZE, MAX_TILE_SIZE);
+        const shape = new Equigon(6, legLength);
+        shape.transformation.scale.y = 0.85;
+        shape.applyTransformation();
+        this.store.selectionShape = shape;
+        // compute data for tile positioning and scaling
         let layers = 1;
         while (3 * layers * layers - 3 * layers + 1 < this.store.selections.length) layers++;
         this.store.tileRings = Math.max(5, --layers);
         this.store.tileCount = Math.max(37, (3 * layers)**2 - (3 * layers) + 1);
-        const shape = this.store.selectionShape;
         this.store.tileSize = shape.globalTransformation.scale.clone();
         this.store.tileSize.x *= Math.sqrt(3) * shape.length;
         this.store.tileSize.y *= 1.5 * shape.length;
@@ -77,8 +76,8 @@ export class SelectionController extends PhaseController {
         this.store.tileTotalSpace = this.store.tileSpace.mul(this.store.tileRings * 2 - 1);
         this.store.tileHalfSpace = this.store.tileTotalSpace.div(2);
         this.store.tileRowSkew = this.store.tileRings * (this.store.tileSpace.x / 2);
+        
     }
-    // padding in pixels
     #setupTiles () {
         const { selectionShape, tileSpace, tileCount, tileLayer } = this.store;
         const { center } = this.Global.Display;
@@ -181,7 +180,7 @@ export class SelectionController extends PhaseController {
     }
     #handleInput () {
         const { lastDrawnPosition, lastActivePosition } = this.store;
-        const { pointer } = this.Input;
+        const { pointer } = this.Global.Input;
         if (pointer.isActive) {
             if (this.flags.trackActive) {
                 lastActivePosition.apply(pointer.position);
@@ -194,17 +193,15 @@ export class SelectionController extends PhaseController {
     }
 
     start () {
-        this.Input.enabled = true;
         this.flags.exitable = false;
-        if (this.Input.pointer.isActive)
-            this.Input.pointer.onNextRelease()
+        if (this.Global.Input.pointer.isActive)
+            this.Global.Input.pointer.onNextRelease()
                 .then(() => this.flags.exitable = true);
         else this.flags.exitable = true;
     }
     reset () {
         this.state = this.constructor.STATES.Ready;
         this.store.SELECTED = undefined;
-        this.Input.enabled = false;
         this.trackActive = false;
         this.store.lastDrawnPosition.apply(this.Global.Display.center);
         this.store.lastActivePosition.apply(this.store.lastDrawnPosition);
@@ -227,12 +224,11 @@ export class SelectionController extends PhaseController {
     }
     close () {
         this.state = this.constructor.STATES.Busy;
-        this.Input.close();
         super.close();
     }
     get isSelectionController () { return true }
     get Interface () { return this.#Interface }
-    get Input () { return this.#Input }
+    get ResizeObserver () { return this.#ResizeObserver }
 }
 
 export class ShotSelection {

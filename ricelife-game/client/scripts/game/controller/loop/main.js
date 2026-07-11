@@ -1,6 +1,7 @@
 import { LoadImage, Spritesheet } from "../../animate/animate.js";
 import { AudioContext } from "../../audio/audio.js";
 import { FrameCounter, Interval, AppCanvas } from "../display.js";
+import { InputListener } from "../player.js";
 import { LoopController } from "./loop.js";
 import { Vector } from "../../geometry/geometry.js";
 
@@ -25,6 +26,7 @@ export class MainController extends LoopController {
     #Loops = {};
     #active;
     #Display;
+    #Input;
     #FrameCounter;
     #FrameInterval;
     #TickInterval;
@@ -41,6 +43,7 @@ export class MainController extends LoopController {
         this.#FrameCounter = new FrameCounter(30);
         this.#FrameInterval = new Interval(1000 / this.constructor.SETTINGS.FPS);
         this.#TickInterval = new Interval(this.constructor.SETTINGS.TICKSPEED);
+        this.#Input = new InputListener(this.Display, this.constructor.SETTINGS.CLICK_DURATION_MS, {}, {});
 
         this.flags.DEBUG = false;
         
@@ -113,6 +116,7 @@ export class MainController extends LoopController {
     }
     close () {
         this.state = this.constructor.STATES.Busy;
+        this.Input.close();
         for (const Loop of Object.values(this.#Loops))
             Loop.close();
         super.close();
@@ -120,6 +124,7 @@ export class MainController extends LoopController {
     
     get isMainController () { return true }
     get Display () { return this.#Display }
+    get Input () { return this.#Input }
     get FrameCounter () { return this.#FrameCounter }
     get FrameInterval () { return this.#FrameInterval }
     get TickInterval () { return this.#TickInterval }

@@ -31,6 +31,8 @@ export class InputListener { // wrapper for K&M input
         this.pointer.enabled = bool;
         return bool;
     }
+    set keyMap (map) { return (this.keyboard.keyCodeMap = map) }
+    set pointerMap (map) { return (this.pointer.callbackFns = map) }
 }
 
 class KeyboardListener {
@@ -39,8 +41,15 @@ class KeyboardListener {
     #activeKeysProxy;
     #listeningTo;
     enabled = true;
-    constructor (listenTo, keyCodeMap) {
+    constructor (windowElement, keyCodeMap) {
         this.#keyCodeMap = keyCodeMap;
+        this.#initKeyMap();
+        this.#listeningTo = windowElement; // track the object
+        this.#listeningTo.addEventListener("keydown", this.#keyDownListener);
+        this.#listeningTo.addEventListener("keyup", this.#keyUpListener);
+    }
+
+    #initKeyMap () {
         this.#activeKeys = {};
         for (const [keyCode, mapping] of Object.entries(this.#keyCodeMap))
             if (this.#activeKeys[mapping]) this.#activeKeys[mapping][keyCode] = false;
@@ -50,11 +59,7 @@ class KeyboardListener {
             defineProperty: () => false,
             deleteProperty: () => false
         });
-        this.#listeningTo = listenTo; // track the object
-        this.#listeningTo.addEventListener("keydown", this.#keyDownListener);
-        this.#listeningTo.addEventListener("keyup", this.#keyUpListener);
     }
-
     #keyDownListener = (event) => this.#setKeyState(event, true)
     #keyUpListener = (event) => this.#setKeyState(event, false)
     #setKeyState (event, keyDown) {
@@ -100,15 +105,21 @@ class KeyboardListener {
 
     get listeningTo () { return this.#listeningTo }
     get activeKeys() { return this.#activeKeysProxy }
+    set keyCodeMap (map) {
+        const result = (this.#keyCodeMap = map);
+        this.#initKeyMap();
+        return result;
+    }
 }
 
 class PointerListener  {
     #listeningTo; // should be the app canvas instead of the browser window
-    #resizeObserver;
     #clickMs;
+    #callbackFns;
     #offset = new Vector();
     #scale = new Vector(1, 1);
     #elementSize = new Vector(0, 0);
+    #AppCanvas;
     #holding = {
         isHolding: false,
         timeout: undefined
@@ -126,13 +137,13 @@ class PointerListener  {
     };
     #clickEventPromises = new Array();
     enabled = true; // blocks callbacks if set to false, but will still track pointer
-    constructor (listenTo, clickThresholdMs, callbackFns) {
-        this.callbackFns = callbackFns;
+    constructor (appCanvas, clickThresholdMs, callbackFns) {
+        this.#callbackFns = callbackFns;
         this.#clickMs = clickThresholdMs;
-        this.#listeningTo = listenTo; // ASSUMES POSITION OF ELEMENT DOES NOT CHANGE - will response to resize related changes though
-        this.#resizeObserver = new ResizeObserver(([{target}]) => this.#updateOffset(target));
-        this.#updateOffset(this.#listeningTo);
-        this.#resizeObserver.observe(this.#listeningTo);
+        this.#AppCanvas = appCanvas;
+        this.#listeningTo = appCanvas.canvas; // ASSUMES POSITION OF ELEMENT DOES NOT CHANGE - will respond to resize related changes though
+        this.#AppCanvas.addResizeListener(this.#updateOffset);
+        this.#updateOffset();
         this.#listeningTo.addEventListener("pointermove", this.#updateMove);
         this.#listeningTo.addEventListener("pointerdown", this.#updateDown);
         this.#listeningTo.addEventListener("pointerup", this.#updateUp);
@@ -159,7 +170,7 @@ class PointerListener  {
         this.#tracking.down.stamp = performance.now();
         this.#tracking.down.position.apply(this.#tracking.position);
         this.#setHoldTimeout();
-        this.callbackFns?.onpress?.(this.position);
+        this.#callbackFns?.onpress?.(this.position);
     }
     #updateUp = (event) => {
         if (!this.enabled) return;
@@ -167,12 +178,12 @@ class PointerListener  {
         this.#tracking.up.stamp = performance.now();
         this.#tracking.up.position.apply(this.#tracking.position);
         this.#clearHoldTimeout();
-        this.callbackFns?.onrelease?.(this.position, this.#tracking.up.position.sub(this.#tracking.down.position) || new Vector(0, 0));
+        this.#callbackFns?.onrelease?.(this.position, this.#tracking.up.position.sub(this.#tracking.down.position) || new Vector(0, 0));
         // click detection
         if (this.activeDuration <= this.#clickMs + Number.EPSILON) {
             this.#clickEventPromises.splice(0, this.#clickEventPromises.length)
                 .forEach((resolve) => resolve(event));
-            this.callbackFns?.onclick?.(this.position, this.#tracking.down.position);
+            this.#callbackFns?.onclick?.(this.position, this.#tracking.down.position);
         }
     }
     #updateMove = (event) => {
@@ -180,14 +191,14 @@ class PointerListener  {
         this.#setHoldTimeout();
         // drag detection
         if (this.activeDuration >= this.#clickMs - Number.EPSILON && this.enabled)
-            this.callbackFns?.ondrag?.(this.position, this.#tracking.down.position); // pass origin position by reference to avoid making duplicates
+            this.#callbackFns?.ondrag?.(this.position, this.#tracking.down.position); // pass origin position by reference to avoid making duplicates
     }
     #updatePosition (event) {
         const { clientX, clientY } = event;
         this.#tracking.position.apply(clientX, clientY);
         this.#normalizePoint(this.#tracking.position);
     }
-    #updateOffset (element) {
+    #updateOffset = () => {
         const { position, up, down } = this.#tracking;
         {
             // change any existing position data back to global
@@ -197,10 +208,10 @@ class PointerListener  {
             if (down.stamp !== undefined)
                 this.#denormalizePoint(down.position);
         }
-        const { left, top, width, height, bottom } = element.getBoundingClientRect();
+        const { left, top, width, height, bottom } = this.#listeningTo.getBoundingClientRect();
         this.#elementSize.apply(width, bottom); // for y coordinate normalization
         this.#offset.apply(left, top);
-        this.#scale.apply(element.width / width, element.height / height);
+        this.#scale.apply(this.#listeningTo.width / width, this.#listeningTo.height / height);
         // make position data relative to new position
         this.#normalizePoint(position);
         if (up.stamp !== undefined)
@@ -260,6 +271,7 @@ class PointerListener  {
         this.#listeningTo.removeEventListener("pointermove", this.#updateMove);
         this.#listeningTo.removeEventListener("pointerdown", this.#updateDown);
         this.#listeningTo.removeEventListener("pointerup", this.#updateUp);
+        this.#AppCanvas.removeEventListener(this.#updateOffset);
     }
 
     get listeningTo () { return this.#listeningTo }
@@ -270,6 +282,7 @@ class PointerListener  {
     get dragStart () { return this.isDragging ? this.#tracking.down.position.clone() : undefined }
     // milliseconds 
     get activeDuration () { return this.isActive ? performance.now() - this.#tracking.down.stamp : 0 }
+    set callbackFns (callbackMap) { return (this.#callbackFns = callbackMap) }
 }
 
 export class GravityController { // lighter-weight, seperate for web workers. computes a player's new Y position given a terrain and X position
@@ -353,7 +366,7 @@ export class MovementController { // only moves along X axis
         }
         const hit = this.#raycastPosition(x, y);
         if (!hit) {
-            console.warn(`[${this.constructor.name}] Warning: No valid terrain found for Y position from (${x}, ${y})`, hits);
+            console.warn(`[${this.constructor.name}] Warning: No valid terrain found for Y position from (${x}, ${y})`);
             return false;
         }
         this.#setPlayer(x, hit.point.y, hit.angle);
