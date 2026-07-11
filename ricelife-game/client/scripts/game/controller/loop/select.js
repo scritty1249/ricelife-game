@@ -59,15 +59,17 @@ export class SelectionController extends PhaseController {
     static maxSelectionSize = 300;
     #Interface;
     #ResizeObserver;
+    #loadPromise;
     constructor (mainController, shotSelections = []) {
         super(mainController);
         this.#init(shotSelections);
-        this.#setupInterface();
-        this.#computeTileLayout(5);
-        this.#setupTiles();
-        this.#resetTilePositions();
-        this.#updateTiles();
-        this.state = this.constructor.STATES.Ready;
+        this.#loadPromise = this.#load()
+            .then(() => this.#setupInterface())
+            .then(() => this.#computeTileLayout(5))
+            .then(() => this.#setupTiles())
+            .then(() => this.#resetTilePositions())
+            .then(() => this.#updateTiles())
+            .then(() => this.state = this.constructor.STATES.Ready);
     }
     #init (selections) {
         this.store.SELECTED = undefined;
@@ -82,6 +84,17 @@ export class SelectionController extends PhaseController {
             this.store.selections.push(selection);
         }
         this.#Interface = new Menu.Interface();
+        this.Audio.Layer.tile = this.Audio.Player.Layer();
+        this.Audio.Layer.tile.volume = .25;
+        this.Audio.Layer.selected = this.Audio.Player.Layer();
+        this.Audio.Layer.selected.volume = .4;
+        this.Audio.Player.volume = .5;
+    }
+    #load () {
+        for (const assetKey of ["tilePing", "tileSelect"]) {
+            this.loadAsset(assetKey, ...this.Global.AssetTable[assetKey]);
+        }
+        return this.AssetPool.onload;
     }
     #setupInterface () {
         const underButton = this.Global.Display.getBoundingBox().clone();
@@ -117,7 +130,6 @@ export class SelectionController extends PhaseController {
         this.store.tileTotalSpace = this.store.tileSpace.mul(this.store.tileRings * 2 - 1);
         this.store.tileHalfSpace = this.store.tileTotalSpace.div(2);
         this.store.tileRowSkew = this.store.tileRings * (this.store.tileSpace.x / 2);
-        
     }
     #setupTiles () {
         const { selections, tileLayer, tileCount, selectionShape } = this.store;
@@ -160,6 +172,7 @@ export class SelectionController extends PhaseController {
         userData.selection = selection;
         userData.lastScale = 1;
         btn.onclick = () => {
+            this.Audio.Layer.selected.add(this.AssetPool.get("tileSelect").Instance().play(), true);
             this.store.SELECTED = userData.selection.name;
             this.state = this.constructor.STATES.Raise;
         }
@@ -210,13 +223,16 @@ export class SelectionController extends PhaseController {
     #updateTiles () {
         const items = this.store.tileLayer.items;
         if (items.length === 0) return;
-        const { lastDrawnPosition, lastActivePosition, tileSpace, tileRings, tileTotalSpace, tileHalfSpace, tileRowSkew } = this.store;
+        const { lastDrawnPosition, lastActivePosition, tileSpace, tileRings, tileTotalSpace, tileHalfSpace, tileRowSkew, selectionShape } = this.store;
         const { MAX_TILE_SCALE, MIN_TILE_SCALE, TILE_SCALE_RATE } = this.constructor.SETTINGS;
+        const sizeSfxThreshold = selectionShape.getBoundingBox().size.length * .8;
+        const screenBbox = this.Global.Display.getBoundingBox();
         const screenCenter = this.Global.Display.center;
         const offset = this.flags.INVERT_TRACKING
             ? lastDrawnPosition.sub(lastActivePosition)
             : lastActivePosition.sub(lastDrawnPosition);
         for (const tile of items) {
+            const lastSize = tile.shape.getBoundingBox().size.length;
             tile.shape.transformation.scale.apply(1 / tile.shape.polygon.userData.lastScale);            
             tile.shape.transformation.offset.apply(offset);
             tile.shape.applyTransformation();
@@ -229,6 +245,15 @@ export class SelectionController extends PhaseController {
             tile.shape.transformation.scale.apply(scale);
             tile.shape.applyTransformation();
             tile.shape.polygon.userData.lastScale = scale;
+            // sfx
+            const newSize = tile.shape.getBoundingBox().size.length;
+            if (newSize >= sizeSfxThreshold
+                && lastSize < sizeSfxThreshold
+                && screenBbox.isIntersecting(tile.shape.center)
+            ) {
+                this.Audio.Layer.tile.add(this.AssetPool.get("tilePing").Instance().play(), true);
+            }
+            
         }
     }
     #handleInput () {
@@ -283,6 +308,7 @@ export class SelectionController extends PhaseController {
     get isSelectionController () { return true }
     get Interface () { return this.#Interface }
     get ResizeObserver () { return this.#ResizeObserver }
+    get onload () { return this.#loadPromise }
 }
 
 export class ShotSelection {

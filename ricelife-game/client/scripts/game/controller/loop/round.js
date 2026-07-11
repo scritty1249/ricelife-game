@@ -114,7 +114,7 @@ export class RoundController extends PhaseController {
             this.loadAsset(modelType + "/body");
             this.loadAsset(modelType + "/barrel");
         }
-        // load interface assets\
+        // load interface assets
         for (const assetKey of ["fireBtn", "selectBtn", "shotType", "leftBtn", "rightBtn", "blast", "muzzleFlash", "explosion", "fire", "bouncer"]) {
             this.loadAsset(assetKey, ...this.Global.AssetTable[assetKey]);
         }
@@ -127,6 +127,7 @@ export class RoundController extends PhaseController {
             selections.push(selection);
         }
         this.#SelectionPhase = new SelectionController(this.Global, selections);
+        return this.SelectionPhase.onload;
     }
     #setShot (shot, map) {
         const { shot: st } = this.store;

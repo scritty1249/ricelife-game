@@ -59,6 +59,8 @@ export class MainController extends LoopController {
         AssetTable.fire = [AssetType.Audio, undefined, "fire", "./assets/sfx/fire.mp3"];
         AssetTable.blast = [AssetType.Audio, undefined, "blast", "./assets/sfx/blast.mp3"];
         AssetTable.bouncer = [AssetType.Audio, undefined, "bouncer", "./assets/sfx/bouncer-collision.wav"];
+        AssetTable.tilePing = [AssetType.Audio, undefined, "tilePing", "./assets/sfx/tile-ping.mp3"];
+        AssetTable.tileSelect = [AssetType.Audio, undefined, "tileSelect", "./assets/sfx/tile-select.mp3"];
         // Spritesheets
         AssetTable.muzzleFlash = [AssetType.Sprite,
             function (vfx) { vfx.origin.apply(vfx.rawSize.x / 2, vfx.rawSize.y) },
