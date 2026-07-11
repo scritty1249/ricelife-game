@@ -285,7 +285,7 @@ export class RoundController extends PhaseController {
                     drawCircle(cursor, position, 3, blue); // shot position during collision
                     drawLine(cursor, point, point.add(normal.normalize().mul(_lineLength)), 2, green); // normal
                     drawLine(cursor, point, point.add(velocity.normalize().mul(_lineLength)), 2, blue); // direction (incoming)
-                    drawLine(cursor, position, position.add(resultVelocity.normalize().mul(_lineLength)), 2, red); // reflection
+                    if (resultVelocity.length) drawLine(cursor, position, position.add(resultVelocity.normalize().mul(_lineLength)), 2, red); // reflection
                 });
             }
             // draw blasts
