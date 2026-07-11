@@ -270,4 +270,9 @@ class AudioLayer extends TrackableObject {
     get volume () { return this.#gain.gain.value }
     set volume (value) { return (this.#gain.gain.value = value) }
     get filters () { return this.#filters }
+    get playing () { return this.items.some(({playing}) => playing) }
+    set playing (value) {
+        if (value) this.play();
+        else this.pause();
+    }
 }

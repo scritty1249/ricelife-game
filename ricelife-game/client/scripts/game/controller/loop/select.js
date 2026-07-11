@@ -172,9 +172,10 @@ export class SelectionController extends PhaseController {
         userData.selection = selection;
         userData.lastScale = 1;
         btn.onclick = () => {
-            this.Audio.Layer.selected.add(this.AssetPool.get("tileSelect").Instance().play(), true);
             this.store.SELECTED = userData.selection.name;
             this.state = this.constructor.STATES.Raise;
+            this.Audio.Layer.tile.stop();
+            this.Audio.Layer.selected.add(this.AssetPool.get("tileSelect").Instance().play(), true);
         }
         // styling
         btn.text = selection.name;
@@ -250,6 +251,8 @@ export class SelectionController extends PhaseController {
             if (newSize >= sizeSfxThreshold
                 && lastSize < sizeSfxThreshold
                 && screenBbox.isIntersecting(tile.shape.center)
+                && !this.Audio.Layer.selected.playing
+                && this.state !== this.constructor.STATES.Raise
             ) {
                 this.Audio.Layer.tile.add(this.AssetPool.get("tilePing").Instance().play(), true);
             }
@@ -271,6 +274,7 @@ export class SelectionController extends PhaseController {
     }
 
     start () {
+        this.Audio.Player.stop();
         this.flags.exitable = false;
         if (this.Global.Input.pointer.isActive)
             this.Global.Input.pointer.onNextRelease()
