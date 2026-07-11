@@ -69,6 +69,7 @@ export class AppCanvas {
         [this.canvas.width, this.canvas.height] = this.#size;
         this.#resizeObserver = new ResizeObserver(() => this.#onResize());
         this.#computeLayout();
+        this.#resizeObserver.observe(this.canvas);
         this.#cursor = Canvas2DContextCursorFactory(this.canvas);
     }
 
