@@ -201,6 +201,16 @@ class Canvas2DContextCursor {
             hash = (hash * 31 + val) | 0; // 32-bit range
         return hash >>> 0;
     }
+    get filterSupported () { return "filter" in this.#ctx }
+    get blurSupported () {
+        this.#ctx.save();
+        if (!this.filterSupported) return false;
+        const testFilter = "blur(10px)";
+        this.#ctx.filter = testFilter;
+        const supported = this.#ctx.filter === testFilter;
+        this.#ctx.restore();
+        return supported;
+    }
 }
 
 // DefaultDict implementation
