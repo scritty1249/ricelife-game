@@ -1,5 +1,5 @@
 import Default from "./default.js";
-import { Vector } from "../../geometry/vector.js";
+import { Vector, Color } from "../../geometry/vector.js";
 import { Circle } from "../../geometry/shape.js";
 import { Blast } from "../blast.js";
 import { Shot } from "../shot.js";
@@ -22,13 +22,14 @@ export default class Rapid extends Default {
     static drag = 0.0005;
     static radius = 3;
     static blastRadius = 7;
+    static glowColor = new Color(255, 255, 255, .4);
     constructor (origin, angle, power = 1, resolution = 1, seed = Random.seed()) {
         super(origin, angle, power, resolution);
         // random seed
         this.decodeParams.push(seed);
         const random = new Random(seed);
         // geometry config
-        const { initalSpeed, drag, radius, blastRadius, burstAccuracy, burstSpread, burstTightSpread, burstCount, burstDelay, collisionCallback } = this.constructor;
+        const { initalSpeed, drag, radius, blastRadius, burstAccuracy, burstSpread, burstTightSpread, burstCount, burstDelay, collisionCallback, glowColor } = this.constructor;
         const acceleration = this.constructor.acceleration.clone();
         // init geometry
         const shape = new Circle(radius, origin);
@@ -42,7 +43,7 @@ export default class Rapid extends Default {
             const velocity = Vector.fromAngle(angle + angleOffset).mul(initalSpeed * power);
             const shot = new Shot(origin, velocity, acceleration, drag, shape);
             shot.glowRadius = 12;
-            shot.glowColor.apply(255, 255, 255, .4);
+            shot.glowColor.apply(glowColor);
             const stage = multi.newStage(shot.clone(true), i * burstDelay);
             stage.userData = { hitbox };
             stage.collisionCallback = collisionCallback;

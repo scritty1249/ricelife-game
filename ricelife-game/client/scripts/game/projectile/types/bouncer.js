@@ -40,18 +40,20 @@ export default class Bouncer extends Default {
     static maxBounces = 3;
     static bounceGlowReduction = 50;
     static stopOnPlayer = true;
+    static glowColor = new Color(128, 0, 128);
+    static mainColor = new Color(255, 240, 255);
     constructor (origin, angle, power = 1, resolution = 1) {
         super(origin, angle, power, resolution);
         // geometry config
-        const { initalSpeed, drag, radius, blastRadius } = this.constructor;
+        const { initalSpeed, drag, radius, blastRadius, glowColor, mainColor } = this.constructor;
         const acceleration = this.constructor.acceleration.clone();
         // convert params for Shot(s)
         const velocity = Vector.fromAngle(angle).mul(400 * power);
         // init geometry
         const shape = new Circle(radius, origin);
         const shot = new Shot(origin, velocity, acceleration, drag, shape);
-        shot.glowColor = new Color(128, 0, 128);
-        shot.mainColor = new Color(255, 240, 255);
+        shot.glowColor.apply(glowColor);
+        shot.mainColor.apply(mainColor);
         const hitbox = [new Blast(new Circle(blastRadius), 0, 25)];
         // generate stages
         const stage = this.stages[0].newStage(shot);

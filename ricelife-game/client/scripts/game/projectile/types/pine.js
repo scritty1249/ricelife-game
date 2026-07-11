@@ -53,18 +53,24 @@ export default class Pine extends Default {
     static stemBounceVelocity = new Vector(0, 200);
     static stemBounceDrag = 0.0015;
     static stemBounceAcceleration = new Vector(0, -100);
+    static stemGlowColor = new Color(107, 73, 41);
+    static stemMainColor = new Color(102, 91, 78);
+    static needleGlowColor = new Color(5, 102, 8);
+    static needleMainColor = new Color(0, 81, 26);
+    static glowColor = Pine.stemGlowColor;
+    static mainColor = Pine.stemMainColor;
     constructor (origin, angle, power = 1, resolution = 1) {
         super(origin, angle, power, resolution);
         // geometry config
-        const { initalSpeed, drag, radius, blastRadius } = this.constructor;
+        const { initalSpeed, drag, radius, blastRadius, stemGlowColor, stemMainColor, needleGlowColor, needleMainColor } = this.constructor;
         const acceleration = this.constructor.acceleration.clone();
         // convert params for Shot(s)
         const velocity = Vector.fromAngle(angle).mul(400 * power);
         // init stem geometry
         const stemShape = new Circle(radius, origin);
         const stemShot = new Shot(origin, velocity, acceleration, drag, stemShape);
-        stemShot.glowColor.apply(107, 73, 41);
-        stemShot.mainColor.apply(102, 91, 78);
+        stemShot.glowColor.apply(stemGlowColor);
+        stemShot.mainColor.apply(stemMainColor);
         stemShot.tailColor.apply(104.5, 82, 59.5); 
         // init needle geometry
         const _zeroVec = new Vector(); // [!] throwaway, will be overwritten
@@ -72,8 +78,8 @@ export default class Pine extends Default {
         const needleDrag = this.constructor.needleDrag;
         const needleShape = new Circle(radius * (2/3));
         const needleShot = new Shot(_zeroVec, _zeroVec, needleAcceleration, needleDrag, needleShape);
-        needleShot.glowColor.apply(5, 102, 8);
-        needleShot.mainColor.apply(0, 81, 26);
+        needleShot.glowColor.apply(needleGlowColor);
+        needleShot.mainColor.apply(needleMainColor);
         needleShot.tailColor.apply(2.5, 91.5, 16.5); 
         const hitbox = [new Blast(new Circle(blastRadius), 0, 15)];
         // generate stages

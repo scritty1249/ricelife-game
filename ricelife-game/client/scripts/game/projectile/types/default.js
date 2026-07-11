@@ -1,4 +1,4 @@
-import { Vector } from "../../geometry/vector.js";
+import { Vector, Color } from "../../geometry/vector.js";
 import { Ammo } from "../ammo.js";
 import { Behavior } from "../collision/collision.js";
 
@@ -20,6 +20,8 @@ export default class Default extends Ammo {
     static radius = 7;
     static blastRadius = 30;
     static acceleration = new Vector(20, -200);
+    static glowColor = new Color(255, 0, 0);
+    static mainColor = new Color(255, 255, 255);
     constructor (origin, angle, power = 1, resolution = 1) {
         super();
         // store params for cloning
