@@ -462,7 +462,7 @@ export class RoundController extends PhaseController {
             flags.dragPanning = false;
         }
         underButton.onscroll = (point, delta) => {
-            if (!floatEqual(delta.x, 0)) {
+            if (this.Global.Input.pointer.pointerCount < 2 && !floatEqual(delta.x, 0)) {
                 flags.focusPlayer = false;
                 this.panViewbox(delta.x * panSensitivity);
             }
@@ -563,10 +563,12 @@ export class RoundController extends PhaseController {
         cursor.drawImage(img, Viewbox.min.x, cursor.normalizeY(Viewbox.max.y), Viewbox.width, Viewbox.height, 0, 0, size.x, size.y);
     }
 
+    setTurn (bool) {
+        this.flags.isTurn = this.ActivePlayer.aimer.enabled = bool;
+    }
     async launchShot () {
         const { ActivePlayer, AmmoPool, Global, store, flags } = this;
-        flags.isTurn = false;
-        this.Global.Input.enabled = false;
+        this.setTurn(false);
         // [!] start timeout to dispatch busy event here
         // let wasSetBusy = false;
         // store.dispatchBusyTimeout = setTimeout(() => {
@@ -703,15 +705,6 @@ export class RoundController extends PhaseController {
             }
             // keyboard
             if (!keyboard.keyActive("debug+")) {
-                if (store.shot.current === undefined) {
-                    if (keyboard.keyActive("shootActive"))
-                        this.launchShot()
-                            .catch((error) => {
-                                console.error(`[${this.constructor.name}]: Projectile trace error`);
-                                throw error;
-                            });
-                }
-                ActivePlayer.tank.position.round(1/Global.constructor.SETTINGS.RESOLUTION);
                 if (keyboard.keyActive("pan+")) {
                     flags.focusPlayer = false;
                     this.panViewbox(PAN_SENSITIVITY);
@@ -721,6 +714,15 @@ export class RoundController extends PhaseController {
                     flags.focusPlayer = false;
                     this.panViewbox(-PAN_SENSITIVITY);
                 }
+                if (store.shot.current === undefined) {
+                    if (keyboard.keyActive("shootActive"))
+                        this.launchShot()
+                            .catch((error) => {
+                                console.error(`[${this.constructor.name}]: Projectile trace error`);
+                                throw error;
+                            });
+                }
+                ActivePlayer.tank.position.round(1/Global.constructor.SETTINGS.RESOLUTION);
                 if (keyboard.keyActive("mv+")) {
                     ActivePlayer.mover.move(MOVE_SPEED);
                     flags.focusPlayer = !flags.dragPanning;
@@ -775,7 +777,7 @@ export class RoundController extends PhaseController {
                     && ((position.x - center.x < 0 && Viewbox.min.x > 0)
                         || (position.x - center.x > 0 || Viewbox.max.x < Global.Display.planeSize.x)))
                     this.setViewbox(position);
-            } else if (store.shot.current) {
+            } else if (store.shot.current && !flags.dragPanning) {
                 const bbox = store.shot.current.getBoundingBox().clone();
                 if (bbox.size.lengthSquared) {
                     const distance = ActivePlayer.tank.relativePosition.sub(bbox.center).abs(true);
@@ -852,8 +854,7 @@ export class RoundController extends PhaseController {
                     await store.prerender;
                     this.#clearShot();
                     // unlock player
-                    flags.isTurn = true;
-                    this.Global.Input.enabled = true;
+                    this.setTurn(true);
                     store.prerender = Promise.resolve();
                 }
             }

@@ -455,6 +455,7 @@ export class AimController extends TrackableObject { // takes control of rotatio
     #pointerPosition; // player last recorded click location
     #pointerRecorded = false; // sentinal value
     #display;
+    enabled = true; // disables pointer events if unset
     constructor (tank, radius,
         circleColor = new Color(255, 255, 255, .025),
         beamColor = new Color(255, 255, 255, .05),
@@ -527,11 +528,12 @@ export class AimController extends TrackableObject { // takes control of rotatio
 
     // support for clickable object type
     isOver (point) {
+        if (!this.enabled) return false;
         const { shape } = this.#display.circle;
         return shape.isIntersecting(point);
     }
-    ondrag (point) { this.update(point) }
-    onclick (point) { this.update(point) }
+    ondrag (point) { if (this.enabled) this.update(point) }
+    onclick (point) { if (this.enabled) this.update(point) }
 
     #updateTriangles () { // updates "beam" and "cone" triangle based on barrel angle. Does not update barrel- stored angle takes precedence over angle derived from pointer here
         const angle = this.rotation;
