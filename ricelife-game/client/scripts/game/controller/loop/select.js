@@ -12,6 +12,7 @@ export class SelectionController extends PhaseController {
         const { fillColor, fontColor, borderColor, borderWidth, name } = selection;
         const textOffset = selection.constructor.textOffsetScale.mul(this.shape.center).add(this.shape.center, true);
         cursor.save();
+        cursor.fixed = true;
         this.shape.draw(cursor, true);
         if (!selection.hasGlow ) {
             cursor.save();
@@ -40,7 +41,7 @@ export class SelectionController extends PhaseController {
             cursor.lineWidth = borderWidth;
             cursor.stroke();
         }
-        this.drawText(cursor);
+        this.drawText(cursor, undefined, true);
         cursor.restore();
     }
     static SETTINGS = {
@@ -119,7 +120,7 @@ export class SelectionController extends PhaseController {
         // create template tile
         const { MIN_TILE_SIZE, MAX_TILE_SIZE } = this.constructor.SETTINGS;
         const { tileSpacingScale } = this.constructor;
-        const legLength = clamp(this.Global.Display.size.max() / 2, MIN_TILE_SIZE, MAX_TILE_SIZE);
+        const legLength = clamp(this.Global.Display.size.max(), MIN_TILE_SIZE, MAX_TILE_SIZE) / 2;
         const padding = legLength * tileSpacingScale;
         const shape = new Equigon(6, legLength);
         shape.transformation.scale.y = 0.85;

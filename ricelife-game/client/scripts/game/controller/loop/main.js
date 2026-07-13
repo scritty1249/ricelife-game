@@ -81,6 +81,7 @@ export class MainController extends LoopController {
     #drawFramerate () {
         const { cursor, size } = this.Display;
         cursor.save();
+        cursor.fixed = true;
         cursor.textBaseline = "top";
         cursor.textAlign = "end";
         cursor.fillStyle = "red";
