@@ -199,13 +199,27 @@ export class AppCanvas {
 class Canvas2DContextCursor {
     #ctx;
     #size;
+    #states = new Array();
+    fixed = false;
     constructor(canvasContext, size) {
         this.#ctx = canvasContext;
         this.#size = size; // bind reference
     }
 
     normalizeY (y) {
-        return this.#size.y - y;
+        return this.fixed
+            ? this.#ctx.canvas.height - y
+            : this.#size.y - y;
+    }
+    save () {
+        const state = {fixed: this.fixed};
+        this.#states.push(state);
+        this.#ctx.save();
+    }
+    restore () { 
+        const state = this.#states.pop();
+        this.fixed = state.fixed;
+        this.#ctx.restore();
     }
     screenshot (promise = true) {
         if (promise) { // this is more efficient than synchronous method

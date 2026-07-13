@@ -56,13 +56,14 @@ export class Button extends TrackableObject {
         super();
     }
 
-    draw (cursor) {
-        this.drawButton(cursor);
-        this.drawText(cursor);
+    draw (cursor, fixed) {
+        this.drawButton(cursor, fixed);
+        this.drawText(cursor, undefined, fixed);
     }
-    drawText (cursor, offset = undefined) {
+    drawText (cursor, offset = undefined, fixed = false) {
         if (floatEqual(this.fontColor.a, 0) || !this.text) return;
         cursor.save();
+        cursor.fixed = fixed;
         cursor.font = `bold ${this.fontStyle}`;
         cursor.fillStyle = this.fontColor.toString();
         cursor.textAlign = "center";
@@ -89,7 +90,7 @@ export class Button extends TrackableObject {
     set onscroll (callbackFn) { return (this.#callback.onscroll = callbackFn) }
 
     // [!] should be overridden by children
-    drawButton (cursor) {}
+    drawButton (cursor, fixed = false) {}
     isOver (point) { return false }
     getBoundingBox () { return new BoundingBox() }
     setPosition (x, y = null) {}
@@ -107,11 +108,19 @@ export class IconButton extends Button {
         this.#icon = new Icon(image);
     }
 
-    drawButton (cursor) { this.icon.draw(cursor) }
-    drawText (cursor, offset = undefined) {
+    drawButton (cursor, fixed = false) {
+        cursor.save();
+        cursor.fixed = fixed;
+        this.icon.draw(cursor)
+        cursor.restore();
+    }
+    drawText (cursor, offset = undefined, fixed = false) {
+        cursor.save();
+        cursor.fixed = fixed;
         const centerOffset = new Vector(this.width / 2, -this.height / 2);
         if (offset?.isVector) super.drawText(cursor, offset.add(centerOffset));
         else super.drawText(cursor, centerOffset);
+        cursor.restore();
     }
     getBoundingBox () { return this.icon.getBoundingBox() }
     setPosition (x, y = null) { this.icon.position.apply(x, y) }
@@ -135,10 +144,11 @@ export class ShapeButton extends Button {
         if (stroke?.isColor) this.strokeColor.apply(stroke);
     }
 
-    drawButton (cursor) {
+    drawButton (cursor, fixed = false) {
         const hasFill = !floatEqual(this.fillColor.a, 0);
         const hasStroke = !floatEqual(this.strokeColor.a, 0);
         cursor.save();
+        cursor.fixed = fixed;
         if (hasFill) cursor.fillStyle = this.fillColor.toString();
         if (hasStroke) cursor.strokeStyle = this.strokeColor.toString();
         this.shape.draw(cursor, true);

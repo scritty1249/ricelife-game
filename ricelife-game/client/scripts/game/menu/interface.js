@@ -226,7 +226,7 @@ class InterfaceLayer extends TrackableObject { // pointer events are prioritized
         if (notFixed) viewbox.setCursor(cursor, true);
         for (const item of this.#items.values())
             if (this.#supportsDraw(item))
-                item.draw(cursor);
+                item.draw(cursor, fixed);
         if (notFixed) cursor.restore();
     }
 
