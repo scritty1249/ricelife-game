@@ -191,7 +191,7 @@ class PointerListener  {
         this.#tracking.up.stamp = performance.now();
         this.#tracking.up.position.apply(this.#tracking.position);
         this.#clearHoldTimeout();
-        if (callback && this.pointerCount === 1) {
+        if (callback && this.pointerCount === 0) {
             this.#callbackFns?.onrelease?.(this.position, this.delta);
             // click detection
             if (this.activeDuration <= this.#clickMs + Number.EPSILON) {
