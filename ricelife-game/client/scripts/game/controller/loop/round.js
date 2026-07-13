@@ -752,8 +752,13 @@ export class RoundController extends PhaseController {
                     this.setViewbox(position);
             } else if (store.shot.current) {
                 const bbox = store.shot.current.getBoundingBox().clone();
-                if (bbox.size.lengthSquared)
-                    this.setViewbox(bbox.merge(ActivePlayer.tank.getBoundingBox(), true).center);
+                if (bbox.size.lengthSquared) {
+                    const distance = ActivePlayer.tank.relativePosition.sub(bbox.center).abs(true);
+                    if (distance.x <= Viewbox.size.x && distance.y <= Viewbox.size.y)
+                        // only attempt to contain player and projectiles within viewbox if we don't need to scale the viewbox for both to fit
+                        bbox.merge(ActivePlayer.tank.getBoundingBox(), true)
+                    this.setViewbox(bbox.center);
+                }
             }
             Viewbox.setCursor(cursor, true);
             for (const { tank, isDead } of Players)
