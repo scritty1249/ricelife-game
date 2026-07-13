@@ -337,8 +337,8 @@ export class RoundController extends PhaseController {
             cursor.restore();
             Viewbox.setCursor(cursor, true);
         }
-        if ((Input.pointer.isDragging
-            && ActivePlayer.aimer.isOver(Input.pointer.dragStart))
+        if ((Input.pointer.isActive
+            && ActivePlayer.aimer.isOver(Input.pointer.origin))
             || Input.keyboard.keyActive("debug+")
         ) {
             const position = Viewbox.toGlobal(Input.pointer.position);
@@ -456,6 +456,7 @@ export class RoundController extends PhaseController {
         }
         underButton.id = true;
         underButton.isOver = underButton.isIntersecting;
+        underButton.keepDragFocus = true;
         const panSensitivity = this.constructor.SETTINGS.PAN_SENSITIVITY / 5;
         underButton.ondrag = (point, origin, delta) => {
             flags.focusPlayer = false;
@@ -715,11 +716,7 @@ export class RoundController extends PhaseController {
         }
         if (flags.isTurn) {
             // [!] most pointer logic handled by callbacks
-            if (pointer.isActive) {
-                // pointer
-                if (pointer.isHolding)
-                    Interface.onhold(pointer.position);
-            }
+
             // keyboard
             if (!keyboard.keyActive("debug+")) {
                 if (store.shot.current === undefined) {

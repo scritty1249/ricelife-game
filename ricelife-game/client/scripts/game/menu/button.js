@@ -45,7 +45,8 @@ export class Button extends TrackableObject {
         ondrag: undefined,
         onpress: undefined,
         onrelease: undefined,
-        onscroll: undefined
+        onscroll: undefined,
+        onactive: undefined
     };
     #fontColor = new Color(0, 0, 0, 1);
     fontSize = 24;
@@ -88,6 +89,8 @@ export class Button extends TrackableObject {
     set onrelease (callbackFn) { return (this.#callback.onrelease = callbackFn) }
     get onscroll () { return this.#callback.onscroll }
     set onscroll (callbackFn) { return (this.#callback.onscroll = callbackFn) }
+    get onactive () { return this.#callback.onactive }
+    set onactive (callbackFn) { return (this.#callback.onactive = callbackFn) }
 
     // [!] should be overridden by children
     drawButton (cursor, fixed = false) {}
