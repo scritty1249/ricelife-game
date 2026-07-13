@@ -192,12 +192,13 @@ class PointerListener  {
         this.#tracking.up.position.apply(this.#tracking.position);
         this.#clearHoldTimeout();
         if (callback && this.pointerCount === 0) {
-            this.#callbackFns?.onrelease?.(this.position, this.delta);
+            const delta = this.#tracking.position.sub(this.#tracking.down.position);
+            this.#callbackFns?.onrelease?.(this.position, delta);
             // click detection
             if (this.activeDuration <= this.#clickMs + Number.EPSILON) {
                 this.#clickEventPromises.splice(0, this.#clickEventPromises.length)
                     .forEach((resolve) => resolve(event));
-                this.#callbackFns?.onclick?.(this.position, this.#tracking.position.sub(this.#tracking.down.position));
+                this.#callbackFns?.onclick?.(this.position, delta);
             }
         }
     }
