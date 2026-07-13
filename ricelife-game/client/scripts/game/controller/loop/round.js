@@ -84,7 +84,7 @@ export class RoundController extends PhaseController {
         this.flags.isTurn = true;
         this.flags.SELECTING = false;
         this.flags.focusPlayer = true;
-        this.flags.dragPanning = false;
+        this.flags.isPanning = false;
         this.store.prerender = Promise.resolve();
         this.store.cacheKey = {
             terrain: "lastTerrainState",
@@ -455,11 +455,11 @@ export class RoundController extends PhaseController {
         const panSensitivity = this.constructor.SETTINGS.PAN_SENSITIVITY / 5;
         underButton.ondrag = (point, origin, delta) => {
             flags.focusPlayer = false;
-            flags.dragPanning = true;
+            flags.isPanning = true;
             this.panViewbox(delta.mul(-panSensitivity).div(this.Global.Display.Viewbox.canvasScale, true));
         }
         underButton.onrelease = (point, delta) => {
-            flags.dragPanning = false;
+            flags.isPanning = false;
         }
         underButton.onscroll = (point, delta) => {
             if (this.Global.Input.pointer.pointerCount < 2 && !floatEqual(delta.x, 0)) {
@@ -696,6 +696,19 @@ export class RoundController extends PhaseController {
         if (keyboard.keyActive("esc")) {
             // pause menu logic
         }
+        if (!keyboard.keyActive("debug+")) {
+            if (keyboard.keyActive("pan+")) {
+                flags.focusPlayer = false;
+                flags.isPanning = true;
+                this.panViewbox(PAN_SENSITIVITY);
+                
+            }
+            if (keyboard.keyActive("pan-")) {
+                flags.focusPlayer = false;
+                flags.isPanning = true;
+                this.panViewbox(-PAN_SENSITIVITY);
+            }
+        }
         if (flags.isTurn) {
             // [!] most pointer logic handled by callbacks
             if (pointer.isActive) {
@@ -705,15 +718,6 @@ export class RoundController extends PhaseController {
             }
             // keyboard
             if (!keyboard.keyActive("debug+")) {
-                if (keyboard.keyActive("pan+")) {
-                    flags.focusPlayer = false;
-                    this.panViewbox(PAN_SENSITIVITY);
-                    
-                }
-                if (keyboard.keyActive("pan-")) {
-                    flags.focusPlayer = false;
-                    this.panViewbox(-PAN_SENSITIVITY);
-                }
                 if (store.shot.current === undefined) {
                     if (keyboard.keyActive("shootActive"))
                         this.launchShot()
@@ -725,11 +729,11 @@ export class RoundController extends PhaseController {
                 ActivePlayer.tank.position.round(1/Global.constructor.SETTINGS.RESOLUTION);
                 if (keyboard.keyActive("mv+")) {
                     ActivePlayer.mover.move(MOVE_SPEED);
-                    flags.focusPlayer = !flags.dragPanning;
+                    flags.focusPlayer = !flags.isPanning;
                 }
                 if (keyboard.keyActive("mv-")) {
                     ActivePlayer.mover.move(-MOVE_SPEED);
-                    flags.focusPlayer = !flags.dragPanning;
+                    flags.focusPlayer = !flags.isPanning;
                 }
                 if (keyboard.keyActive("shot+")) {
                     ActivePlayer.aimer.power += POWER_SENSITIVITY;
@@ -777,7 +781,7 @@ export class RoundController extends PhaseController {
                     && ((position.x - center.x < 0 && Viewbox.min.x > 0)
                         || (position.x - center.x > 0 || Viewbox.max.x < Global.Display.planeSize.x)))
                     this.setViewbox(position);
-            } else if (store.shot.current && !flags.dragPanning) {
+            } else if (store.shot.current && !flags.isPanning) {
                 const bbox = store.shot.current.getBoundingBox().clone();
                 if (bbox.size.lengthSquared) {
                     const distance = ActivePlayer.tank.relativePosition.sub(bbox.center).abs(true);
