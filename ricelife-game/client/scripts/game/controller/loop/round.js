@@ -1,6 +1,6 @@
 import { AmmoPool, LobbyJSON } from "../../lobby/lobby.js";
 import { AnimationList, Animation, ShapeAnimation } from "../../animate/animate.js";
-import { Vector, Color, Ray } from "../../geometry/geometry.js";
+import { Vector, Color, Ray, BoundingBox } from "../../geometry/geometry.js";
 import { PhaseController } from "./main.js";
 import { SelectionController, ShotSelection } from "./select.js";
 import { InputListener } from "../player.js";
@@ -9,17 +9,18 @@ import { drawBlastAnimation } from "../../projectile/projectile.js";
 import { generateTerrain, generateWave } from "../../terrain/terrain.js";
 import { WorkerPool } from "../../workers/workers.js";
 import { Properties } from "../../projectile/projectile.js";
+import { floatEqual } from "../../utils/utils.js";
 import * as Menu from "../../menu/menu.js"
 
-import { drawCircle, drawLine, drawMarker, drawText, wrapDeg, rad2deg } from "../../utils/utils.js"; // [!] all for debug overlay
+import { drawCircle, drawLine, drawMarker, drawText, wrapDeg, rad2deg, generateBitmapDownloadURL } from "../../utils/utils.js"; // [!] all for debug overlay
 
 export class RoundController extends PhaseController {
     static SETTINGS = {
         BUSY_SECONDS_THRESHOLD: 1.5, // time in seconds before the "busy" screen pops up while tracing shots
         SHOT_TRACE_LIMIT: 30, // (seconds) will trigger a landing early if timeout is exceeded- however a landing will only be traced within this time frame so early landings shouldn't be happening... -KT
-        GROUND: 350,
         AIM_SENSITIVITY: Math.PI / 180,
         POWER_SENSITIVITY: .005,
+        PAN_SENSITIVITY: 5,
         MOVE_SPEED: 1,
         TERRAIN_EDGE: new Color("#00e8f0"),
         TERRAIN_FILL: new Color("#0098eb")
@@ -28,8 +29,8 @@ export class RoundController extends PhaseController {
         Escape: "esc",
         KeyW: "mv+",
         KeyS: "mv-",
-        KeyD: "mv+",
-        KeyA: "mv-",
+        KeyD: "pan+",
+        KeyA: "pan-",
         ArrowRight: "aim-", // counterclockwise
         ArrowLeft: "aim+", // clockwise
         ArrowUp: "shot+", // increment shot power
@@ -49,6 +50,7 @@ export class RoundController extends PhaseController {
         ShiftRight: "debug+"
     };
     #AmmoPool = new AmmoPool(new URL('.', import.meta.url).pathname + "../../projectile/types");
+    #Plane;
     #LobbyData;
     #ActivePlayer;
     #Players;
@@ -68,7 +70,8 @@ export class RoundController extends PhaseController {
             .then(() => this.#setupInterface())
             .then(() => this.#selectShot(this.store.shot.types[0]))
             .then(() => this.#setupSfx())
-            .then(() => distributePlayers(this.Global.Display.size, this.Players)) // [!] temporary
+            .then(() => distributePlayers(this.Plane, this.Players)) // [!] temporary
+            .then(() => this.setViewbox(this.ActivePlayer.tank.position))
             .then(() => this.state = this.constructor.STATES.Ready)
             .catch((err) => console.error(`[${this.constructor.name}]:`, err));
     }
@@ -76,6 +79,8 @@ export class RoundController extends PhaseController {
     #init (lobby) {
         this.flags.isTurn = true;
         this.flags.SELECTING = false;
+        this.flags.focusPlayer = true;
+        this.flags.dragPanning = false;
         this.store.prerender = Promise.resolve();
         this.store.cacheKey = {
             terrain: "lastTerrainState",
@@ -90,8 +95,8 @@ export class RoundController extends PhaseController {
             types: undefined,
             impacts: [],
         };
-
-        this.#Interface = new Menu.Interface();
+        this.#Plane = new BoundingBox(undefined, this.Global.constructor.COORDINATE_PLANE_SIZE);
+        this.#Interface = new Menu.Interface(this.Global.Display.Viewbox);
         this.Global.Input.keyMap = this.constructor.INPUT_MAP;
         this.Global.Input.pointerMap = this.Interface;
         this.#Threaded = new WorkerController(new WorkerPool(new URL(`../../workers/web-worker.js`, import.meta.url), 4, 3));
@@ -248,17 +253,20 @@ export class RoundController extends PhaseController {
     #drawDebugOverlay () {
         const { ActivePlayer, Terrain, Interface, store, flags } = this;
         const { Input, Display } = this.Global;
-        const { cursor } = Display;
+        const { Viewbox, cursor } = Display;
         const displaySize = Display.size;
         // draw any holes in terrain
+        Viewbox.setCursor(cursor, true);
+        cursor.save();
+        cursor.strokeStyle = "red";
+        cursor.lineWidth = 2;
         for (const hole of Terrain.holes) {
             cursor.save();
             hole.draw(cursor);
-            cursor.strokeStyle = "red";
-            cursor.lineWidth = 2;
             cursor.stroke();
             cursor.restore();
         }
+        cursor.restore();
         // draw player body and barrel positions
         drawCircle(cursor, ActivePlayer.tank.barrelPosition);
         drawCircle(cursor, new Vector(ActivePlayer.tank.position.x, ActivePlayer.tank.position.y), 5,  "green");
@@ -305,6 +313,7 @@ export class RoundController extends PhaseController {
             }
         }
         {
+            cursor.restore();
             // draw button hitboxes
             cursor.save();
             cursor.strokeStyle = "green";
@@ -315,12 +324,13 @@ export class RoundController extends PhaseController {
                 }
             }));
             cursor.restore();
+            Viewbox.setCursor(cursor, true);
         }
         if ((Input.pointer.isDragging
             && ActivePlayer.aimer.isOver(Input.pointer.dragStart))
             || Input.keyboard.keyActive("debug+")
         ) {
-            const { position } = Input.pointer;
+            const position = Viewbox.toGlobal(Input.pointer.position);
             const c = Terrain.isIntersecting(position) ? new Color(0, 200, 50, 1) : new Color(200, 200, 10, 1);
             drawCircle(cursor, position, 4, c);
             drawText(cursor, position, `${position.toString()}, (${wrapDeg(rad2deg(ActivePlayer.tank.barrelPosition.angle(position)).toFixed(0) - 90)})`, c.toString());
@@ -347,7 +357,7 @@ export class RoundController extends PhaseController {
                     cursor.stroke();
                 }
             cursor.restore();
-            const { position } = Input.pointer;
+            const position = Viewbox.toGlobal(Input.pointer.position);
             // stuff here may cause a lot of lag
             // draw raycast tester
             const mode = Input.keyboard.keyActive("shot1")
@@ -379,9 +389,10 @@ export class RoundController extends PhaseController {
             }
             cursor.restore();
         }
+        cursor.restore();
     }
     #setupInterface () {
-        const { AssetPool, Interface, ActivePlayer, store } = this;
+        const { AssetPool, Interface, ActivePlayer, store, flags } = this;
         const { MOVE_SPEED } = this.constructor.SETTINGS;
         const fireImg = AssetPool.get("fireBtn");
         const selectImg = AssetPool.get("selectBtn");
@@ -399,7 +410,8 @@ export class RoundController extends PhaseController {
         const selectBtn = new Menu.IconButton(selectImg);
         const leftBtn = new Menu.IconButton(leftImg);
         const rightBtn = new Menu.IconButton(rightImg);
-        const shotIco = new Menu.IconButton(shotImg); // dont make clickable
+        const shotIco = new Menu.IconButton(shotImg); // don't make clickable
+        const underButton = this.Global.Display.getBoundingBox().clone(); // don't make drawable
 
         fireBtn.setPosition(75, 150);
         selectBtn.setPosition(300, 150);
@@ -417,11 +429,42 @@ export class RoundController extends PhaseController {
             if (store.shot.current === undefined)
                 this.launchShot();
         }
+        underButton.id = true;
+        underButton.isOver = underButton.isIntersecting;
+        const panSensitivity = this.constructor.SETTINGS.PAN_SENSITIVITY / 5;
+        underButton.ondrag = (point, origin, delta) => {
+            flags.focusPlayer = false;
+            flags.dragPanning = true;
+            this.panViewbox(delta.mul(-panSensitivity).div(this.Global.Display.Viewbox.canvasScale, true));
+        }
+        underButton.onrelease = (point, delta) => {
+            flags.dragPanning = false;
+        }
+        underButton.onscroll = (point, delta) => {
+            if (!floatEqual(delta.x, 0)) {
+                flags.focusPlayer = false;
+                this.panViewbox(delta.x * panSensitivity);
+            }
+            if (!floatEqual(delta.y, 0)) {
+                flags.focusPlayer = false;
+                const scale = 1 / ((this.Global.Display.size.y - delta.y) / this.Global.Display.size.y);
+                if (scale < 1 && (this.Global.Display.Viewbox.canvasScale.x > this.Global.constructor.SETTINGS.MAX_VIEWBOX_SCALE || this.Global.Display.Viewbox.canvasScale.y > this.Global.constructor.SETTINGS.MAX_VIEWBOX_SCALE)) return;
+                const size = this.Global.Display.Viewbox.size.clone();
+                const pt = this.Global.Display.Viewbox.toGlobal(point);
+                this.Global.Display.Viewbox.applyScale(scale);
+                if (!size.eq(this.Global.Display.Viewbox.size))
+                    this.setViewbox(pt);
+            }
+        }
 
+        Interface.insert()
+            .push(underButton)
+            .fixed = true;
         Interface.insert() // draw layer zero after background but before terrain
             .push(ActivePlayer.aimer);
         Interface.insert()
-            .push(fireBtn, selectBtn, rightBtn, leftBtn, shotIco);
+            .push(fireBtn, selectBtn, rightBtn, leftBtn, shotIco)
+            .fixed = true;
     }
     #setupSfx () {
         const { Player } = this.Audio;
@@ -437,21 +480,21 @@ export class RoundController extends PhaseController {
     #getSelectionBackground () {
         const { cursor } = this.Global.Display;
         const doScreenshot = this.SelectionPhase.constructor.backgroundFilter;
-        this.store.snapshot?.close?.();
+        this.store.selectPhaseBackground?.close?.();
         if (doScreenshot) {
             cursor.save();
             cursor.filter = this.SelectionPhase.constructor.backgroundFilter;
             this.animate(true);
             cursor.restore();
         }
-        this.store.snapshot = cursor.screenshot(false);
+        this.store.selectPhaseBackground = cursor.screenshot(false);
         if (doScreenshot) this.animate(true); // [!] may be redundant since this should always be called before switching to selection menu anyways...? -KT
     }
     async #preloadMap (map) {
         const { Audio, Threaded, Global, Animations, Terrain, store } = this;
         const { TERRAIN_EDGE, TERRAIN_FILL } = this.constructor.SETTINGS;
         const { blasts } = map; // should be sorted
-        store.prerender = Threaded.drawBlastedTerrains(1, this.store.cacheKey.terrain, Global.Display.size, {edge: TERRAIN_EDGE, fill: TERRAIN_FILL}, ...blasts);
+        store.prerender = Threaded.drawBlastedTerrains(1, this.store.cacheKey.terrain, Global.Display.planeSize, {edge: TERRAIN_EDGE, fill: TERRAIN_FILL}, ...blasts);
         Animations.blasts = new AnimationList();
         store.shot.impacts = [];
         const blastIntervals = await store.prerender;
@@ -465,12 +508,13 @@ export class RoundController extends PhaseController {
     async #load () {
         const { Global } = this;
         const { SETTINGS } = this.constructor;
+        const { planeSize } = this.Global.Display;
         const Terrain = generateTerrain(
             generateWave(
-                Global.Display.size.x,
+                planeSize.x,
                 Global.constructor.SETTINGS.RESOLUTION,
-                (v) => v.y += SETTINGS.GROUND, .03, 40, 1.3, 15
-            ), Global.Display.size
+                (v) => v.y += planeSize.y * .35, .03, 40, 1.3, 15
+            ), planeSize
         );
         await this.AssetPool.onload;
         const waitPromises = [];
@@ -485,12 +529,17 @@ export class RoundController extends PhaseController {
         await this.Threaded.onload;
         waitPromises.push(
             this.AmmoPool.onload,
-            this.Threaded.createCache(this.store.cacheKey.background, "CANVAS", ...this.Global.Display.size),
+            this.Threaded.createCache(this.store.cacheKey.background, "CANVAS", ...planeSize),
             this.Threaded.insertCache(this.store.cacheKey.terrain, "POLY", Terrain.Float64(1))
         );
         await Promise.all(waitPromises);
         await this.Threaded.drawTerrain(this.store.cacheKey.background, this.store.cacheKey.terrain, SETTINGS.TERRAIN_FILL, SETTINGS.TERRAIN_EDGE)
             .then(() => this.Threaded.updateCache(this.store.cacheKey.background));
+    }
+    #drawBackground () {
+        const img = this.Threaded.cache[this.store.cacheKey.background];
+        const { Viewbox, cursor, size } = this.Global.Display;
+        cursor.drawImage(img, Viewbox.min.x, cursor.normalizeY(Viewbox.max.y), Viewbox.width, Viewbox.height, 0, 0, size.x, size.y);
     }
 
     async launchShot () {
@@ -503,7 +552,7 @@ export class RoundController extends PhaseController {
         //     wasSetBusy = true;
         //     config.dispatchEvent.busy();
         // }, config.busyThreshold);
-        this.animate(); // draw one last frame so the game doesn't look like it just froze
+        this.animate(true); // draw one last frame so the game doesn't look like it just froze
         const shot = this.createShot();
         const map = await this.Threaded.traceProjectile(
             this.getShotColliders(),
@@ -524,6 +573,28 @@ export class RoundController extends PhaseController {
         // }
         this.#setShot(shot, map);
     }
+    // sets viewbox to player
+    setViewbox (x = undefined, y = undefined) {
+        const { Viewbox } = this.Global.Display;
+        const pos = Viewbox.getPosition();
+        if (x?.isVector) pos.apply(x);
+        else {
+            if (Number.isFinite(x)) pos.x = x;
+            if (Number.isFinite(y)) pos.y = y;
+        }
+        Viewbox.setPosition(pos);
+    }
+    // moves the viewbox
+    panViewbox (x = undefined, y = undefined) {
+        const { Viewbox } = this.Global.Display;
+        const pos = Viewbox.getPosition();
+        if (x?.isVector) pos.add(x, true);
+        else {
+            if (Number.isFinite(x)) pos.x += x;
+            if (Number.isFinite(y)) pos.y += y;
+        }
+        Viewbox.setPosition(pos);
+    }
     openSelect () {
         this.#getSelectionBackground();
         this.SelectionPhase.start();
@@ -537,8 +608,8 @@ export class RoundController extends PhaseController {
         this.SelectionPhase.reset();
         this.Global.Input.keyMap = this.constructor.INPUT_MAP;
         this.Global.Input.pointerMap = this.Interface;
-        this.store.snapshot?.close?.();
-        this.store.snapshot = undefined;
+        this.store.selectPhaseBackground?.close?.();
+        this.store.selectPhaseBackground = undefined;
     }
     updateTerrain (polygon, changedBBoxes = []) {
         if (this.Terrain.hash !== polygon.hash)
@@ -567,7 +638,7 @@ export class RoundController extends PhaseController {
         const shot = new type(...this.getShotLaunchData());
         shot.colliders.push(store.terrain);
         shot.launchCallback = this.#launchCallbackFactory();
-        shot.displayBoundingBox = Global.Display.getBoundingBox();
+        shot.displayBoundingBox = Global.Display.Viewbox;
         return shot;
     }
     getShotColliders () {
@@ -597,7 +668,7 @@ export class RoundController extends PhaseController {
     }
     handleInput () {
         const { ActivePlayer, Interface, Global, flags, store } = this;
-        const { AIM_SENSITIVITY, MOVE_SPEED, POWER_SENSITIVITY } = this.constructor.SETTINGS;
+        const { AIM_SENSITIVITY, MOVE_SPEED, POWER_SENSITIVITY, PAN_SENSITIVITY } = this.constructor.SETTINGS;
         const { keyboard, pointer } = Global.Input;
         if (keyboard.keyActive("esc")) {
             // pause menu logic
@@ -620,11 +691,22 @@ export class RoundController extends PhaseController {
                             });
                 }
                 ActivePlayer.tank.position.round(1/Global.constructor.SETTINGS.RESOLUTION);
+                if (keyboard.keyActive("pan+")) {
+                    flags.focusPlayer = false;
+                    this.panViewbox(PAN_SENSITIVITY);
+                    
+                }
+                if (keyboard.keyActive("pan-")) {
+                    flags.focusPlayer = false;
+                    this.panViewbox(-PAN_SENSITIVITY);
+                }
                 if (keyboard.keyActive("mv+")) {
                     ActivePlayer.mover.move(MOVE_SPEED);
+                    flags.focusPlayer = !flags.dragPanning;
                 }
                 if (keyboard.keyActive("mv-")) {
                     ActivePlayer.mover.move(-MOVE_SPEED);
+                    flags.focusPlayer = !flags.dragPanning;
                 }
                 if (keyboard.keyActive("shot+")) {
                     ActivePlayer.aimer.power += POWER_SENSITIVITY;
@@ -651,25 +733,44 @@ export class RoundController extends PhaseController {
     }
     animate (clear = true) {
         const { ActivePlayer, Animations, Global, Interface, Threaded, Players, flags, store } = this;
-        const { cursor } = Global.Display;
+        const { Viewbox, cursor } = Global.Display;
+        cursor.save();
         if (clear) cursor.clear();
         if (flags.SELECTING) {
-            cursor.drawImage(this.store.snapshot, 0, 0);
+            if (this.store.selectPhaseBackground)
+                cursor.drawImage(this.store.selectPhaseBackground, 0, 0);
             this.SelectionPhase.animate(false);
         } else {
-            if (flags.isTurn) Interface.draw(cursor, 0, 1);
+            if (flags.isTurn) {
+                Interface.draw(cursor, 0, 2);
+                const { position } = ActivePlayer.tank;
+                const { center } = Viewbox;
+                if (flags.focusPlayer
+                    && position.x !== center.x
+                    && ((position.x - center.x < 0 && Viewbox.min.x > 0)
+                        || (position.x - center.x > 0 || Viewbox.max.x < Global.Display.planeSize.x)))
+                    this.setViewbox(position);
+            } else if (store.shot.current) {
+                const bbox = store.shot.current.getBoundingBox().clone();
+                if (bbox.size.lengthSquared)
+                    this.setViewbox(bbox.merge(ActivePlayer.tank.getBoundingBox(), true).center);
+            }
+            Viewbox.setCursor(cursor, true);
             for (const { tank, isDead } of Players)
                 if (!isDead) tank.draw(cursor);
-            cursor.drawImage(Threaded.cache[store.cacheKey.background], 0, 0);
+            cursor.restore();
+            this.#drawBackground();
+            Viewbox.setCursor(cursor, true);
             if (store.shot.tracer) store.shot.tracer.draw(cursor);
             if (store.shot.current && store.shot.current.time > 0) store.shot.current.draw(cursor);
             Animations.Main.update(cursor);
             for (const Player of Players)
                 Player.drawProfile(cursor);
-            if (flags.isTurn) Interface.draw(cursor, 1);
+            cursor.restore();
+            if (flags.isTurn) Interface.draw(cursor, 2);
             if (Global.flags.DEBUG) this.#drawDebugOverlay();
-            
         }
+        cursor.restore();
     }
     async tick (delta) {
         const { Animations, Global, store, flags } = this;
@@ -745,22 +846,23 @@ export class RoundController extends PhaseController {
     get Terrain () { return this.#Terrain }
     get Animations () { return this.#Animations }
     get SelectionPhase () { return this.#SelectionPhase }
+    get Plane () { return this.#Plane }
     get onload () { return this.#loadPromise }
 }
 
-function distributePlayers (displaySize, players) {
-    const min = displaySize.x / 10;
-    const max = displaySize.x - min;
-    const spacing = (displaySize.x / 6);
+function distributePlayers (bbox, players) {
+    const min = bbox.min.x + (bbox.width / 10);
+    const max = bbox.max.x - min;
+    const spacing = (bbox.width / 6);
     const range = (max - min) / spacing; 
     const spots = new Set()
-    let x = undefined;
     for (const { aimer, mover } of players) {
+        let x = undefined;
         while (x === undefined || spots.has(x)) {
             x = (Math.floor(Math.random() * (range + 1)) * spacing) + min;
         }
         spots.add(x);
-        mover.apply(x, displaySize.y + 1);
-        aimer.update(players[0].tank.position.add({x: 0, y: displaySize.y})); // aim straight up and set power to 100% (1)
+        mover.apply(x, bbox.max.y + 1);
+        aimer.update(players[0].tank.position.add({x: 0, y: bbox.max.y})); // aim straight up and set power to 100% (1)
     }
 }

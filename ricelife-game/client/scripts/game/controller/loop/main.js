@@ -6,8 +6,10 @@ import { LoopController } from "./loop.js";
 import { Vector } from "../../geometry/geometry.js";
 
 export class MainController extends LoopController {
+    static #COORDINATE_PLANE_SIZE = new Vector(4000, 1000);
     static SETTINGS = {
         RESOLUTION: Math.floor((1/3) * 10) / 10,
+        MAX_VIEWBOX_SCALE: 5,
         CLICK_DURATION_MS: 90,
         TICKSPEED: 10, // milliseconds, must be lower than framerate
         FPS: 60
@@ -23,6 +25,7 @@ export class MainController extends LoopController {
         this.#AssetType.Audio = (...args) => this.#AudioCtx.Source(...args);
     }
     static get AssetType () { return this.#AssetType }
+    static get COORDINATE_PLANE_SIZE () { return MainController.#COORDINATE_PLANE_SIZE.clone() } // [!] protect. never modify original
     #Loops = {};
     #active;
     #Display;
@@ -39,7 +42,7 @@ export class MainController extends LoopController {
     }
 
     #init () {
-        this.#Display = new AppCanvas(window.appCanvas, new Vector(1920, 1080));
+        this.#Display = new AppCanvas(window.appCanvas, window, MainController.COORDINATE_PLANE_SIZE);
         this.#FrameCounter = new FrameCounter(30);
         this.#FrameInterval = new Interval(1000 / this.constructor.SETTINGS.FPS);
         this.#TickInterval = new Interval(this.constructor.SETTINGS.TICKSPEED);

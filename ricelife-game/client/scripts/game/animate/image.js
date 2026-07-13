@@ -49,7 +49,7 @@ export class LoadImage extends TrackableObject {
         cursor.save();
         const cos = Math.cos(-this.rotation);
         const sin = Math.sin(-this.rotation);
-        cursor.setTransform(cos, sin, -sin, cos, dx, normalize ? cursor.normalizeY(dy) : dy);
+        cursor.transform(cos, sin, -sin, cos, dx, normalize ? cursor.normalizeY(dy) : dy);
         const og = origin.mul(-1).mul(this.scale);
         cursor.drawImage(this.img, sx, sy, sWidth, sHeight, og.x, og.y, dWidth, dHeight);
         cursor.restore();

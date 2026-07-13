@@ -1,4 +1,5 @@
 import { Vector, BoundingBox } from "../geometry/geometry.js";
+import { floatEqual } from "../utils/utils.js";
 
 // counts framerate
 export class FrameCounter {
@@ -54,40 +55,125 @@ export class Interval {
     }
 }
 
-export class AppCanvas {
-    #sizeHash;
-    #bbox;
-    #cursor;
-    #resizeObserver;
-    #size;
-    #resizeCallbacks = new Set();
-    #center; // [!] does not update with size
-    constructor (canvas, size = new Vector(1920, 1080)) {
-        this.#size = size;
-        this.#center = size.div(2);
-        this.canvas = canvas;
-        [this.canvas.width, this.canvas.height] = this.#size;
-        this.#resizeObserver = new ResizeObserver(() => this.#onResize());
-        this.#computeLayout();
-        this.#resizeObserver.observe(this.canvas);
-        this.#cursor = Canvas2DContextCursorFactory(this.canvas);
+// virtual coordinate space viewport window
+class Viewbox extends BoundingBox {
+    #canvas;
+    constructor (appCanvas, size) {
+        super(undefined, new Vector(1, 1));
+        if (!appCanvas?.isAppCanvas) throw new Error(`[${this.constructor.name}]: canvas must be of type AppCanvas, got ${typeof appCanvas}`);
+        this.#canvas = appCanvas;
+        this.max.apply(appCanvas.planeSize);
+        if (size) this.applySize(size);
     }
 
-    #onResize () {
+    getPosition () { return super.center }
+    setPosition (point) {
+        const { planeSize } = this.#canvas;
+        const { size } = this;
+        const targetMin = point.sub(size.div(2));
+        const limit = planeSize.sub(size);
+        const minX = Math.max(0, Math.min(targetMin.x, limit.x));
+        const minY = Math.max(0, targetMin.y);
+        this.max.apply(this.min.apply(minX, minY)).add(size, true);
+        return this; // for chaining
+    }
+    applySize (size) {
+        const scale = size.div(this.size);
+        return this.applyScale(scale);
+    }
+    applyScale (scale) {
+        const { planeSize } = this.#canvas;
+        const offset = this.center.clone();
+        const min = this.min.sub(offset, false).mul(scale, true).add(offset, true);
+        const max = this.max.sub(offset, false).mul(scale, true).add(offset, true);
+        const size = max.sub(min).abs(true);
+        const aspect = size.quot();
+        if (size.x > planeSize.x) size.apply(planeSize.x, planeSize.x / aspect);
+        //if (size.y > planeSize.y) size.apply(planeSize.y * aspect, planeSize.y);
+        if (this.size.eq(size)) return this;
+        const limit = planeSize.sub(size);
+        const minX = Math.max(0, Math.min(min.x, limit.x));
+        const minY = Math.max(0, Math.min(min.y, limit.y));
+        this.max.apply(this.min.apply(minX, minY)).add(size, true);
+        return this; // for chaining
+    }
+    // sets cursor origin and scale to match viewbox
+    setCursor (cursor, save = false) {
+        if (save) cursor.save();
+        cursor.scale(this.canvasScale);
+        cursor.ctx.translate(-this.min.x, -cursor.normalizeY(this.max.y));
+    }
+    setCanvas (save = false) {
+        this.setCursor(this.#canvas.cursor, save);
+    }
+    toRelative (point, mutate = false) {
+        const pt = mutate ? point : point.clone();
+        return pt.sub(this.min, true)
+            .mul(this.canvasScale, true);
+    }
+    toGlobal (point, mutate = false) {
+        const pt = mutate ? point : point.clone();
+        return pt.div(this.canvasScale, true)
+            .add(this.min, true);
+    }
+
+    get isViewbox () { return true }
+    get canvasScale () { return this.#canvas.size.div(this.size) }
+    get isOnEdge () {
+        const { planeSize } = this.#canvas;
+        return this.min.x <= 0
+            || this.min.y <= 0
+            || this.max.x >= planeSize.x
+            || this.max.y >= planeSize.y;
+    }
+    get aspectRatio () { return this.size.quot() }
+    // preserves height
+    // [!] inefficient
+    set aspectRatio (ratio) {
+        this.applySize(new Vector(this.height * ratio, this.height));
+        return ratio;
+    }
+}
+
+export class AppCanvas {
+    #cursor;
+    #window;
+    #ratio = 1;
+    #Viewbox;
+    #bbox = new BoundingBox();
+    #size = new Vector();
+    #resizeCallbacks = new Set();
+    #center = new Vector();
+    #planeSize = new Vector();
+    // planeSize is the true size of the global coorindates
+    constructor (canvas, window, planeSize) {
+        this.canvas = canvas;
+        this.planeSize.apply(planeSize);
+        this.#Viewbox = new Viewbox(this);
+        this.#window = window;
+        this.window.addEventListener("resize", this.#onResize);
+        this.#computeLayout();
+        this.#cursor = Canvas2DContextCursorFactory(this.canvas, this.planeSize);
+    }
+
+    #onResize = () => {
         this.#computeLayout();
         for (const callback of this.#resizeCallbacks)
             callback?.(this);
     }
     #computeLayout () {
-        this.#size.apply(this.canvas.width, this.canvas.height);
-        this.#center = this.size.div(2);
+        const width = this.window.innerWidth;
+        const height = this.window.innerHeight;
+        this.canvas.width = width;
+        this.canvas.height = height;
+        this.size.apply(width, height);
+        this.center.apply(this.size.div(2));
+        this.#bbox.apply(undefined, this.size);
+        this.#ratio = this.size.quot();
+        this.Viewbox.aspectRatio = this.aspectRatio;
     }
 
     getBoundingBox () {
-        const { hash } = this.size;
-        if (hash === this.#sizeHash) return this.#bbox;
-        this.#sizeHash = hash;
-        this.#bbox = new BoundingBox(undefined, this.size);
         return this.#bbox;
     }
     removeResizeListener (handler) {
@@ -97,19 +183,25 @@ export class AppCanvas {
         this.#resizeCallbacks.add(handler);
     }
 
+    get isAppCanvas () { return true }
+    get Viewbox () { return this.#Viewbox }
+    get planeSize () { return this.#planeSize }
     get cursor () { return this.#cursor }
     get size () { return this.#size }
+    get planeScale () { return this.size.div(this.planeSize) }
+    get aspectRatio () { return this.#ratio }
     get center () { return this.#center }
+    get window () { return this.#window }
 }
 
 // Transforms world coorindates to canvas drawing coordinates. May be redundant / excessive
 // Also accepts Vectors in place of x, y arguments for methods it overloads
 class Canvas2DContextCursor {
-    #ctx
-    #size
-    constructor(canvasContext) {
+    #ctx;
+    #size;
+    constructor(canvasContext, size) {
         this.#ctx = canvasContext;
-        this.#size = new Vector(this.#ctx.canvas.width, this.#ctx.canvas.height);
+        this.#size = size; // bind reference
     }
 
     normalizeY (y) {
@@ -126,12 +218,17 @@ class Canvas2DContextCursor {
         }
     }
     clear () {
-        this.#ctx.clearRect(0, 0, this.#size.x, this.#size.y);
+        this.#ctx.clearRect(0, 0, this.#ctx.canvas.width, this.#ctx.canvas.height);
     }
     translate (x, y = null) {
         x?.isVector
-            ? this.#ctx.translate(x.x, this.normalizeY(x.y))
-            : this.#ctx.translate(x, this.normalizeY(y));
+            ? this.#ctx.translate(x.x, -x.y)
+            : this.#ctx.translate(x, -y);
+    }
+    scale (x, y = null) {
+        x?.isVector
+            ? this.#ctx.scale(x.x, x.y)
+            : this.#ctx.scale(x, y);
     }
     moveTo (x, y = null) {
         x?.isVector
@@ -215,8 +312,8 @@ class Canvas2DContextCursor {
 }
 
 // DefaultDict implementation
-export function Canvas2DContextCursorFactory (canvas) {
-    const cursor = new Canvas2DContextCursor(canvas.getContext("2d"));
+export function Canvas2DContextCursorFactory (canvas, size, viewboxFn = undefined) {
+    const cursor = new Canvas2DContextCursor(canvas.getContext("2d"), size, viewboxFn);
     return new Proxy(cursor, {
         get (target, prop, receiver) {
             const obj = (prop in target) ? target : target.ctx;

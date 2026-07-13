@@ -300,6 +300,7 @@ export class Path extends TrackableObject { // points should be ordered clockwis
     slice (...args) { return this.points.slice(...args) }
     splice (...args) { return this.points.splice(...args) }
     at (...args) { return this.points.at(...args) }
+    reduce (...args) { return this.points.reduce(...args) }
     nearestTo (point) {
         if (!point?.isVector) throw new Error(`[${this.constructor.name}] Error: Point must Vector type, not ${typeof point}`);
         return this.points.reduce((acc, curr) => curr.distance(point) < acc.distance(point) ? curr : acc);
@@ -344,6 +345,14 @@ export class Path extends TrackableObject { // points should be ordered clockwis
 }
 
 export class BoundingBox {
+    static fromHitbox (hitbox) {
+        const bbox = new BoundingBox();
+        bbox.min.x = hitbox.edges.reduce((acc, {x: curr}) => Math.min(acc, curr), hitbox.edges.at(0).x);
+        bbox.min.y = hitbox.edges.reduce((acc, {y: curr}) => Math.min(acc, curr), hitbox.edges.at(0).y);
+        bbox.max.x = hitbox.edges.reduce((acc, {x: curr}) => Math.max(acc, curr), hitbox.edges.at(0).x);
+        bbox.max.y = hitbox.edges.reduce((acc, {y: curr}) => Math.max(acc, curr), hitbox.edges.at(0).y);
+        return bbox;
+    }
     #min = new Vector();
     #max = new Vector();
     constructor (min = undefined, max = undefined) {

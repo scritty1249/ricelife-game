@@ -93,7 +93,7 @@ export class WorkerController {
         }
         return landing;
     }
-    async drawBlastedTerrains (depth, polygonid, canvasSize, terrainConfig, ...blasts) {
+    async drawBlastedTerrains (depth, polygonid, planeSize, terrainConfig, ...blasts) {
         // cuts blasts, and returns a Promise<Array> of image data, for each state of the terrain after the blasts (in order)
         // blast structure: { shape: Polygon, delay: Number (milliseconds) }
         if (blasts.length === 0) {
@@ -108,7 +108,7 @@ export class WorkerController {
         } else if (blasts.length === 1) {
             const poly = this.cutPolygon(depth, polygonid, polygonid, blasts[0].shape.Polygon(1));
             const key = `${polygonid}_c0_${uuid()}`;
-            const canvas = this.#pool.initCache("CANVAS", [canvasSize.x, canvasSize.y], key);
+            const canvas = this.#pool.initCache("CANVAS", [planeSize.x, planeSize.y], key);
             const frame = poly
                 .then(() => canvas)
                 .then(() => this.drawTerrain(key, polygonid, terrainConfig.fill, terrainConfig.edge))
@@ -142,7 +142,7 @@ export class WorkerController {
             polygonKeys.unshift(polygonid);
             const canvasKeys = Array.from(blastIntervals, (_, i) => {
                 const key = `${polygonid}_c${i}_${uuid()}`;
-                return this.#pool.initCache("CANVAS", [canvasSize.x, canvasSize.y], key)
+                return this.#pool.initCache("CANVAS", [planeSize.x, planeSize.y], key)
                     .then(() => key);
             });
             // setup promise chains

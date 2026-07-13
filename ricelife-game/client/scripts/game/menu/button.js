@@ -44,12 +44,14 @@ export class Button extends TrackableObject {
         onhold: undefined,
         ondrag: undefined,
         onpress: undefined,
-        onrelease: undefined
+        onrelease: undefined,
+        onscroll: undefined
     };
     #fontColor = new Color(0, 0, 0, 1);
     fontSize = 24;
     fontFamily = "Arial";
     text = "";
+    keepDragFocus = false; // when set, drag events will continue even after pointer leaves this button's area
     constructor () {
         super();
     }
@@ -79,6 +81,12 @@ export class Button extends TrackableObject {
     set onhold (callbackFn) { return (this.#callback.onhold = callbackFn) }
     get ondrag () { return this.#callback.ondrag }
     set ondrag (callbackFn) { return (this.#callback.ondrag = callbackFn) }
+    get onpress () { return this.#callback.onpress }
+    set onpress (callbackFn) { return (this.#callback.onpress = callbackFn) }
+    get onrelease () { return this.#callback.onrelease }
+    set onrelease (callbackFn) { return (this.#callback.onrelease = callbackFn) }
+    get onscroll () { return this.#callback.onscroll }
+    set onscroll (callbackFn) { return (this.#callback.onscroll = callbackFn) }
 
     // [!] should be overridden by children
     drawButton (cursor) {}

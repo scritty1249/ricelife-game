@@ -1,5 +1,5 @@
 import { Canvas2DContextCursorFactory } from "../controller/controller.js";
-import { Polygon, Shape } from "../geometry/geometry.js";
+import { Polygon, Shape, Vector } from "../geometry/geometry.js";
 
 export const CACHE_TYPES = {
     POLY: {
@@ -44,8 +44,9 @@ export const CACHE_TYPES = {
         },
         encode: (payload, peer = true) => {
             if (peer) {
-                const canvas = new OffscreenCanvas(payload?.width, payload?.height); // [!] inefficient but Contexts are non-transferrable and permanently linked to each Canvas
-                const cursor = Canvas2DContextCursorFactory(canvas);
+                const { width, height } = payload;
+                const canvas = new OffscreenCanvas(width, height); // [!] inefficient but Contexts are non-transferrable and permanently linked to each Canvas
+                const cursor = Canvas2DContextCursorFactory(canvas, new Vector(width, height));
                 cursor.drawImage(payload, 0, 0);
                 payload?.close?.();
                 return { canvas, cursor };
@@ -54,8 +55,9 @@ export const CACHE_TYPES = {
             }
         },
         encodeReference: (reference) => {
-            const canvas = new OffscreenCanvas(reference.width, reference.height);
-            const cursor = Canvas2DContextCursorFactory(canvas);
+            const { width, height } = reference;
+            const canvas = new OffscreenCanvas(width, height);
+            const cursor = Canvas2DContextCursorFactory(canvas, new Vector(width, height));
             return { canvas, cursor };
         },
         hash: (data) => {

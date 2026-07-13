@@ -131,6 +131,7 @@ class PointerListener  {
     };
     #tracking = {
         position: new Vector(),
+        delta: new Vector(),
         down: {
             position: new Vector(),
             stamp: undefined   
@@ -140,6 +141,7 @@ class PointerListener  {
             stamp: undefined   
         }
     };
+    #activePointers = {};
     #clickEventPromises = new Array();
     #enabled = true; // blocks callbacks if set to false, but will still track pointer
     constructor (appCanvas, clickThresholdMs, callbackFns) {
@@ -152,6 +154,8 @@ class PointerListener  {
         this.#listeningTo.addEventListener("pointermove", this.#updateMove);
         this.#listeningTo.addEventListener("pointerdown", this.#updateDown);
         this.#listeningTo.addEventListener("pointerup", this.#updateUp);
+        this.#listeningTo.addEventListener("pointercancel", this.#updateUp);
+        this.#listeningTo.addEventListener("wheel", this.#updateWheel);
     }
 
     #setHoldTimeout () {
@@ -168,35 +172,58 @@ class PointerListener  {
             this.#holding.timeout = undefined;
         }
     }
-    #updateDown = (event) => { // keep up and down event callbacks seperate for (marginal) perfomance boost
+    #updateDown = (event, callback = true) => { // keep up and down event callbacks seperate for (marginal) perfomance boost
         if (!this.enabled) return;
+        this.#activePointers[event.pointerId] = event;
         this.#updatePosition(event);
         this.#tracking.up.stamp = undefined; // clear data from last down event
         this.#tracking.down.stamp = performance.now();
         this.#tracking.down.position.apply(this.#tracking.position);
         this.#setHoldTimeout();
-        this.#callbackFns?.onpress?.(this.position);
+        if (callback) this.#callbackFns?.onpress?.(this.position);
     }
-    #updateUp = (event) => {
+    #updateUp = (event, callback = true) => {
         if (!this.enabled) return;
+        if (event.pointerId in this.#activePointers)
+            delete this.#activePointers[event.pointerId];
         this.#updatePosition(event);
         this.#tracking.up.stamp = performance.now();
         this.#tracking.up.position.apply(this.#tracking.position);
         this.#clearHoldTimeout();
-        this.#callbackFns?.onrelease?.(this.position, this.#tracking.up.position.sub(this.#tracking.down.position) || new Vector(0, 0));
-        // click detection
-        if (this.activeDuration <= this.#clickMs + Number.EPSILON) {
-            this.#clickEventPromises.splice(0, this.#clickEventPromises.length)
-                .forEach((resolve) => resolve(event));
-            this.#callbackFns?.onclick?.(this.position, this.#tracking.down.position);
+        if (callback) {
+            this.#callbackFns?.onrelease?.(this.position, this.delta);
+            // click detection
+            if (this.activeDuration <= this.#clickMs + Number.EPSILON) {
+                this.#clickEventPromises.splice(0, this.#clickEventPromises.length)
+                    .forEach((resolve) => resolve(event));
+                this.#callbackFns?.onclick?.(this.position, this.delta);
+            }
         }
     }
-    #updateMove = (event) => {
+    #updateMove = (event, callback = true) => {
+        if (!this.enabled) return;
+        this.#activePointers[event.pointerId] = event;
         this.#updatePosition(event);
+        this.#updateDelta(event);
         this.#setHoldTimeout();
         // drag detection
-        if (this.activeDuration >= this.#clickMs - Number.EPSILON && this.enabled)
-            this.#callbackFns?.ondrag?.(this.position, this.#tracking.down.position); // pass origin position by reference to avoid making duplicates
+        if (callback && this.activeDuration >= this.#clickMs - Number.EPSILON && this.enabled) {
+            if ((this.#callbackFns?.ondrag?.(this.position, this.#tracking.down.position.clone(), this.delta)) === null)
+                // dragging was broken on an item
+                this.#updateUp(event, false);
+        }
+    }
+    #updateWheel = (event, callback = true) => {
+        if (!this.enabled) return;
+        const { deltaX, deltaY } = event;
+        if (callback) {
+            this.#callbackFns?.onscroll?.(this.position, new Vector(deltaX, deltaY).mul(this.#scale, true));
+        }
+    }
+    #updateDelta (event) {
+        const { movementX, movementY } = event;
+        this.#tracking.delta.apply(movementX, -movementY);
+        this.#tracking.delta.mul(this.#scale, true);
     }
     #updatePosition (event) {
         const { clientX, clientY } = event;
@@ -208,6 +235,7 @@ class PointerListener  {
         {
             // change any existing position data back to global
             this.#denormalizePoint(position);
+            this.#tracking.delta.div(this.#scale, true);
             if (up.stamp !== undefined)
                 this.#denormalizePoint(up.position);
             if (down.stamp !== undefined)
@@ -219,6 +247,7 @@ class PointerListener  {
         this.#scale.apply(this.#listeningTo.width / width, this.#listeningTo.height / height);
         // make position data relative to new position
         this.#normalizePoint(position);
+        this.#tracking.delta.mul(this.#scale, true);
         if (up.stamp !== undefined)
             this.#normalizePoint(up.position);
         if (down.stamp !== undefined)
@@ -237,20 +266,27 @@ class PointerListener  {
         return point; // for chaining
     }
     // return a promise that runs on next event
-    #onNextEvent (eventType) {
+    #onNextEvent (...eventTypes) {
         const { promise, resolve } = Promise.withResolvers();
         const element = this.#listeningTo;
-        const handler = (event) => {
-            if (this.enabled) {
-                element.removeEventListener(eventType, handler);
-                resolve(event);
+        const handlers = [];
+        for (const eventType of eventTypes) {
+            const handler = (event) => {
+                if (this.enabled) {
+                    for (const [type, handle] of handlers)
+                        element.removeEventListener(type, handle);
+                    resolve(event);
+                }
             }
+            handlers.push(handler);
+            element.addEventListener(eventType, handler);
         }
-        element.addEventListener(eventType, handler);
         return promise;
     }
 
     resetState () {
+        if (this.isDragging || this.isHolding)
+            this.#callbackFns?.onrelease?.(this.position, this.delta);
         this.#clearHoldTimeout();
         this.#tracking.down.position.apply(0);
         this.#tracking.down.stamp = undefined;
@@ -269,20 +305,23 @@ class PointerListener  {
         return this.#onNextEvent("pointerdown");
     }
     onNextRelease () {
-        return this.#onNextEvent("pointerup");
+        return this.#onNextEvent("pointerup", "pointercancel");
     }
     close () {
         this.resetState();
         this.#listeningTo.removeEventListener("pointermove", this.#updateMove);
         this.#listeningTo.removeEventListener("pointerdown", this.#updateDown);
         this.#listeningTo.removeEventListener("pointerup", this.#updateUp);
+        this.#listeningTo.removeEventListener("pointercancel", this.#updateUp);
         this.#AppCanvas.removeEventListener(this.#updateOffset);
     }
 
     get listeningTo () { return this.#listeningTo }
+    get pointerCount () { return Object.keys(this.#activePointers).length }
     get position () { return this.#tracking.position.clone() }
+    get delta () { return this.#tracking.delta.clone() }
     get isHolding () { return this.#holding.isHolding = (this.isActive && this.#holding.isHolding) && this.enabled }
-    get isActive () { return this.#tracking.down.stamp !== undefined && this.#tracking.up.stamp === undefined && this.enabled }
+    get isActive () { return this.pointerCount > 0 && this.#tracking.down.stamp !== undefined && this.#tracking.up.stamp === undefined && this.enabled }
     get isDragging () { return this.activeDuration >= this.#clickMs - Number.EPSILON && this.enabled }
     get dragStart () { return this.isDragging ? this.#tracking.down.position.clone() : undefined }
     // milliseconds 
@@ -520,6 +559,7 @@ export class AimController extends TrackableObject { // takes control of rotatio
     #powerFromPointer () { return this.#player.relativePosition.distance(this.pointer) / this.#radius } // unclamped
     #angleFromPointer () { return this.pointer.angle(this.#player.relativePosition) - (Math.PI / 2) } // normalized
 
+    get keepDragFocus () { return true } // button
     get pointer () { if (this.#pointerRecorded) return this.#pointerPosition; else throw new Error(`[${this.constructor.name}] Error: Pointer position not set`) }
     get radius () { return this.#radius }
     get power () { return this.#power }

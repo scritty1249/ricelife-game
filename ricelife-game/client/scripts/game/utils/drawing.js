@@ -38,3 +38,11 @@ export function outlineImage (cursor, loadedImage, position, thickness = 2, colo
     drawLine(cursor, br, bl, thickness, color);
     drawLine(cursor, bl, tl, thickness, color);
 }
+
+export async function generateBitmapDownloadURL (bitmap, filename = "test.png") {
+    const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(bitmap, 0, 0);
+    const blob = await canvas.convertToBlob({ type: "image/png" });
+    return URL.createObjectURL(blob);
+}

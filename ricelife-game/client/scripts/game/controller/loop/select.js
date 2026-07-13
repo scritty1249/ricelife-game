@@ -84,7 +84,7 @@ export class SelectionController extends PhaseController {
             if (!selection?.isShotSelection) throw new Error(`[${this.constructor.name}]: Invalid type - expected ShotSelection, got ${typeof selection}`);
             this.store.selections.push(selection);
         }
-        this.#Interface = new Menu.Interface();
+        this.#Interface = new Menu.Interface(this.Global.Display.Viewbox);
         this.Audio.Layer.tile = this.Audio.Player.Layer();
         this.Audio.Layer.tile.volume = .25;
         this.Audio.Layer.selected = this.Audio.Player.Layer();
@@ -105,8 +105,9 @@ export class SelectionController extends PhaseController {
             if (this.flags.exitable && floatEqual(delta.length, 0))
                 this.state = this.constructor.STATES.Raise;
         }
-        this.Interface.insert().push(underButton);
+        this.Interface.insert().push(underButton).fixed = true;
         this.store.tileLayer = this.Interface.insert();
+        this.store.tileLayer.fixed = true;
     }
     // padding in pixels
     #computeTileLayout () {
