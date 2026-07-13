@@ -142,13 +142,13 @@ class InterfaceLayer extends TrackableObject { // pointer events are prioritized
     }
     isClicked (point, delta) {
         const pt = this.parseCoordinate(point);
-        const pr = this.parseCoordinate(point.sub(delta));
+        const pressed = this.parseCoordinate(point.sub(delta));
         for (const item of this.items) {
             if (
                 this.#supportsCursorEvents(item)
                 && this.#supportsClickEvents(item)
                 && item.isOver(pt)
-                && (!pr || item.isOver(pr))
+                && item.isOver(pressed)
             ) return item;
         }
         return undefined;

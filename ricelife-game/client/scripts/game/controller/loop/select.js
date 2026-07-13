@@ -181,7 +181,7 @@ export class SelectionController extends PhaseController {
         const { userData } = shape.polygon;
         userData.selection = selection;
         userData.lastScale = 1;
-        btn.onclick = () => {
+        btn.onclick = (point, delta) => {
             this.store.SELECTED = userData.selection.name;
             this.state = this.constructor.STATES.Raise;
             this.Audio.Layer.tile.stop();

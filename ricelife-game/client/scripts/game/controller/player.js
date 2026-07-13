@@ -196,7 +196,7 @@ class PointerListener  {
             if (this.activeDuration <= this.#clickMs + Number.EPSILON) {
                 this.#clickEventPromises.splice(0, this.#clickEventPromises.length)
                     .forEach((resolve) => resolve(event));
-                this.#callbackFns?.onclick?.(this.position, this.delta);
+                this.#callbackFns?.onclick?.(this.position, this.#tracking.position.sub(this.#tracking.down.position));
             }
         }
     }
