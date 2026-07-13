@@ -227,7 +227,7 @@ class Canvas2DContextCursor {
         if (promise) { // this is more efficient than synchronous method
             return createImageBitmap(this.#ctx.canvas);
         } else {
-            const offscreen = new OffscreenCanvas(...this.#size);
+            const offscreen = new OffscreenCanvas(this.#ctx.canvas.width, this.#ctx.canvas.height);
             const ctx = offscreen.getContext("2d");
             ctx.drawImage(this.#ctx.canvas, 0, 0);
             return offscreen.transferToImageBitmap(); 
