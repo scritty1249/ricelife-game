@@ -67,6 +67,7 @@ export class SelectionController extends PhaseController {
         this.#loadPromise = this.#load()
             .then(() => this.#setupInterface())
             .then(() => this.#computeTileLayout())
+            .then(() => this.Global.Display.addResizeListener(this.#onResize))
             .then(() => this.#setupTiles())
             .then(() => this.#resetTilePositions())
             .then(() => this.#updateTiles())
@@ -108,6 +109,10 @@ export class SelectionController extends PhaseController {
         this.Interface.insert().push(underButton).fixed = true;
         this.store.tileLayer = this.Interface.insert();
         this.store.tileLayer.fixed = true;
+    }
+    #onResize = () => {
+        this.#computeTileLayout();
+        this.#updateTiles();
     }
     // padding in pixels
     #computeTileLayout () {
@@ -311,6 +316,7 @@ export class SelectionController extends PhaseController {
     }
     close () {
         this.state = this.constructor.STATES.Busy;
+        this.Global.Display.removeResizeListener(this.#onResize)
         super.close();
     }
     get isSelectionController () { return true }

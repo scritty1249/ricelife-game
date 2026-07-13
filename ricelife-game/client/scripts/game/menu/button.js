@@ -118,8 +118,8 @@ export class IconButton extends Button {
         cursor.save();
         cursor.fixed = fixed;
         const centerOffset = new Vector(this.width / 2, -this.height / 2);
-        if (offset?.isVector) super.drawText(cursor, offset.add(centerOffset));
-        else super.drawText(cursor, centerOffset);
+        if (offset?.isVector) super.drawText(cursor, offset.add(centerOffset), fixed);
+        else super.drawText(cursor, centerOffset, fixed);
         cursor.restore();
     }
     getBoundingBox () { return this.icon.getBoundingBox() }

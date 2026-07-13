@@ -317,10 +317,13 @@ export class RoundController extends PhaseController {
             // draw button hitboxes
             cursor.save();
             cursor.strokeStyle = "green";
-            [...Interface].forEach(({items}) => items.forEach((item) => {
+            [...Interface].forEach(({items, fixed}) => items.forEach((item) => {
                 if (item?.isButton) {
+                    cursor.save();
+                    cursor.fixed = fixed;
                     item.getBoundingBox().draw(cursor);
                     cursor.stroke();
+                    cursor.restore();
                 }
             }));
             cursor.restore();
@@ -737,8 +740,12 @@ export class RoundController extends PhaseController {
         cursor.save();
         if (clear) cursor.clear();
         if (flags.SELECTING) {
-            if (this.store.selectPhaseBackground)
+            if (this.store.selectPhaseBackground) {
+                cursor.save();
+                cursor.fixed = true;
                 cursor.drawImage(this.store.selectPhaseBackground, 0, 0);
+                cursor.restore();
+            }
             this.SelectionPhase.animate(false);
         } else {
             if (flags.isTurn) {

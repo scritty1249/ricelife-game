@@ -218,7 +218,9 @@ class Canvas2DContextCursor {
     }
     restore () { 
         const state = this.#states.pop();
-        this.fixed = state.fixed;
+        if (state) {
+            this.fixed = state.fixed;
+        }
         this.#ctx.restore();
     }
     screenshot (promise = true) {
