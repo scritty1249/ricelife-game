@@ -68,6 +68,10 @@ export class RoundController extends PhaseController {
         this.#loadPromise = this.#load()
             .then(() => this.#setupSelectPhase())
             .then(() => this.#setupInterface())
+            .then(() => {
+                this.Global.Display.addResizeListener(this.#onResize);
+                this.#onResize();
+            })
             .then(() => this.#selectShot(this.store.shot.types[0]))
             .then(() => this.#setupSfx())
             .then(() => distributePlayers(this.Plane, this.Players)) // [!] temporary
@@ -394,20 +398,31 @@ export class RoundController extends PhaseController {
         }
         cursor.restore();
     }
+    #onResize = () => {
+        const { HUD } = this.store;
+        const screen = this.Global.Display.getBoundingBox();
+        const padX = screen.width * 0.04;
+        const padY = screen.height * 0.14;
+        HUD.fire.icon.source.height
+            = HUD.select.icon.source.height
+            = HUD.right.icon.source.height
+            = HUD.left.icon.source.height
+            = screen.height / 10;
+        HUD.shot.icon.source.height = screen.height * 0.08;
+        HUD.fire.setPosition(padX, padY);
+        HUD.select.setPosition(HUD.fire.icon.width + (padX * 2), padY);
+        HUD.shot.setPosition(HUD.select.getPosition().x + HUD.select.icon.width + padX, padY);
+        HUD.right.setPosition(screen.width - HUD.right.icon.width - padX, padY);
+        HUD.left.setPosition(HUD.right.getPosition().x - HUD.left.icon.width - (padX / 3), padY);
+    }
     #setupInterface () {
-        const { AssetPool, Interface, ActivePlayer, store, flags } = this;
+        const { AssetPool, Interface, ActivePlayer, Global, store, flags } = this;
         const { MOVE_SPEED } = this.constructor.SETTINGS;
         const fireImg = AssetPool.get("fireBtn");
         const selectImg = AssetPool.get("selectBtn");
         const leftImg = AssetPool.get("leftBtn");
         const rightImg = AssetPool.get("rightBtn");
         const shotImg = AssetPool.get("shotType");
-
-        fireImg.height = 100;
-        selectImg.height = 100;
-        rightImg.height = 100;
-        leftImg.height = 100;
-        shotImg.height = 80;
 
         const fireBtn = new Menu.IconButton(fireImg);
         const selectBtn = new Menu.IconButton(selectImg);
@@ -416,13 +431,16 @@ export class RoundController extends PhaseController {
         const shotIco = new Menu.IconButton(shotImg); // don't make clickable
         const underButton = this.Global.Display.getBoundingBox().clone(); // don't make drawable
 
-        fireBtn.setPosition(75, 150);
-        selectBtn.setPosition(300, 150);
-        rightBtn.setPosition(this.Global.Display.size.x - rightImg.width - 75, 150);
-        leftBtn.setPosition(rightBtn.getPosition().x - leftImg.width - 25, 150);
-        shotIco.setPosition(520, 150);
+        this.store.HUD = {
+            fire: fireBtn,
+            select: selectBtn,
+            left: leftBtn,
+            right: rightBtn,
+            shot: shotIco,
+            under: underButton
+        };
+
         shotIco.fontSize = 16;
-        this.store.shotIcon = shotIco;
 
         // setting up button callbacks
         rightBtn.onclick = rightBtn.onhold = () => ActivePlayer.mover.move(MOVE_SPEED);
@@ -478,7 +496,7 @@ export class RoundController extends PhaseController {
     }
     #selectShot (type) {
         this.store.shot.selected = type;
-        this.store.shotIcon.text = type;
+        this.store.HUD.shot.text = type;
     }
     #getSelectionBackground () {
         const { cursor } = this.Global.Display;
@@ -844,6 +862,7 @@ export class RoundController extends PhaseController {
     }
     close () {
         this.state = this.constructor.STATES.Busy;
+        this.Global.Display.removeResizeListener(this.#onResize);
         this.Threaded.terminate();
         super.close();
     }
