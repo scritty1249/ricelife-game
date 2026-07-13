@@ -221,7 +221,7 @@ class PointerListener  {
             const delta = new Vector(
                 p1.clientX - p2.clientX,
                 p1.clientY - p2.clientY
-            ).mul(this.#scale, true);
+            );
             const distance = delta.dot(delta);
             if (this.#tracking.pinchDelta > 0) {
                 const point = this.#normalizePoint(new Vector(
