@@ -93,11 +93,14 @@ export class RoundController extends PhaseController {
         this.store.shot = {
             tracer: undefined,
             current: undefined,
-            legend: undefined,
             selected: undefined,
             map: undefined,
             types: undefined,
             impacts: [],
+            // [!] for debug overlay
+            legend: undefined,
+            blasts: [],
+            collisions: [],
         };
         this.#Plane = new BoundingBox(undefined, this.Global.constructor.COORDINATE_PLANE_SIZE);
         this.#Interface = new Menu.Interface(this.Global.Display.Viewbox);
@@ -151,6 +154,7 @@ export class RoundController extends PhaseController {
         // for debug overlay
         st.legend = shot.getLegend(false);
         st.collisions = [];
+        st.blasts = Array.from(map.blasts);
         for (const multi of st.legend)
             for (const legend of multi)
                 for (const collision of legend.collisions)
@@ -283,7 +287,7 @@ export class RoundController extends PhaseController {
             cursor.stroke(); 
             cursor.restore();
         }
-        if (store.shot.map) {
+        if (store.shot.legend) {
             // draw collision details
             if (store.shot.collisions) {
                 const _lineLength = 35;
@@ -301,17 +305,17 @@ export class RoundController extends PhaseController {
                 });
             }
             // draw blasts
-            if (store.shot.map.blasts?.length) {
+            if (store.shot.blasts?.length) {
                 const c = new Color(255, 165, 0, .15);
                 cursor.save();
                 cursor.fillStyle = c.toString();
-                for (const { shape } of store.shot.map.blasts) {
+                for (const { shape } of store.shot.blasts) {
                     shape.draw(cursor, true);
                     cursor.fill();
                 }
                 cursor.restore();
                 c.a = 1;
-                for (const { position } of store.shot.map.blasts) {
+                for (const { position } of store.shot.blasts) {
                     drawCircle(cursor, position, 3, c.toString());
                 }
             }
