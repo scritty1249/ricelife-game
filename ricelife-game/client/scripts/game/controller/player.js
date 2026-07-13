@@ -132,6 +132,7 @@ class PointerListener  {
     #tracking = {
         position: new Vector(),
         delta: new Vector(),
+        pinchDelta: -1, // for touch zoom/scroll events
         down: {
             position: new Vector(),
             stamp: undefined   
@@ -180,7 +181,7 @@ class PointerListener  {
         this.#tracking.down.stamp = performance.now();
         this.#tracking.down.position.apply(this.#tracking.position);
         this.#setHoldTimeout();
-        if (callback) this.#callbackFns?.onpress?.(this.position);
+        if (callback && this.pointerCount === 1) this.#callbackFns?.onpress?.(this.position);
     }
     #updateUp = (event, callback = true) => {
         if (!this.enabled) return;
@@ -190,7 +191,7 @@ class PointerListener  {
         this.#tracking.up.stamp = performance.now();
         this.#tracking.up.position.apply(this.#tracking.position);
         this.#clearHoldTimeout();
-        if (callback) {
+        if (callback && this.pointerCount === 1) {
             this.#callbackFns?.onrelease?.(this.position, this.delta);
             // click detection
             if (this.activeDuration <= this.#clickMs + Number.EPSILON) {
@@ -203,14 +204,33 @@ class PointerListener  {
     #updateMove = (event, callback = true) => {
         if (!this.enabled) return;
         this.#activePointers[event.pointerId] = event;
-        this.#updatePosition(event);
-        this.#updateDelta(event);
-        this.#setHoldTimeout();
-        // drag detection
-        if (callback && this.activeDuration >= this.#clickMs - Number.EPSILON && this.enabled) {
-            if ((this.#callbackFns?.ondrag?.(this.position, this.#tracking.down.position.clone(), this.delta)) === null)
-                // dragging was broken on an item
-                this.#updateUp(event, false);
+        const { pointerCount } = this;
+        if (pointerCount === 1) {
+            this.#updatePosition(event);
+            this.#updateDelta(event);
+            this.#setHoldTimeout();
+            // drag detection
+            if (callback && this.activeDuration >= this.#clickMs - Number.EPSILON && this.enabled) {
+                if ((this.#callbackFns?.ondrag?.(this.position, this.#tracking.down.position.clone(), this.delta)) === null)
+                    // dragging was broken on an item
+                    this.#updateUp(event, false);
+            }
+        } else if (pointerCount === 2) {
+            // touch scroll/zoom detection
+            const [p1, p2] = Object.values(this.#activePointers);
+            const delta = new Vector(
+                p1.clientX - p2.clientX,
+                p1.clientY - p2.clientY
+            ).mul(this.#scale, true);
+            const distance = delta.dot(delta);
+            if (this.#tracking.pinchDelta > 0) {
+                const point = this.#normalizePoint(new Vector(
+                    p1.clientX + p2.clientX,
+                    p1.clientY + p2.clientY
+                ).div(2, true));
+                this.#callbackFns?.onscroll?.(point, delta);
+            }
+            this.#tracking.pinchDelta = distance;
         }
     }
     #updateWheel = (event, callback = true) => {
