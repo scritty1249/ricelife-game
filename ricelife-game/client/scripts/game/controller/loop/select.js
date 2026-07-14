@@ -41,7 +41,7 @@ export class SelectionController extends PhaseController {
         if (borderWidth) {
             const color = (glowColor.visible ? glowColor : borderColor).clone();
             color.A *= userData.distanceCoeff**(1/4);
-            cursor.strokeStyle = borderColor.lerp(color, .7, false, false).toRGBA();
+            cursor.strokeStyle = borderColor.lerp(color, .65, false, false).toRGBA();
             cursor.lineWidth = borderWidth;
             cursor.stroke();
         }

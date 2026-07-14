@@ -491,7 +491,7 @@ export class RoundController extends PhaseController {
                 const pt = this.Global.Display.Viewbox.toGlobal(point);
                 this.Global.Display.Viewbox.applyScale(scale);
                 if (!size.eq(this.Global.Display.Viewbox.size))
-                    this.setViewbox(pt);
+                    this.lerpViewbox(pt, undefined, .2);
             }
         }
 
@@ -662,6 +662,17 @@ export class RoundController extends PhaseController {
             if (Number.isFinite(y)) pos.y += y;
         }
         Viewbox.setPosition(pos);
+    }
+    // moves the viewbox by some factor
+    lerpViewbox (x = undefined, y = undefined, factor = 1) {
+        const { Viewbox } = this.Global.Display;
+        const pos = Viewbox.getPosition();
+        if (x?.isVector) pos.apply(x);
+        else {
+            if (Number.isFinite(x)) pos.x = x;
+            if (Number.isFinite(y)) pos.y = y;
+        }
+        Viewbox.setPosition(Viewbox.getPosition().lerp(pos, factor, true));
     }
     openSelect () {
         this.#getSelectionBackground();
