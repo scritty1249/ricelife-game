@@ -301,6 +301,16 @@ export class Color {
         if (!Number.isFinite(this.a))
             this.a = 1
     }
+    lerp (color, factor, mutate = false, transparency = true) {
+        if (!color?.isColor) throw new Error(`[${this.constructor.name}]: Cannot linearly interpolate to ${typeof color}`);
+        const clr = mutate ? this : this.clone();
+        const mul = factor * (!transparency ? 1 - color.a : 1);
+        clr.r += (color.r - clr.r) * mul;
+        clr.g += (color.g - clr.g) * mul;
+        clr.b += (color.b - clr.b) * mul;
+        if (transparency) clr.A += (color.A - clr.A) * mul;
+        return clr;
+    }
     toJSON () { return {r: this.r, g: this.g, b: this.b, a: this.a} }
     toString () { return "#"
         + Math.floor(this.r).toString(16).padStart(2, "0")

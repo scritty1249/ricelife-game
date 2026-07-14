@@ -9,8 +9,9 @@ export class SelectionController extends PhaseController {
     static tileDrawFn (cursor) {
         const { userData } = this.shape.polygon;
         const { selection } = userData;
-        const { fillColor, fontColor, borderColor, borderWidth, name } = selection;
+        const { fillColor, fontColor, borderColor, borderWidth, glowColor, glowRadius, glowResolution, name } = selection;
         const textOffset = selection.constructor.textOffsetScale.mul(this.shape.center).add(this.shape.center, true);
+        const hideText = this.shape.globalTransformation.scale.length < .5;
         cursor.save();
         cursor.fixed = true;
         this.shape.draw(cursor, true);
@@ -22,11 +23,12 @@ export class SelectionController extends PhaseController {
         }
         if (selection.hasGlow) {
             // border glow
-            const { glowColor, glowRadius, glowResolution } = selection;
+            const color = glowColor.clone();
+            color.A *= userData.distanceCoeff;
             cursor.save();
             cursor.filter = `blur(${glowResolution}px)`;
             this.shape.draw(cursor, true);
-            cursor.strokeStyle = glowColor.toString();
+            cursor.strokeStyle = color.toRGBA();
             cursor.lineWidth = glowRadius;
             cursor.stroke();
             cursor.globalCompositeOperation = "destination-out";
@@ -36,12 +38,16 @@ export class SelectionController extends PhaseController {
             cursor.globalCompositeOperation = "source-over";
             cursor.restore();            
         }
-        if (borderColor.visible && borderWidth) {
-            cursor.strokeStyle = borderColor.toRGBA();
+        if (borderWidth) {
+            const color = (glowColor.visible ? glowColor : borderColor).clone();
+            color.A *= userData.distanceCoeff**(1/4);
+            cursor.strokeStyle = borderColor.lerp(color, .7, false, false).toRGBA();
             cursor.lineWidth = borderWidth;
             cursor.stroke();
         }
-        this.drawText(cursor, undefined, true);
+        if (!hideText) {
+            this.drawText(cursor, undefined, true);
+        }
         cursor.restore();
     }
     static SETTINGS = {
@@ -51,7 +57,7 @@ export class SelectionController extends PhaseController {
         MAX_TILE_SCALE: 1.5,
         TILE_SCALE_RATE: 2, // [!] must be an Integer
         // limits for inital tile size relative to viewport dimensions
-        MIN_TILE_SIZE: 100,
+        MIN_TILE_SIZE: 75,
         MAX_TILE_SIZE: 300,
     };
     static tileFillFilter = "blur(10px)"; // [!] setting this over 30px causes massive framerate drop
@@ -112,17 +118,20 @@ export class SelectionController extends PhaseController {
         this.store.tileLayer.fixed = true;
     }
     #onResize = () => {
+        this.state = this.constructor.STATES.Busy;
         this.#computeTileLayout();
         this.#resetTilePositions();
         this.#updateTiles();
+        this.state = this.constructor.STATES.Ready;
     }
     // padding in pixels
     #computeTileLayout () {
         // create template tile
         const { MIN_TILE_SIZE, MAX_TILE_SIZE } = this.constructor.SETTINGS;
         const { tileSpacingScale } = this.constructor;
-        const legLength = clamp(this.Global.Display.size.max(), MIN_TILE_SIZE, MAX_TILE_SIZE) / 2;
-        const padding = legLength * tileSpacingScale;
+        const tileWidth = clamp(this.Global.Display.size.x / 2, MIN_TILE_SIZE, MAX_TILE_SIZE);
+        const legLength = tileWidth / Math.sqrt(3);
+        const padding = tileWidth * tileSpacingScale;
         const shape = new Equigon(6, legLength);
         shape.transformation.scale.y = 0.85;
         shape.applyTransformation();
@@ -181,6 +190,7 @@ export class SelectionController extends PhaseController {
         const btn = new Menu.ShapeButton(shape, new Color(255, 0, 0));
         const { userData } = shape.polygon;
         userData.selection = selection;
+        userData.distanceCoeff = 0;
         userData.lastScale = 1;
         btn.onclick = (point, delta) => {
             this.store.SELECTED = userData.selection.name;
@@ -249,9 +259,9 @@ export class SelectionController extends PhaseController {
             tile.shape.transformation.offset.apply(offset);
             tile.shape.applyTransformation();
             this.#wrapTilePosition(tile);
-            const scale = clamp(
-                ((this.Global.Display.size.min() - tile.shape.center.distance(center)) / this.Global.Display.size.min())
-                    **TILE_SCALE_RATE,
+            tile.shape.polygon.userData.distanceCoeff = ((this.Global.Display.size.min() - tile.shape.center.distance(center)) / this.Global.Display.size.min())
+                    **TILE_SCALE_RATE;
+            const scale = clamp(tile.shape.polygon.userData.distanceCoeff,
                 MIN_TILE_SCALE, MAX_TILE_SCALE
             );
             tile.shape.transformation.scale.apply(scale);
@@ -263,7 +273,7 @@ export class SelectionController extends PhaseController {
                 && lastSize < sizeSfxThreshold
                 && screenBbox.isIntersecting(tile.shape.center)
                 && !this.Audio.Layer.selected.playing
-                && this.state !== this.constructor.STATES.Raise
+                && this.state === this.constructor.STATES.Ready
             ) {
                 this.Audio.Layer.tile.add(this.AssetPool.get("tilePing").Instance().play(), true);
             }
@@ -285,6 +295,7 @@ export class SelectionController extends PhaseController {
     }
 
     start () {
+        this.state = this.constructor.STATES.Ready;
         this.Audio.Player.stop();
         this.flags.exitable = false;
         if (this.Global.Input.pointer.isActive)
@@ -293,7 +304,7 @@ export class SelectionController extends PhaseController {
         else this.flags.exitable = true;
     }
     reset () {
-        this.state = this.constructor.STATES.Ready;
+        this.state = this.constructor.STATES.Busy;
         this.store.SELECTED = undefined;
         this.trackActive = false;
         this.store.lastDrawnPosition.apply(this.Global.Display.center);
