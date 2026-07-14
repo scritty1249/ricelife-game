@@ -97,8 +97,8 @@ class Viewbox extends BoundingBox {
         const max = this.max.sub(offset, false).mul(scale, true).add(offset, true);
         const size = max.sub(min).abs(true);
         const aspect = size.quot();
-        if (size.x > planeSize.x) size.apply(planeSize.x, planeSize.x / aspect);
-        //if (size.y > planeSize.y) size.apply(planeSize.y * aspect, planeSize.y);
+        if (!this.#canvas.isPortrait && size.x > planeSize.x) size.apply(planeSize.x, planeSize.x / aspect);
+        if (!this.#canvas.isLandscape && size.y > planeSize.y) size.apply(planeSize.y * aspect, planeSize.y);
         if (this.size.eq(size)) return this;
         const limit = planeSize.sub(size);
         const minX = Math.max(0, Math.min(min.x, limit.x));
@@ -402,6 +402,8 @@ export class AppCanvas {
     get aspectRatio () { return this.#ratio }
     get center () { return this.#center }
     get window () { return this.#window }
+    get isPortrait () { return this.#size.x < this.#size .y }
+    get isLandscape () { return this.#size.y < this.#size.x }
 }
 
 // Transforms world coorindates to canvas drawing coordinates. May be redundant / excessive
