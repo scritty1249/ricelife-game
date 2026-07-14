@@ -429,6 +429,9 @@ export class RoundController extends PhaseController {
         HUD.shot.setPosition(HUD.select.getPosition().x + HUD.select.icon.width + padX, padY);
         HUD.right.setPosition(screen.width - HUD.right.icon.width - padX, padY);
         HUD.left.setPosition(HUD.right.getPosition().x - HUD.left.icon.width - (padX / 3), padY);
+        if (this.flags.SELECTING) {
+            this.#getSelectionBackground(true);
+        }
     }
     #setupInterface () {
         const { AssetPool, Interface, ActivePlayer, Global, store, flags } = this;
@@ -515,18 +518,28 @@ export class RoundController extends PhaseController {
         this.store.shot.selected = type;
         this.store.HUD.shot.text = type;
     }
-    #getSelectionBackground () {
+    #getSelectionBackground (preserveCanvas = false) {
+        this.state = this.constructor.STATES.Busy;
         const { cursor } = this.Global.Display;
-        const doScreenshot = this.SelectionPhase.constructor.backgroundFilter;
         this.store.selectPhaseBackground?.close?.();
-        if (doScreenshot) {
-            cursor.save();
-            cursor.filter = this.SelectionPhase.constructor.backgroundFilter;
-            this.animate(true);
-            cursor.restore();
+        this.store.selectPhaseBackground = undefined;
+        let original;
+        cursor.save();
+        if (preserveCanvas) {
+            original = cursor.screenshot(false);
         }
+        cursor.filter = this.SelectionPhase.constructor.backgroundFilter;
+        this.flags.SELECTING = false;
+        this.animate(true);
+        this.flags.SELECTING = true;
         this.store.selectPhaseBackground = cursor.screenshot(false);
-        if (doScreenshot) this.animate(true); // [!] may be redundant since this should always be called before switching to selection menu anyways...? -KT
+        if (preserveCanvas) {
+            cursor.fixed = true;
+            cursor.drawImage(original, 0, 0);
+            original.close();
+        }
+        cursor.restore();
+        this.state = this.constructor.STATES.Ready;
     }
     async #preloadMap (map) {
         const { Audio, Threaded, Global, Animations, Terrain, store } = this;
@@ -675,7 +688,7 @@ export class RoundController extends PhaseController {
         Viewbox.setPosition(Viewbox.getPosition().lerp(pos, factor, true));
     }
     openSelect () {
-        this.#getSelectionBackground();
+        this.#getSelectionBackground(false);
         this.SelectionPhase.start();
         this.Global.Input.keyMap = {};
         this.Global.Input.pointerMap = this.SelectionPhase.Interface;
