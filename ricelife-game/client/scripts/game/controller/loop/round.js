@@ -582,6 +582,7 @@ export class RoundController extends PhaseController {
     }
 
     trackActivePlayer () {
+        this.Camera.unfollowAll();
         this.Camera.track(this.ActivePlayer.tank.position);
         this.Camera.lerpFactor = 0.2;
     }
