@@ -146,6 +146,11 @@ class Viewbox extends BoundingBox {
 
 export class ViewboxController {
     static SNAP_THRESHOLD = 0.1**2;
+    static SCALING_BEHAVIOR = {
+        Grow: 0, // grow when necessary to match target size
+        Shrink: 1, // shrink when necessary to match target size
+        Always: 2, // always try to match target size
+    };
     #states = new Array();
     #targets = new Set();
     #follows = new Set();
@@ -155,12 +160,12 @@ export class ViewboxController {
     #tempBox = new BoundingBox(); // temp storage for computing boundBox
     #setBoundBox = true;
     #boundBox = new BoundingBox(); // boundingBox that fits all targets (may be larger than allowed by Viewbox)
-    #focus = false; // when set, Viewbox will be shrunk to strictly fit targets. otherwise Viewbox will only grow to fit targets
     #isLerping = {
         size: false,
         center: false
     };
-    #keepSize = true;
+    #keepSize = true; // when set, will attempt to maintain the target size after reached. if unset, target size will clear itself once reached.
+    scalingBehavior = ViewboxController.SCALING_BEHAVIOR.Grow;
     enabled = true;
     constructor (viewbox) {
         if (!viewbox?.isViewbox) throw new Error(`[${this.constructor.name}]: Invalid parameter - expected Viewbox, got ${typeof viewbox}`);
@@ -203,12 +208,29 @@ export class ViewboxController {
             this.#targets.forEach(this.#computeBoundFn);
             this.#follows.forEach(this.#computeBoundFn);
         }
-         if (this.isSizeSet) {
+        if (this.isSizeSet) {
+            const { Grow, Shrink, Always } = this.constructor.SCALING_BEHAVIOR;
             const pad = this.#targetSize
                 .sub(this.#boundBox.size)
-            pad.x = pad.x > 0 ? pad.x / 2 : 0;
-            pad.y = pad.y > 0 ? pad.y / 2 : 0;
-            if (pad.x || pad.y) {
+                .div(2, true);
+            let doPad = false;
+            if (this.scalingBehavior === Grow) {
+                const xgt = pad.x > 0;
+                const ygt = pad.y > 0;
+                if (!xgt) pad.x = 0;
+                if (!ygt) pad.y = 0;
+                doPad = xgt || ygt;
+            } else if (this.scalingBehavior === Shrink) {
+                pad.mul(-1, true);
+                const xlt = pad.x < 0;
+                const ylt = pad.y < 0;
+                if (!xlt) pad.x = 0;
+                if (!ylt) pad.y = 0;
+                doPad = xlt || ylt;
+            } else if (this.scalingBehavior === Always) {
+                doPad = true;
+            }
+            if (doPad) {
                 this.#boundBox.min.sub(pad, true);
                 this.#boundBox.max.add(pad, true);
             }
@@ -216,68 +238,76 @@ export class ViewboxController {
     }
     // converts target size to size that preserves viewbox aspect ratio
     // should be called after #computeBounds()
-    #computeSize () {
-        const { size } = this.#boundBox;
-        const targetSize = new Vector(
-            Math.max(1, size.x),
-            Math.max(1, size.y)
-        );
+    #computeTargetSize () {
+        const { Grow, Shrink, Always } = this.constructor.SCALING_BEHAVIOR;
+        const vSize = this.#Viewbox.size;
+        const hasBounds = this.#boundBox.size.lengthSquared !== 0;
+        if (!hasBounds) return vSize;
+        const tSize = hasBounds ? this.#boundBox.size : vSize;
         const viewAspect = this.#Viewbox.aspectRatio;
-        if (targetSize.quot() > viewAspect) {
-            targetSize.y = targetSize.x / viewAspect;
+        if (tSize.quot() > viewAspect) {
+            tSize.y = tSize.x / viewAspect;
         } else {
-            targetSize.x = targetSize.y * viewAspect;
+            tSize.x = tSize.y * viewAspect;
         }
-        return targetSize;
+        return (this.scalingBehavior === Always
+            || (
+                this.scalingBehavior === Grow
+                && (vSize.x < tSize.x || vSize.y < tSize.y)
+            ) || (
+                this.scalingBehavior === Shrink
+                && (vSize.x > tSize.x || vSize.y > tSize.y)
+            )) ? tSize : vSize;
     }
 
     save () {
-        this.#states.push({
+        this.#states.push(this.getState());
+    }
+    restore () {
+        if (!this.#states.length) return;
+        this.setState(this.#states.pop());
+    }
+    getState () {
+        return {
             targets: new Set(this.#targets),
             follows: new Set(this.#follows),
             lerp: this.#lerpFactor,
             lerpingSize: this.#isLerping.size,
+            scalingBehavior: this.scalingBehavior,
             lerpingCenter: this.#isLerping.center,
             keepSize: this.#keepSize,
             tSize: this.#targetSize,
             setBbox: this.#setBoundBox,
             bbox: this.#boundBox.clone(),
             tbbox: this.#tempBox.clone(),
-            focus: this.#focus,
             enabled: this.enabled
-        });
+        };
     }
-    restore () {
-        if (!this.#states.length) return;
-        const { targets, follows, lerp, lerpingSize, lerpingCenter, keepSize, tSize, setBbox, bbox, tbbox, focus, enabled } = this.#states.pop();
+    setState (state) {
+        const { targets, follows, lerp, lerpingSize, lerpingCenter, scalingBehavior, keepSize, tSize, setBbox, bbox, tbbox, enabled } = state;
         this.#targets.clear();
         targets.forEach((t) => this.#targets.add(t));
         this.#follows.clear();
         follows.forEach((t) => this.#follows.add(t));
         this.#lerpFactor = lerp;
         this.#isLerping.size = lerpingSize;
+        this.scalingBehavior = scalingBehavior;
         this.#isLerping.center = lerpingCenter;
         this.#keepSize = keepSize;
         this.#targetSize.apply(tSize);
         this.#setBoundBox = setBbox;
         this.#boundBox.apply(bbox);
         this.#tempBox.apply(tbbox);
-        this.#focus = focus;
         this.enabled = enabled;
     }
     update () {
         if (!this.enabled) return;
         this.#computeBounds();
-        const { SNAP_THRESHOLD } = this.constructor;
-        const size = this.#computeSize();
+        const { SNAP_THRESHOLD, SCALING_BEHAVIOR } = this.constructor;
+        const size = this.#computeTargetSize();
         const center = this.#boundBox.center;
         const vSize = this.#Viewbox.size;
         const vCenter = this.#Viewbox.center;
-        if (!this.#focus
-            && this.isTracking
-            && (vSize.x > size.x
-                || vSize.y > size.y))
-            size.apply(vSize);
         const targetSize = this.#lerpFactor >= 1
             ? size : vSize.sub(size).dot() < SNAP_THRESHOLD
                 ? size : vSize.lerp(size, this.#lerpFactor, true);
@@ -286,15 +316,14 @@ export class ViewboxController {
                 ? center : vCenter.lerp(center, this.#lerpFactor, true);
         this.#isLerping.size = (this.isSizeSet || this.isTracking) && targetSize.sub(size).dot() >= SNAP_THRESHOLD;
         this.#isLerping.center = this.isTracking && targetCenter.distance(center).lengthSquared >= SNAP_THRESHOLD;
-        if (!this.isCentering && this.#follows.size > 0) this.unfollowAll();
-        if (this.isSizeSet && !this.isSizing && !this.#keepSize) this.setTargetSize();
         if (this.isTracking) {
             this.#Viewbox.applySize(targetSize);
             this.#Viewbox.setPosition(targetCenter);
         } else if (this.isSizeSet) {
             this.#Viewbox.applySize(targetSize);
         }
-        
+        if (!this.isCentering && this.#follows.size > 0) this.unfollowAll();
+        if (this.isSizeSet && !this.isSizing && !this.#keepSize) this.setTargetSize();
     }
     track (...targets) {
         for (let i = 0; i < targets.length; i++) {
@@ -325,7 +354,7 @@ export class ViewboxController {
     }
     unfollowAll () { this.#follows.clear() }
     following (target) { return this.#follows.has(target) }
-    setTargetSize(width = 0, height = 0, keep = true) {
+    setTargetSize (width = 0, height = 0, keep = true) {
         this.#targetSize.apply(width, height);
         this.#keepSize = keep;
         return this;
@@ -339,8 +368,6 @@ export class ViewboxController {
     get isSizing () { return this.#isLerping.size }
     get isCentering () { return this.#isLerping.center }
     get targets () { return this.#targets.size + this.#follows.size }
-    get focus () { return this.#focus }
-    set focus (bool) { return (this.#focus = bool) }
     get lerpFactor () { return this.#lerpFactor }
     set lerpFactor (value) { return (this.#lerpFactor = clamp(value, 0, 1)) }
 }

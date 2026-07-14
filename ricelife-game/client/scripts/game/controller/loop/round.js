@@ -23,6 +23,7 @@ export class RoundController extends PhaseController {
         POWER_SENSITIVITY: .005,
         PAN_SENSITIVITY: 5,
         MOVE_SPEED: 1,
+        PLAYER_SCREEN_TRACKING_SCALE: 15, // scale to multiply player tank size by to use as target viewbox size when tracking player
         TERRAIN_EDGE: new Color("#00e8f0"),
         TERRAIN_FILL: new Color("#0098eb")
     };
@@ -474,27 +475,30 @@ export class RoundController extends PhaseController {
         const panSensitivity = this.constructor.SETTINGS.PAN_SENSITIVITY / 5;
         underButton.ondrag = (point, origin, delta) => {
             this.untrackActivePlayer();
-            this.Camera.focus = false;
             this.panViewbox(delta.mul(-panSensitivity).div(this.Global.Display.Viewbox.canvasScale, true));
         }
         underButton.onrelease = (point, delta) => {
         }
         underButton.onscroll = (point, delta) => {
+            const { Viewbox } = this.Global.Display;
             if (this.Global.Input.pointer.pointerCount < 2 && !floatEqual(delta.x, 0)) {
                 this.untrackActivePlayer();
-                this.Camera.focus = false;
                 this.panViewbox(delta.x * panSensitivity);
             }
             if (!floatEqual(delta.y, 0)) {
                 this.untrackActivePlayer();
-                this.Camera.focus = false;
                 const scale = 1 / ((this.Global.Display.size.y - delta.y) / this.Global.Display.size.y);
-                if (scale < 1 && (this.Global.Display.Viewbox.canvasScale.x > this.Global.constructor.SETTINGS.MAX_VIEWBOX_SCALE || this.Global.Display.Viewbox.canvasScale.y > this.Global.constructor.SETTINGS.MAX_VIEWBOX_SCALE)) return;
-                const size = this.Global.Display.Viewbox.size.clone();
-                const pt = this.Global.Display.Viewbox.toGlobal(point);
-                this.Global.Display.Viewbox.applyScale(scale);
-                if (!size.eq(this.Global.Display.Viewbox.size))
-                    this.lerpViewbox(pt, undefined, .2);
+                if (scale < 1 && (Viewbox.canvasScale.x > this.Global.constructor.SETTINGS.MAX_VIEWBOX_SCALE || this.Global.Display.Viewbox.canvasScale.y > this.Global.constructor.SETTINGS.MAX_VIEWBOX_SCALE)) return;
+                const size = Viewbox.size;
+                const pt = Viewbox.toGlobal(point);
+                Viewbox.applyScale(scale);
+                this.Camera.save();
+                Viewbox.save();
+                this.Camera.update();
+                const doPan = !size.eq(Viewbox.size);
+                Viewbox.restore();
+                this.Camera.restore();
+                if (doPan) this.lerpViewbox(pt, undefined, .4);
             }
         }
 
@@ -595,26 +599,30 @@ export class RoundController extends PhaseController {
     }
 
     trackActivePlayer () {
+        const { PLAYER_SCREEN_TRACKING_SCALE } = this.constructor.SETTINGS;
+        const { tank } = this.ActivePlayer;
         this.Camera.unfollowAll();
-        this.Camera.track(this.ActivePlayer.tank.position);
+        this.Camera.track(tank.position);
+        this.Camera.setTargetSize(PLAYER_SCREEN_TRACKING_SCALE * tank.width, PLAYER_SCREEN_TRACKING_SCALE * tank.height, true);
+        this.Camera.scalingBehavior = this.#Camera.constructor.SCALING_BEHAVIOR.Always;
         this.Camera.lerpFactor = 0.2;
     }
     untrackActivePlayer () {
         this.Camera.untrack(this.ActivePlayer.tank.position);
+        this.Camera.setTargetSize(0, 0, true);
+        this.Camera.scalingBehavior = this.#Camera.constructor.SCALING_BEHAVIOR.Grow;
         this.Camera.lerpFactor = 1;
     }
     // expects a shot to actually exist
     trackShot () {
         this.#saveViewbox();
         this.Camera.save();
-        this.Camera.focus = true;
         this.Camera.lerpFactor = 0.12;
         this.Camera.track(this.ActivePlayer.tank.getBoundingBox(), ...this.store.shot.blasts.map(({shape}) => shape));
     }
     untrackShot () {
         this.Camera.restore();
         if (this.store.lastViewbox.set) {
-            this.Camera.focus = false;
             this.Camera.follow(this.store.lastViewbox.center);
             this.Camera.setTargetSize(this.store.lastViewbox.size.x, this.store.lastViewbox.size.y, false);
             this.store.lastViewbox.set = false;
@@ -768,13 +776,11 @@ export class RoundController extends PhaseController {
         if (!keyboard.keyActive("debug+")) {
             if (keyboard.keyActive("pan+")) {
                 this.untrackActivePlayer();
-                this.Camera.focus = false;
                 this.panViewbox(PAN_SENSITIVITY);
                 
             }
             if (keyboard.keyActive("pan-")) {
                 this.untrackActivePlayer();
-                this.Camera.focus = false;
                 this.panViewbox(-PAN_SENSITIVITY);
             }
         }
@@ -837,24 +843,11 @@ export class RoundController extends PhaseController {
             }
             this.SelectionPhase.animate(false);
         } else {
-            // if (flags.isTurn) {
-            //     Interface.draw(cursor, 0, 2);
-            //     const { position } = ActivePlayer.tank;
-            //     const { center } = Viewbox;
-            //     if (flags.focusPlayer
-            //         && position.x !== center.x
-            //         && ((position.x - center.x < 0 && Viewbox.min.x > 0)
-            //             || (position.x - center.x > 0 || Viewbox.max.x < Global.Display.planeSize.x)))
-            //         this.setViewbox(position);
-            // } else if (store.shot.current && !flags.isPanning) {
-            //     this.#focusViewboxToShot();
-            // }
             this.Camera.save();
             if (store.shot.current && this.Camera.tracking(this.ActivePlayer.tank.position)) {
                 this.Camera.lerpFactor = 0.2;
                 const shotBbox = store.shot.current.getBoundingBox(true, false, true);
                 this.Camera.track(shotBbox.size.length ? shotBbox : undefined);
-                this.Camera.focus = true;
             }
             this.Camera.update();
             this.Camera.restore();
