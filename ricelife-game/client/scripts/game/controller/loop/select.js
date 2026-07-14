@@ -239,7 +239,7 @@ export class SelectionController extends PhaseController {
         const { MAX_TILE_SCALE, MIN_TILE_SCALE, TILE_SCALE_RATE } = this.constructor.SETTINGS;
         const sizeSfxThreshold = selectionShape.getBoundingBox().size.length * .8;
         const screenBbox = this.Global.Display.getBoundingBox();
-        const screenCenter = this.Global.Display.center;
+        const center = this.Global.Input.pointer.isActive ? this.Global.Display.center : this.Global.Input.pointer.position;
         const offset = this.flags.INVERT_TRACKING
             ? lastDrawnPosition.sub(lastActivePosition)
             : lastActivePosition.sub(lastDrawnPosition);
@@ -250,7 +250,7 @@ export class SelectionController extends PhaseController {
             tile.shape.applyTransformation();
             this.#wrapTilePosition(tile);
             const scale = clamp(
-                ((this.Global.Display.size.min() - tile.shape.center.distance(screenCenter)) / this.Global.Display.size.min())
+                ((this.Global.Display.size.min() - tile.shape.center.distance(center)) / this.Global.Display.size.min())
                     **TILE_SCALE_RATE,
                 MIN_TILE_SCALE, MAX_TILE_SCALE
             );
@@ -306,8 +306,9 @@ export class SelectionController extends PhaseController {
         const { lastDrawnPosition, lastActivePosition } = this.store;
         cursor.save();
         if (clear) cursor.clear();
+        if (this.Global.Input.pointer.delta.lengthSquared) this.#updateTiles();
         if (!lastDrawnPosition.eq(lastActivePosition)) {
-            this.#updateTiles();
+            //this.#updateTiles();
             lastDrawnPosition.apply(lastActivePosition);
         }
         this.Interface.draw(cursor);
