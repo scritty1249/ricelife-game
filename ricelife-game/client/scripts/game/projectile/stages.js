@@ -1,5 +1,5 @@
 import { TrackableObject } from "../utils/utils.js";
-import { Vector, Path, Ray } from "../geometry/geometry.js";
+import { Vector, Path, Ray, BoundingBox } from "../geometry/geometry.js";
 import { Properties } from "./collision/collision.js";
 
 // Shot that supports multiple stages. Only supports ONE shot at a time
@@ -41,7 +41,7 @@ export class ShotStage extends TrackableObject {
     #isCollisionAhead (projection) { // [!] poorly named
         const { shot, colliders } = this;
         const bbox = shot.shape.getBoundingBox()
-            .merge(projection.shape.getBoundingBox());
+            .add(projection.shape.getBoundingBox());
         // [!] does not account for blasts
         return colliders.some((collider) => bbox.isIntersecting(collider.getBoundingBox()));
     }
@@ -54,7 +54,7 @@ export class ShotStage extends TrackableObject {
             // collect "front facing" coordinates
             const diff = projection.velocity.sub(shot.current.velocity);
             const distance = shot.position.distance(projection.position);
-            const traversalBbox = shot.shape.getBoundingBox().merge(projection.shape.getBoundingBox(), false);
+            const traversalBbox = shot.shape.getBoundingBox().add(projection.shape.getBoundingBox(), false);
             const direction = diff.normalize();
             const origin = shot.shape.origin;
             const points = shot.shape.Polygon(resolution).path.points;
@@ -427,12 +427,14 @@ export class MultiShotStage extends TrackableObject {
             throw error;
         }
     }
-    getBoundingBox (merge = true) {
-        const bboxes = this.stages.map(({shot}) => shot.shape.getBoundingBox());
+    getBoundingBox (merge = true, includeStopped = true, includeFx = false) {
+        const bboxes = (includeStopped ? this.stages : this.stages.filter(({shot}) => !shot.isStopped))
+            .map(({shot}) => shot.getBoundingBox(includeFx));
         if (!merge) return bboxes;
-        const bbox = bboxes[0];
-        for (const bb of bboxes.slice(1))
-            bbox.merge(bb, true);
+        if (!bboxes.length) return new BoundingBox();
+        const bbox = bboxes.shift();
+        for (const bb of bboxes)
+            bbox.add(bb, true);
         return bbox;
     }
 

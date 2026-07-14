@@ -353,6 +353,11 @@ export class BoundingBox {
         bbox.max.y = hitbox.edges.reduce((acc, {y: curr}) => Math.max(acc, curr), hitbox.edges.at(0).y);
         return bbox;
     }
+    // when accumulate is set to a BoundingBox, all bboxes will be merged into the accumulator
+    static merge (bboxes, accumulator = undefined) {
+        const bbox = accumulator?.isBoundingBox ? accumulator : new BoundingBox();
+        return bbox.merge(bboxes, true);
+    }
     #min = new Vector();
     #max = new Vector();
     constructor (min = undefined, max = undefined) {
@@ -374,7 +379,13 @@ export class BoundingBox {
                 );
         } else return false; // dont throw errors on unknown types
     }
-    merge (other, mutate = false) {
+    merge (others = [], mutate = false) {
+        const bbox = mutate ? this : this.clone();
+        for (const other of others)
+            bbox.add(other, true);
+        return bbox; // for chaining
+    }
+    add (other, mutate = false) {
         if (!other?.isBoundingBox) throw new Error(`[${this.constructor.name}]: Cannot combine BoundingBox and type ${typeof other}`);
         const bbox = mutate ? this : this.clone();
         bbox.min.x = Math.min(bbox.min.x, bbox.max.x, other.min.x, other.max.x);
@@ -384,8 +395,13 @@ export class BoundingBox {
         return bbox;
     }
     apply (min = undefined, max = undefined) {
-        if (min) this.min.apply(min);
-        if (max) this.max.apply(max);
+        if (min?.isBoundingBox) {
+            this.min.apply(min.min);
+            this.max.apply(min.max);
+        } else {
+            if (min) this.min.apply(min);
+            if (max) this.max.apply(max);
+        }
         return this; // for chaining
     }
     // deep clones by default, copies on init

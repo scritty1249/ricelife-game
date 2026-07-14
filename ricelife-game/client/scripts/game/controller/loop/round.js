@@ -4,6 +4,7 @@ import { Vector, Color, Ray, BoundingBox } from "../../geometry/geometry.js";
 import { PhaseController } from "./main.js";
 import { SelectionController, ShotSelection } from "./select.js";
 import { InputListener } from "../player.js";
+import { ViewboxController } from "../display.js";
 import { WorkerController } from "../workers.js";
 import { drawBlastAnimation } from "../../projectile/projectile.js";
 import { generateTerrain, generateWave } from "../../terrain/terrain.js";
@@ -57,6 +58,7 @@ export class RoundController extends PhaseController {
     #Threaded;
     #Interface;
     #Terrain;
+    #Camera;
     #SelectionPhase;
     #Animations = {
         Main: new AnimationList()
@@ -83,9 +85,12 @@ export class RoundController extends PhaseController {
     #init (lobby) {
         this.flags.isTurn = true;
         this.flags.SELECTING = false;
-        this.flags.focusPlayer = true;
-        this.flags.isPanning = false;
         this.store.prerender = Promise.resolve();
+        this.store.lastViewbox = {
+            size: new Vector(),
+            center: new Vector(),
+            set: false
+        };
         this.store.cacheKey = {
             terrain: "lastTerrainState",
             background: "backgroundCanvas"
@@ -102,6 +107,7 @@ export class RoundController extends PhaseController {
             blasts: [],
             collisions: [],
         };
+        this.#Camera = new ViewboxController(this.Global.Display.Viewbox);
         this.#Plane = new BoundingBox(undefined, this.Global.constructor.COORDINATE_PLANE_SIZE);
         this.#Interface = new Menu.Interface(this.Global.Display.Viewbox);
         this.Global.Input.keyMap = this.constructor.INPUT_MAP;
@@ -213,6 +219,11 @@ export class RoundController extends PhaseController {
             console.info(`[${this.constructor.name}]: Registered ${blast.damage} damage on ${Player.data.profile.name} from ${this.ActivePlayer.data.profile.name}`);
             if (Player.isDead) this.#createPlayerDeathAnimation(Player).play();
         }
+    }
+    #saveViewbox () {
+        this.store.lastViewbox.size.apply(this.Global.Display.Viewbox.size);
+        this.store.lastViewbox.center.apply(this.Global.Display.Viewbox.center);
+        this.store.lastViewbox.set = true;
     }
     #preloadImpact (blastInterval) {
         const { AssetPool, Threaded } = this;
@@ -459,20 +470,21 @@ export class RoundController extends PhaseController {
         underButton.keepDragFocus = true;
         const panSensitivity = this.constructor.SETTINGS.PAN_SENSITIVITY / 5;
         underButton.ondrag = (point, origin, delta) => {
-            flags.focusPlayer = false;
-            flags.isPanning = true;
+            this.untrackActivePlayer();
+            this.Camera.focus = false;
             this.panViewbox(delta.mul(-panSensitivity).div(this.Global.Display.Viewbox.canvasScale, true));
         }
         underButton.onrelease = (point, delta) => {
-            flags.isPanning = false;
         }
         underButton.onscroll = (point, delta) => {
             if (this.Global.Input.pointer.pointerCount < 2 && !floatEqual(delta.x, 0)) {
-                flags.focusPlayer = false;
+                this.untrackActivePlayer();
+                this.Camera.focus = false;
                 this.panViewbox(delta.x * panSensitivity);
             }
             if (!floatEqual(delta.y, 0)) {
-                flags.focusPlayer = false;
+                this.untrackActivePlayer();
+                this.Camera.focus = false;
                 const scale = 1 / ((this.Global.Display.size.y - delta.y) / this.Global.Display.size.y);
                 if (scale < 1 && (this.Global.Display.Viewbox.canvasScale.x > this.Global.constructor.SETTINGS.MAX_VIEWBOX_SCALE || this.Global.Display.Viewbox.canvasScale.y > this.Global.constructor.SETTINGS.MAX_VIEWBOX_SCALE)) return;
                 const size = this.Global.Display.Viewbox.size.clone();
@@ -561,6 +573,7 @@ export class RoundController extends PhaseController {
         await Promise.all(waitPromises);
         await this.Threaded.drawTerrain(this.store.cacheKey.background, this.store.cacheKey.terrain, SETTINGS.TERRAIN_FILL, SETTINGS.TERRAIN_EDGE)
             .then(() => this.Threaded.updateCache(this.store.cacheKey.background));
+        this.trackActivePlayer();
     }
     #drawBackground () {
         const img = this.Threaded.cache[this.store.cacheKey.background];
@@ -568,6 +581,31 @@ export class RoundController extends PhaseController {
         cursor.drawImage(img, Viewbox.min.x, cursor.normalizeY(Viewbox.max.y), Viewbox.width, Viewbox.height, 0, 0, size.x, size.y);
     }
 
+    trackActivePlayer () {
+        this.Camera.track(this.ActivePlayer.tank.position);
+        this.Camera.lerpFactor = 0.2;
+    }
+    untrackActivePlayer () {
+        this.Camera.untrack(this.ActivePlayer.tank.position);
+        this.Camera.lerpFactor = 1;
+    }
+    // expects a shot to actually exist
+    trackShot () {
+        this.#saveViewbox();
+        this.Camera.save();
+        this.Camera.focus = true;
+        this.Camera.lerpFactor = 0.12;
+        this.Camera.track(this.ActivePlayer.tank.getBoundingBox(), ...this.store.shot.blasts.map(({shape}) => shape));
+    }
+    untrackShot () {
+        this.Camera.restore();
+        if (this.store.lastViewbox.set) {
+            this.Camera.focus = false;
+            this.Camera.follow(this.store.lastViewbox.center);
+            this.Camera.setTargetSize(this.store.lastViewbox.size.x, this.store.lastViewbox.size.y, false);
+            this.store.lastViewbox.set = false;
+        }
+    }
     setTurn (bool) {
         this.flags.isTurn = this.ActivePlayer.aimer.enabled = bool;
     }
@@ -600,6 +638,7 @@ export class RoundController extends PhaseController {
         //     setProjectile(store, projectile, landing);
         // }
         this.#setShot(shot, map);
+        this.trackShot();
     }
     // sets viewbox to player
     setViewbox (x = undefined, y = undefined) {
@@ -703,14 +742,14 @@ export class RoundController extends PhaseController {
         }
         if (!keyboard.keyActive("debug+")) {
             if (keyboard.keyActive("pan+")) {
-                flags.focusPlayer = false;
-                flags.isPanning = true;
+                this.untrackActivePlayer();
+                this.Camera.focus = false;
                 this.panViewbox(PAN_SENSITIVITY);
                 
             }
             if (keyboard.keyActive("pan-")) {
-                flags.focusPlayer = false;
-                flags.isPanning = true;
+                this.untrackActivePlayer();
+                this.Camera.focus = false;
                 this.panViewbox(-PAN_SENSITIVITY);
             }
         }
@@ -730,11 +769,11 @@ export class RoundController extends PhaseController {
                 ActivePlayer.tank.position.round(1/Global.constructor.SETTINGS.RESOLUTION);
                 if (keyboard.keyActive("mv+")) {
                     ActivePlayer.mover.move(MOVE_SPEED);
-                    flags.focusPlayer = !flags.isPanning;
+                    this.trackActivePlayer();
                 }
                 if (keyboard.keyActive("mv-")) {
                     ActivePlayer.mover.move(-MOVE_SPEED);
-                    flags.focusPlayer = !flags.isPanning;
+                    this.trackActivePlayer();
                 }
                 if (keyboard.keyActive("shot+")) {
                     ActivePlayer.aimer.power += POWER_SENSITIVITY;
@@ -773,25 +812,28 @@ export class RoundController extends PhaseController {
             }
             this.SelectionPhase.animate(false);
         } else {
-            if (flags.isTurn) {
-                Interface.draw(cursor, 0, 2);
-                const { position } = ActivePlayer.tank;
-                const { center } = Viewbox;
-                if (flags.focusPlayer
-                    && position.x !== center.x
-                    && ((position.x - center.x < 0 && Viewbox.min.x > 0)
-                        || (position.x - center.x > 0 || Viewbox.max.x < Global.Display.planeSize.x)))
-                    this.setViewbox(position);
-            } else if (store.shot.current && !flags.isPanning) {
-                const bbox = store.shot.current.getBoundingBox().clone();
-                if (bbox.size.lengthSquared) {
-                    const distance = ActivePlayer.tank.relativePosition.sub(bbox.center).abs(true);
-                    if (distance.x <= Viewbox.size.x && distance.y <= Viewbox.size.y)
-                        // only attempt to contain player and projectiles within viewbox if we don't need to scale the viewbox for both to fit
-                        bbox.merge(ActivePlayer.tank.getBoundingBox(), true)
-                    this.setViewbox(bbox.center);
-                }
+            // if (flags.isTurn) {
+            //     Interface.draw(cursor, 0, 2);
+            //     const { position } = ActivePlayer.tank;
+            //     const { center } = Viewbox;
+            //     if (flags.focusPlayer
+            //         && position.x !== center.x
+            //         && ((position.x - center.x < 0 && Viewbox.min.x > 0)
+            //             || (position.x - center.x > 0 || Viewbox.max.x < Global.Display.planeSize.x)))
+            //         this.setViewbox(position);
+            // } else if (store.shot.current && !flags.isPanning) {
+            //     this.#focusViewboxToShot();
+            // }
+            this.Camera.save();
+            if (store.shot.current && this.Camera.tracking(this.ActivePlayer.tank.position)) {
+                this.Camera.lerpFactor = 0.2;
+                const shotBbox = store.shot.current.getBoundingBox(true, false, true);
+                this.Camera.track(shotBbox.size.length ? shotBbox : undefined);
+                this.Camera.focus = true;
             }
+            this.Camera.update();
+            this.Camera.restore();
+            if (flags.isTurn) Interface.draw(cursor, 0, 2);
             Viewbox.setCursor(cursor, true);
             for (const { tank, isDead } of Players)
                 if (!isDead) tank.draw(cursor);
@@ -857,6 +899,7 @@ export class RoundController extends PhaseController {
                     || (!Animations.blasts && isTimedout)
                 ) {
                     await store.prerender;
+                    this.untrackShot();
                     this.#clearShot();
                     // unlock player
                     this.setTurn(true);
@@ -883,6 +926,7 @@ export class RoundController extends PhaseController {
     get Terrain () { return this.#Terrain }
     get Animations () { return this.#Animations }
     get SelectionPhase () { return this.#SelectionPhase }
+    get Camera () { return this.#Camera }
     get Plane () { return this.#Plane }
     get onload () { return this.#loadPromise }
 }

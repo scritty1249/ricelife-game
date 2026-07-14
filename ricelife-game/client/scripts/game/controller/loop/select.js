@@ -113,6 +113,7 @@ export class SelectionController extends PhaseController {
     }
     #onResize = () => {
         this.#computeTileLayout();
+        this.#resetTilePositions();
         this.#updateTiles();
     }
     // padding in pixels
@@ -317,7 +318,7 @@ export class SelectionController extends PhaseController {
     }
     close () {
         this.state = this.constructor.STATES.Busy;
-        this.Global.Display.removeResizeListener(this.#onResize)
+        this.Global.Display.removeResizeListener(this.#onResize);
         super.close();
     }
     get isSelectionController () { return true }

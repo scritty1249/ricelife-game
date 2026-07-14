@@ -240,7 +240,7 @@ export class Shot extends Projectile {
             const bb = tail.getBoundingBox().clone();
             bb.min.sub(glowSize, true);
             bb.max.add(glowSize, true);
-            bbox.merge(bb, true);
+            bbox.add(bb, true);
         }
         return bbox;
     }

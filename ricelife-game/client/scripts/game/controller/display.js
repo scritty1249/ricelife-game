@@ -1,5 +1,5 @@
 import { Vector, BoundingBox } from "../geometry/geometry.js";
-import { floatEqual } from "../utils/utils.js";
+import { floatEqual, clamp } from "../utils/utils.js";
 
 // counts framerate
 export class FrameCounter {
@@ -58,6 +58,7 @@ export class Interval {
 // virtual coordinate space viewport window
 class Viewbox extends BoundingBox {
     #canvas;
+    #states = new Array();
     constructor (appCanvas, size) {
         super(undefined, new Vector(1, 1));
         if (!appCanvas?.isAppCanvas) throw new Error(`[${this.constructor.name}]: canvas must be of type AppCanvas, got ${typeof appCanvas}`);
@@ -66,6 +67,14 @@ class Viewbox extends BoundingBox {
         if (size) this.applySize(size);
     }
 
+    save () { this.#states.push({min: this.min.clone(), max: this.max.clone()}) }
+    restore () {
+        if (this.#states.length) {
+            const { min, max } = this.#states.pop();
+            this.max.apply(max);
+            this.min.apply(min);
+        }
+    }
     getPosition () { return super.center }
     setPosition (point) {
         const { planeSize } = this.#canvas;
@@ -133,6 +142,207 @@ class Viewbox extends BoundingBox {
         this.applySize(new Vector(this.height * ratio, this.height));
         return ratio;
     }
+}
+
+export class ViewboxController {
+    static SNAP_THRESHOLD = 0.1**2;
+    #states = new Array();
+    #targets = new Set();
+    #follows = new Set();
+    #targetSize = new Vector();
+    #lerpFactor = 1;
+    #Viewbox;
+    #tempBox = new BoundingBox(); // temp storage for computing boundBox
+    #setBoundBox = true;
+    #boundBox = new BoundingBox(); // boundingBox that fits all targets (may be larger than allowed by Viewbox)
+    #focus = false; // when set, Viewbox will be shrunk to strictly fit targets. otherwise Viewbox will only grow to fit targets
+    #isLerping = {
+        size: false,
+        center: false
+    };
+    #keepSize = true;
+    enabled = true;
+    constructor (viewbox) {
+        if (!viewbox?.isViewbox) throw new Error(`[${this.constructor.name}]: Invalid parameter - expected Viewbox, got ${typeof viewbox}`);
+        this.#Viewbox = viewbox;
+    }
+
+    #computeBoundFn = (target) => {
+        if (!this.#getBounds(target)) return;
+        if (this.#setBoundBox) {
+            this.#boundBox.apply(this.#tempBox.min, this.#tempBox.max);
+            this.#setBoundBox = false;
+        } else {
+            this.#boundBox.add(this.#tempBox, true);
+        }
+    }
+    #cacheBox (minX, minY, maxX, maxY) {
+        const cache = this.#tempBox;
+        cache.min.x = minX;
+        cache.min.y = minY;
+        cache.max.x = maxX;
+        cache.max.y = maxY;
+        return cache; // for chaining
+    }
+    // returns true if cached, false otherwise
+    #getBounds (target) {
+        if (target?.isVector) {
+            this.#cacheBox(target.x, target.y, target.x, target.y);
+        } else if (target?.isBoundingBox) {
+            this.#cacheBox(target.min.x, target.min.y, target.max.x, target.max.y);
+        } else if (target?.isShape) {
+            this.#getBounds(target.getBoundingBox());
+        } else {
+            return false;
+        }
+        return true;
+    }
+    #computeBounds () {
+        if (this.isTracking) {
+            this.#setBoundBox = true;
+            this.#targets.forEach(this.#computeBoundFn);
+            this.#follows.forEach(this.#computeBoundFn);
+        }
+         if (this.isSizeSet) {
+            const pad = this.#targetSize
+                .sub(this.#boundBox.size)
+            pad.x = pad.x > 0 ? pad.x / 2 : 0;
+            pad.y = pad.y > 0 ? pad.y / 2 : 0;
+            if (pad.x || pad.y) {
+                this.#boundBox.min.sub(pad, true);
+                this.#boundBox.max.add(pad, true);
+            }
+        }
+    }
+    // converts target size to size that preserves viewbox aspect ratio
+    // should be called after #computeBounds()
+    #computeSize () {
+        const { size } = this.#boundBox;
+        const targetSize = new Vector(
+            Math.max(1, size.x),
+            Math.max(1, size.y)
+        );
+        const viewAspect = this.#Viewbox.aspectRatio;
+        if (targetSize.quot() > viewAspect) {
+            targetSize.y = targetSize.x / viewAspect;
+        } else {
+            targetSize.x = targetSize.y * viewAspect;
+        }
+        return targetSize;
+    }
+
+    save () {
+        this.#states.push({
+            targets: new Set(this.#targets),
+            follows: new Set(this.#follows),
+            lerp: this.#lerpFactor,
+            lerpingSize: this.#isLerping.size,
+            lerpingCenter: this.#isLerping.center,
+            keepSize: this.#keepSize,
+            tSize: this.#targetSize,
+            setBbox: this.#setBoundBox,
+            bbox: this.#boundBox.clone(),
+            tbbox: this.#tempBox.clone(),
+            focus: this.#focus,
+            enabled: this.enabled
+        });
+    }
+    restore () {
+        if (!this.#states.length) return;
+        const { targets, follows, lerp, lerpingSize, lerpingCenter, keepSize, tSize, setBbox, bbox, tbbox, focus, enabled } = this.#states.pop();
+        this.#targets.clear();
+        targets.forEach((t) => this.#targets.add(t));
+        this.#follows.clear();
+        follows.forEach((t) => this.#follows.add(t));
+        this.#lerpFactor = lerp;
+        this.#isLerping.size = lerpingSize;
+        this.#isLerping.center = lerpingCenter;
+        this.#keepSize = keepSize;
+        this.#targetSize.apply(tSize);
+        this.#setBoundBox = setBbox;
+        this.#boundBox.apply(bbox);
+        this.#tempBox.apply(tbbox);
+        this.#focus = focus;
+        this.enabled = enabled;
+    }
+    update () {
+        if (!this.enabled) return;
+        this.#computeBounds();
+        const { SNAP_THRESHOLD } = this.constructor;
+        const size = this.#computeSize();
+        const center = this.#boundBox.center;
+        const vSize = this.#Viewbox.size;
+        const vCenter = this.#Viewbox.center;
+        if (!this.#focus
+            && this.isTracking
+            && (vSize.x > size.x
+                || vSize.y > size.y))
+            size.apply(vSize);
+        const targetSize = this.#lerpFactor >= 1
+            ? size : vSize.sub(size).dot() < SNAP_THRESHOLD
+                ? size : vSize.lerp(size, this.#lerpFactor, true);
+        const targetCenter = this.#lerpFactor >= 1
+            ? center : vCenter.sub(center).dot() < SNAP_THRESHOLD
+                ? center : vCenter.lerp(center, this.#lerpFactor, true);
+        this.#isLerping.size = (this.isSizeSet || this.isTracking) && targetSize.sub(size).dot() >= SNAP_THRESHOLD;
+        this.#isLerping.center = this.isTracking && targetCenter.distance(center).lengthSquared >= SNAP_THRESHOLD;
+        if (!this.isCentering && this.#follows.size > 0) this.unfollowAll();
+        if (this.isSizeSet && !this.isSizing && !this.#keepSize) this.setTargetSize();
+        if (this.isTracking) {
+            this.#Viewbox.applySize(targetSize);
+            this.#Viewbox.setPosition(targetCenter);
+        } else if (this.isSizeSet) {
+            this.#Viewbox.applySize(targetSize);
+        }
+        
+    }
+    track (...targets) {
+        for (let i = 0; i < targets.length; i++) {
+            const target = targets[i];
+            if (target) this.#targets.add(target);
+        }
+    }
+    untrack (...targets) {
+        for (let i = 0; i < targets.length; i++) {
+            const target = targets[i];
+            if (target) this.#targets.delete(target);
+        }
+    }
+    untrackAll () { this.#targets.clear() }
+    tracking (target) { return this.#targets.has(target) }
+    // tracks targets, untracks when lerping is finished
+    follow (...targets) {
+        for (let i = 0; i < targets.length; i++) {
+            const target = targets[i];
+            if (target) this.#follows.add(target);
+        }
+    }
+    unfollow (...targets) {
+        for (let i = 0; i < targets.length; i++) {
+            const target = targets[i];
+            if (target) this.#follows.delete(target);
+        }
+    }
+    unfollowAll () { this.#follows.clear() }
+    following (target) { return this.#follows.has(target) }
+    setTargetSize(width = 0, height = 0, keep = true) {
+        this.#targetSize.apply(width, height);
+        this.#keepSize = keep;
+        return this;
+    }
+    getTargetSize () { return this.#targetSize.clone() }
+
+    get isViewboxController () { return true }
+    get Viewbox () { return this.#Viewbox }
+    get isTracking () { return this.#targets.size > 0 || this.#follows.size > 0}
+    get isSizeSet () { return this.#targetSize.x > 0 || this.#targetSize.y > 0 }
+    get isSizing () { return this.#isLerping.size }
+    get isCentering () { return this.#isLerping.center }
+    get targets () { return this.#targets.size + this.#follows.size }
+    get focus () { return this.#focus }
+    set focus (bool) { return (this.#focus = bool) }
+    get lerpFactor () { return this.#lerpFactor }
+    set lerpFactor (value) { return (this.#lerpFactor = clamp(value, 0, 1)) }
 }
 
 export class AppCanvas {

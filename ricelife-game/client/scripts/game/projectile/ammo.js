@@ -82,8 +82,22 @@ export class Ammo extends TrackableObject {
         if (this.#stageIdx === 0 && this.#currentStage === undefined) this.#currentStage = this.#stages[this.#stageIdx];
         return stage;
     }
-    getBoundingBox (merge = true) {
-        return this.currentStage?.getBoundingBox?.(merge) || new BoundingBox();
+    getBoundingBox (merge = true, includeStopped = true, includeFx = false) {
+        return this.currentStage?.getBoundingBox?.(merge, includeStopped, includeFx) || new BoundingBox();
+    }
+    // returns bounding boxes of all blasts of delay within range (start - end)
+    // if end is undefined, all blasts from start will be included
+    getBlastBoundingBox (start = 0, end = undefined, merge = true) {
+        const bboxes = [];
+        for (const blast of this.blasts)
+            if (blast.delay >= start && (end === undefined || blast.delay < end))
+                bboxes.push(blast.shape.getBoundingBox().clone());
+        if (!merge) return bboxes;
+        if (!bboxes.length) return new BoundingBox();
+        const bbox = bboxes.shift();
+        for (const bb of bboxes)
+            bbox.add(bb, true);
+        return bbox;
     }
     clone (deep = false) {
         const stages = [];

@@ -114,9 +114,9 @@ export class Vector {
         const power = 10**precision;
         return vec.mul(power, true).floor(true).div(power, true);
     }
-    lerp (vector, factor) { // (Linear Interpolation) returns the point between this vector and given vector. distance from this vector determined by factor given
+    lerp (vector, factor, mutate = false) { // (Linear Interpolation) returns the point between this vector and given vector. distance from this vector determined by factor given
         if (!vector?.isVector) throw new Error(`[${this.constructor.name}] Error: Cannot linearly interpolate between Vector and non-Vector type ${typeof vector}`);
-        return this.add(vector.sub(this).mul(factor));
+        return this.add(vector.sub(this).mul(factor, true), mutate);
     }
     sum () {
         return this.x + this.y;
@@ -165,9 +165,9 @@ export class Vector {
         const vec = origin.add(origin.sub(this));
         return mutate ? this.apply(vec) : vec;
     }
-    dot (vector) { // dot product
-        if (!vector?.isVector) throw new Error(`[${this.constructor.name}] Error: Cannot calculate dot product of Vector and non-Vector type ${typeof vector}`);
-        return this.mul(vector).sum();
+    dot (vector = null) { // dot product
+        if (vector !== null && !vector?.isVector) throw new Error(`[${this.constructor.name}] Error: Cannot calculate dot product of Vector and non-Vector type ${typeof vector}`);
+        return this.mul(vector || this).sum();
     }
     cross (vector) { // cross product
         if (!vector?.isVector) throw new Error(`[${this.constructor.name}] Error: Cannot calculate cross product of Vector and non-Vector type ${typeof vector}`);
