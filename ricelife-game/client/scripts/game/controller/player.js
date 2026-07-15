@@ -236,6 +236,7 @@ class PointerListener  {
     }
     #updateUp = (event, callback = true) => {
         if (!this.enabled) return;
+        const { activeDuration } = this;
         if (event.pointerId in this.#activePointers)
             delete this.#activePointers[event.pointerId];
         this.#updatePosition(event);
@@ -248,7 +249,7 @@ class PointerListener  {
         if (callback && this.pointerCount === 0) {
             this.#callbackFns?.onrelease?.(this.position, this.#tracking.totalDelta.clone());
             // click detection
-            if (this.activeDuration <= this.#clickMs + Number.EPSILON) {
+            if (activeDuration <= this.#clickMs + Number.EPSILON) {
                 this.#clickEventPromises.splice(0, this.#clickEventPromises.length)
                     .forEach((resolve) => resolve(event));
                 this.#callbackFns?.onclick?.(this.position, this.#tracking.totalDelta.clone());
@@ -266,9 +267,13 @@ class PointerListener  {
             this.#setHoldInterval();
             // drag detection
             if (callback && this.enabled && this.isDragging) {
-                if ((this.#callbackFns?.ondrag?.(this.position, this.#tracking.down.position.clone(), this.#dragging.delta.clone())) === null)
+                if ((this.#callbackFns?.ondrag?.(this.position, this.#tracking.down.position.clone(), this.#dragging.delta.clone())) === null) {
                     // dragging was broken on an item
-                    this.#updateUp(event, false);
+                    if (this.#tracking.exists)
+                        this.#dragging.origin.apply(this.#tracking.position);
+                    else
+                        this.#dragging.started = false;
+                }
             }
         } else if (pointerCount === 2) {
             // touch scroll/zoom detection

@@ -115,8 +115,8 @@ export class SelectionController extends PhaseController {
         const underButton = this.Global.Display.getBoundingBox().clone();
         underButton.isOver = underButton.isIntersecting;
         underButton.id = true;
-        underButton.onrelease = (point, delta) => {
-            if (this.flags.exitable && floatEqual(delta.length, 0))
+        underButton.onclick = (point) => {
+            if (this.flags.exitable)
                 this.state = this.constructor.STATES.Raise;
         }
         this.Interface.insert().push(underButton).fixed = true;
