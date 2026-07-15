@@ -182,7 +182,7 @@ class PointerListener  {
         this.#listeningTo.removeEventListener("pointerenter", this.#updateEnter);
         this.#listeningTo.removeEventListener("pointerleave", this.#updateLeave);
         this.#listeningTo.removeEventListener("wheel", this.#updateWheel);
-        this.#AppCanvas.removeEventListener(this.#updateOffset);
+        this.#AppCanvas.removeResizeListener(this.#updateOffset);
     }
     #setHoldInterval () {
         if (this.#holding.pollInterval) return;
