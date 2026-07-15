@@ -642,15 +642,24 @@ export class RoundController extends PhaseController {
         // }, config.busyThreshold);
         this.animate(true); // draw one last frame so the game doesn't look like it just froze
         const shot = this.createShot();
+        let waitStart = performance.now();
+        console.info(`[${this.constructor.name}]: Tracing shot`);
         const map = await this.Threaded.traceProjectile(
             this.getShotColliders(),
             shot,
             Global.TickInterval.interval / 1000,
             this.constructor.SETTINGS.SHOT_TRACE_LIMIT
         );
+        if (this.Global.flags.DEBUG)
+            console.info(`[${this.constructor.name}]: Shot trace finished in ${(performance.now() - waitStart) / 1000} seconds`);
+        waitStart = performance.now();
+        console.info(`[${this.constructor.name}]: Loading shot collision map`);
         if (map.blasts.length)
             this.#preloadMap(map);
         await store.prerender;
+        if (this.Global.flags.DEBUG)
+            console.info(`[${this.constructor.name}]: Collision map loaded in ${(performance.now() - waitStart) / 1000} seconds`);
+        console.info(`[${this.constructor.name}]: Shot playback ready`);
         // if (wasSetBusy) {
         //     config.dispatchEvent.ready();
         //     store.input.pointer.onNextClick()
@@ -659,6 +668,9 @@ export class RoundController extends PhaseController {
         //     clearTimeout(store.dispatchBusyTimeout);
         //     setProjectile(store, projectile, landing);
         // }
+        console.info(`[${this.constructor.name}]: Awaiting click event`);
+        await this.Global.Input.pointer.onNextClick();
+        console.info(`[${this.constructor.name}]: Playing shot animation`);
         this.#setShot(shot, map);
         this.trackShot();
     }
