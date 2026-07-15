@@ -236,6 +236,7 @@ export class Vector {
     }
     get length () { return Math.sqrt(this.lengthSquared) }
     get lengthSquared () { return this.pow(2).sum() }
+    get isFinite () { return Number.isFinite(this.x) && Number.isFinite(this.y) }
     clone () { return new Vector(this.x, this.y) }
     toString () { return `(${this.x.toFixed(3)}, ${this.y.toFixed(3)})` }
     toJSON () { return [this.x, this.y] }
