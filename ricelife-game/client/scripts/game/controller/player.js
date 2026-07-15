@@ -16,7 +16,6 @@ export class InputListener { // wrapper for K&M input
 
     resetState = () => {
         this.keyboard.resetState();
-        this.pointer.resetState();
     }
     close () {
         this.pointer.listeningTo.removeEventListener("pointerleave", this.resetState);
@@ -92,7 +91,7 @@ class KeyboardListener {
     resetKeyState (keyCode) {
         this.#setKeyState({code: keyCode}, false);
     }
-    resetState () {
+    resetState = () => {
         for (const mapping of Object.values(this.#activeKeys))
             for (const key of Object.keys(mapping))
                 mapping[key] = false;
@@ -139,6 +138,7 @@ class PointerListener  {
         delta: new Vector()
     }
     #tracking = {
+        exists: false, // is pointer over element?
         position: new Vector(),
         delta: new Vector(), // updated based on last movement event
         totalDelta: new Vector(), // cumulative movement from last pointerdown position
@@ -160,15 +160,30 @@ class PointerListener  {
         this.#clickMs = clickThresholdMs;
         this.#AppCanvas = appCanvas;
         this.#listeningTo = appCanvas.canvas; // ASSUMES POSITION OF ELEMENT DOES NOT CHANGE - will respond to resize related changes though
-        this.#AppCanvas.addResizeListener(this.#updateOffset);
+        this.#attachListeners();
         this.#updateOffset();
+    }
+
+    #attachListeners () {
+        this.#AppCanvas.addResizeListener(this.#updateOffset);
         this.#listeningTo.addEventListener("pointermove", this.#updateMove);
         this.#listeningTo.addEventListener("pointerdown", this.#updateDown);
         this.#listeningTo.addEventListener("pointerup", this.#updateUp);
         this.#listeningTo.addEventListener("pointercancel", this.#updateUp);
+        this.#listeningTo.addEventListener("pointerenter", this.#updateEnter);
+        this.#listeningTo.addEventListener("pointerleave", this.#updateLeave);
         this.#listeningTo.addEventListener("wheel", this.#updateWheel);
     }
-
+    #detachListeners () {
+        this.#listeningTo.removeEventListener("pointermove", this.#updateMove);
+        this.#listeningTo.removeEventListener("pointerdown", this.#updateDown);
+        this.#listeningTo.removeEventListener("pointerup", this.#updateUp);
+        this.#listeningTo.removeEventListener("pointercancel", this.#updateUp);
+        this.#listeningTo.removeEventListener("pointerenter", this.#updateEnter);
+        this.#listeningTo.removeEventListener("pointerleave", this.#updateLeave);
+        this.#listeningTo.removeEventListener("wheel", this.#updateWheel);
+        this.#AppCanvas.removeEventListener(this.#updateOffset);
+    }
     #setHoldInterval () {
         if (this.#holding.pollInterval) return;
         this.#holding.pollInterval = setInterval(() => {
@@ -203,6 +218,7 @@ class PointerListener  {
     #updateDown = (event, callback = true) => { // keep up and down event callbacks seperate for (marginal) perfomance boost
         if (!this.enabled) return;
         this.#activePointers[event.pointerId] = event;
+        this.#tracking.exists = true;
         this.#updatePosition(event);
         this.#tracking.up.stamp = undefined; // clear data from last down event
         this.#tracking.down.stamp = performance.now();
@@ -211,6 +227,12 @@ class PointerListener  {
         if (callback && this.pointerCount === 1) {
             this.#callbackFns?.onpress?.(this.position);
         }
+    }
+    #updateEnter = (event, callback = true) => {
+        this.#updateMove(event, false);
+    }
+    #updateLeave = (event, callback = true) => {
+        this.resetState();
     }
     #updateUp = (event, callback = true) => {
         if (!this.enabled) return;
@@ -236,6 +258,7 @@ class PointerListener  {
     #updateMove = (event, callback = true) => {
         if (!this.enabled) return;
         this.#activePointers[event.pointerId] = event;
+        this.#tracking.exists = true;
         const { pointerCount } = this;
         if (pointerCount === 1) {
             this.#updatePosition(event);
@@ -356,6 +379,7 @@ class PointerListener  {
         this.#tracking.down.stamp = undefined;
         this.#tracking.up.position.apply(0);
         this.#tracking.up.stamp = undefined;
+        this.#tracking.exists = false;
     }
     onNextClick () {
         const { resolve, promise } = Promise.withResolvers();
@@ -373,11 +397,7 @@ class PointerListener  {
     }
     close () {
         this.resetState();
-        this.#listeningTo.removeEventListener("pointermove", this.#updateMove);
-        this.#listeningTo.removeEventListener("pointerdown", this.#updateDown);
-        this.#listeningTo.removeEventListener("pointerup", this.#updateUp);
-        this.#listeningTo.removeEventListener("pointercancel", this.#updateUp);
-        this.#AppCanvas.removeEventListener(this.#updateOffset);
+        this.#detachListeners();
     }
 
     get listeningTo () { return this.#listeningTo }
@@ -385,6 +405,7 @@ class PointerListener  {
     get position () { return this.#tracking.position.clone() }
     get delta () { return this.#tracking.delta.clone() }
     get deltaTotal () { return this.#tracking.totalDelta.clone() }
+    get isHovering () { return this.#tracking.exists && !this.isActive }
     get isHolding () { return this.#holding.started && this.enabled }
     get isActive () { return this.pointerCount > 0 && this.#tracking.down.stamp !== undefined && this.#tracking.up.stamp === undefined && this.enabled }
     get isDragging () { return this.isActive && this.#dragging.delta.lengthSquared > this.constructor.ONDRAG_TOLERANCE && this.enabled }

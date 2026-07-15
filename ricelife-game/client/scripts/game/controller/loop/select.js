@@ -52,10 +52,12 @@ export class SelectionController extends PhaseController {
     }
     static SETTINGS = {
         DEFAULT_INVERT_CONTROLS: true,
+        FOCAL_LERP_FACTOR: 0.15, // speed that focal point moves from different points onscreen
+        FOCAL_SNAP_THRESHOLD: 10**2, // (squared) distance in pixels that focal point will snap to target position
         // values for grow and shrink effects while traversing menu
         MIN_TILE_SCALE: 0.0,
         MAX_TILE_SCALE: 1.5,
-        TILE_SCALE_RATE: 2, // [!] must be an Integer
+        TILE_SCALE_RATE: 3, // [!] must be an Integer
         // limits for inital tile size relative to viewport dimensions
         MIN_TILE_SIZE: 75,
         MAX_TILE_SIZE: 300,
@@ -84,6 +86,10 @@ export class SelectionController extends PhaseController {
         this.store.SELECTED = undefined;
         this.store.lastDrawnPosition = this.Global.Display.center.clone();
         this.store.lastActivePosition = this.store.lastDrawnPosition.clone();
+        this.store.focalPoint = this.Global.Display.center.clone(); // lerp-able focal point
+        this.flags.focalPointer = false; // focal point is following cursor or screen center
+        this.flags.stickPointer = false; // once focal point lerps to pointer, stop lerping and stick to pointer
+        this.flags.focalPointUpdated = false;
         this.flags.trackActive = false;
         this.flags.exitable = false;
         this.flags.INVERT_TRACKING = this.constructor.SETTINGS.DEFAULT_INVERT_CONTROLS;
@@ -245,11 +251,10 @@ export class SelectionController extends PhaseController {
     #updateTiles () {
         const items = this.store.tileLayer.items;
         if (items.length === 0) return;
-        const { lastDrawnPosition, lastActivePosition, tileSpace, tileRings, tileTotalSpace, tileHalfSpace, tileRowSkew, selectionShape } = this.store;
+        const { lastDrawnPosition, lastActivePosition, tileSpace, tileRings, tileTotalSpace, tileHalfSpace, tileRowSkew, selectionShape, focalPoint } = this.store;
         const { MAX_TILE_SCALE, MIN_TILE_SCALE, TILE_SCALE_RATE } = this.constructor.SETTINGS;
         const sizeSfxThreshold = selectionShape.getBoundingBox().extent * .8;
         const screenBbox = this.Global.Display.getBoundingBox();
-        const center = this.Global.Input.pointer.isActive ? this.Global.Display.center : this.Global.Input.pointer.position;
         const offset = this.flags.INVERT_TRACKING
             ? lastDrawnPosition.sub(lastActivePosition)
             : lastActivePosition.sub(lastDrawnPosition);
@@ -259,7 +264,7 @@ export class SelectionController extends PhaseController {
             tile.shape.transformation.offset.apply(offset);
             tile.shape.applyTransformation();
             this.#wrapTilePosition(tile);
-            tile.shape.polygon.userData.distanceCoeff = ((this.Global.Display.size.min() - tile.shape.center.distance(center)) / this.Global.Display.size.min())
+            tile.shape.polygon.userData.distanceCoeff = ((this.Global.Display.size.min() - tile.shape.center.distance(focalPoint)) / this.Global.Display.size.min())
                     **TILE_SCALE_RATE;
             const scale = clamp(tile.shape.polygon.userData.distanceCoeff,
                 MIN_TILE_SCALE, MAX_TILE_SCALE
@@ -293,6 +298,33 @@ export class SelectionController extends PhaseController {
             }
         } else this.flags.trackActive = false;
     }
+    // set tile scaling focal point to pointer position
+    #followPointer () {
+        this.flags.stickPointer = this.flags.focalPointer && this.flags.stickPointer;
+        this.flags.focalPointer = true;
+    }
+    // set tile scaling focal point to screen center
+    #followCenter () {
+        this.flags.stickPointer = !this.flags.focalPointer && this.flags.stickPointer;
+        this.flags.focalPointer = false;
+    }
+    #updateFocalPoint () {
+        const { FOCAL_LERP_FACTOR, FOCAL_SNAP_THRESHOLD } = this.constructor.SETTINGS;
+        const { focalPoint } = this.store;
+        const targetPosition = this.flags.focalPointer
+            ? this.Global.Input.pointer.position
+            : this.Global.Display.center;
+        const oldPoint = focalPoint.clone();
+        if (this.flags.stickPointer) {
+            focalPoint.apply(targetPosition);
+        } else {
+            focalPoint.lerp(targetPosition, FOCAL_LERP_FACTOR, true);
+            this.flags.stickPointer = this.flags.stickPointer
+                || targetPosition.sub(focalPoint).dot() < FOCAL_SNAP_THRESHOLD;
+        }
+        this.flags.focalPointUpdated = !oldPoint.eq(focalPoint)
+            || (!this.flags.focalPointer && this.Global.Input.pointer.delta.lengthSquared);
+    }
 
     start () {
         this.state = this.constructor.STATES.Ready;
@@ -317,9 +349,8 @@ export class SelectionController extends PhaseController {
         const { lastDrawnPosition, lastActivePosition } = this.store;
         cursor.save();
         if (clear) cursor.clear();
-        if (this.Global.Input.pointer.delta.lengthSquared) this.#updateTiles();
+        if (this.flags.focalPointUpdated) this.#updateTiles();
         if (!lastDrawnPosition.eq(lastActivePosition)) {
-            //this.#updateTiles();
             lastDrawnPosition.apply(lastActivePosition);
         }
         this.Interface.draw(cursor);
@@ -327,6 +358,9 @@ export class SelectionController extends PhaseController {
     }
     async tick (delta) {
         this.#handleInput();
+        if (this.Global.Input.pointer.isHovering) this.#followPointer();
+        else this.#followCenter();
+        this.#updateFocalPoint();
     }
     close () {
         this.state = this.constructor.STATES.Busy;
