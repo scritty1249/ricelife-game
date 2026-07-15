@@ -98,7 +98,12 @@ export class Shape {
     toJSON () { return {blob: this.blob, origin: this.origin.toJSON(), globalTransform: this.globalTransformation.toJSON(), type: this.constructor.TYPE} }
     decode () { return {isShape: true, data: this.toJSON(), buffers: []} }
     applyTransformation () { // children can manipulate blob data before super calling this methood
-        if (this.transformation.hasUpdate) this.globalTransformation.add(this.transformation, true);
+        if (!this.transformation.scale.isFinite
+            || !this.transformation.offset.isFinite
+            || !this.transformation.rotation.isFinite
+        ) throw new Error(`[${this.constructor.name}]: Cannot apply transformation with corrupt values\n\t${this.transformation.toString()}`);
+        if (this.transformation.hasUpdate)
+            this.globalTransformation.add(this.transformation, true);
         this.transformation.reset();
     }
     overlap (other, flatten = false) {
