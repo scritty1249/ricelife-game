@@ -65,9 +65,9 @@ export class Vector {
             );
         }
     }
-    normal (vector, clockwise = true) { // finds normalized point perpendicular to the line 
-        if (!vector.isVector) throw new Error(`[${this.constructor.name}] Error: Cannot calculate normal from Vector to non-Vector type ${typeof vector}`);
-        const diff = vector.sub(this);
+    normal (targetVector, clockwise = true) { // finds normalized point perpendicular to the line 
+        if (!targetVector.isVector) throw new Error(`[${this.constructor.name}] Error: Cannot calculate normal from Vector to non-Vector type ${typeof targetVector}`);
+        const diff = targetVector.sub(this);
         diff.div(diff.length, true);
         return clockwise
             ? new Vector(diff.y, -diff.x)
