@@ -23,7 +23,7 @@ export class RoundController extends PhaseController {
         POWER_SENSITIVITY: .005,
         PAN_SENSITIVITY: 5,
         MOVE_SPEED: 1,
-        PLAYER_SCREEN_TRACKING_SCALE: 15, // scale to multiply player tank size by to use as target viewbox size when tracking player
+        PLAYER_SCREEN_TRACKING_SCALE: 30, // scale to multiply player tank size by to use as target viewbox size when tracking player
         TERRAIN_EDGE: new Color("#00e8f0"),
         TERRAIN_FILL: new Color("#0098eb")
     };
