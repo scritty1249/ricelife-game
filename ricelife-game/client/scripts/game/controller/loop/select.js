@@ -53,7 +53,7 @@ export class SelectionController extends PhaseController {
     static SETTINGS = {
         DEFAULT_INVERT_CONTROLS: true,
         // values for grow and shrink effects while traversing menu
-        MIN_TILE_SCALE: 0.15,
+        MIN_TILE_SCALE: 0.0,
         MAX_TILE_SCALE: 1.5,
         TILE_SCALE_RATE: 2, // [!] must be an Integer
         // limits for inital tile size relative to viewport dimensions
