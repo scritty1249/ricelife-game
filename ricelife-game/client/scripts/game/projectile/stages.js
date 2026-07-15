@@ -4,6 +4,36 @@ import { Properties } from "./collision/collision.js";
 
 // Shot that supports multiple stages. Only supports ONE shot at a time
 export class ShotStage extends TrackableObject {
+    static getCollision (position, projected, segmentStart, segmentEnd, radius, counterClockwise = false, movementVector = undefined) {
+        const move = movementVector?.isVector ? movementVector : projected.sub(position); // [!] optional parameter for optimization        
+        const normal = segmentStart.normal(segmentEnd, counterClockwise);
+        const diff = segmentStart.sub(position);
+        const side = Math.sign(diff.dot(normal));
+        const offset = normal.mul(-side * radius);
+        if (counterClockwise) offset.mul(-1);
+        const pStart = segmentStart.add(offset);
+        const pEnd = segmentEnd.add(offset);
+        const pDiff = pEnd.sub(pStart);
+        const denom = move.cross(pDiff);
+        if (Math.abs(denom) < 0.0001) return null; // path and segment are parallel
+        const startDiff = pStart.sub(position);
+        const moveCoeff = startDiff.cross(pDiff) / denom;
+        const segmentCoeff = startDiff.cross(move) / denom;
+        if (moveCoeff >= 0
+            && moveCoeff <= 1
+            && segmentCoeff >= 0
+            && segmentCoeff <= 1
+        ) {
+            return {
+                projectedCoeff: moveCoeff,
+                segmentCoeff: segmentCoeff,
+                position: position.add(move.mul(moveCoeff)),
+                point: segmentStart.add(diff.mul(side)),
+                normal: normal.mul(side)
+            };
+        }
+        return null;
+    }
     #shot;
     #blasts;
     #time = 0; // global time, seperate from Shot time
@@ -44,6 +74,47 @@ export class ShotStage extends TrackableObject {
             .add(projection.shape.getBoundingBox());
         // [!] does not account for blasts
         return colliders.some((collider) => bbox.isIntersecting(collider.getBoundingBox()));
+    }
+    // [!] testing optimized projectUpdate
+    #project (seconds = 1) {
+        const { shot, blasts, colliders } = this;
+        const projection = shot.project(seconds);
+        const { position } = shot;
+        const radius = projection.shape.radii.max();
+        if (this.#isCollisionAhead(projection)) {
+            let collision;
+            let flags = 0;
+            let minCoeff = 1;
+            for (let cidx = 0; cidx < colliders.length; cidx++) {
+                const collider = colliders[cidx];
+                const collisionFlags = collider.userData?.collision || 0;
+                const edges = collider.edges;
+                for (let eidx = 0; eidx < edges.length; eidx++) {
+                    const edge = edges[eidx];
+                    const iter = edge.pairs();
+                    for (let next = iter.next(); !next.done; next = iter.next()) {
+                        const start = next.value;
+                        const end = iter.next().value;
+                        const hit = ShotStage.getCollision(
+                            position, projection.position,
+                            start, end,
+                            radius, false, projection.delta
+                        );
+                        if (hit && hit.projectedCoeff < minCoeff) {
+                            minCoeff = hit.projectedCoeff;
+                            collision = hit;
+                            flags = collisionFlags
+                        }
+                    }
+                }
+            }
+            if (collision) {
+                shot.applyPosition(collision.position);
+                this.applyCollision(collision.point, collision.normal, flags);
+                return;
+            }
+        }
+        shot.update(seconds);
     }
     // project, update or set position at collision
     // [!] assumes the Shot shape is a non-elliptical circle
@@ -181,7 +252,8 @@ export class ShotStage extends TrackableObject {
                 const { shot } = this;
                 this.time += seconds;
                 if (!this.#isFinished) {
-                    this.#projectUpdate(seconds, 5);
+                    if (this.shot.shape.isCircle) this.#project(seconds);
+                    else this.#projectUpdate(seconds, 5);
                     this.updateCallback?.();
                     this.#trackUpdate();
                     if (!this.#isFinished && shot.isStopped)
