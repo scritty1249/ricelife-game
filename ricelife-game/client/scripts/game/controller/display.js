@@ -241,7 +241,7 @@ export class ViewboxController {
     #computeTargetSize () {
         const { Grow, Shrink, Always } = this.constructor.SCALING_BEHAVIOR;
         const vSize = this.#Viewbox.size;
-        const hasBounds = this.#boundBox.size.lengthSquared !== 0;
+        const hasBounds = this.#boundBox.extentSquared !== 0;
         if (!hasBounds) return vSize;
         const tSize = hasBounds ? this.#boundBox.size : vSize;
         const viewAspect = this.#Viewbox.aspectRatio;
@@ -308,22 +308,25 @@ export class ViewboxController {
         const center = this.#boundBox.center;
         const vSize = this.#Viewbox.size;
         const vCenter = this.#Viewbox.center;
+
         const targetSize = this.#lerpFactor >= 1
             ? size : vSize.sub(size).dot() < SNAP_THRESHOLD
                 ? size : vSize.lerp(size, this.#lerpFactor, true);
         const targetCenter = this.#lerpFactor >= 1
             ? center : vCenter.sub(center).dot() < SNAP_THRESHOLD
                 ? center : vCenter.lerp(center, this.#lerpFactor, true);
-        this.#isLerping.size = (this.isSizeSet || this.isTracking) && targetSize.sub(size).dot() >= SNAP_THRESHOLD;
-        this.#isLerping.center = this.isTracking && targetCenter.distance(center).lengthSquared >= SNAP_THRESHOLD;
         if (this.isTracking) {
             this.#Viewbox.applySize(targetSize);
             this.#Viewbox.setPosition(targetCenter);
         } else if (this.isSizeSet) {
             this.#Viewbox.applySize(targetSize);
         }
-        if (!this.isCentering && this.#follows.size > 0) this.unfollowAll();
-        if (this.isSizeSet && !this.isSizing && !this.#keepSize) this.setTargetSize();
+        this.#isLerping.size = (this.isSizeSet || this.isTracking) && targetSize.sub(size).dot() >= SNAP_THRESHOLD;
+        this.#isLerping.center = this.#Viewbox.center.sub(vCenter).dot() >= SNAP_THRESHOLD;
+        if (!this.isCentering && this.#follows.size > 0)
+            this.unfollowAll();
+        if (this.isSizeSet && !this.isSizing && !this.#keepSize)
+            this.setTargetSize();
     }
     track (...targets) {
         for (let i = 0; i < targets.length; i++) {

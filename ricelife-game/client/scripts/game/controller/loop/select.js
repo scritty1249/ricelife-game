@@ -247,14 +247,14 @@ export class SelectionController extends PhaseController {
         if (items.length === 0) return;
         const { lastDrawnPosition, lastActivePosition, tileSpace, tileRings, tileTotalSpace, tileHalfSpace, tileRowSkew, selectionShape } = this.store;
         const { MAX_TILE_SCALE, MIN_TILE_SCALE, TILE_SCALE_RATE } = this.constructor.SETTINGS;
-        const sizeSfxThreshold = selectionShape.getBoundingBox().size.length * .8;
+        const sizeSfxThreshold = selectionShape.getBoundingBox().extent * .8;
         const screenBbox = this.Global.Display.getBoundingBox();
         const center = this.Global.Input.pointer.isActive ? this.Global.Display.center : this.Global.Input.pointer.position;
         const offset = this.flags.INVERT_TRACKING
             ? lastDrawnPosition.sub(lastActivePosition)
             : lastActivePosition.sub(lastDrawnPosition);
         for (const tile of items) {
-            const lastSize = tile.shape.getBoundingBox().size.length;
+            const lastSize = tile.shape.getBoundingBox().extent;
             tile.shape.transformation.scale.apply(1 / tile.shape.polygon.userData.lastScale);            
             tile.shape.transformation.offset.apply(offset);
             tile.shape.applyTransformation();
@@ -268,7 +268,7 @@ export class SelectionController extends PhaseController {
             tile.shape.applyTransformation();
             tile.shape.polygon.userData.lastScale = scale;
             // sfx
-            const newSize = tile.shape.getBoundingBox().size.length;
+            const newSize = tile.shape.getBoundingBox().extent;
             if (newSize >= sizeSfxThreshold
                 && lastSize < sizeSfxThreshold
                 && screenBbox.isIntersecting(tile.shape.center)

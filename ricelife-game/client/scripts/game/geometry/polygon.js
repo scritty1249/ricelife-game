@@ -202,7 +202,8 @@ export class Polygon extends TrackableObject { // points should be ordered clock
             }
             return inside && (ignoreholes || !this.holes.some((hole) => hole.isIntersecting(value, !ignoreholes)));
         } else if (value?.isPolygon) {
-            return value.path.points.some((point) => this.isIntersecting(point));
+            const bbox = this.getBoundingBox().overlap(value.getBoundingBox());
+            return value.path.points.some((point) => bbox.isIntersecting(point) && this.isIntersecting(point));
         } else if (value?.isPath) { // counts surface contact/collision as intersection
             return value.points.some((point) => this.isIntersecting(point));
         } else if (value?.isShape) {
@@ -231,9 +232,20 @@ export class Polygon extends TrackableObject { // points should be ordered clock
     }
     raycast (ray) {
         const distance = ray.at(0).distance(ray.at(-1));
-        const holes = this.holes;
+        const rbbox = BoundingBox.fromPath(ray);
+        if (rbbox.isFlat) {
+            if (rbbox.height) {
+                rbbox.min.x -= Number.EPSILON;
+                rbbox.max.x += Number.EPSILON;
+            } else {
+                rbbox.min.y -= Number.EPSILON;
+                rbbox.max.y += Number.EPSILON;
+            }
+        }
+        if (!rbbox.isIntersecting(this.getBoundingBox())) return [];
         const hits = [];
-        for (const edge of this.edges)
+        for (const edge of this.edges) {
+            if (!rbbox.isIntersecting(edge)) continue;
             for (const inter of ray.intersections(edge))
                 if (!hits.some(({point}) => // don't record a duplicate hit
                         point.eq(inter.point)))
@@ -247,6 +259,7 @@ export class Polygon extends TrackableObject { // points should be ordered clock
                         angle: inter.angle,
                         entering: inter.entering
                     });
+        }
         return hits;
     }
 

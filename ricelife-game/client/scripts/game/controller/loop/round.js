@@ -249,7 +249,7 @@ export class RoundController extends PhaseController {
         for (let i = 0; i < blasts.length; i++) {
             const blast = blasts.at(i);
             const blastBbox = blast.shape.getBoundingBox();
-            const blastSize = blastBbox.size.length;
+            const blastSize = blastBbox.extent;
             // sound effects
             const bassNode = Context.newBassNode();
             bassNode.frequency.value = 200;
@@ -615,8 +615,8 @@ export class RoundController extends PhaseController {
     }
     // expects a shot to actually exist
     trackShot () {
-        this.#saveViewbox();
         this.Camera.save();
+        this.#saveViewbox();
         this.Camera.lerpFactor = 0.12;
         this.Camera.track(this.ActivePlayer.tank.getBoundingBox(), ...this.store.shot.blasts.map(({shape}) => shape));
     }
@@ -760,9 +760,10 @@ export class RoundController extends PhaseController {
         const { ActivePlayer } = this;
         const { relativePosition, barrelPosition } = ActivePlayer.tank;
         const barrelPath = new Ray(relativePosition, barrelPosition);
-        yield this.Terrain.raycast(barrelPath)
+        const hit = this.Terrain.raycast(barrelPath)
             .sort((a, b) => a.distance(relativePosition) - b.distance(relativePosition))
-            .at(0) || barrelPosition;
+            .at(0);
+        yield hit?.point || barrelPosition;
         yield ActivePlayer.aimer.rotation + (3 * (Math.PI / 2));
         yield ActivePlayer.aimer.power;
     }
@@ -843,14 +844,11 @@ export class RoundController extends PhaseController {
             }
             this.SelectionPhase.animate(false);
         } else {
-            this.Camera.save();
             if (store.shot.current && this.Camera.tracking(this.ActivePlayer.tank.position)) {
-                this.Camera.lerpFactor = 0.2;
                 const shotBbox = store.shot.current.getBoundingBox(true, false, true);
-                this.Camera.track(shotBbox.size.length ? shotBbox : undefined);
+                this.Camera.follow(shotBbox.extentSquared ? shotBbox : undefined);
             }
             this.Camera.update();
-            this.Camera.restore();
             if (flags.isTurn) Interface.draw(cursor, 0, 2);
             Viewbox.setCursor(cursor, true);
             for (const { tank, isDead } of Players)
@@ -949,19 +947,24 @@ export class RoundController extends PhaseController {
     get onload () { return this.#loadPromise }
 }
 
-function distributePlayers (bbox, players) {
+// [!] recursion limit applies per-player
+function distributePlayers (bbox, players, recursionLimit = 10000000) {
     const min = bbox.min.x + (bbox.width / 10);
     const max = bbox.max.x - min;
-    const spacing = (bbox.width / 6);
+    const spacing = (bbox.width / players.length);
     const range = (max - min) / spacing; 
     const spots = new Set()
     for (const { aimer, mover } of players) {
-        let x = undefined;
-        while (x === undefined || spots.has(x)) {
+        let x;
+        let i = 0;
+        while (i < recursionLimit) {
             x = (Math.floor(Math.random() * (range + 1)) * spacing) + min;
+            if (!spots.has(x) && mover.apply(x, bbox.max.y + 1)) {
+                spots.add(x);
+                break;
+            }
+            i++;
         }
-        spots.add(x);
-        mover.apply(x, bbox.max.y + 1);
         aimer.update(players[0].tank.position.add({x: 0, y: bbox.max.y})); // aim straight up and set power to 100% (1)
     }
 }

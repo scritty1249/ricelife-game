@@ -460,9 +460,9 @@ export class MovementController { // only moves along X axis
         const ray = new Ray(new Vector(x, maxHeight), Vector.fromAngle((3 * Math.PI) / 2), maxHeight + 1);
         const hits = this.#terrain.raycast(ray);
         if (!hits.length) return undefined;
-        const hasExiting = hits.some(({entering}) => !entering);
-        const hit = (hasExiting ? hits.filter(({entering}) => entering) : hits)
-            ?.toSorted((a, b) => b.point.y - a.point.y)?.at(0);
+        const hasExiting = hits.some(({entering}) => entering === false);
+        const hit = (hasExiting ? hits.filter(({entering}) => entering !== false) : hits)
+            ?.toSorted((a, b) => b.point.y - a.point.y)?.at?.(0);
         return hit;
     }
 

@@ -129,6 +129,7 @@ export class Path extends TrackableObject { // points should be ordered clockwis
                 const pt2 = points[i+1];
                 if (Vector.isBetween(start, pt1, pt2))
                     return {
+                        point: start.clone(),
                         angle: pt1.angle(start),
                         coeff: pt1.distance(start) / pt1.distance(pt2),
                         index: i
@@ -136,6 +137,7 @@ export class Path extends TrackableObject { // points should be ordered clockwis
             }
             if (this.isClosed && Vector.isBetween(start, points.at(-1), points[0]))
                 return {
+                    point: start.clone(),
                     angle: points.at(-1).angle(start),
                     coeff: points.at(-1).distance(start) / points.at(-1).distance(points[0]),
                     index: points.length - 1
@@ -245,6 +247,38 @@ export class Path extends TrackableObject { // points should be ordered clockwis
         }
         return intersections;
     }
+    *clip (bbox, reference = false) {
+        if (!bbox?.isBoundingBox) throw new Error(`[${this.constructor.name}]: Cannot clip from type ${typeof bbox}`);
+        const pts = this.points;
+        if (!pts.length) return;
+        let segment = bbox.isIntersecting(pts[0])
+            ? new Path(reference ? pts[0] : pts[0].clone())
+            : undefined;
+        const length = false ? pts.length : pts.length - 1;
+        for (let i = 0; i < length; i++) {
+            const start = pts[i];
+            const end = pts[(i + 1) % pts.length];
+            const endsInside = bbox.isIntersecting(end);
+            if (bbox.isIntersecting(start) !== endsInside) {
+                const cut = bbox.getIntersection(start, end);
+                if (cut)
+                    if (segment) {
+                        segment.push(cut);
+                        if (segment.length) yield segment;
+                        segment = undefined;
+                    } else segment = new Path(cut);
+            }
+            if (endsInside) {
+                if (!segment) segment = new Path();
+                segment.push(reference ? end : end.clone());
+            }
+        }
+        if (segment) {
+            if (segment.points.length === pts.length)
+                segment.isClosed = this.isClosed;
+            yield segment;
+        }
+    }
 
     get isPath () { return true }
     get isClosed () { return this.#isClosed }
@@ -353,10 +387,19 @@ export class BoundingBox {
         bbox.max.y = hitbox.edges.reduce((acc, {y: curr}) => Math.max(acc, curr), hitbox.edges.at(0).y);
         return bbox;
     }
+    static fromPath (path) {
+        const bbox = new BoundingBox(path.at(0), path.at(0));
+        return bbox.add(path, true);
+    }
     // when accumulate is set to a BoundingBox, all bboxes will be merged into the accumulator
     static merge (bboxes, accumulator = undefined) {
         const bbox = accumulator?.isBoundingBox ? accumulator : new BoundingBox();
         return bbox.merge(bboxes, true);
+    }
+    // when accumulate is set to a BoundingBox, all bboxes will be overlapped into the accumulator
+    static overlap (bboxes, accumulator = undefined) {
+        const bbox = accumulator?.isBoundingBox ? accumulator : bboxes[0]?.isBoundingBox ? bboxes.pop().clone() : new BoundingBox();
+        return bbox.overlap(bboxes, true);
     }
     #min = new Vector();
     #max = new Vector();
@@ -364,6 +407,7 @@ export class BoundingBox {
         if (min?.isVector) this.min.apply(min);
         if (max?.isVector) this.max.apply(max);
     }
+
     isIntersecting (value) {
         if (value?.isVector) {
             return !(value.x < this.min.x
@@ -377,21 +421,90 @@ export class BoundingBox {
                     || value.max.y < this.min.y
                     || value.min.y > this.max.y
                 );
+        } else if (value?.isPath) {
+            const pts = value.points;
+            if (!pts.length) return false;
+            if (pts.some((point) => this.isIntersecting(point))) return true;
+            const length = value.isClosed ? pts.length : pts.length - 1;
+            for (let i = 0; i < length; i++) {
+                const start = pts[i];
+                const end = pts[(i + 1) % pts.length];
+                if (this.getIntersection(start, end) !== null) return true; 
+            }
+            return false;
         } else return false; // dont throw errors on unknown types
     }
+    getIntersection (origin, target) {
+        const dx = target.x - origin.x;
+        const dy = target.y - origin.y;
+        let tMin = -Infinity, tMax = Infinity;
+        if (dx === 0) {
+            if (origin.x < this.min.x || origin.x > this.max.x) return null;
+        } else {
+            const t1 = (this.min.x - origin.x) / dx;
+            const t2 = (this.max.x - origin.x) / dx;
+            tMin = Math.max(tMin, Math.min(t1, t2));
+            tMax = Math.min(tMax, Math.max(t1, t2));
+        }
+        if (dy === 0) {
+            if (origin.y < this.min.y || origin.y > this.max.y) return null;
+        } else {
+            const t1 = (this.min.y - origin.y) / dy;
+            const t2 = (this.max.y - origin.y) / dy;
+            tMin = Math.max(tMin, Math.min(t1, t2));
+            tMax = Math.min(tMax, Math.max(t1, t2));
+        }
+        if (tMin > tMax) return null;
+        const t = this.isIntersecting(origin) ? tMax : tMin;
+        return (t >= 0 && t <= 1) ? new Vector(origin.x + dx * t, origin.y + dy * t) : null;
+    }
     merge (others = [], mutate = false) {
+        const list = Array.isArray(others) ? others : [others];
         const bbox = mutate ? this : this.clone();
-        for (const other of others)
+        for (const other of list)
             bbox.add(other, true);
         return bbox; // for chaining
     }
+    overlap (others = [], mutate = false) {
+        let minX = this.min.x;
+        let minY = this.min.y;
+        let maxX = this.max.x;
+        let maxY = this.max.y;
+        const list = Array.isArray(others) ? others : [others];
+        const bbox = mutate ? this : new BoundingBox();
+        if (mutate) {
+            this.min.apply(0, 0);
+            this.max.apply(0, 0);
+        }
+        for (const other of list) {
+            if (!other?.isBoundingBox) throw new Error(`[${this.constructor.name}]: Cannot calculate overlap with type ${typeof other}`);
+            minX = Math.max(minX, other.min.x);
+            minY = Math.max(minY, other.min.y);
+            maxX = Math.min(maxX, other.max.x);
+            maxY = Math.min(maxY, other.max.y);
+            if (minX > maxX || minY > maxY) return bbox;
+        }
+        bbox.min.apply(minX, minY);
+        bbox.max.apply(maxX, maxY);
+        return bbox;
+    }
     add (other, mutate = false) {
-        if (!other?.isBoundingBox) throw new Error(`[${this.constructor.name}]: Cannot combine BoundingBox and type ${typeof other}`);
         const bbox = mutate ? this : this.clone();
-        bbox.min.x = Math.min(bbox.min.x, bbox.max.x, other.min.x, other.max.x);
-        bbox.min.y = Math.min(bbox.min.y, bbox.max.y, other.min.y, other.max.y);
-        bbox.max.x = Math.max(bbox.min.x, bbox.max.x, other.min.x, other.max.x);
-        bbox.max.y = Math.max(bbox.min.y, bbox.max.y, other.min.y, other.max.y);
+        if (other?.isBoundingBox) {
+            bbox.min.x = Math.min(bbox.min.x, other.min.x);
+            bbox.min.y = Math.min(bbox.min.y, other.min.y);
+            bbox.max.x = Math.max(bbox.max.x, other.max.x);
+            bbox.max.y = Math.max(bbox.max.y, other.max.y);
+        } else if (other?.isPath) {
+            bbox.merge(other.points, true);
+        } else if (other?.isVector) {
+            bbox.min.x = Math.min(bbox.min.x, other.x);
+            bbox.min.y = Math.min(bbox.min.y, other.y);
+            bbox.max.x = Math.max(bbox.max.x, other.x);
+            bbox.max.y = Math.max(bbox.max.y, other.y);
+        } else {
+            throw new Error(`[${this.constructor.name}]: Cannot combine BoundingBox with type ${typeof other}`);
+        }
         return bbox;
     }
     apply (min = undefined, max = undefined) {
@@ -420,6 +533,13 @@ export class BoundingBox {
         if (close) cursor.closePath();
     }
     get isBoundingBox () { return true }
+    get isFlat () { return floatEqual(this.#min.x, this.#max.x) || floatEqual(this.#min.y, this.#max.y) }
+    get extent () { return Math.hypot(this.#max.x - this.#min.x, this.#max.y - this.#min.y) }
+    get extentSquared () {
+        const width = this.max.x - this.min.x;
+        const height = this.max.y - this.min.y;
+        return (width * width) + (height * height);
+    }
     get min () { return this.#min }
     get max () { return this.#max }
     get size () { return this.max.sub(this.min).abs(true) }
