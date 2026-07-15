@@ -42,13 +42,13 @@ export class Projectile extends TrackableObject {
             delta: new Vector()
         };
         const acceleration = this.acceleration.clone();
-        const v = velocity.mul(-this.drag * Math.sqrt(velocity.pow(2).sum()));
+        const vel = velocity.mul(-this.drag * Math.sqrt(velocity.pow(2).sum()));
         if (velocity.x < 0)
             acceleration.x *= -1;
         else if (floatEqual(velocity.x, 0)) 
             acceleration.x *= 0;
         const p = position.add(velocity.mul(seconds));
-        const v = velocity.add(acceleration.add(v).mul(seconds, true));
+        const v = velocity.add(acceleration.add(vel).mul(seconds, true));
         return {
             position: p,
             velocity: v,
