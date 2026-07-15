@@ -6,12 +6,17 @@ import * as Menu from "../../menu/menu.js"
 
 export class SelectionController extends PhaseController {
     // bound to ShapeButton (Tile)
-    static tileDrawFn (cursor) {
+    // controller should be the containing SelectionController
+    static tileDrawFn (controller, cursor) {
+        const { TILE_MINIMIZE_SCALE } = controller.constructor.SETTINGS;
+        const { TILE_HIDE_SCALE } = controller.constructor;
         const { userData } = this.shape.polygon;
         const { selection } = userData;
         const { fillColor, fontColor, borderColor, borderWidth, glowColor, glowRadius, glowResolution, name } = selection;
+        const totalScale = this.shape.globalTransformation.scale;
         const textOffset = selection.constructor.textOffsetScale.mul(this.shape.center).add(this.shape.center, true);
-        const hideText = this.shape.globalTransformation.scale.length < .5;
+        const hideText = totalScale.lengthSquared < TILE_MINIMIZE_SCALE;
+        if (totalScale.x <= TILE_HIDE_SCALE || totalScale.y <= TILE_HIDE_SCALE) return;
         cursor.save();
         cursor.fixed = true;
         this.shape.draw(cursor, true);
@@ -58,10 +63,12 @@ export class SelectionController extends PhaseController {
         MIN_TILE_SCALE: 0.0,
         MAX_TILE_SCALE: 1.5,
         TILE_SCALE_RATE: 3, // [!] must be an Integer
+        TILE_MINIMIZE_SCALE: 0.5**2, // (squared) threshold below which tile details will be hidden, and become unclickable
         // limits for inital tile size relative to viewport dimensions
         MIN_TILE_SIZE: 75,
         MAX_TILE_SIZE: 300,
     };
+    static TILE_HIDE_SCALE = 0.0001; // scale to treat as zero, or hidden. Acts as a sentinal value
     static tileFillFilter = "blur(10px)"; // [!] setting this over 30px causes massive framerate drop
     static backgroundFilter = "blur(20px) brightness(30%)";
     static minSelectionSize = 150;
@@ -199,6 +206,9 @@ export class SelectionController extends PhaseController {
         userData.distanceCoeff = 0;
         userData.lastScale = 1;
         btn.onclick = (point, delta) => {
+            if (btn.shape.globalTransformation.scale.lengthSquared < this.constructor.SETTINGS.TILE_MINIMIZE_SCALE) {
+                return;
+            }
             this.store.SELECTED = userData.selection.name;
             this.state = this.constructor.STATES.Raise;
             this.Audio.Layer.tile.stop();
@@ -209,12 +219,11 @@ export class SelectionController extends PhaseController {
         btn.fontColor.apply(selection.fontColor);
         btn.fillColor.apply(selection.fillColor);
         btn.strokeColor.apply(selection.borderColor);
-        btn.draw = this.constructor.tileDrawFn.bind(btn);
+        btn.draw = this.constructor.tileDrawFn.bind(btn, this);
         return btn;
     }
-    #wrapTilePosition (tile) {
+    #wrapTilePosition (tile, screenCenter) {
         const { tileTotalSpace, tileHalfSpace, tileRowSkew } = this.store;
-        const screenCenter = this.Global.Display.center;
         const relativeOffset = tile.shape.center.sub(screenCenter);
         const wrapOffset = new Vector(0, 0);
         // wrap Y first, add skew to X if wrapped
@@ -253,25 +262,29 @@ export class SelectionController extends PhaseController {
         if (items.length === 0) return;
         const { lastDrawnPosition, lastActivePosition, tileSpace, tileRings, tileTotalSpace, tileHalfSpace, tileRowSkew, selectionShape, focalPoint } = this.store;
         const { MAX_TILE_SCALE, MIN_TILE_SCALE, TILE_SCALE_RATE } = this.constructor.SETTINGS;
+        const { TILE_HIDE_SCALE } = this.constructor;
         const sizeSfxThreshold = selectionShape.getBoundingBox().extent * .8;
+        const screenCenter = this.Global.Display.center;
         const screenBbox = this.Global.Display.getBoundingBox();
         const offset = this.flags.INVERT_TRACKING
             ? lastDrawnPosition.sub(lastActivePosition)
             : lastActivePosition.sub(lastDrawnPosition);
         for (const tile of items) {
             const lastSize = tile.shape.getBoundingBox().extent;
-            tile.shape.transformation.scale.apply(1 / tile.shape.polygon.userData.lastScale);            
+            const { lastScale } = tile.shape.polygon.userData;
+            tile.shape.transformation.scale.apply(1 / (floatEqual(lastScale, 0) ? TILE_HIDE_SCALE : lastScale));          
             tile.shape.transformation.offset.apply(offset);
             tile.shape.applyTransformation();
-            this.#wrapTilePosition(tile);
+            this.#wrapTilePosition(tile, screenCenter);
             tile.shape.polygon.userData.distanceCoeff = ((this.Global.Display.size.min() - tile.shape.center.distance(focalPoint)) / this.Global.Display.size.min())
                     **TILE_SCALE_RATE;
             const scale = clamp(tile.shape.polygon.userData.distanceCoeff,
                 MIN_TILE_SCALE, MAX_TILE_SCALE
             );
-            tile.shape.transformation.scale.apply(scale);
+            const newScale = floatEqual(scale, 0) ? TILE_HIDE_SCALE : scale;
+            tile.shape.transformation.scale.apply(newScale);
             tile.shape.applyTransformation();
-            tile.shape.polygon.userData.lastScale = scale;
+            tile.shape.polygon.userData.lastScale = newScale;
             // sfx
             const newSize = tile.shape.getBoundingBox().extent;
             if (newSize >= sizeSfxThreshold
