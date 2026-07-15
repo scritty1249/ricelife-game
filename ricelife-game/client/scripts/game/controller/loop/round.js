@@ -878,7 +878,7 @@ export class RoundController extends PhaseController {
             }
         }
         if (store.shot.map?.intersect && (store.prerender?.isWorkerJob && !store.prerender.fulfilled)) { // wait for loading to finish before updating game loop
-        } else { // do next tick / game update
+        } else { // game update
             // check if background needs to be updated
             const blastAnimationsFinished = (!Animations.blasts || Animations.blasts.ended);
             const { map, current: shot } = store.shot;
@@ -923,6 +923,11 @@ export class RoundController extends PhaseController {
                 }
             }
         }
+        // disable aimer if it covers enough of the screen
+        const aimerIsLarge = this.Global.Display.Viewbox.size.max() / 2 <= this.ActivePlayer.aimer.radius * 2;
+        let aimerIsCenter = this.ActivePlayer.aimer.isOver(this.Global.Display.Viewbox.toGlobal(this.Global.Display.getBoundingBox().center));
+        if (!this.ActivePlayer.aimer.enabled) aimerIsCenter = !aimerIsCenter;
+        this.ActivePlayer.aimer.enabled = !(aimerIsLarge && aimerIsCenter);
         this.handleInput();
     }
     close () {
