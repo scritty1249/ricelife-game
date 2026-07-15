@@ -133,13 +133,13 @@ export class Shot extends Projectile {
     // call just before updating position
     #updateTail () {
         // reset scaling
-        const minScale = 1 / this.tail.length;
+        const minScale = 1 / (this.tail.length || this.constructor.tailLength);
         for (let i = 0; i < this.tail.length; i++) {
             const tail = this.tail[i];
             const scale = minScale + (i / this.tail.length);
             tail.transformation.save();
             tail.transformation.reset();
-            tail.transformation.scale.apply(scale === 0 ? 0 : 1 / scale);
+            tail.transformation.scale.apply(floatEqual(scale, 0) ? 0 : 1 / scale);
             tail.applyTransformation();
             tail.transformation.restore();
         }
