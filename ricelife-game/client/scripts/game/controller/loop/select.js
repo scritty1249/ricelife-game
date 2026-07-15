@@ -64,7 +64,7 @@ export class SelectionController extends PhaseController {
     static backgroundFilter = "blur(20px) brightness(30%)";
     static minSelectionSize = 150;
     static maxSelectionSize = 300;
-    static tileSpacingScale = -.2;
+    static tileSpacingScale = -.1;
     #Interface;
     #ResizeObserver;
     #loadPromise;
