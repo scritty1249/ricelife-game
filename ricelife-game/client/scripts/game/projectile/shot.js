@@ -36,15 +36,23 @@ export class Projectile extends TrackableObject {
     }
     projectPosition (seconds) {
         const { position, velocity } = this;
+        if (this.isStopped) return {
+            position: position.clone(),
+            velocity: velocity.clone(),
+            delta: new Vector()
+        };
         const acceleration = this.acceleration.clone();
         const v = velocity.mul(-this.drag * Math.sqrt(velocity.pow(2).sum()));
         if (velocity.x < 0)
             acceleration.x *= -1;
         else if (floatEqual(velocity.x, 0)) 
             acceleration.x *= 0;
+        const p = position.add(velocity.mul(seconds));
+        const v = velocity.add(acceleration.add(v).mul(seconds, true));
         return {
-            position: position.add(velocity.mul(seconds)),
-            velocity: velocity.add(acceleration.add(v).mul(seconds, true))
+            position: p,
+            velocity: v,
+            delta: p.sub(position)
         };
     }
     update (seconds = 1) {
@@ -55,17 +63,9 @@ export class Projectile extends TrackableObject {
     }
     // simulate update
     project (seconds = 1) {
-        if (this.isStopped) {
-            return {
-                position: this.position.clone(),
-                velocity: this.velocity.clone(),
-                time: this.time + seconds
-            };
-        } else {
-            const projection = this.projectPosition(seconds);
-            projection.time = this.time + seconds;
-            return projection;
-        }
+        const projection = this.projectPosition(seconds);
+        projection.time = this.time + seconds;
+        return projection;
     }
     reset () {
         this.current.position.apply(this.origin);
