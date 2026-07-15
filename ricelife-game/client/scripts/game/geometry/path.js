@@ -247,6 +247,14 @@ export class Path extends TrackableObject { // points should be ordered clockwis
         }
         return intersections;
     }
+    *pairs () {
+        const totalLength = this.length;
+        const length = this.isClosed ? totalLength : totalLength - 1;
+        for (let i = 0; i < length; i++) {
+            yield this.#points[i];
+            yield this.#points[(i + 1) % totalLength];
+        }
+    }
     *clip (bbox, reference = false) {
         if (!bbox?.isBoundingBox) throw new Error(`[${this.constructor.name}]: Cannot clip from type ${typeof bbox}`);
         const pts = this.points;

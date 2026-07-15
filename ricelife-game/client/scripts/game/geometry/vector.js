@@ -172,7 +172,6 @@ export class Vector {
     cross (vector) { // cross product
         if (!vector?.isVector) throw new Error(`[${this.constructor.name}] Error: Cannot calculate cross product of Vector and non-Vector type ${typeof vector}`);
         return (this.x * vector.y) - (vector.x * this.y);
-
     }
     angle (...vectors) { // returns average angle between all given vectors, from this vector (in radians)
         if (vectors.length === 0) { // return angle of self
