@@ -1,5 +1,5 @@
 import { Vector, Color } from "../geometry/geometry.js";
-import { LoadImage } from "../animate/animate.js";
+import { LoadImage } from "../asset/asset.js";
 
 // discord profile related data (icon, display name)
 // is responsible for drawing
