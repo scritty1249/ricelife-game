@@ -1,5 +1,5 @@
-import { LoadImage, Spritesheet } from "../../animate/animate.js";
-import { AudioContext } from "../../audio/audio.js";
+import { Spritesheet } from "../../animate/animate.js";
+import { LoadImage, AudioContext, LoadFont } from "../../asset/asset.js";
 import { FrameCounter, Interval, AppCanvas } from "../display.js";
 import { InputListener } from "../player.js";
 import { LoopController } from "./loop.js";

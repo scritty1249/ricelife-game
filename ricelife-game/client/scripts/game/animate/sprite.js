@@ -1,5 +1,5 @@
 import { Vector } from "../geometry/geometry.js";
-import { LoadImage } from "./image.js";
+import { LoadImage } from "../asset/image.js";
 
 export class Spritesheet extends LoadImage {
     #frameSize = new Vector();

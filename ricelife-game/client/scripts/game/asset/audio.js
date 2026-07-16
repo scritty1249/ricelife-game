@@ -85,7 +85,7 @@ export class AudioContext extends TrackableObject {
     get isSuspended () { return this.#context.state === "suspended" }
 }
 
-// functionally different from similar classes (LoadImage), these classes exist as a master key - only one should exist per source/file
+// these exist as a master key - only one should exist per source/file
 class AudioSource extends TrackableObject {
     #src;
     #buffer;

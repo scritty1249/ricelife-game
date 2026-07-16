@@ -1,5 +1,5 @@
 import { TrackableObject } from "../utils/utils.js";
-import { LoadImage } from "../animate/image.js";
+import { LoadImage } from "../asset/image.js";
 
 export class LoadPool extends TrackableObject {
     #pool = {};
