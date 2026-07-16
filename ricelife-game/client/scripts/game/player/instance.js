@@ -27,13 +27,21 @@ export class PlayerInstance extends TrackableObject  {
     #isMain = false; // is main player? flag for game loop
     #isLoaded = false;
     #onloadCallbacks = new Array(); // support addition of mulitple onload callbacks, ran in order they were set
+    #originalStyling = {};
     constructor (data, hitpoints = undefined) {
         super();
         this.#data = data;
         this.#hitpoints = hitpoints || new HitPoints(new HitPointTypes.Health(100), new HitPointTypes.Shield(20));
+        this.#saveStyling();
     }
 
-    #applyStyling () {
+    #saveStyling () {
+        const styling = this.#originalStyling;
+        styling.barOffset = this.hitpoints.barOffset.clone();
+    }
+
+    applyStyling () {
+        const original = this.#originalStyling;
         const { profile, model } = this.data;
         model.body.width = 50;
         model.barrel.scale.apply(model.body.scale);
@@ -46,7 +54,7 @@ export class PlayerInstance extends TrackableObject  {
         profile.avatarOffset.x = profile.nameOffset.x - (nameWidth / 2) - (25 / 2) - profileLinePadding;
         profile.avatarOffset.y = profile.nameOffset.y = model.body.height * 2.6;
 
-        this.hitpoints.barOffset.y += model.body.height * 2;
+        this.hitpoints.barOffset.y = original.barOffset.y + model.body.height * 2;
         this.hitpoints.barHeight = 8;
         this.hitpoints.barWidth = model.body.width;
     }
@@ -55,12 +63,12 @@ export class PlayerInstance extends TrackableObject  {
         if (this.#isLoaded) throw new Error(`[${this.constructor.name}]: Failed to load - already loaded`);
         this.#canvasCursor = cursor;
         await this.data.load(body, barrel);
-        this.#applyStyling();
+        this.applyStyling();
         this.#tank = new TankController(this.data.model.body, this.data.model.barrel, new Vector());
         this.#aimer = new AimController(this.tank, this.tank.width * 3);
         this.#mover = new MovementController(terrain, this.tank,  -(this.tank.offset.body.y / 10), this.tank.height / 2);
         this.#isLoaded = true;
-        for (const onload of this.onload) onload?.();
+        for (const onload of this.onload) onload?.(this);
         return this; // for chaining
     }
     drawProfile (cursor) {
@@ -92,9 +100,9 @@ export class PlayerInstance extends TrackableObject  {
     get hitpoints () { return this.#hitpoints }
     get onload () { return this.#onloadCallbacks }
     set onload (callbackFn) {
-        const callback = callbackFn?.bind(this);
-        this.#onloadCallbacks.push(callback);
-        return callback;
+        this.#onloadCallbacks.push(callbackFn);
+        if (this.#isLoaded) callbackFn?.(this);
+        return callbackFn;
     }
     get isMain () { return this.#isMain }
     set isMain (value) { return (this.#isMain = Boolean(value)) }

@@ -144,6 +144,7 @@ export class RoundController extends PhaseController {
         for (const type of this.store.shot.types) {
             const selection = new ShotSelection(type);
             const typeConstructor = this.AmmoPool.get(type);
+            selection.fontFamily = this.Global.store.DEFAULT_FONT.family;
             selection.glowColor.apply(typeConstructor.glowColor);
             selection.glowColor.a = .8;
             selection.fontColor.apply(typeConstructor.mainColor);
@@ -565,13 +566,12 @@ export class RoundController extends PhaseController {
         const { Global } = this;
         const { SETTINGS } = this.constructor;
         const { planeSize } = this.Global.Display;
-        const Terrain = generateTerrain(
-            generateWave(
+        const wave = generateWave(
                 planeSize.x,
                 Global.constructor.SETTINGS.RESOLUTION,
                 (v) => v.y += planeSize.y * .35, .03, 40, 1.3, 15
-            ), planeSize
-        );
+            );
+        const Terrain = generateTerrain(wave, planeSize);
         await this.AssetPool.onload;
         const waitPromises = [];
         for (const Player of this.Players) {
@@ -579,6 +579,7 @@ export class RoundController extends PhaseController {
                 ? "self" : Player.data.team === this.ActivePlayer.data.team
                     ? "ally" : "enemy";
             const modelType = `${Player.data.model.type}/${team}/`;
+            Player.data.profile.fontFamily = this.Global.store.DEFAULT_FONT.family; // set family before loading so we don't need to reapply styling
             waitPromises.push(Player.load(Terrain, this.AssetPool.get(modelType + "body"), this.AssetPool.get(modelType + "barrel"), Global.Display.cursor));
         }
         this.#Terrain = Terrain;

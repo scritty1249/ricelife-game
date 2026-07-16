@@ -77,6 +77,7 @@ export class SelectionController extends PhaseController {
     #Interface;
     #ResizeObserver;
     #loadPromise;
+    #tileFontFamily;
     constructor (mainController, shotSelections = []) {
         super(mainController);
         this.#init(shotSelections);
@@ -87,7 +88,8 @@ export class SelectionController extends PhaseController {
             .then(() => this.#setupTiles())
             .then(() => this.#resetTilePositions())
             .then(() => this.#updateTiles())
-            .then(() => this.state = this.constructor.STATES.Ready);
+            .then(() => this.state = this.constructor.STATES.Ready)
+            .then(() => this);
     }
     #init (selections) {
         this.store.SELECTED = undefined;
@@ -111,6 +113,7 @@ export class SelectionController extends PhaseController {
         this.Audio.Layer.selected = this.Audio.Player.Layer();
         this.Audio.Layer.selected.volume = .4;
         this.Audio.Player.volume = .5;
+        this.#tileFontFamily = this.Global.store.DEFAULT_FONT.family;
     }
     #load () {
         for (const assetKey of ["tilePing", "tileSelect"]) {
@@ -216,6 +219,7 @@ export class SelectionController extends PhaseController {
         }
         // styling
         btn.text = selection.name;
+        btn.fontFamily = selection.fontFamily;
         btn.fontColor.apply(selection.fontColor);
         btn.fillColor.apply(selection.fillColor);
         btn.strokeColor.apply(selection.borderColor);

@@ -5,7 +5,8 @@ export class LoadFont extends TrackableObject {
     #ready = false;
     #fontFace;
     constructor (family, src) {
-        this.#fontFace = new FontFace(family, source);
+        super();
+        this.#fontFace = new FontFace(family, `url(${src})`);
         this.#fontFace.load()
             .then(() => document.fonts.add(this.#fontFace))
             .then(() => this.#ready = true);

@@ -18,6 +18,7 @@ export class MainController extends LoopController {
     static #AssetType = {
         Sprite: (...args) => new Spritesheet(...args),
         Image: (...args) => new LoadImage(...args),
+        Font: (...args) => new LoadFont(...args),
         Audio: undefined
     };
     static #loadAudioContext () {
@@ -33,12 +34,15 @@ export class MainController extends LoopController {
     #FrameCounter;
     #FrameInterval;
     #TickInterval;
+    #loadPromise = Promise.withResolvers();
     constructor () {
         // load a context if one doesn't exist already
         if (!MainController.#AudioCtx) MainController.#loadAudioContext();
         super(MainController.#AudioCtx);
         this.#init();
-        this.AssetPool.onload.then(() => this.state = this.constructor.STATES.Ready);
+        this.#load()
+            .then(() => this.state = this.constructor.STATES.Ready)
+            .then(() => this.#loadPromise.resolve(this));
     }
 
     #init () {
@@ -64,6 +68,9 @@ export class MainController extends LoopController {
         AssetTable.bouncer = [AssetType.Audio, undefined, "bouncer", "./assets/sfx/bouncer-collision.wav"];
         AssetTable.tilePing = [AssetType.Audio, undefined, "tilePing", "./assets/sfx/tile-ping.mp3"];
         AssetTable.tileSelect = [AssetType.Audio, undefined, "tileSelect", "./assets/sfx/tile-select.mp3"];
+        // Fonts
+        AssetTable.defaultFont = [AssetType.Font, undefined, "Michroma", "./assets/interface/fonts/Michroma/Michroma-Regular.ttf"];
+        AssetTable.altFont = [AssetType.Font, undefined, "Lexend", "./assets/interface/fonts/Lexend/Lexend-VariableFont_wght.ttf"];
         // Spritesheets
         AssetTable.muzzleFlash = [AssetType.Sprite,
             function (vfx) { vfx.origin.apply(vfx.rawSize.x / 2, vfx.rawSize.y) },
@@ -78,6 +85,13 @@ export class MainController extends LoopController {
             },
             "./assets/blast/explosion_ss_512x512.png", 512, 512, 25];
     }
+    async #load () {
+        const defualtFontKey = "altFont";
+        this.loadAsset("defaultFont");
+        this.loadAsset("altFont");
+        await this.AssetPool.onload;
+        this.store.DEFAULT_FONT = this.AssetPool.get(defualtFontKey);
+    }
     #drawFramerate () {
         const { cursor, size } = this.Display;
         cursor.save();
@@ -85,13 +99,14 @@ export class MainController extends LoopController {
         cursor.textBaseline = "top";
         cursor.textAlign = "end";
         cursor.fillStyle = "red";
-        cursor.font = "24px serif";
+        cursor.font = `24px ${this.store.DEFAULT_FONT.family}`;
         cursor.fillText(this.FrameCounter.fps, size.x - 10, size.y - 10);
         cursor.restore();
     }
 
     // expects PhaseController
     async transferLoop (newLoop) {
+        const prevState = this.state;
         this.state = this.constructor.STATES.Busy;
         const { activeLoop } = this;
         if (activeLoop) {
@@ -102,7 +117,7 @@ export class MainController extends LoopController {
         this.#Loops[newLoop.id] = newLoop;
         this.#active = newLoop.id;
         await newLoop.onload;
-        this.state = this.constructor.STATES.Ready;
+        this.state = prevState;
     }
     async loop () {
         this.tick();
@@ -135,6 +150,7 @@ export class MainController extends LoopController {
     get FrameInterval () { return this.#FrameInterval }
     get TickInterval () { return this.#TickInterval }
     get activeLoop () { return this.#Loops[this.#active] }
+    get onload () { return this.#loadPromise.promise }
 }
 
 export class PhaseController extends LoopController {
