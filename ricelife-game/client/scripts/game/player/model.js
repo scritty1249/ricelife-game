@@ -1,4 +1,4 @@
-import { LoadImage } from "../animate/animate.js";
+import { LoadImage } from "../asset/asset.js";
 
 // wraps player model (image) data. Is not responsible for drawing model
 export class PlayerModel {
