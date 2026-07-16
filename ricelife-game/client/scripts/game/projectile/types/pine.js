@@ -34,8 +34,6 @@ export default class Pine extends Default {
             const reflection = shot.current.velocity.apply(this.userData.bounceVelocity).clone();
             shot.drag = this.userData.bounceDrag;
             shot.acceleration.apply(this.userData.bounceAcceleration);
-            const offset = shot.shape.getBoundingBox().extent / 4; // if too small, projectile will collide with same surface on exiting side instantly. if too large, projectile will go flying for no reason
-            shot.applyPosition(shot.position.add(reflection.normalize().mul(offset, true)));
         } else {
             shot.current.velocity.apply(0, 0);
         }

@@ -13,9 +13,8 @@ export default class Bouncer extends Default {
             && !(collisionFlags & Properties.STOP)
             && this.userData.bounces < this.userData.maxBounces
         ) {
-            const { reflect, displace } = Behavior.computeBounce.call(this, normal);
+            const { reflect } = Behavior.computeBounce.call(this, normal);
             // update projectile
-            shot.applyPosition(position.add(displace));
             velocity.apply(reflect.mul(this.userData.bounceVelocityMultiplier));
             this.userData.bounces++;
             // callback

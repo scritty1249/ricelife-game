@@ -1,38 +1,62 @@
-import { TrackableObject } from "../utils/utils.js";
+import { TrackableObject, floatEqual } from "../utils/utils.js";
 import { Vector, Path, Ray, BoundingBox } from "../geometry/geometry.js";
-import { Properties } from "./collision/collision.js";
+import { Properties, getSegmentCollision } from "./collision/collision.js";
 
 // Shot that supports multiple stages. Only supports ONE shot at a time
 export class ShotStage extends TrackableObject {
-    static getCollision (position, projected, segmentStart, segmentEnd, radius, counterClockwise = false, movementVector = undefined) {
-        const move = movementVector?.isVector ? movementVector : projected.sub(position); // [!] optional parameter for optimization        
-        const normal = segmentStart.normal(segmentEnd, counterClockwise);
-        const diff = segmentStart.sub(position);
-        const side = Math.sign(diff.dot(normal));
-        const offset = normal.mul(-side * radius);
-        if (counterClockwise) offset.mul(-1);
-        const pStart = segmentStart.add(offset);
-        const pEnd = segmentEnd.add(offset);
-        const pDiff = pEnd.sub(pStart);
-        const denom = move.cross(pDiff);
-        if (Math.abs(denom) < 0.0001) return null; // path and segment are parallel
-        const startDiff = pStart.sub(position);
-        const moveCoeff = startDiff.cross(pDiff) / denom;
-        const segmentCoeff = startDiff.cross(move) / denom;
-        if (moveCoeff >= 0
-            && moveCoeff <= 1
-            && segmentCoeff >= 0
-            && segmentCoeff <= 1
-        ) {
-            return {
-                projectedCoeff: moveCoeff,
-                segmentCoeff: segmentCoeff,
-                position: position.add(move.mul(moveCoeff)),
-                point: segmentStart.add(diff.mul(side)),
-                normal: normal.mul(side)
-            };
+    static getCircleCollision (position, projection, colliders = []) {
+        if (!colliders?.length) return;
+        if (!projection?.shape?.isCircle) throw new Error(`Invalid projection - shape must be a Circle`);
+        else if (projection.shape.isEllipse) throw new Error(`Invalid projection - shape cannot be elliptical`);
+        if (colliders.some(({isPolygon}) => !isPolygon)) throw new Error(`Invalid collider(s) - Polygon expected`);
+
+        const radius = projection.shape.radii.max();
+        const angles = [];
+        let collision;
+        let flags = 0;
+        let minCoeff = 1;
+        for (let cidx = 0; cidx < colliders.length; cidx++) {
+            const collider = colliders[cidx];
+            if (!collider.getBoundingBox().isIntersecting(projection.traversalArea)) continue;
+            // getting collision flags
+            const collisionFlags = collider.userData?.collision || 0;
+            const allowEnter = collisionFlags & Properties.ENTER;
+            const allowExit = collisionFlags & Properties.EXIT;
+
+            const edges = collider.edges;
+            for (let eidx = 0; eidx < edges.length; eidx++) {
+                const edge = edges[eidx];
+                const clockwise = edge.isClockwise;
+                const iter = edge.pairs();
+                for (let next = iter.next(); !next.done; next = iter.next()) {
+                    const start = next.value;
+                    const end = iter.next().value;
+                    const hit = getSegmentCollision(
+                        position, projection.position,
+                        start, end,
+                        radius, clockwise, projection.delta
+                    );
+                    if (hit && ((hit.entering && allowEnter) || (!hit.entering && allowExit))) {
+                        if (hit.projectedCoeff <= minCoeff) {
+                            minCoeff = hit.projectedCoeff;
+                            collision = hit;
+                            flags = collisionFlags;
+                            angles.splice(0, angles.length, hit.normal);
+                        } else if (floatEqual(hit.projectedCoeff, minCoeff)) {
+                            angles.push(hit.normal);
+                        }
+                    }
+                }
+            }
         }
-        return null;
+        if (collision) {
+            return {
+                position: collision.position,
+                point: collision.point,
+                normal: Vector.average(angles).normalize(true),
+                flags: flags 
+            };
+        }        
     }
     #shot;
     #blasts;
@@ -44,7 +68,7 @@ export class ShotStage extends TrackableObject {
     #colliders; // list of polygons that can be collided with
     #isFinished = false; // trip this flag once projectile stops moving, never set again to prevent overlapping stages
     #isStarted = false; // trip this flag once we start updating projectile, never set again to prevent tracking errors
-    #pushBlasts = false; // push new blasts to collider polygon holes
+    #applyDestruction = false; // push new blasts to collider polygon holes
     #blastTimeOffset = 0; // offset time when creating new Blasts
     #finishedPromise = Promise.withResolvers();
     #legend; // when set, ShotStage will skip all collision checks and follow based on this
@@ -67,145 +91,23 @@ export class ShotStage extends TrackableObject {
         this.#sfxCallback = sfxCallbackReference; // by reference
     }
 
-    // Approximate if any collisions lie between current state and given projection
-    #isCollisionAhead (projection) { // [!] poorly named
-        const { shot, colliders } = this;
-        const bbox = shot.shape.getBoundingBox()
-            .add(projection.shape.getBoundingBox());
-        // [!] does not account for blasts
-        return colliders.some((collider) => bbox.isIntersecting(collider.getBoundingBox()));
-    }
-    // [!] testing optimized projectUpdate
-    #project (seconds = 1) {
+    #projectToCollision (seconds = 1) {
         const { shot, blasts, colliders } = this;
         const projection = shot.project(seconds);
-        const { position } = shot;
-        const radius = projection.shape.radii.max();
-        if (this.#isCollisionAhead(projection)) {
-            let collision;
-            let flags = 0;
-            let minCoeff = 1;
-            for (let cidx = 0; cidx < colliders.length; cidx++) {
-                const collider = colliders[cidx];
-                const collisionFlags = collider.userData?.collision || 0;
-                const edges = collider.edges;
-                for (let eidx = 0; eidx < edges.length; eidx++) {
-                    const edge = edges[eidx];
-                    const iter = edge.pairs();
-                    for (let next = iter.next(); !next.done; next = iter.next()) {
-                        const start = next.value;
-                        const end = iter.next().value;
-                        const hit = ShotStage.getCollision(
-                            position, projection.position,
-                            start, end,
-                            radius, false, projection.delta
-                        );
-                        if (hit && hit.projectedCoeff < minCoeff) {
-                            minCoeff = hit.projectedCoeff;
-                            collision = hit;
-                            flags = collisionFlags
-                        }
-                    }
-                }
-            }
-            if (collision) {
-                shot.applyPosition(collision.position);
-                this.applyCollision(collision.point, collision.normal, flags);
-                return;
-            }
+        // Approximate if any colliders lie between current state and given projection
+        const nearbyColliders = colliders.filter((collider) =>
+            projection.traversalArea.isIntersecting(collider.getBoundingBox()));
+        let collision;
+        if (nearbyColliders.length) {
+            if (shot.shape.isCircle && !shot.shape.isEllipse)
+                collision = ShotStage.getCircleCollision(shot.position, projection, colliders);
+            else
+                throw new Error(`[${this.constructor.name}]: Cannot compute collision for non-Circle shot shape`);
         }
-        shot.update(seconds);
-    }
-    // project, update or set position at collision
-    // [!] assumes the Shot shape is a non-elliptical circle
-    #projectUpdate (seconds, resolution = 1) {
-        const { shot, blasts, colliders } = this;
-        const projection = shot.project(seconds);
-        if (this.#isCollisionAhead(projection)) {
-            // collect "front facing" coordinates
-            const diff = projection.velocity.sub(shot.current.velocity);
-            const distance = shot.position.distance(projection.position);
-            const traversalBbox = shot.shape.getBoundingBox().add(projection.shape.getBoundingBox(), false);
-            const direction = diff.normalize();
-            const origin = shot.shape.origin;
-            const points = shot.shape.Polygon(resolution).path.points;
-            const angles = [];
-            const rays = [];
-            const bbox = shot.shape.getBoundingBox();
-            let hitPoint = undefined;
-            let hitDistance = undefined;
-            let clsnFlg = undefined; // [!] confusing and poor naming
-            for (const point of points) {
-                const dir = point.sub(origin).normalize(true);
-                // only draw ray for front-facing points on the Shape
-                if (direction.dot(dir) >= 0)
-                    rays.push(new Ray(point.clone(), direction.clone(), distance));
-            }
-            for (const collider of colliders) {
-                // collision flags
-                const collisionFlags = collider.userData?.collision || 0;
-                const allowDestruction = collisionFlags & Properties.DESTRUCTION;
-                const allowEnter = collisionFlags & Properties.ENTER;
-                const allowExit = collisionFlags & Properties.EXIT;
-                const allowEnterOnly = (collisionFlags & Properties.ANY) === Properties.ENTER;
-                const allowExitOnly = (collisionFlags & Properties.ANY) === Properties.EXIT;
-                // [!] temporary fix- assign blasts to polygon holes for raycasting, then remove after
-                const colliderHoles = collider.holes;
-                const originalHoleCount = colliderHoles.length;
-                if (!this.pushBlasts && allowDestruction && blasts.length) {
-                    for (const blast of blasts)
-                        // push all existing blasts instead of only the intersecting ones. This way we don't force collider polygon to recompute edges every time shot moves between updates
-                        colliderHoles.push(blast.shape.Polygon(resolution));
-                }
-                if (traversalBbox.isIntersecting(collider.getBoundingBox())) {
-                    // do raycasts
-                    let doRaycast = true;
-                    let pt = undefined;
-                    let dist = undefined;
-                    for (let rayIdx = 0; rayIdx < rays.length && doRaycast; rayIdx++) {
-                        const ray = rays[rayIdx]
-                        const hits = collider.raycast(ray);
-                        let angle = undefined;
-                        for (const hit of hits) {
-                            if ((allowEnterOnly && !hit.entering)
-                                || (allowExitOnly && hit.entering)
-                            ) {
-                                // don't save any hits or angles from this collider
-                                pt = undefined;
-                                dist = undefined;
-                                angle = undefined;
-                                doRaycast = false;
-                                break;
-                            }
-                            if (((allowExit && !hit.entering) || (allowEnter && hit.entering))
-                                && (hitDistance === undefined || hit.distance < hitDistance)
-                            ) {
-                                pt = hit.point;
-                                dist = hit.distance;
-                                angle = hit.angle;
-                                clsnFlg = collisionFlags;
-                            }
-                        }
-                        if (angle !== undefined) angles.push(Vector.fromAngle(angle));
-                    }
-                    if (pt !== undefined && (hitDistance === undefined || dist < hitDistance)) {
-                        hitPoint = pt;
-                        hitDistance = dist;
-                    }
-                }
-                if (!this.pushBlasts && allowDestruction && blasts.length) {
-                    // remove blasts / temp holes
-                    colliderHoles.splice(originalHoleCount, blasts.length);
-                }
-            }
-            if (hitDistance !== undefined) {
-                const target = direction
-                    .mul(hitDistance, true)
-                    .add(origin, true);
-                shot.applyPosition(target);
-                this.applyCollision(hitPoint, Vector.average(angles).normalize(true), clsnFlg);
-                return;
-            }
+        if (collision) {
+            shot.applyPosition(collision.position);
+            this.applyCollision(collision.point, collision.normal, collision.flags);
+            return;
         }
         shot.update(seconds);
     }
@@ -252,8 +154,7 @@ export class ShotStage extends TrackableObject {
                 const { shot } = this;
                 this.time += seconds;
                 if (!this.#isFinished) {
-                    if (this.shot.shape.isCircle) this.#project(seconds);
-                    else this.#projectUpdate(seconds, 5);
+                    this.#projectToCollision(seconds);
                     this.updateCallback?.();
                     this.#trackUpdate();
                     if (!this.#isFinished && shot.isStopped)
@@ -309,7 +210,7 @@ export class ShotStage extends TrackableObject {
         hitbox.shape.applyTransformation();
         hitbox.delay += this.time + this.blastTimeOffset;
         this.blasts.push(hitbox);
-        if (this.pushBlasts) {
+        if (this.applyDestruction) {
             for (const collider of this.colliders) {
                 if ((collider.userData.collision & Properties.DESTRUCTION)
                     && collider.getBoundingBox().isIntersecting(hitbox.shape.getBoundingBox())
@@ -402,8 +303,8 @@ export class ShotStage extends TrackableObject {
     set launchCallback (callbackFn) { return (this.#launchCallback = callbackFn?.bind(this)) }
     get playLaunchCallback () { return this.#playLaunchCallback }
     set playLaunchCallback (bool) { return (this.#playLaunchCallback = bool) }
-    get pushBlasts () { return this.#pushBlasts }
-    set pushBlasts (value) { return (this.#pushBlasts = value) }
+    get applyDestruction () { return this.#applyDestruction }
+    set applyDestruction (value) { return (this.#applyDestruction = value) }
     get displayBoundingBox () { return this.#displayBoundingBox }
     set displayBoundingBox (bbox) { return (this.#displayBoundingBox = bbox) }
     get tracer () { return this.#tracer }
@@ -537,6 +438,6 @@ export class MultiShotStage extends TrackableObject {
             stage.displayBoundingBox = bbox;
         return (this.#displayBoundingBox = bbox);
     }
-    set pushBlasts (value) { this.stages.forEach((stage) => stage.pushBlasts = value); return value }
+    set applyDestruction (value) { this.stages.forEach((stage) => stage.applyDestruction = value); return value }
     get tracer () { return this.stages.map(({tracer}) => tracer) }
 }

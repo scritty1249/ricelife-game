@@ -206,6 +206,7 @@ export class Shot extends Projectile {
         const shape = this.shape.clone(true);
         shape.moveTo(projection.position);
         projection.shape = shape;
+        projection.traversalArea = this.shape.getBoundingBox().add(shape.getBoundingBox());
         return projection;
     }
     collision (polygons = []) {

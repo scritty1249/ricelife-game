@@ -68,7 +68,7 @@ export function generateTerrain (path, maxSize) {
         new Vector(0, 0)
     );
     const polygon = new Polygon(path)
-    polygon.userData.collision = Properties.DESTRUCTION | Properties.ANY | Properties.TERRAIN;
+    polygon.userData.collision = Properties.DESTRUCTION | Properties.ENTER | Properties.TERRAIN;
     return polygon;
 };
 

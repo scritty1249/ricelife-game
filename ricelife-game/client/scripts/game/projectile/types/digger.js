@@ -24,8 +24,7 @@ export default class Digger extends Default {
                 shot.applyPosition(shot.position.add(displace));
                 this.userData.bounces++;
             } else {
-                const { reflect, displace } = Behavior.computeBounce.call(this, normal);
-                shot.applyPosition(shot.position.add(displace));
+                const { reflect } = Behavior.computeBounce.call(this, normal);
                 shot.current.velocity.apply(reflect.mul(this.userData.ricochetVelocityScaleMultipler, true));
                 // if it's already created a blast (bounce was counted), scale velocity mulitplier more
                 if (this.userData.bounces) this.userData.ricochetVelocityScaleMultipler *= this.userData.ricochetVelocityScaleMultipler;

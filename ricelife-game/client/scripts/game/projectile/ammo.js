@@ -145,7 +145,7 @@ export class Ammo extends TrackableObject {
             stage.displayBoundingBox = bbox;
         return (this.#displayBoundingBox = bbox);
     }
-    set pushBlasts (value) { this.stages.forEach((stage) => stage.pushBlasts = value); return value }
+    set applyDestruction (value) { this.stages.forEach((stage) => stage.applyDestruction = value); return value }
 }
 
 export function traceAmmo (
@@ -157,7 +157,7 @@ export function traceAmmo (
 ) {
     const ammo = ammoType.encode(...params);
     for (const collisionPoly of collisions) ammo.colliders.push(collisionPoly);
-    ammo.pushBlasts = true;
+    ammo.applyDestruction = true;
     const terrainPoly = ammo.colliders.find(({userData}) => userData.collision & Properties.TERRAIN);
     const originalHoleCount = terrainPoly.holes.length;
     const playerPolys = ammo.colliders.filter(({userData}) => userData.collision & Properties.PLAYER);
@@ -166,6 +166,7 @@ export function traceAmmo (
     });
     const result = { finished: false, time: limit };
     let blastsCount;
+    terrainPoly.updateEdges(true);
     while (ammo.time < limit && !result.finished) {
         blastsCount = ammo.blasts.length;
         // run the trace
@@ -199,6 +200,7 @@ export function traceAmmo (
     }
     result.legend = ammo.getLegend(); // [!] no need to pass as transfer, we shouldn't have a large amount of collisions
     result.blasts = ammo.blasts.map((blast) => blast.decode());
-    if (terrainPoly.holes.length > originalHoleCount) terrainPoly.holes.splice(originalHoleCount, terrainPoly.holes.length - originalHoleCount);
+    if (terrainPoly.holes.length > originalHoleCount)
+        terrainPoly.holes.splice(originalHoleCount, terrainPoly.holes.length - originalHoleCount);
     return result;
 }

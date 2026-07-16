@@ -24,6 +24,7 @@ export class RoundController extends PhaseController {
         PAN_SENSITIVITY: 5,
         MOVE_SPEED: 1,
         PLAYER_SCREEN_TRACKING_SCALE: 30, // scale to multiply player tank size by to use as target viewbox size when tracking player
+        LOADING_PAUSE_THRESHOLD: 4 * 1000, // number of milliseconds before game waits for player input to play shot animation. If loading takes less time, shot animation is played automatically
         TERRAIN_EDGE: new Color("#00e8f0"),
         TERRAIN_FILL: new Color("#0098eb")
     };
@@ -633,17 +634,13 @@ export class RoundController extends PhaseController {
     }
     async launchShot () {
         const { ActivePlayer, AmmoPool, Global, store, flags } = this;
+        const { LOADING_PAUSE_THRESHOLD } = this.constructor.SETTINGS;
         this.setTurn(false);
-        // [!] start timeout to dispatch busy event here
-        // let wasSetBusy = false;
-        // store.dispatchBusyTimeout = setTimeout(() => {
-        //     wasSetBusy = true;
-        //     config.dispatchEvent.busy();
-        // }, config.busyThreshold);
         this.animate(true); // draw one last frame so the game doesn't look like it just froze
         const shot = this.createShot();
+        const totalStart = performance.now();
         let waitStart = performance.now();
-        console.info(`[${this.constructor.name}]: Tracing shot`);
+        console.info(`[${this.constructor.name}]: Tracing shot - ${store.shot.selected}`);
         const map = await this.Threaded.traceProjectile(
             this.getShotColliders(),
             shot,
@@ -653,23 +650,17 @@ export class RoundController extends PhaseController {
         if (this.Global.flags.DEBUG)
             console.info(`[${this.constructor.name}]: Shot trace finished in ${(performance.now() - waitStart) / 1000} seconds`);
         waitStart = performance.now();
-        console.info(`[${this.constructor.name}]: Loading shot collision map`);
+        console.info(`[${this.constructor.name}]: Rendering shot collisions`);
         if (map.blasts.length)
             this.#preloadMap(map);
         await store.prerender;
         if (this.Global.flags.DEBUG)
             console.info(`[${this.constructor.name}]: Collision map loaded in ${(performance.now() - waitStart) / 1000} seconds`);
         console.info(`[${this.constructor.name}]: Shot playback ready`);
-        // if (wasSetBusy) {
-        //     config.dispatchEvent.ready();
-        //     store.input.pointer.onNextClick()
-        //         .then(() => setProjectile(store, projectile, landing));
-        // } else {
-        //     clearTimeout(store.dispatchBusyTimeout);
-        //     setProjectile(store, projectile, landing);
-        // }
-        console.info(`[${this.constructor.name}]: Awaiting click event`);
-        await this.Global.Input.pointer.onNextClick();
+        if (performance.now() - totalStart > LOADING_PAUSE_THRESHOLD) {
+            console.info(`[${this.constructor.name}]: Awaiting click event`);
+            await this.Global.Input.pointer.onNextClick();
+        }
         console.info(`[${this.constructor.name}]: Playing shot animation`);
         this.#setShot(shot, map);
         this.trackShot();
@@ -939,7 +930,7 @@ export class RoundController extends PhaseController {
         const aimerIsLarge = this.Global.Display.Viewbox.size.max() / 2 <= this.ActivePlayer.aimer.radius * 2;
         let aimerIsCenter = this.ActivePlayer.aimer.isOver(this.Global.Display.Viewbox.toGlobal(this.Global.Display.getBoundingBox().center));
         if (!this.ActivePlayer.aimer.enabled) aimerIsCenter = !aimerIsCenter;
-        this.ActivePlayer.aimer.enabled = !(aimerIsLarge && aimerIsCenter);
+        this.ActivePlayer.aimer.enabled = this.flags.isTurn && !(aimerIsLarge && aimerIsCenter);
         this.handleInput();
     }
     close () {
