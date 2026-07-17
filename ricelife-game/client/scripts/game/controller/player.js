@@ -188,7 +188,7 @@ class PointerListener  {
         if (this.#holding.pollInterval) return;
         this.#holding.pollInterval = setInterval(() => {
             if (!this.isActive) return this.#clearHoldInterval();
-            this.#callbackFns.onactive?.(this.position); // [!] can cause lag
+            this.#callbackFns?.onactive?.(this.position); // [!] can cause lag
             if (this.activeDuration > this.#clickMs) {
                 if (this.#holding.stamp) {
                     if (!this.#dragging.started) {

@@ -1,5 +1,5 @@
 import { Vector, BoundingBox } from "../geometry/geometry.js";
-import { floatEqual, clamp } from "../utils/utils.js";
+import { TrackableObject, floatEqual, clamp } from "../utils/utils.js";
 
 // counts framerate
 export class FrameCounter {
@@ -58,12 +58,14 @@ export class Interval {
 // virtual coordinate space viewport window
 class Viewbox extends BoundingBox {
     #canvas;
+    #planeSize = new Vector();
     #states = new Array();
-    constructor (appCanvas, size) {
+    constructor (appCanvas, planeSize, size) {
         super(undefined, new Vector(1, 1));
         if (!appCanvas?.isAppCanvas) throw new Error(`[${this.constructor.name}]: canvas must be of type AppCanvas, got ${typeof appCanvas}`);
         this.#canvas = appCanvas;
-        this.max.apply(appCanvas.planeSize);
+        this.max.apply(planeSize);
+        this.planeSize.apply(planeSize);
         if (size) this.applySize(size);
     }
 
@@ -77,7 +79,7 @@ class Viewbox extends BoundingBox {
     }
     getPosition () { return super.center }
     setPosition (point) {
-        const { planeSize } = this.#canvas;
+        const { planeSize } = this;
         const { size } = this;
         const targetMin = point.sub(size.div(2));
         const limit = planeSize.sub(size);
@@ -91,7 +93,7 @@ class Viewbox extends BoundingBox {
         return this.applyScale(scale);
     }
     applyScale (scale) {
-        const { planeSize } = this.#canvas;
+        const { planeSize } = this;
         const offset = this.center.clone();
         const min = this.min.sub(offset, false).mul(scale, true).add(offset, true);
         const max = this.max.sub(offset, false).mul(scale, true).add(offset, true);
@@ -128,8 +130,9 @@ class Viewbox extends BoundingBox {
 
     get isViewbox () { return true }
     get canvasScale () { return this.#canvas.size.div(this.size) }
+    get planeSize () { return this.#planeSize }
     get isOnEdge () {
-        const { planeSize } = this.#canvas;
+        const { planeSize } = this;
         return this.min.x <= 0
             || this.min.y <= 0
             || this.max.x >= planeSize.x
@@ -144,13 +147,14 @@ class Viewbox extends BoundingBox {
     }
 }
 
-export class ViewboxController {
+export class ViewboxController extends TrackableObject {
     static SNAP_THRESHOLD = 0.1**2;
     static SCALING_BEHAVIOR = {
         Grow: 0, // grow when necessary to match target size
         Shrink: 1, // shrink when necessary to match target size
         Always: 2, // always try to match target size
     };
+    #canvas;
     #states = new Array();
     #targets = new Set();
     #follows = new Set();
@@ -167,11 +171,17 @@ export class ViewboxController {
     #keepSize = true; // when set, will attempt to maintain the target size after reached. if unset, target size will clear itself once reached.
     scalingBehavior = ViewboxController.SCALING_BEHAVIOR.Grow;
     enabled = true;
-    constructor (viewbox) {
-        if (!viewbox?.isViewbox) throw new Error(`[${this.constructor.name}]: Invalid parameter - expected Viewbox, got ${typeof viewbox}`);
-        this.#Viewbox = viewbox;
+    constructor (appCanvas, planeSize, viewSize = undefined) {
+        super();
+        this.#canvas = appCanvas;
+        this.#Viewbox = new Viewbox(appCanvas, planeSize, viewSize);
+        appCanvas.addResizeListener(this.#onResize);
+        this.#onResize(appCanvas);
     }
 
+    #onResize = (appCanvas) => {
+        this.Viewbox.aspectRatio = appCanvas.aspectRatio;
+    }
     #computeBoundFn = (target) => {
         if (!this.#getBounds(target)) return;
         if (this.#setBoundBox) {
@@ -260,6 +270,9 @@ export class ViewboxController {
             )) ? tSize : vSize;
     }
 
+    close () {
+        this.#canvas.removeResizeListener(this.#onResize);
+    }
     save () {
         this.#states.push(this.getState());
     }
@@ -384,16 +397,12 @@ export class AppCanvas {
     #size = new Vector();
     #resizeCallbacks = new Set();
     #center = new Vector();
-    #planeSize = new Vector();
-    // planeSize is the true size of the global coorindates
-    constructor (canvas, window, planeSize) {
+    constructor (canvas, window) {
         this.canvas = canvas;
-        this.planeSize.apply(planeSize);
-        this.#Viewbox = new Viewbox(this);
         this.#window = window;
         this.window.addEventListener("resize", this.#onResize);
         this.#computeLayout();
-        this.#cursor = Canvas2DContextCursorFactory(this.canvas, this.planeSize);
+        this.#cursor = Canvas2DContextCursorFactory(this.canvas);
     }
 
     #onResize = () => {
@@ -410,7 +419,6 @@ export class AppCanvas {
         this.center.apply(this.size.div(2));
         this.#bbox.apply(undefined, this.size);
         this.#ratio = this.size.quot();
-        this.Viewbox.aspectRatio = this.aspectRatio;
     }
 
     getBoundingBox () {
@@ -424,11 +432,8 @@ export class AppCanvas {
     }
 
     get isAppCanvas () { return true }
-    get Viewbox () { return this.#Viewbox }
-    get planeSize () { return this.#planeSize }
     get cursor () { return this.#cursor }
     get size () { return this.#size }
-    get planeScale () { return this.size.div(this.planeSize) }
     get aspectRatio () { return this.#ratio }
     get center () { return this.#center }
     get window () { return this.#window }
@@ -440,12 +445,14 @@ export class AppCanvas {
 // Also accepts Vectors in place of x, y arguments for methods it overloads
 class Canvas2DContextCursor {
     #ctx;
-    #size;
+    #size = new Vector();
     #states = new Array();
-    fixed = false;
-    constructor(canvasContext, size) {
+    // when true, coordinates drawing will be interpreted relative to the canvas, instead of plane size
+    // if plane size is not defined or set to (0, 0), fixed is always true.
+    #isFixed = false;
+    constructor(canvasContext, planeSize = undefined) {
         this.#ctx = canvasContext;
-        this.#size = size; // bind reference
+        if (planeSize) this.#size.apply(planeSize); // should only be positive values anyways
     }
 
     normalizeY (y) {
@@ -454,14 +461,16 @@ class Canvas2DContextCursor {
             : this.#size.y - y;
     }
     save () {
-        const state = {fixed: this.fixed};
+        const state = {
+            fixed: this.#isFixed,
+        };
         this.#states.push(state);
         this.#ctx.save();
     }
     restore () { 
         const state = this.#states.pop();
         if (state) {
-            this.fixed = state.fixed;
+            this.#isFixed = state.fixed;
         }
         this.#ctx.restore();
     }
@@ -567,6 +576,10 @@ class Canvas2DContextCursor {
         this.#ctx.restore();
         return supported;
     }
+    get planeSize () { return this.#size }
+    get fixed () { return this.#isFixed || !this.#hasPlaneSize }
+    set fixed (bool) { return (this.#isFixed = bool) || !this.#hasPlaneSize }
+    get #hasPlaneSize () { return this.#size.lengthSquared > 0 }
 }
 
 // DefaultDict implementation
@@ -582,7 +595,7 @@ export function Canvas2DContextCursorFactory (canvas, size, viewboxFn = undefine
         },
         set (target, prop, value, receiver) {
             return (prop in target)
-                ? Reflect.set(target, prop, value, receiver)
+                ? Reflect.set(target, prop, value)
                 : Reflect.set(target.ctx, prop, value, target.ctx);
         }
     });

@@ -103,6 +103,18 @@ export class MainController extends LoopController {
         cursor.fillText(this.FrameCounter.fps, size.x - 10, size.y - 10);
         cursor.restore();
     }
+    #onLoopError (err) {
+        const { Crashed } = this.constructor.STATES;
+        const oldState = this.state;
+        this.state = Crashed;
+        const loopName = this.activeLoop
+            ? (this.activeLoop?.constructor?.name || typeof this.activeLoop) + " c"
+            : "C";
+        const currentState = this.activeLoop
+            ? this.activeLoop.state
+            : oldState;
+        console.error(`[${this.constructor.name}]: ${loopName}rashed${currentState === Crashed ? "" : " fatally"}\n\t`, err);
+    }
 
     // expects PhaseController
     async transferLoop (newLoop) {
@@ -120,7 +132,8 @@ export class MainController extends LoopController {
         this.state = prevState;
     }
     async loop () {
-        this.tick();
+        this.tick()
+            .catch((err) => this.#onLoopError(err));
         super.loop();
     }
     async tick () {

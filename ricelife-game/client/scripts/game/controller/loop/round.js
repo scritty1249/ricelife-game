@@ -7,7 +7,7 @@ import { InputListener } from "../player.js";
 import { ViewboxController } from "../display.js";
 import { WorkerController } from "../workers.js";
 import { drawBlastAnimation } from "../../projectile/projectile.js";
-import { generateTerrain, generateWave } from "../../terrain/terrain.js";
+import { createTerrain, readTerrain } from "../../terrain/terrain.js";
 import { WorkerPool } from "../../workers/workers.js";
 import { Properties } from "../../projectile/projectile.js";
 import { floatEqual } from "../../utils/utils.js";
@@ -66,10 +66,11 @@ export class RoundController extends PhaseController {
         Main: new AnimationList()
     };
     #loadPromise;
-    constructor (mainController, lobbyData) {
+    constructor (mainController, lobbySrc, terrainSrc) {
         super(mainController);
-        this.#init(lobbyData);
-        this.#loadPromise = this.#load()
+        this.#init();
+        this.#loadPromise = this.#load(lobbySrc, terrainSrc)
+            .then(() => this.#setupLobby())
             .then(() => this.#setupSelectPhase())
             .then(() => this.#setupInterface())
             .then(() => {
@@ -80,11 +81,12 @@ export class RoundController extends PhaseController {
             .then(() => this.#setupSfx())
             .then(() => distributePlayers(this.Plane, this.Players)) // [!] temporary
             .then(() => this.setViewbox(this.ActivePlayer.tank.position))
+            .then(() => this.trackActivePlayer())
             .then(() => this.state = this.constructor.STATES.Ready)
             .catch((err) => console.error(`[${this.constructor.name}]:`, err));
     }
 
-    #init (lobby) {
+    #init () {
         this.flags.isTurn = true;
         this.flags.SELECTING = false;
         this.store.prerender = Promise.resolve();
@@ -109,35 +111,99 @@ export class RoundController extends PhaseController {
             blasts: [],
             collisions: [],
         };
-        this.#Camera = new ViewboxController(this.Global.Display.Viewbox);
-        this.#Plane = new BoundingBox(undefined, this.Global.constructor.COORDINATE_PLANE_SIZE);
-        this.#Interface = new Menu.Interface(this.Global.Display.Viewbox);
-        this.Global.Input.keyMap = this.constructor.INPUT_MAP;
-        this.Global.Input.pointerMap = this.Interface;
-        this.#Threaded = new WorkerController(new WorkerPool(new URL(`../../workers/web-worker.js`, import.meta.url), 4, 3));
-        this.#LobbyData = new LobbyJSON(lobby);
-        this.store.shot.types = this.LobbyData.ammoTypes();
-        this.store.shot.selected = this.store.shot.types.at(0);
-        this.AmmoPool.add(...this.store.shot.types);
-        this.#Players = Array.from(this.LobbyData.playerInstances());
-        this.#ActivePlayer = this.Players.at(0);
-
+        
         this.Audio.Layer.blast = this.Audio.Player.Layer();
         this.Audio.Layer.blast.volume = 0.55;
         this.Audio.Player.volume = 0.35;
 
-        const { AssetTable } = this;
+        this.#Interface = new Menu.Interface();
+        this.#setInputMap();
+
+        this.#Threaded = new WorkerController(new WorkerPool(new URL(`../../workers/web-worker.js`, import.meta.url), 4, 3));
+    }
+    async #load (lobbySrc, terrainSrc) {
+        const waitPromises = [];
+        
+        const interfacePromise = this.#loadInterface();
+        const terrainPromise = this.#loadTerrain(terrainSrc);
+        const lobbyPromise = this.#loadLobby(lobbySrc);
+
+        waitPromises.push(Promise.all([lobbyPromise, terrainPromise]).then(() => {
+            // load player instances
+            const playerPromises = [];
+            const fontFamily = this.Global.store.DEFAULT_FONT.family;
+            const { Terrain, AssetPool } = this;
+            const { cursor } = this.Global.Display;
+            for (const Player of this.Players) {
+                const team = Player.id === this.ActivePlayer.id
+                    ? "self" : Player.data.team === this.ActivePlayer.data.team
+                        ? "ally" : "enemy";
+                const modelType = `${Player.data.model.type}/${team}/`;
+                Player.data.profile.fontFamily = fontFamily; // set family before loading so we don't need to reapply styling
+                playerPromises.push(Player.load(Terrain, AssetPool.get(modelType + "body"), AssetPool.get(modelType + "barrel"), cursor));
+            }
+            return Promise.all(playerPromises);
+        }));
+        waitPromises.push(Promise.all([terrainPromise, this.Threaded.onload]).then(() => {
+            const { SETTINGS } = this.constructor;
+            // draw the first terrain background
+            return Promise.all([
+                this.Threaded.createCache(this.store.cacheKey.background, "CANVAS", ...this.Plane.size),
+                this.Threaded.insertCache(this.store.cacheKey.terrain, "POLY", this.Terrain.Float64(1))
+            ])
+            .then(() =>
+                this.Threaded.drawTerrain(this.store.cacheKey.background, this.store.cacheKey.terrain, SETTINGS.TERRAIN_FILL, SETTINGS.TERRAIN_EDGE))
+            .then(() =>
+                this.Threaded.updateCache(this.store.cacheKey.background));
+        }));
+        await Promise.all(waitPromises);
+    }
+    async #loadTerrain (terrainSrc) {
+        const iterator = await readTerrain(terrainSrc);
+        const { plane, terrain } = createTerrain(iterator);
+        this.#Plane = plane;
+        this.#Terrain = terrain;
+        this.Global.Display.cursor.planeSize.apply(plane.size);
+    }
+    async #loadLobby (lobbySrc) {
+        const waitPromises = [];
+        // load lobby data
+        const response = await fetch(lobbySrc);
+        const lobby = await response.json();
+        this.#LobbyData = new LobbyJSON(lobby);
+
+        // set instances
+        this.store.shot.types = this.LobbyData.ammoTypes();
+        this.store.shot.selected = this.store.shot.types.at(0);
+        this.#Players = Array.from(this.LobbyData.playerInstances());
+        this.#ActivePlayer = this.Players.at(0);
+
+        // load ammo assets
+        this.AmmoPool.add(...this.store.shot.types);
+        waitPromises.push(this.AmmoPool.onload);
+
         // load player models
+        const { AssetTable } = this;
+        const { AssetType } = this.Global.constructor;
         for (const modelType of this.LobbyData.modelTypes()) {
-            AssetTable[modelType + "/body"] = [this.Global.constructor.AssetType.Image, undefined, `./assets/tank/${modelType}/body.png`];
-            AssetTable[modelType + "/barrel"] = [this.Global.constructor.AssetType.Image, undefined, `./assets/tank/${modelType}/barrel.png`];
-            this.loadAsset(modelType + "/body");
-            this.loadAsset(modelType + "/barrel");
+            AssetTable[modelType + "/body"] = [AssetType.Image, undefined, `./assets/tank/${modelType}/body.png`];
+            AssetTable[modelType + "/barrel"] = [AssetType.Image, undefined, `./assets/tank/${modelType}/barrel.png`];
+            waitPromises.push(
+                this.loadAsset(modelType + "/body"),
+                this.loadAsset(modelType + "/barrel")
+            );
         }
-        // load interface assets
-        for (const assetKey of ["fireBtn", "selectBtn", "shotType", "leftBtn", "rightBtn", "blast", "muzzleFlash", "explosion", "fire", "bouncer"]) {
-            this.loadAsset(assetKey, ...this.Global.AssetTable[assetKey]);
-        }
+
+        await Promise.all(waitPromises);
+    }
+    async #loadInterface () {
+        const interfaceAssets = ["fireBtn", "selectBtn", "shotType", "leftBtn", "rightBtn", "blast", "muzzleFlash", "explosion", "fire", "bouncer"];
+        await Promise.all(interfaceAssets.map((assetKey) =>
+            this.loadAsset(assetKey, ...this.Global.AssetTable[assetKey])));
+    }
+    #setupLobby () {
+        this.#Camera = new ViewboxController(this.Global.Display, this.Plane.size);
+        this.Interface.Viewbox = this.Camera.Viewbox;
     }
     #setupSelectPhase () {
         const selections = [];
@@ -153,6 +219,97 @@ export class RoundController extends PhaseController {
         }
         this.#SelectionPhase = new SelectionController(this.Global, selections);
         return this.SelectionPhase.onload;
+    }
+    #setupInterface () {
+        const { AssetPool, Interface, ActivePlayer, Global, store, flags } = this;
+        const { MOVE_SPEED } = this.constructor.SETTINGS;
+        const fireImg = AssetPool.get("fireBtn");
+        const selectImg = AssetPool.get("selectBtn");
+        const leftImg = AssetPool.get("leftBtn");
+        const rightImg = AssetPool.get("rightBtn");
+        const shotImg = AssetPool.get("shotType");
+
+        const fireBtn = new Menu.IconButton(fireImg);
+        const selectBtn = new Menu.IconButton(selectImg);
+        const leftBtn = new Menu.IconButton(leftImg);
+        const rightBtn = new Menu.IconButton(rightImg);
+        const shotIco = new Menu.IconButton(shotImg); // don't make clickable
+        const underButton = this.Global.Display.getBoundingBox().clone(); // don't make drawable
+
+        this.store.HUD = {
+            fire: fireBtn,
+            select: selectBtn,
+            left: leftBtn,
+            right: rightBtn,
+            shot: shotIco,
+            under: underButton
+        };
+
+        shotIco.fontSize = 16;
+
+        // setting up button callbacks
+        rightBtn.onclick = rightBtn.onhold = () => ActivePlayer.mover.move(MOVE_SPEED);
+        leftBtn.onclick = leftBtn.onhold = () => ActivePlayer.mover.move(-MOVE_SPEED);
+        selectBtn.onclick = () => this.openSelect();
+        fireBtn.onclick = () => {
+            if (store.shot.current === undefined)
+                this.launchShot();
+        }
+        underButton.id = true;
+        underButton.isOver = underButton.isIntersecting;
+        underButton.keepDragFocus = true;
+        const panSensitivity = this.constructor.SETTINGS.PAN_SENSITIVITY / 5;
+        underButton.ondrag = (point, origin, delta) => {
+            this.untrackActivePlayer();
+            this.panViewbox(delta.mul(-panSensitivity).div(this.Camera.Viewbox.canvasScale, true));
+        }
+        underButton.onrelease = (point, delta) => {
+        }
+        underButton.onscroll = (point, delta) => {
+            const { Viewbox } = this.Camera;
+            if (this.Global.Input.pointer.pointerCount < 2 && !floatEqual(delta.x, 0)) {
+                this.untrackActivePlayer();
+                this.panViewbox(delta.x * panSensitivity);
+            }
+            if (!floatEqual(delta.y, 0)) {
+                const { MAX_VIEWBOX_SCALE } = this.Global.constructor.SETTINGS;
+                const { size: displaySize } = this.Global.Display;
+                const { canvasScale } = Viewbox;
+                this.untrackActivePlayer();
+                const scale = 1 / ((displaySize.y - delta.y) / displaySize.y);
+                if (scale < 1 && (canvasScale.x > MAX_VIEWBOX_SCALE || canvasScale.y > MAX_VIEWBOX_SCALE)) return;
+                const size = Viewbox.size;
+                const pt = Viewbox.toGlobal(point);
+                Viewbox.applyScale(scale);
+                this.Camera.save();
+                Viewbox.save();
+                this.Camera.update();
+                const doPan = !size.eq(Viewbox.size);
+                Viewbox.restore();
+                this.Camera.restore();
+                if (doPan) this.lerpViewbox(pt, undefined, .4);
+            }
+        }
+
+        Interface.insert()
+            .push(underButton)
+            .fixed = true;
+        Interface.insert() // draw layer zero after background but before terrain
+            .push(ActivePlayer.aimer);
+        Interface.insert()
+            .push(fireBtn, selectBtn, rightBtn, leftBtn, shotIco)
+            .fixed = true;
+    }
+    #setupSfx () {
+        const { Player } = this.Audio;
+        const { AssetPool, AmmoPool } = this;
+        const bounceSfxFn = function () { Player.add(AssetPool.get("bouncer").Instance().play(), true); }
+        AmmoPool.get("Bouncer").SFX.bounce = bounceSfxFn;
+        AmmoPool.get("MegaBouncer").SFX.bounce = bounceSfxFn;
+    }
+    #setInputMap () {
+        this.Global.Input.keyMap = this.constructor.INPUT_MAP;
+        this.Global.Input.pointerMap = this.Interface;
     }
     #setShot (shot, map) {
         const { shot: st } = this.store;
@@ -224,8 +381,8 @@ export class RoundController extends PhaseController {
         }
     }
     #saveViewbox () {
-        this.store.lastViewbox.size.apply(this.Global.Display.Viewbox.size);
-        this.store.lastViewbox.center.apply(this.Global.Display.Viewbox.center);
+        this.store.lastViewbox.size.apply(this.Camera.Viewbox.size);
+        this.store.lastViewbox.center.apply(this.Camera.Viewbox.center);
         this.store.lastViewbox.set = true;
     }
     #preloadImpact (blastInterval) {
@@ -275,7 +432,8 @@ export class RoundController extends PhaseController {
     #drawDebugOverlay () {
         const { ActivePlayer, Terrain, Interface, store, flags } = this;
         const { Input, Display } = this.Global;
-        const { Viewbox, cursor } = Display;
+        const { Viewbox } = this.Camera;
+        const { cursor } = Display;
         const displaySize = Display.size;
         // draw any holes in terrain
         Viewbox.setCursor(cursor, true);
@@ -436,90 +594,6 @@ export class RoundController extends PhaseController {
             this.#getSelectionBackground(true);
         }
     }
-    #setupInterface () {
-        const { AssetPool, Interface, ActivePlayer, Global, store, flags } = this;
-        const { MOVE_SPEED } = this.constructor.SETTINGS;
-        const fireImg = AssetPool.get("fireBtn");
-        const selectImg = AssetPool.get("selectBtn");
-        const leftImg = AssetPool.get("leftBtn");
-        const rightImg = AssetPool.get("rightBtn");
-        const shotImg = AssetPool.get("shotType");
-
-        const fireBtn = new Menu.IconButton(fireImg);
-        const selectBtn = new Menu.IconButton(selectImg);
-        const leftBtn = new Menu.IconButton(leftImg);
-        const rightBtn = new Menu.IconButton(rightImg);
-        const shotIco = new Menu.IconButton(shotImg); // don't make clickable
-        const underButton = this.Global.Display.getBoundingBox().clone(); // don't make drawable
-
-        this.store.HUD = {
-            fire: fireBtn,
-            select: selectBtn,
-            left: leftBtn,
-            right: rightBtn,
-            shot: shotIco,
-            under: underButton
-        };
-
-        shotIco.fontSize = 16;
-
-        // setting up button callbacks
-        rightBtn.onclick = rightBtn.onhold = () => ActivePlayer.mover.move(MOVE_SPEED);
-        leftBtn.onclick = leftBtn.onhold = () => ActivePlayer.mover.move(-MOVE_SPEED);
-        selectBtn.onclick = () => this.openSelect();
-        fireBtn.onclick = () => {
-            if (store.shot.current === undefined)
-                this.launchShot();
-        }
-        underButton.id = true;
-        underButton.isOver = underButton.isIntersecting;
-        underButton.keepDragFocus = true;
-        const panSensitivity = this.constructor.SETTINGS.PAN_SENSITIVITY / 5;
-        underButton.ondrag = (point, origin, delta) => {
-            this.untrackActivePlayer();
-            this.panViewbox(delta.mul(-panSensitivity).div(this.Global.Display.Viewbox.canvasScale, true));
-        }
-        underButton.onrelease = (point, delta) => {
-        }
-        underButton.onscroll = (point, delta) => {
-            const { Viewbox } = this.Global.Display;
-            if (this.Global.Input.pointer.pointerCount < 2 && !floatEqual(delta.x, 0)) {
-                this.untrackActivePlayer();
-                this.panViewbox(delta.x * panSensitivity);
-            }
-            if (!floatEqual(delta.y, 0)) {
-                this.untrackActivePlayer();
-                const scale = 1 / ((this.Global.Display.size.y - delta.y) / this.Global.Display.size.y);
-                if (scale < 1 && (Viewbox.canvasScale.x > this.Global.constructor.SETTINGS.MAX_VIEWBOX_SCALE || this.Global.Display.Viewbox.canvasScale.y > this.Global.constructor.SETTINGS.MAX_VIEWBOX_SCALE)) return;
-                const size = Viewbox.size;
-                const pt = Viewbox.toGlobal(point);
-                Viewbox.applyScale(scale);
-                this.Camera.save();
-                Viewbox.save();
-                this.Camera.update();
-                const doPan = !size.eq(Viewbox.size);
-                Viewbox.restore();
-                this.Camera.restore();
-                if (doPan) this.lerpViewbox(pt, undefined, .4);
-            }
-        }
-
-        Interface.insert()
-            .push(underButton)
-            .fixed = true;
-        Interface.insert() // draw layer zero after background but before terrain
-            .push(ActivePlayer.aimer);
-        Interface.insert()
-            .push(fireBtn, selectBtn, rightBtn, leftBtn, shotIco)
-            .fixed = true;
-    }
-    #setupSfx () {
-        const { Player } = this.Audio;
-        const { AssetPool, AmmoPool } = this;
-        const bounceSfxFn = function () { Player.add(AssetPool.get("bouncer").Instance().play(), true); }
-        AmmoPool.get("Bouncer").SFX.bounce = bounceSfxFn;
-        AmmoPool.get("MegaBouncer").SFX.bounce = bounceSfxFn;
-    }
     #selectShot (type) {
         this.store.shot.selected = type;
         this.store.HUD.shot.text = type;
@@ -548,10 +622,10 @@ export class RoundController extends PhaseController {
         this.state = this.constructor.STATES.Ready;
     }
     async #preloadMap (map) {
-        const { Audio, Threaded, Global, Animations, Terrain, store } = this;
+        const { Audio, Threaded, Plane, Animations, Terrain, store } = this;
         const { TERRAIN_EDGE, TERRAIN_FILL } = this.constructor.SETTINGS;
         const { blasts } = map; // should be sorted
-        store.prerender = Threaded.drawBlastedTerrains(1, this.store.cacheKey.terrain, Global.Display.planeSize, {edge: TERRAIN_EDGE, fill: TERRAIN_FILL}, ...blasts);
+        store.prerender = Threaded.drawBlastedTerrains(1, this.store.cacheKey.terrain, Plane.size, {edge: TERRAIN_EDGE, fill: TERRAIN_FILL}, ...blasts);
         Animations.blasts = new AnimationList();
         store.shot.impacts = [];
         const blastIntervals = await store.prerender;
@@ -562,41 +636,10 @@ export class RoundController extends PhaseController {
         }
         Animations.Main.push(...Animations.blasts);
     }
-    async #load () {
-        const { Global } = this;
-        const { SETTINGS } = this.constructor;
-        const { planeSize } = this.Global.Display;
-        const wave = generateWave(
-                planeSize.x,
-                Global.constructor.SETTINGS.RESOLUTION,
-                (v) => v.y += planeSize.y * .35, .03, 40, 1.3, 15
-            );
-        const Terrain = generateTerrain(wave, planeSize);
-        await this.AssetPool.onload;
-        const waitPromises = [];
-        for (const Player of this.Players) {
-            const team = Player.id === this.ActivePlayer.id
-                ? "self" : Player.data.team === this.ActivePlayer.data.team
-                    ? "ally" : "enemy";
-            const modelType = `${Player.data.model.type}/${team}/`;
-            Player.data.profile.fontFamily = this.Global.store.DEFAULT_FONT.family; // set family before loading so we don't need to reapply styling
-            waitPromises.push(Player.load(Terrain, this.AssetPool.get(modelType + "body"), this.AssetPool.get(modelType + "barrel"), Global.Display.cursor));
-        }
-        this.#Terrain = Terrain;
-        await this.Threaded.onload;
-        waitPromises.push(
-            this.AmmoPool.onload,
-            this.Threaded.createCache(this.store.cacheKey.background, "CANVAS", ...planeSize),
-            this.Threaded.insertCache(this.store.cacheKey.terrain, "POLY", Terrain.Float64(1))
-        );
-        await Promise.all(waitPromises);
-        await this.Threaded.drawTerrain(this.store.cacheKey.background, this.store.cacheKey.terrain, SETTINGS.TERRAIN_FILL, SETTINGS.TERRAIN_EDGE)
-            .then(() => this.Threaded.updateCache(this.store.cacheKey.background));
-        this.trackActivePlayer();
-    }
     #drawBackground () {
         const img = this.Threaded.cache[this.store.cacheKey.background];
-        const { Viewbox, cursor, size } = this.Global.Display;
+        const { cursor, size } = this.Global.Display;
+        const { Viewbox } = this.Camera;
         cursor.drawImage(img, Viewbox.min.x, cursor.normalizeY(Viewbox.max.y), Viewbox.width, Viewbox.height, 0, 0, size.x, size.y);
     }
 
@@ -668,7 +711,7 @@ export class RoundController extends PhaseController {
     }
     // sets viewbox to player
     setViewbox (x = undefined, y = undefined) {
-        const { Viewbox } = this.Global.Display;
+        const { Viewbox } = this.Camera;
         const pos = Viewbox.getPosition();
         if (x?.isVector) pos.apply(x);
         else {
@@ -677,9 +720,9 @@ export class RoundController extends PhaseController {
         }
         Viewbox.setPosition(pos);
     }
-    // moves the viewbox
+    // moves the viewbox (additive)
     panViewbox (x = undefined, y = undefined) {
-        const { Viewbox } = this.Global.Display;
+        const { Viewbox } = this.Camera;
         const pos = Viewbox.getPosition();
         if (x?.isVector) pos.add(x, true);
         else {
@@ -690,7 +733,7 @@ export class RoundController extends PhaseController {
     }
     // moves the viewbox by some factor
     lerpViewbox (x = undefined, y = undefined, factor = 1) {
-        const { Viewbox } = this.Global.Display;
+        const { Viewbox } = this.Camera;
         const pos = Viewbox.getPosition();
         if (x?.isVector) pos.apply(x);
         else {
@@ -737,12 +780,12 @@ export class RoundController extends PhaseController {
         return undefined;
     }
     createShot () {
-        const { Global, AmmoPool, store } = this;
+        const { Camera, AmmoPool, store } = this;
         const type = AmmoPool.get(store.shot.selected);
         const shot = new type(...this.getShotLaunchData());
         shot.colliders.push(store.terrain);
         shot.launchCallback = this.#launchCallbackFactory();
-        shot.displayBoundingBox = Global.Display.Viewbox;
+        shot.displayBoundingBox = Camera.Viewbox;
         return shot;
     }
     getShotColliders () {
@@ -835,8 +878,8 @@ export class RoundController extends PhaseController {
         }
     }
     animate (clear = true) {
-        const { ActivePlayer, Animations, Global, Interface, Threaded, Players, flags, store } = this;
-        const { Viewbox, cursor } = Global.Display;
+        const { ActivePlayer, Camera, Animations, Interface, Threaded, Players, flags, store } = this;
+        const { cursor } = this.Global.Display;
         cursor.save();
         if (clear) cursor.clear();
         if (flags.SELECTING) {
@@ -850,16 +893,16 @@ export class RoundController extends PhaseController {
         } else {
             if (store.shot.current && this.Camera.tracking(this.ActivePlayer.tank.position)) {
                 const shotBbox = store.shot.current.getBoundingBox(true, false, true);
-                this.Camera.follow(shotBbox.extentSquared ? shotBbox : undefined);
+                Camera.follow(shotBbox.extentSquared ? shotBbox : undefined);
             }
-            this.Camera.update();
+            Camera.update();
             if (flags.isTurn) Interface.draw(cursor, 0, 2);
-            Viewbox.setCursor(cursor, true);
+            Camera.Viewbox.setCursor(cursor, true);
             for (const { tank, isDead } of Players)
                 if (!isDead) tank.draw(cursor);
             cursor.restore();
             this.#drawBackground();
-            Viewbox.setCursor(cursor, true);
+            Camera.Viewbox.setCursor(cursor, true);
             if (store.shot.tracer) store.shot.tracer.draw(cursor);
             if (store.shot.current && store.shot.current.time > 0) store.shot.current.draw(cursor);
             Animations.Main.update(cursor);
@@ -867,7 +910,7 @@ export class RoundController extends PhaseController {
                 Player.drawProfile(cursor);
             cursor.restore();
             if (flags.isTurn) Interface.draw(cursor, 2);
-            if (Global.flags.DEBUG) this.#drawDebugOverlay();
+            if (this.Global.flags.DEBUG) this.#drawDebugOverlay();
         }
         cursor.restore();
     }
@@ -923,13 +966,14 @@ export class RoundController extends PhaseController {
                     this.#clearShot();
                     // unlock player
                     this.setTurn(true);
+                    if (this.Global.flags.DEBUG) console.info(`[${this.constructor.name}]: Shot playback finished`);
                     store.prerender = Promise.resolve();
                 }
             }
         }
         // disable aimer if it covers enough of the screen
-        const aimerIsLarge = this.Global.Display.Viewbox.size.max() / 2 <= this.ActivePlayer.aimer.radius * 2;
-        let aimerIsCenter = this.ActivePlayer.aimer.isOver(this.Global.Display.Viewbox.toGlobal(this.Global.Display.getBoundingBox().center));
+        const aimerIsLarge = this.Camera.Viewbox.size.max() / 2 <= this.ActivePlayer.aimer.radius * 2;
+        let aimerIsCenter = this.ActivePlayer.aimer.isOver(this.Camera.Viewbox.toGlobal(this.Global.Display.getBoundingBox().center));
         if (!this.ActivePlayer.aimer.enabled) aimerIsCenter = !aimerIsCenter;
         this.ActivePlayer.aimer.enabled = this.flags.isTurn && !(aimerIsLarge && aimerIsCenter);
         this.handleInput();
@@ -957,7 +1001,7 @@ export class RoundController extends PhaseController {
 }
 
 // [!] recursion limit applies per-player
-function distributePlayers (bbox, players, recursionLimit = 10000000) {
+function distributePlayers (bbox, players, recursionLimit = 10000) {
     const min = bbox.min.x + (bbox.width / 10);
     const max = bbox.max.x - min;
     const spacing = (bbox.width / players.length);
@@ -965,15 +1009,18 @@ function distributePlayers (bbox, players, recursionLimit = 10000000) {
     const spots = new Set()
     for (const { aimer, mover } of players) {
         let x;
+        let added = false;
         let i = 0;
         while (i < recursionLimit) {
             x = (Math.floor(Math.random() * (range + 1)) * spacing) + min;
             if (!spots.has(x) && mover.apply(x, bbox.max.y + 1)) {
                 spots.add(x);
+                added = true;
                 break;
             }
             i++;
         }
+        if (!added && i >= recursionLimit) throw new Error("Recusion limit reached while distributing players. Is terrain invalid?");
         aimer.update(players[0].tank.position.add({x: 0, y: bbox.max.y})); // aim straight up and set power to 100% (1)
     }
 }

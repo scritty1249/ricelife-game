@@ -2,11 +2,11 @@ import { TrackableObject } from "../utils/utils.js";
 
 // Manages layers of clickable objects on the canvas
 export class Interface { // pointer events are prioritized in FIFO order
-    #viewbox;
+    #Viewbox;
     #layers = new Array();
-    constructor (viewbox, ...layers) {
+    constructor (viewbox = undefined, ...layers) {
         this.push(...layers);
-        this.viewbox = viewbox;
+        this.#Viewbox = viewbox;
     }
 
     *#iterate (start = 0, end = -1, reverse = true) {
@@ -17,7 +17,7 @@ export class Interface { // pointer events are prioritized in FIFO order
 
     layer (index) { return this.#layers.at(index) }
     insert (index = -1) {
-        const layer = new InterfaceLayer(this.viewbox);
+        const layer = new InterfaceLayer(this.Viewbox);
         if (index === -1) this.#layers.push(layer);
         else this.#layers.splice(index, 0, layer);
         return layer; // for chaining
@@ -94,35 +94,36 @@ export class Interface { // pointer events are prioritized in FIFO order
         if (item !== undefined) item.onscroll(layer.parseCoordinate(point), delta);
     }
     draw (cursor, start = 0, end = -1) { for (const layer of this.#iterate(start, end, false)) layer.draw(cursor) }
-    slice (start = 0, end = -1) { return new Interface(this.viewbox, ...this.#layers.slice(start, end)) }
+    slice (start = 0, end = -1) { return new Interface(this.Viewbox, ...this.#layers.slice(start, end)) }
     *[Symbol.iterator]() {
         yield *this.#layers;
     }
 
     get isInterface () { return true }
     get length () { return this.#layers.length }
-    get viewbox () { return this.#viewbox }
-    set viewbox (viewbox) {
-        if (!viewbox?.isViewbox) throw new Error(`[${this.constructor.name}]: Viewbox expected, got ${typeof viewbox}`);
-        for (const layer of this.#layers) layer.viewbox = viewbox;
-        return (this.#viewbox = viewbox);
+    get Viewbox () { return this.#Viewbox }
+    set Viewbox (viewbox) {
+        for (const layer of this.#layers) layer.Viewbox = viewbox;
+        return (this.#Viewbox = viewbox);
     }
 }
 
 // [!] may be excessive. Just a glorified map with some bells + whistles (not even shiny ones) - KT
 class InterfaceLayer extends TrackableObject { // pointer events are prioritized in FIFO order
-    #viewbox;
+    #Viewbox;
     #items = new Map();
-    fixed = false; // when true, coordinates from pointer events and drawing will be interpreted relative to the viewbox, instead of global space
-    constructor (viewbox, ...items) {
+    // when true, coordinates from pointer events and drawing will be interpreted relative to the Viewbox, instead of global space
+    // if Viewbox is not defined, fixed is always true.
+    #fixed = false; 
+    constructor (viewbox = undefined, ...items) {
         super();
         this.push(...items);
-        this.viewbox = viewbox;
+        this.#Viewbox = viewbox;
     }
 
-    // set to relative coordinate if viewbox cursor is set, otherwise return the same point
+    // set to relative coordinate if Viewbox cursor is set, otherwise return the same point
     parseCoordinate (point) {
-        return this.fixed || !point?.isVector ? point : this.viewbox.toGlobal(point, false);
+        return this.fixed || !point?.isVector ? point : this.Viewbox.toGlobal(point, false);
     }
     push (...items) {
         for (const item of items) {
@@ -221,9 +222,9 @@ class InterfaceLayer extends TrackableObject { // pointer events are prioritized
         return undefined;
     }
     draw (cursor) {
-        const { viewbox, fixed } = this;
+        const { Viewbox, fixed } = this;
         const notFixed = !fixed;
-        if (notFixed) viewbox.setCursor(cursor, true);
+        if (notFixed) Viewbox.setCursor(cursor, true);
         for (const item of this.#items.values())
             if (this.#supportsDraw(item))
                 item.draw(cursor, fixed);
@@ -242,9 +243,9 @@ class InterfaceLayer extends TrackableObject { // pointer events are prioritized
     get isInterfaceLayer () { return true }
     get items () { return [...this.#items.values()].reverse() } // [!] reverse call causes lag / horribly inefficient
     get size () { return this.#items.size }
-    get viewbox () { return this.#viewbox }
-    set viewbox (viewbox) {
-        if (!viewbox?.isViewbox) throw new Error(`[${this.constructor.name}]: Viewbox expected, got ${typeof viewbox}`);
-        return (this.#viewbox = viewbox);
-    }
+    get fixed () { return this.#fixed || !this.#isViewboxSet }
+    set fixed (bool) { return (this.#fixed = bool) || !this.#isViewboxSet }
+    get Viewbox () { return this.#Viewbox }
+    set Viewbox (viewbox) { return (this.#Viewbox = viewbox) }
+    get #isViewboxSet () { return this.#Viewbox?.isViewbox }
 }

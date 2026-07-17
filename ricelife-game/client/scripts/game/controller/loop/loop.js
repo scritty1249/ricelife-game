@@ -34,7 +34,10 @@ export class LoopController extends TrackableObject {
             requestAnimationFrame(() => this.loop());
     }
     async tick (delta) {}
-    async loadAsset (key, ...args) { return this.AssetPool.add(key, args?.length ? args : this.AssetTable[key]).onload }
+    async loadAsset (key, ...args) {
+        this.AssetPool.add(key, args?.length ? args : this.AssetTable[key]);
+        return await this.AssetPool.onready(key);
+    }
     exit () { this.flags.EXIT = true }
     close () {
         this.state = this.constructor.STATES.Busy;

@@ -107,7 +107,7 @@ export class SelectionController extends PhaseController {
             if (!selection?.isShotSelection) throw new Error(`[${this.constructor.name}]: Invalid type - expected ShotSelection, got ${typeof selection}`);
             this.store.selections.push(selection);
         }
-        this.#Interface = new Menu.Interface(this.Global.Display.Viewbox);
+        this.#Interface = new Menu.Interface();
         this.Audio.Layer.tile = this.Audio.Player.Layer();
         this.Audio.Layer.tile.volume = .25;
         this.Audio.Layer.selected = this.Audio.Player.Layer();
