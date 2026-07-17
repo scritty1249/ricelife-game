@@ -375,7 +375,8 @@ export class SelectionController extends PhaseController {
     }
     async tick (delta) {
         this.#handleInput();
-        if (this.Global.Input.pointer.isHovering) this.#followPointer();
+        const { isHovering, isActive, isDragging } = this.Global.Input.pointer;
+        if (isHovering || (isActive && !isDragging)) this.#followPointer();
         else this.#followCenter();
         this.#updateFocalPoint();
     }
