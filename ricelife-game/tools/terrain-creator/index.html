@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Map creator</title>
+        <script type="module" src="./main.js"></script>
+        <link rel="stylesheet" href="style.css">
+    </head>
+    <body>
+        <div id="draw-controls">
+            <label>Stabilizer Length:
+                <input type="range" id="stabilizer-slider"/>
+                <input type="number" id="stabilizer-input"/>
+            </label>
+            <button id="clear-btn">Clear Canvas</button>
+            <button id="export-btn">Export Raw Coordinates</button>
+        </div>
+        <canvas id="draw-canvas"></canvas>
+        <div id="modal-overlay"></div>
+            <div id="export-modal">
+                <h3>Terrain Data Export</h3>
+                <div class="modal-sliders">
+                    <div class="modal-slider">
+                        <label>Scale X:</label>
+                        <input type="range" id="scale-x-slider">
+                        <input type="number" id="scale-x-input">
+                    </div>
+                    <div class="modal-slider">
+                        <label>Scale Y:</label>
+                        <input type="range" id="scale-y-slider">
+                        <input type="number" id="scale-y-input">
+                    </div>
+                    <div class="modal-slider">
+                        <label>Base Y:</label>
+                        <input type="range" id="base-y-slider">
+                        <input type="number" id="base-y-input">
+                    </div>
+                </div>
+
+                <textarea id="output-box" readonly></textarea>
+
+                <div class="modal-buttons">
+                    <button id="copy-btn">Copy</button>
+                    <button id="save-btn">Download</button>
+                    <button id="close-btn">Close</button>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>

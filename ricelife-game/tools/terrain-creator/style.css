@@ -1,0 +1,252 @@
+:root {
+    --foreground: #F2F3F5;
+    --background: #11191c;
+    --button-background: #2B2D31;
+    --button-foreground: #F2F3F5;
+    --draw-background: #232428;
+    --modal-background: #1A1B1E;
+}
+
+body {
+    color: var(--foreground);
+    margin: 0;
+    padding: 0;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    font-family: sans-serif;
+    background: var(--background);
+    user-select: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+input[type="range"] {
+  -webkit-appearance: none; /* Strips default browser rendering templates */
+  appearance: none;
+  background: transparent;
+  accent-color: white;
+  cursor: pointer;
+  height: 24px; /* Centers track nicely with your number box element inline height */
+}
+
+/* CHROMIUM RUNNABLE TRACK (Chrome, Safari, Edge) */
+input[type="range"]::-webkit-slider-runnable-track {
+  background-color: rgba(0, 0, 0, 0.25);
+  height: 5px;
+  border-radius: 4px;
+}
+
+/* FIREFOX RUNNABLE TRACK */
+input[type="range"]::-moz-range-track {
+  background-color: rgba(0, 0, 0, 0.25);
+  height: 5px;
+  border-radius: 4px;
+}
+
+input[type="range"]::-moz-range-progress {
+  background-color: #0098ebCC;
+  height: 5px;
+  border-radius: 4px;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  background: #11191c;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  margin-top: -4.5px;
+  border: 1.5px solid white;
+}
+
+input[type="range"]::-moz-range-thumb {
+  background: #11191c;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1.5px solid white;
+  box-sizing: border-box;
+}
+
+input[type="range"] + input[type="number"] {
+  width: 50px;
+  font-weight: bold;
+  text-align: center;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-radius: 4px;
+  padding: 2px 4px;
+  background: transparent;
+  outline: none;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  color: var(--foreground);
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+label {
+    font-size: 14px;
+    font-weight: bold;
+}
+
+button {
+    --bg: var(--button-background);
+    --fg: var(--button-foreground);
+    background-color: var(--bg);
+    color: var(--fg);
+    border: none;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    &:hover {
+        background-color: color-mix(in srgb, var(--bg) 50%, black);
+        color: color-mix(in srgb, var(--fg) 10%, white);
+    }
+}
+
+textarea {
+    color: var(--foreground);
+    width: 100%;
+    height: 120px;
+    margin-top: 10px;
+    margin-bottom: 10px;
+    font-family: monospace;
+    box-sizing: border-box;
+    padding: 4px 8px;
+    outline: none;
+    resize: none;
+    border: none;
+    background: var(--draw-background);
+}
+
+#draw-canvas {
+    --size: min(75dvw, 75dvh);
+    display: block;
+    background: var(--draw-background);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.8);
+    border: 1px solid var(--draw-background);
+    border-radius: 4px;
+    cursor: crosshair;
+    width: var(--size);
+    height: var(--size);
+}
+
+#draw-controls {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: var(--modal-background);
+    padding: 12px;
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.8);
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    z-index: 10;
+    > label {
+        display: inline-flex;
+        align-items: center;
+    }
+    & input[type="number"] {
+        margin-left: 5px;
+    }
+    > button:first-of-type {
+        margin-right: 5px;
+    }
+}
+
+#export-modal {
+    display: none;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--modal-background);
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    z-index: 20;
+    width: 80%;
+    max-width: 500px;
+}
+
+#modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 15;
+}
+
+#clear-btn {
+    --bg: #dc3545;
+}
+
+#export-btn {
+    --bg: #007bff;
+}
+
+#copy-btn {
+    --bg: #28a745;
+}
+
+#save-btn {
+    --bg: #ffc107;
+    --fg: #212529;
+}
+
+#close-btn {
+    --bg: #6c757d;
+}
+
+div.modal-slider {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    > label:first-of-type {
+        font-weight: bold;
+        width: 50px;
+    }
+    > input[type="range"] {
+        flex: 1;
+    }
+    > input[type="number"] {
+        padding: 2px 4px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        text-align: center;
+    }
+}
+
+div.modal-sliders {
+    background: #949BA4;
+    padding: 12px;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    font-size: 13px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+div.modal-buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+    > button {
+        flex: 1;
+    }
+}
