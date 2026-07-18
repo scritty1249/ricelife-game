@@ -15,10 +15,15 @@ export function createTerrain (dataIterator) {
         path.push(new Vector(x, y));
         result = dataIterator.next();
     }
-    path.push(
-        new Vector(maxX, 0),
-        new Vector(0, 0)
-    );
+    const rightBound = new Vector(maxX, 0);
+    const leftBound = new Vector(0, 0);
+
+    const p1 = path.at(-2);
+    const p2 = path.at(-1);
+
+    if (!p1.eq(rightBound)) path.push(rightBound);
+    if (!p2.eq(leftBound)) path.push(leftBound);
+
     const terrain = new Polygon(path);
     terrain.userData.collision = Properties.DESTRUCTION | Properties.ENTER | Properties.TERRAIN;
     return { plane, terrain };

@@ -11,12 +11,32 @@ const sliderEl = document.getElementById('stabilizer-slider');
 const copyBtn = document.getElementById("copy-btn");
 const csvBtn = document.getElementById("save-btn");
 
-const StablizerSlider = new Slider(document.getElementById("stabilizer-slider"), document.getElementById("stabilizer-input"), 0, 100, 30, 1);
+const StablizerSlider = new Slider(document.getElementById("stabilizer-slider"), document.getElementById("stabilizer-val"), 0, 250, 80, 1);
 const Drawer = new DrawingCanvas(document.getElementById("draw-canvas"), StablizerSlider);
 
-const ScaleSliderX = new Slider(document.getElementById("scale-x-slider"), document.getElementById("scale-x-input"));
-const ScaleSliderY = new Slider(document.getElementById("scale-y-slider"), document.getElementById("scale-y-input"));
-const BaseSliderY = new Slider(document.getElementById("base-y-slider"), document.getElementById("base-y-input"), 0, 1000, 0, 1);
+const SmoothingSlider = new Slider(
+    document.getElementById("smoothing-slider"),
+    document.getElementById("smoothing-val"),
+    0, 5, 2, 1
+);
+const SnapSlider = new Slider(
+    document.getElementById("snap-slider"),
+    document.getElementById("snap-val"),
+    0, 500, 50, 5
+);
+const ScaleSliderX = new Slider(
+    document.getElementById("scale-x-slider"),
+    document.getElementById("scale-x-val"),
+);
+const ScaleSliderY = new Slider(
+    document.getElementById("scale-y-slider"),
+    document.getElementById("scale-y-val"),
+);
+const BaseSliderY = new Slider(
+    document.getElementById("base-y-slider"),
+    document.getElementById("base-y-val"),
+    0, 1000, 0, 1,
+);
 const EMPTY_CANVAS_MESSAGE = "No Data.";
 
 function loadOutput () {
@@ -32,6 +52,8 @@ function hasOutputData () {
 ScaleSliderX.onchange = () => loadOutput();
 ScaleSliderY.onchange = () => loadOutput();
 BaseSliderY.onchange = () => loadOutput();
+SmoothingSlider.onchange = () => Drawer.smoothingPasses = SmoothingSlider.value;
+SnapSlider.onchange = () => Drawer.snapDistance = SnapSlider.value;
 
 clearBtn.addEventListener("click", () => Drawer.clear());
 exportBtn.addEventListener("click", () => {

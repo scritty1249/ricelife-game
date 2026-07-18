@@ -60,7 +60,7 @@ export class Slider {
         const value = num.toFixed((this.#step % 1 === 0) ? 0 : this.precision);
         this.#slideEl.value = value;
         this.#valEl.value = value;
-        this.#value = value;
+        this.#value = num;
         this.#onchangeCallback?.();
         return num;
     }

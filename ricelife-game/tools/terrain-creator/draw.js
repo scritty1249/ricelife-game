@@ -39,6 +39,8 @@ export class DrawingCanvas {
     };
     #penOptions;
     enabled = true;
+    snapDistance = 50;
+    smoothingPasses = 2;
     constructor(canvasElement, stablizerSlider, cooridnatePrecision = 2, pathStrokeOptions = {}, stablizerStrokeOptions = {}) {
         this.#canvas = canvasElement;
         this.#slider = stablizerSlider;
@@ -66,9 +68,16 @@ export class DrawingCanvas {
         return Math.round(number * multiplier) / multiplier;
     }
     #attachListeners () {
-        window.addEventListener("mousedown", (e) => this.startStroke(e));
+        window.addEventListener("contextmenu", (e) => e.preventDefault());
+        window.addEventListener("mousedown", (e) => {
+            if (this.isDrawing) this.lastPressedButton = e.button; // 0 - ;eft, 2 - right
+            else this.startStroke(e);
+        });
         window.addEventListener("mousemove", (e) => this.drawStroke(e));
-        window.addEventListener("mouseup", () => this.endStroke());
+        window.addEventListener("mouseup", (e) => {
+            if (e.buttons === 0) this.endStroke();
+            else this.lastPressedButton = (e.button === 2) ? 0 : 2;
+        });
         window.addEventListener("touchstart", (e) => this.startStroke(e.touches[0]));
         window.addEventListener("touchmove", (e) => { 
             if (this.isDrawing) { 
@@ -107,49 +116,90 @@ export class DrawingCanvas {
         if (lineCap !== undefined) ctx.lineCap = lineCap;
         if (lineJoin !== undefined) ctx.lineJoin = lineJoin;
     }
+    #applySmoothing (stroke) { // Chaikin’s algorithm
+        if (!stroke || stroke.length < 6) return stroke;
+        let output = [];
+        
+        // Keep the exact starting node position locked
+        output.push(stroke[0], stroke[1]);
+
+        // Slice corners at 25% and 75% geometric ratios
+        for (let i = 0; i < stroke.length - 2; i += 2) {
+            const x0 = stroke[i];
+            const y0 = stroke[i + 1];
+            const x1 = stroke[i + 2];
+            const y1 = stroke[i + 3];
+
+            output.push(
+                0.75 * x0 + 0.25 * x1,
+                0.75 * y0 + 0.25 * y1,
+                0.25 * x0 + 0.75 * x1,
+                0.25 * y0 + 0.75 * y1
+            );
+        }
+
+        // Keep the exact terminal endpoint position locked
+        output.push(stroke[stroke.length - 2], stroke[stroke.length - 1]);
+        return output;
+    }
+
     #drawStroke (stroke, options) {
-        if (!stroke || stroke.length < 4 || stroke[0] === undefined || stroke[2] === undefined) return;
-        const { ctx } = this;
+        if (!stroke || stroke.length < 4) return;
+        
+        // 1. Run Chaikin loops recursively based on your active smoothing setting
+        let smoothedStroke = [...stroke];
+        for (let pass = 0; pass < this.smoothingPasses; pass++) {
+            smoothedStroke = this.#applySmoothing(smoothedStroke);
+        }
+
+        // 2. Render the final smoothed array coordinates to the canvas screen
+        const ctx = this.#ctx;
         ctx.beginPath();
         this.#setStrokeOptions(options);
-        ctx.moveTo(stroke[0], stroke[1]);
 
-        let i = 2;
-        if (stroke.length > 4) {
-            for (i = 2; i < stroke.length - 4; i+=2) {
-                const x = stroke[i];
-                const y = stroke[i + 1];
-                const nx = stroke[i + 2];
-                const ny = stroke[i + 3];
-                if (x !== undefined && nx !== undefined) {
-                    const xc = (x + nx) / 2;
-                    const yc = (y + ny) / 2;
-                    ctx.quadraticCurveTo(x, y, xc, yc);
-                }
-            }
-        }
-        const x = stroke[i];
-        const y = stroke[i + 1];
-        const nx = stroke[i + 2];
-        const ny = stroke[i + 3];
-        if (x !== undefined && nx !== undefined) {
-            ctx.quadraticCurveTo(x, y, nx, ny);
-        } else if (x !== undefined) {
-            ctx.lineTo(x, y);
+        ctx.moveTo(smoothedStroke[0], smoothedStroke[1]);
+        for (let i = 2; i < smoothedStroke.length; i += 2) {
+            ctx.lineTo(smoothedStroke[i], smoothedStroke[i + 1]);
         }
         ctx.stroke();
     }
+
+
 
     setPen (x, y) {
         this.pen.x = x;
         this.pen.y = y;
     }
     startStroke (event) {
+        if (this.isDrawing) return; 
         if (!(event.target && this.enabled)) return;
+        
         this.isDrawing = true;
         this.#setPenRelative(event);
-
         this.#clearCurrentPath();
+
+        this.lastPressedButton = event.button;
+
+        const allStrokes = this.#stroke.all;
+        if (allStrokes.length > 0) {
+            const lastStroke = allStrokes[allStrokes.length - 1];
+            if (lastStroke && lastStroke.length >= 2) {
+                const lastX = lastStroke[lastStroke.length - 2];
+                const lastY = lastStroke[lastStroke.length - 1];
+
+                const dx = this.pen.x - lastX;
+                const dy = this.pen.y - lastY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                if (distance <= this.snapDistance * this.#scale.average) {
+                    this.pen.x = lastX;
+                    this.pen.y = lastY;
+                }
+            }
+        }
+
+        // Proceed with normal baseline point stream initialization
+        if (!this.#stroke.all.length)
+            this.#stroke.current.push( 0, this.#toPrecision(this.pen.y) );
         this.#stroke.current.push( this.#toPrecision(this.pen.x), this.#toPrecision(this.pen.y) );
         
         this.ctx.beginPath();
@@ -167,12 +217,17 @@ export class DrawingCanvas {
         const oldPenX = this.pen.x;
         const oldPenY = this.pen.y;
 
+        if (event.buttons === 1) this.lastPressedButton = 0;
+        if (event.buttons === 2) this.lastPressedButton = 2;
+        const isRightClickHeld = (event.buttons === 2) || (event.buttons === 3 && this.lastPressedButton === 2);
+
         if (distance > this.#stablizer.length) {
             const angle = Math.atan2(dy, dx);
-            const scaledStablizerLength = this.#stablizer.length * this.#scale.average;
-            const nextPenX = targetX - Math.cos(angle) * scaledStablizerLength;
-            const nextPenY = targetY - Math.sin(angle) * scaledStablizerLength;
+            const nextPenX = targetX - Math.cos(angle) * this.#stablizer.length;
+            const nextPenY = targetY - Math.sin(angle) * this.#stablizer.length;
 
+            if (isRightClickHeld && this.#stroke.current.length >= 4)
+                    this.#stroke.current.splice(this.#stroke.current.length - 2);
             if (this.#stroke.current.length >= 2
                 && nextPenX >= 0
                 && nextPenX <= this.canvas.width
@@ -207,7 +262,8 @@ export class DrawingCanvas {
             }
 
             // anchor to X to bounds if we're coming in from off the canvas
-            if (this.#stroke.current.length >= 2 && oldPenY >= 0 && oldPenY <= this.canvas.height) {
+            if (!isRightClickHeld && this.#stroke.current.length >= 2 && oldPenY >= 0 && oldPenY <= this.canvas.height) {
+
                 const deltaX = this.pen.x - oldPenX;
                 if (deltaX !== 0) {
                     const deltaY = this.pen.y - oldPenY;
@@ -241,8 +297,20 @@ export class DrawingCanvas {
         ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         this.drawAllStrokes();
 
-        if (this.#stroke.current.length > 2)
+        if (this.#stroke.current.length > 2) {
             this.#drawStroke(this.#stroke.current, this.#strokeOptions.path);
+            if (isRightClickHeld) {
+                const len = this.#stroke.current.length;
+                const lastValidX = this.#stroke.current[len - 2];
+                const lastValidY = this.#stroke.current[len - 1];
+                
+                ctx.beginPath();
+                this.#setStrokeOptions(this.#strokeOptions.path);
+                ctx.moveTo(lastValidX, lastValidY);
+                ctx.lineTo(this.pen.x, this.pen.y);
+                ctx.stroke();
+            }
+        }
 
         ctx.beginPath();
         this.#setStrokeOptions(this.#strokeOptions.stablizer);
@@ -254,9 +322,17 @@ export class DrawingCanvas {
         if (!(this.isDrawing && this.enabled)) return;
         this.isDrawing = false;
         const { current, all } = this.#stroke;
-        if (current.length >= 4)
+        
+        if (current.length >= 4) {
+            const lastX = current[current.length - 2];
+            const lastY = current[current.length - 1];
+            
+            // Commit the trailing straight line node point right before saving to history
+            if (this.#toPrecision(this.pen.x) !== lastX || this.#toPrecision(this.pen.y) !== lastY) {
+                current.push(this.#toPrecision(this.pen.x), this.#toPrecision(this.pen.y));
+            }
             all.push(current.splice(0, current.length - (current.length % 2)));
-        current.length = 0;
+        }
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         this.drawAllStrokes();
     }
@@ -284,7 +360,7 @@ export class DrawingCanvas {
         }
         if (visiblePoints.length === 0) return null;
         const points = visiblePoints.map((value, i) =>
-            Number(i % 2 ? baseY : 0) + Math.round(value * (i % 2 ? scaleY : scaleX))); // [!] fucking javascript man why the hell do i need to cast baseY as a number it is literally never a string
+            (i % 2 ? baseY : 0) + Math.round(value * (i % 2 ? scaleY : scaleX)));
         const allX = points.filter((_, i) => !(i % 2));
         const allY = points.filter((_, i) => i % 2);
         const maxX = Math.ceil(Math.max(...allX));
