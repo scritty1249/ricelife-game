@@ -40,7 +40,7 @@ const ScaleSliderY = new Slider(
 const BaseSliderY = new Slider(
     document.getElementById("base-y-slider"),
     document.getElementById("base-y-val"),
-    0, 1000, 0, 1,
+    0, 1000, 50, 1,
 );
 const EMPTY_CANVAS_MESSAGE = "No Data.";
 
