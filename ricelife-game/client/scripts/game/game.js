@@ -3,7 +3,7 @@ import { RoundController } from "./controller/loop/round.js"; // [!] testing
 
 // [!] only for client demo
 const LOBBY_URL = "../tests/test-lobby.json";
-const TERRAIN_URL = "../tests/test-terrain-mini.csv";
+const TERRAIN_URL = "../maps/the-towers.csv";
 
 export async function load () {
     const URL_PARAMS = new URLSearchParams(window.location.search);
