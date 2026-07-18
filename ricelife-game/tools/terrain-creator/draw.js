@@ -252,32 +252,27 @@ export class DrawingCanvas {
             }
 
             // anchor to X to bounds if we're coming in from off the canvas
-            if (!isRightClickHeld && this.#stroke.current.length >= 2 && oldPenY >= 0 && oldPenY <= this.canvas.height) {
-
+            if (this.#stroke.current.length >= 4 && oldPenY >= 0 && oldPenY <= this.canvas.height) {
                 const deltaX = this.pen.x - oldPenX;
                 if (deltaX !== 0) {
                     const deltaY = this.pen.y - oldPenY;
                     const m = deltaY / deltaX;
                     let targetX = null;
-                    if (this.pen.x > 0 && this.pen.x <= this.canvas.width && oldPenX < 0) {
-                        targetX = 0; // coming in from left
-                    } else if (this.pen.x >= 0 && this.pen.x < this.canvas.width && oldPenX >= this.canvas.width) {
-                        targetX = this.canvas.width; // coming in from right
-                    }
+                    if (this.pen.x > 0 && this.pen.x <= this.canvas.width && oldPenX < 0)
+                        targetX = 0; // Coming in from left
+                    else if (this.pen.x >= 0 && this.pen.x < this.canvas.width && oldPenX >= this.canvas.width)
+                        targetX = this.canvas.width; // Coming in from right
                     if (targetX !== null) {
                         const rawInterceptY = oldPenY + m * (targetX - oldPenX);
                         const interceptY = Math.min(Math.max(rawInterceptY, 0), this.canvas.height);
-                        if (targetX === 0) {
-                            this.#stroke.current.unshift(
-                                this.#toPrecision(targetX), 
-                                this.#toPrecision(interceptY)
-                            );
-                        } else {
-                            this.#stroke.current.push(
-                                this.#toPrecision(targetX), 
-                                this.#toPrecision(interceptY)
-                            );
-                        }
+                        const pX = this.#toPrecision(targetX);
+                        const pY = this.#toPrecision(interceptY);
+                        if (isRightClickHeld)
+                            this.#stroke.current.splice(this.#stroke.current.length - 2, 0, pX, pY);
+                        else if (targetX === 0)
+                            this.#stroke.current.unshift(pX, pY);
+                        else
+                            this.#stroke.current.push(pX, pY);
                     }
                 }
             }
@@ -340,8 +335,8 @@ export class DrawingCanvas {
         for (let i = 0; i < allPoints.length; i+=2) {
             const x = allPoints[i];
             const y = allPoints[i + 1];
-            if (visiblePoints.length >= 2 && visiblePoints.at(-2) === x)
-                visiblePoints.splice(-2);
+            // if (visiblePoints.length >= 2 && visiblePoints.at(-2) === x)
+            //     visiblePoints.splice(-2);
             if (x >= 0 && x <= this.canvas.width && y >= 0 && y <= this.canvas.height)
                 visiblePoints.push(x, (this.canvas.height - y));
         }
