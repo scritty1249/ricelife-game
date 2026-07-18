@@ -23,6 +23,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+    container-type: inline-size;
 }
 
 input[type="range"] {
@@ -374,23 +375,22 @@ div.modal-buttons {
     color: var(--alt-foreground);
 }
 
-@media (orientation: portrait) or (max-width: 900px) {
-    #draw-controls {
+@media (orientation: portrait) or (max-width: 1720px) {
+        #draw-controls {
         position: absolute;
         top: 10px;
         left: 50%;
         transform: translateX(-50%);
         display: flex;
         flex-direction: column;
-        padding: 0; /* Wiped padding so margins fit flush when closed */
+        padding: 0;
         gap: 0;
         width: calc(100vw - 30px);
         max-width: 440px;
-        overflow: hidden; /* Crops content instantly when collapsed */
+        overflow: hidden;
         transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    /* PORTRAIT ACTIVE RE-ACTIVATION OF HEADER HANDLE BAR */
     #controls-header {
         display: flex !important;
         justify-content: space-between;
@@ -413,24 +413,6 @@ div.modal-buttons {
 
     #controls-toggle:checked ~ .controls-content {
         display: flex;
-    }
-
-    #controls-legend {
-        position: fixed;
-        left: 0;
-        right: 0;
-        top: auto;
-        bottom: 0;
-        transform: none;
-        width: 100%;
-        min-width: 100%;
-        box-sizing: border-box;
-        border-radius: 0;
-        border-top: 1px solid rgba(255, 255, 255, 0.1);
-        padding: 12px 16px;
-        display: flex;
-        flex-direction: column;
-        gap: 6px;
     }
 
     #draw-controls > .controls-content label {
@@ -473,7 +455,27 @@ div.modal-buttons {
         width: 100%;
         box-sizing: border-box;
     }
-    
+}
+
+@media (orientation: portrait) or (max-width: 900px) {
+    #controls-legend {
+        position: fixed;
+        left: 0;
+        right: 0;
+        top: auto;
+        bottom: 0;
+        transform: none;
+        width: 100%;
+        min-width: 100%;
+        box-sizing: border-box;
+        border-radius: 0;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 12px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
     .legend-list {
         flex-direction: row;
         flex-wrap: wrap;

@@ -14,10 +14,15 @@ const csvBtn = document.getElementById("save-btn");
 const StablizerSlider = new Slider(document.getElementById("stabilizer-slider"), document.getElementById("stabilizer-val"), 0, 250, 80, 1);
 const Drawer = new DrawingCanvas(document.getElementById("draw-canvas"), StablizerSlider);
 
-const SmoothingSlider = new Slider(
-    document.getElementById("smoothing-slider"),
-    document.getElementById("smoothing-val"),
+const SmoothingPassSlider = new Slider(
+    document.getElementById("passes-slider"),
+    document.getElementById("passes-val"),
     0, 5, 2, 1
+);
+const SmoothingFactorSlider = new Slider(
+    document.getElementById("factor-slider"),
+    document.getElementById("factor-val"),
+    0, 1, 0.55, 0.05
 );
 const SnapSlider = new Slider(
     document.getElementById("snap-slider"),
@@ -52,7 +57,8 @@ function hasOutputData () {
 ScaleSliderX.onchange = () => loadOutput();
 ScaleSliderY.onchange = () => loadOutput();
 BaseSliderY.onchange = () => loadOutput();
-SmoothingSlider.onchange = () => Drawer.smoothingPasses = SmoothingSlider.value;
+SmoothingPassSlider.onchange = () => Drawer.smoothingPasses = SmoothingPassSlider.value;
+SmoothingFactorSlider.onchange = () => Drawer.smoothingFactor = SmoothingFactorSlider.value;
 SnapSlider.onchange = () => Drawer.snapDistance = SnapSlider.value;
 
 clearBtn.addEventListener("click", () => Drawer.clear());

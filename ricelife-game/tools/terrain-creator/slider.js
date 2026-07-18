@@ -27,6 +27,10 @@ export class Slider {
         if (!Number.isNaN(value)) this.value = value;
     }
     #init () {
+        const stepString = this.#step.toString();
+        this.precision = stepString.includes('.')
+            ? stepString.split('.')[1].length
+            : 0;
         const slider = this.#slideEl;
         const field = this.#valEl;
         slider.addEventListener("input", this.#onInput);

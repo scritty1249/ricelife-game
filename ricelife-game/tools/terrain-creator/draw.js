@@ -41,6 +41,7 @@ export class DrawingCanvas {
     enabled = true;
     snapDistance = 50;
     smoothingPasses = 2;
+    smoothingFactor = .5;
     constructor(canvasElement, stablizerSlider, cooridnatePrecision = 2, pathStrokeOptions = {}, stablizerStrokeOptions = {}) {
         this.#canvas = canvasElement;
         this.#slider = stablizerSlider;
@@ -119,26 +120,21 @@ export class DrawingCanvas {
     #applySmoothing (stroke) { // Chaikin’s algorithm
         if (!stroke || stroke.length < 6) return stroke;
         let output = [];
-        
-        // Keep the exact starting node position locked
+        const { smoothingFactor } = this;
+        const smoothingCoeff = 1 - smoothingFactor;
         output.push(stroke[0], stroke[1]);
-
-        // Slice corners at 25% and 75% geometric ratios
         for (let i = 0; i < stroke.length - 2; i += 2) {
             const x0 = stroke[i];
             const y0 = stroke[i + 1];
             const x1 = stroke[i + 2];
             const y1 = stroke[i + 3];
-
             output.push(
-                0.75 * x0 + 0.25 * x1,
-                0.75 * y0 + 0.25 * y1,
-                0.25 * x0 + 0.75 * x1,
-                0.25 * y0 + 0.75 * y1
+                smoothingFactor * x0 + smoothingCoeff * x1,
+                smoothingFactor * y0 + smoothingCoeff * y1,
+                smoothingCoeff * x0 + smoothingFactor * x1,
+                smoothingCoeff * y0 + smoothingFactor * y1
             );
         }
-
-        // Keep the exact terminal endpoint position locked
         output.push(stroke[stroke.length - 2], stroke[stroke.length - 1]);
         return output;
     }
@@ -146,13 +142,9 @@ export class DrawingCanvas {
     #drawStroke (stroke, options) {
         if (!stroke || stroke.length < 4) return;
         
-        // 1. Run Chaikin loops recursively based on your active smoothing setting
         let smoothedStroke = [...stroke];
-        for (let pass = 0; pass < this.smoothingPasses; pass++) {
+        for (let pass = 0; pass < this.smoothingPasses; pass++)
             smoothedStroke = this.#applySmoothing(smoothedStroke);
-        }
-
-        // 2. Render the final smoothed array coordinates to the canvas screen
         const ctx = this.#ctx;
         ctx.beginPath();
         this.#setStrokeOptions(options);
@@ -196,8 +188,6 @@ export class DrawingCanvas {
                 }
             }
         }
-
-        // Proceed with normal baseline point stream initialization
         if (!this.#stroke.all.length)
             this.#stroke.current.push( 0, this.#toPrecision(this.pen.y) );
         this.#stroke.current.push( this.#toPrecision(this.pen.x), this.#toPrecision(this.pen.y) );
@@ -326,11 +316,8 @@ export class DrawingCanvas {
         if (current.length >= 4) {
             const lastX = current[current.length - 2];
             const lastY = current[current.length - 1];
-            
-            // Commit the trailing straight line node point right before saving to history
-            if (this.#toPrecision(this.pen.x) !== lastX || this.#toPrecision(this.pen.y) !== lastY) {
+            if (this.#toPrecision(this.pen.x) !== lastX || this.#toPrecision(this.pen.y) !== lastY)
                 current.push(this.#toPrecision(this.pen.x), this.#toPrecision(this.pen.y));
-            }
             all.push(current.splice(0, current.length - (current.length % 2)));
         }
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
