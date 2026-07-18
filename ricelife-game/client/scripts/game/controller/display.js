@@ -60,6 +60,12 @@ class Viewbox extends BoundingBox {
     #canvas;
     #planeSize = new Vector();
     #states = new Array();
+    #bounding = { // used to clamp movement to plane
+        top: true,
+        left: true,
+        bottom: true,
+        right: true
+    };
     constructor (appCanvas, planeSize, size) {
         super(undefined, new Vector(1, 1));
         if (!appCanvas?.isAppCanvas) throw new Error(`[${this.constructor.name}]: canvas must be of type AppCanvas, got ${typeof appCanvas}`);
@@ -83,9 +89,13 @@ class Viewbox extends BoundingBox {
         const { size } = this;
         const targetMin = point.sub(size.div(2));
         const limit = planeSize.sub(size);
-        const minX = Math.max(0, Math.min(targetMin.x, limit.x));
-        const minY = Math.max(0, targetMin.y);
-        this.max.apply(this.min.apply(minX, minY)).add(size, true);
+
+        const maxX = this.bounding.right ? Math.min(targetMin.x, limit.x) : targetMin.x;
+        const minX = this.bounding.left ? 0 : maxX;
+        const maxY = this.bounding.top ? Math.min(targetMin.y, limit.y) : targetMin.y;
+        const minY = this.bounding.bottom ? 0 : maxY;
+
+        this.max.apply(this.min.apply(Math.max(minX, maxX), Math.max(minY, maxY))).add(size, true);
         return this; // for chaining
     }
     applySize (size) {
@@ -131,6 +141,7 @@ class Viewbox extends BoundingBox {
     get isViewbox () { return true }
     get canvasScale () { return this.#canvas.size.div(this.size) }
     get planeSize () { return this.#planeSize }
+    get bounding () { return this.#bounding }
     get isOnEdge () {
         const { planeSize } = this;
         return this.min.x <= 0
@@ -139,8 +150,7 @@ class Viewbox extends BoundingBox {
             || this.max.y >= planeSize.y;
     }
     get aspectRatio () { return this.size.quot() }
-    // preserves height
-    // [!] inefficient
+    // preserves axis depending on canvas orientation
     set aspectRatio (ratio) {
         this.applySize(new Vector(this.height * ratio, this.height));
         return ratio;
@@ -312,6 +322,39 @@ export class ViewboxController extends TrackableObject {
         this.#boundBox.apply(bbox);
         this.#tempBox.apply(tbbox);
         this.enabled = enabled;
+    }
+    // sets viewbox to position
+    setPosition (x = undefined, y = undefined) {
+        const { Viewbox } = this;
+        const pos = Viewbox.getPosition();
+        if (x?.isVector) pos.apply(x);
+        else {
+            if (Number.isFinite(x)) pos.x = x;
+            if (Number.isFinite(y)) pos.y = y;
+        }
+        Viewbox.setPosition(pos);
+    }
+    // moves viewbox (additive)
+    offsetPosition (x = undefined, y = undefined) {
+        const { Viewbox } = this;
+        const pos = Viewbox.getPosition();
+        if (x?.isVector) pos.add(x, true);
+        else {
+            if (Number.isFinite(x)) pos.x += x;
+            if (Number.isFinite(y)) pos.y += y;
+        }
+        Viewbox.setPosition(pos);
+    }
+    // moves viewbox by some factor
+    lerpPosition (x = undefined, y = undefined, factor = 1) {
+        const { Viewbox } = this;
+        const pos = Viewbox.getPosition();
+        if (x?.isVector) pos.apply(x);
+        else {
+            if (Number.isFinite(x)) pos.x = x;
+            if (Number.isFinite(y)) pos.y = y;
+        }
+        Viewbox.setPosition(Viewbox.getPosition().lerp(pos, factor, true));
     }
     update () {
         if (!this.enabled) return;
