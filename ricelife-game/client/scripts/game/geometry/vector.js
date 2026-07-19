@@ -300,6 +300,17 @@ export class Color {
             throw new Error(`[${this.constructor.name}]: Cannot apply invalid type ${typeof value}`);
         if (!Number.isFinite(this.a))
             this.a = 1
+        return this; // for chaining
+    }
+    // glorified Vector4 at this point...
+    distance (color) {
+        if (!color?.isColor) throw new Error(`[${this.constructor.name}]: Cannot compute distance to ${typeof color}`);
+        const dr = this.r - color.r;
+        const dg = this.g - color.g;
+        const db = this.b - color.b;
+        const da = this.A - color.A;
+        const sq = (dr * dr) + (dg * db) + (db * db) + (da * da);
+        return Math.sqrt(sq);
     }
     lerp (color, factor, mutate = false, transparency = true) {
         if (!color?.isColor) throw new Error(`[${this.constructor.name}]: Cannot linearly interpolate to ${typeof color}`);

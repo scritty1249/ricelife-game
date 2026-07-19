@@ -50,6 +50,8 @@ export function global2screen (point, height) { return point.add({x: 0, y: -heig
 
 export function screen2global (point, height) { return point.add({x: 0, y: height}) }
 
+export function lerp (start, end, factor) { return (1 - factor) * start + factor * end }
+
 // seedable random numbers. MAY NOT BE TRUE RANDOM
 export class Random {
   static #BASE = 4294967296;

@@ -339,6 +339,8 @@ export class Path extends TrackableObject { // points should be ordered clockwis
         path.points.forEach((point) => point.add(vector, true));
         return path;
     }
+    every (...args) { return this.points.every(...args) }
+    some (...args) { return this.points.some(...args) }
     slice (...args) { return this.points.slice(...args) }
     splice (...args) { return this.points.splice(...args) }
     at (...args) { return this.points.at(...args) }
