@@ -1,4 +1,4 @@
-import { PhaseController } from "./main.js";
+import { PhaseController } from "./phase.js";
 import { InputListener } from "../player.js";
 import { Color, Vector, Equigon } from "../../geometry/geometry.js";
 import { drawCircle, clamp, floatEqual } from "../../utils/utils.js";
@@ -92,7 +92,7 @@ export class SelectionController extends PhaseController {
             .then(() => this);
     }
     #init (selections) {
-        this.store.SELECTED = undefined;
+        this.store.EXPORT = undefined;
         this.store.lastDrawnPosition = this.Global.Display.center.clone();
         this.store.lastActivePosition = this.store.lastDrawnPosition.clone();
         this.store.focalPoint = this.Global.Display.center.clone(); // lerp-able focal point
@@ -107,7 +107,6 @@ export class SelectionController extends PhaseController {
             if (!selection?.isShotSelection) throw new Error(`[${this.constructor.name}]: Invalid type - expected ShotSelection, got ${typeof selection}`);
             this.store.selections.push(selection);
         }
-        this.#Interface = new Menu.Interface();
         this.Audio.Layer.tile = this.Audio.Player.Layer();
         this.Audio.Layer.tile.volume = .25;
         this.Audio.Layer.selected = this.Audio.Player.Layer();
@@ -212,7 +211,7 @@ export class SelectionController extends PhaseController {
             if (btn.shape.globalTransformation.scale.lengthSquared < this.constructor.SETTINGS.TILE_MINIMIZE_SCALE) {
                 return;
             }
-            this.store.SELECTED = userData.selection.name;
+            this.store.EXPORT = userData.selection.name;
             this.state = this.constructor.STATES.Raise;
             this.Audio.Layer.tile.stop();
             this.Audio.Layer.selected.add(this.AssetPool.get("tileSelect").Instance().play(), true);
@@ -354,7 +353,7 @@ export class SelectionController extends PhaseController {
     }
     reset () {
         this.state = this.constructor.STATES.Busy;
-        this.store.SELECTED = undefined;
+        this.store.EXPORT = undefined;
         this.trackActive = false;
         this.store.lastDrawnPosition.apply(this.Global.Display.center);
         this.store.lastActivePosition.apply(this.store.lastDrawnPosition);
@@ -386,7 +385,6 @@ export class SelectionController extends PhaseController {
         super.close();
     }
     get isSelectionController () { return true }
-    get Interface () { return this.#Interface }
     get ResizeObserver () { return this.#ResizeObserver }
     get onload () { return this.#loadPromise }
 }

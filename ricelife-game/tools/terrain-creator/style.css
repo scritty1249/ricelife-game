@@ -376,7 +376,7 @@ div.modal-buttons {
 }
 
 @media (orientation: portrait) or (max-width: 1720px) {
-        #draw-controls {
+    #draw-controls {
         position: absolute;
         top: 10px;
         left: 50%;

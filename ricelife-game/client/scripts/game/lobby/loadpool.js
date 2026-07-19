@@ -96,6 +96,8 @@ export class AmmoPool extends LoadPool {
 }
 
 export class AssetPool extends LoadPool {
+    // expects:
+    // key: String, args: [constructorFn, callbackFn | undefined, ...constructorArgs], ...
     add (...kwargs) {
         if (!kwargs?.length) return;
         const entries = [];

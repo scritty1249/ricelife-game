@@ -1,12 +1,14 @@
 import { Spritesheet } from "../../animate/animate.js";
 import { LoadImage, AudioContext, LoadFont } from "../../asset/asset.js";
 import { FrameCounter, Interval, AppCanvas } from "../display.js";
+import { Interface } from "../../menu/menu.js";
 import { InputListener } from "../player.js";
 import { LoopController } from "./loop.js";
-import { Vector } from "../../geometry/geometry.js";
 
+
+import { RoundController } from "./round.js";
+import { MapSelectController } from "./map.js";
 export class MainController extends LoopController {
-    static #COORDINATE_PLANE_SIZE = new Vector(4000, 1000);
     static SETTINGS = {
         RESOLUTION: Math.floor((1/3) * 10) / 10,
         MAX_VIEWBOX_SCALE: 5,
@@ -26,7 +28,6 @@ export class MainController extends LoopController {
         this.#AssetType.Audio = (...args) => this.#AudioCtx.Source(...args);
     }
     static get AssetType () { return this.#AssetType }
-    static get COORDINATE_PLANE_SIZE () { return MainController.#COORDINATE_PLANE_SIZE.clone() } // [!] protect. never modify original
     #Loops = {};
     #active;
     #Display;
@@ -115,6 +116,31 @@ export class MainController extends LoopController {
             : oldState;
         console.error(`[${this.constructor.name}]: ${loopName}rashed${currentState === Crashed ? "" : " fatally"}\n\t`, err);
     }
+    #phaseChange () {
+        const phase = this.activeLoop;
+        const { EXPORT } = phase;
+        this.state = this.constructor.STATES.Busy;
+        if (phase?.isRoundController) {
+            console.log(`[${this.constructor.name}]: Round won - winner ${EXPORT}`);
+            this.flags.EXIT = true;
+        } else if (phase?.isMapSelectController) {
+            console.log(`[${this.constructor.name}]: Map selected`);
+            const LOBBY_URL = "../tests/test-lobby.json"; // [!] testing
+            const newRound = new RoundController(this, LOBBY_URL, EXPORT);
+            newRound.onload.then(() => {
+                console.log(`[${this.constructor.name}]: Round loaded`);
+                this.transferLoop(newRound);
+            }).catch((err) => {
+                console.error(`[${this.constructor.name}]: Failed to load round\n\t${err}`);
+                this.activeLoop.reset();
+                this.activeLoop.start();
+            }).finally(() => {
+                this.state = this.constructor.STATES.Ready;
+            });
+        } else {
+            throw new Error(`Unrecognized phase: ${phase?.constructor?.name || typeof phase}`);
+        }
+    }
 
     // expects PhaseController
     async transferLoop (newLoop) {
@@ -137,14 +163,16 @@ export class MainController extends LoopController {
         super.loop();
     }
     async tick () {
-        if (this.state === this.constructor.STATES.Ready
-            && this.activeLoop?.state === this.constructor.STATES.Ready
-        ) {
-            if (this.TickInterval.ready) await this.activeLoop?.tick?.(this.TickInterval.lastDelta);
-            if (this.FrameInterval.ready) {
-                this.activeLoop.animate(true);
-                if (this.flags.DEBUG) this.#drawFramerate();
-                this.FrameCounter.update();
+        if (this.state === this.constructor.STATES.Ready && this.activeLoop) {
+            if (this.activeLoop.state === this.constructor.STATES.Ready) {
+                if (this.TickInterval.ready) await this.activeLoop?.tick?.(this.TickInterval.lastDelta);
+                if (this.FrameInterval.ready) {
+                    this.activeLoop.animate(true);
+                    if (this.flags.DEBUG) this.#drawFramerate();
+                    this.FrameCounter.update();
+                }
+            } else if (this.activeLoop.state === this.constructor.STATES.Raise && this.activeLoop.EXPORT !== null) {
+                this.#phaseChange();
             }
         }
     }
@@ -164,15 +192,4 @@ export class MainController extends LoopController {
     get TickInterval () { return this.#TickInterval }
     get activeLoop () { return this.#Loops[this.#active] }
     get onload () { return this.#loadPromise.promise }
-}
-
-export class PhaseController extends LoopController {
-    #Global;
-    constructor (mainController) {
-        super(mainController.Audio.Context);
-        this.#Global = mainController;
-    }
-    animate (clear = true) {}
-    get isPhaseController () { return true }
-    get Global () { return this.#Global }
 }

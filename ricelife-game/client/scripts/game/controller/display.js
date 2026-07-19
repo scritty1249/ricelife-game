@@ -75,6 +75,17 @@ class Viewbox extends BoundingBox {
         if (size) this.applySize(size);
     }
 
+    #clampChange (newSize, newMin) {
+        const limit = this.planeSize.sub(newSize);
+        const maxX = this.bounding.right ? Math.min(newMin.x, limit.x) : newMin.x;
+        const minX = this.bounding.left ? 0 : maxX;
+        const maxY = this.bounding.top ? Math.min(newMin.y, limit.y) : newMin.y;
+        const minY = this.bounding.bottom ? 0 : maxY;
+        const x = Math.max(minX, maxX);
+        const y = Math.max(minY, maxY);
+        this.max.apply(this.min.apply(x, y)).add(newSize, true);
+    }
+
     save () { this.#states.push({min: this.min.clone(), max: this.max.clone()}) }
     restore () {
         if (this.#states.length) {
@@ -87,15 +98,8 @@ class Viewbox extends BoundingBox {
     setPosition (point) {
         const { planeSize } = this;
         const { size } = this;
-        const targetMin = point.sub(size.div(2));
-        const limit = planeSize.sub(size);
-
-        const maxX = this.bounding.right ? Math.min(targetMin.x, limit.x) : targetMin.x;
-        const minX = this.bounding.left ? 0 : maxX;
-        const maxY = this.bounding.top ? Math.min(targetMin.y, limit.y) : targetMin.y;
-        const minY = this.bounding.bottom ? 0 : maxY;
-
-        this.max.apply(this.min.apply(Math.max(minX, maxX), Math.max(minY, maxY))).add(size, true);
+        const min = point.sub(size.div(2));
+        this.#clampChange(size, min);
         return this; // for chaining
     }
     applySize (size) {
@@ -105,17 +109,14 @@ class Viewbox extends BoundingBox {
     applyScale (scale) {
         const { planeSize } = this;
         const offset = this.center.clone();
-        const min = this.min.sub(offset, false).mul(scale, true).add(offset, true);
-        const max = this.max.sub(offset, false).mul(scale, true).add(offset, true);
+        const min = this.min.sub(offset).mul(scale, true).add(offset, true);
+        const max = this.max.sub(offset).mul(scale, true).add(offset, true);
         const size = max.sub(min).abs(true);
         const aspect = size.quot();
         if (!this.#canvas.isPortrait && size.x > planeSize.x) size.apply(planeSize.x, planeSize.x / aspect);
         if (!this.#canvas.isLandscape && size.y > planeSize.y) size.apply(planeSize.y * aspect, planeSize.y);
         if (this.size.eq(size)) return this;
-        const limit = planeSize.sub(size);
-        const minX = Math.max(0, Math.min(min.x, limit.x));
-        const minY = Math.max(0, Math.min(min.y, limit.y));
-        this.max.apply(this.min.apply(minX, minY)).add(size, true);
+        this.#clampChange(size, min);
         return this; // for chaining
     }
     // sets cursor origin and scale to match viewbox
@@ -265,9 +266,10 @@ export class ViewboxController extends TrackableObject {
         if (!hasBounds) return vSize;
         const tSize = hasBounds ? this.#boundBox.size : vSize;
         const viewAspect = this.#Viewbox.aspectRatio;
-        if (tSize.quot() > viewAspect) {
+        const targetAspect = tSize.quot();
+        if (targetAspect > viewAspect) {
             tSize.y = tSize.x / viewAspect;
-        } else {
+        } else if (targetAspect < viewAspect) {
             tSize.x = tSize.y * viewAspect;
         }
         return (this.scalingBehavior === Always
@@ -299,7 +301,7 @@ export class ViewboxController extends TrackableObject {
             scalingBehavior: this.scalingBehavior,
             lerpingCenter: this.#isLerping.center,
             keepSize: this.#keepSize,
-            tSize: this.#targetSize,
+            tSize: this.#targetSize.clone(),
             setBbox: this.#setBoundBox,
             bbox: this.#boundBox.clone(),
             tbbox: this.#tempBox.clone(),
@@ -324,6 +326,7 @@ export class ViewboxController extends TrackableObject {
         this.enabled = enabled;
     }
     // sets viewbox to position
+    // [!] conflicts if target size is set
     setPosition (x = undefined, y = undefined) {
         const { Viewbox } = this;
         const pos = Viewbox.getPosition();
@@ -333,8 +336,11 @@ export class ViewboxController extends TrackableObject {
             if (Number.isFinite(y)) pos.y = y;
         }
         Viewbox.setPosition(pos);
+        const after = Viewbox.getPosition();
+        return !after.eq(pos);
     }
     // moves viewbox (additive)
+    // [!] conflicts if target size is set
     offsetPosition (x = undefined, y = undefined) {
         const { Viewbox } = this;
         const pos = Viewbox.getPosition();
@@ -344,8 +350,11 @@ export class ViewboxController extends TrackableObject {
             if (Number.isFinite(y)) pos.y += y;
         }
         Viewbox.setPosition(pos);
+        const after = Viewbox.getPosition();
+        return !after.eq(pos);
     }
     // moves viewbox by some factor
+    // [!] conflicts if target size is set
     lerpPosition (x = undefined, y = undefined, factor = 1) {
         const { Viewbox } = this;
         const pos = Viewbox.getPosition();
@@ -355,15 +364,17 @@ export class ViewboxController extends TrackableObject {
             if (Number.isFinite(y)) pos.y = y;
         }
         Viewbox.setPosition(Viewbox.getPosition().lerp(pos, factor, true));
+        const after = Viewbox.getPosition();
+        return !after.eq(pos);
     }
     update () {
         if (!this.enabled) return;
         this.#computeBounds();
         const { SNAP_THRESHOLD, SCALING_BEHAVIOR } = this.constructor;
-        const size = this.#computeTargetSize();
-        const center = this.#boundBox.center;
         const vSize = this.#Viewbox.size;
         const vCenter = this.#Viewbox.center;
+        const size = this.#computeTargetSize();
+        const center = this.#boundBox.extentSquared > 0 ? this.#boundBox.center : vCenter;
 
         const targetSize = this.#lerpFactor >= 1
             ? size : vSize.sub(size).dot() < SNAP_THRESHOLD

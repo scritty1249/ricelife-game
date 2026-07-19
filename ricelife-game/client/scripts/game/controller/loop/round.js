@@ -1,7 +1,7 @@
 import { AmmoPool, LobbyJSON } from "../../lobby/lobby.js";
 import { AnimationList, Animation, ShapeAnimation } from "../../animate/animate.js";
 import { Vector, Color, Ray, BoundingBox } from "../../geometry/geometry.js";
-import { PhaseController } from "./main.js";
+import { PhaseController } from "./phase.js";
 import { SelectionController, ShotSelection } from "./select.js";
 import { InputListener } from "../player.js";
 import { ViewboxController } from "../display.js";
@@ -53,7 +53,6 @@ export class RoundController extends PhaseController {
         ShiftRight: "debug+"
     };
     #AmmoPool = new AmmoPool(new URL('.', import.meta.url).pathname + "../../projectile/types");
-    #Plane;
     #LobbyData;
     #ActivePlayer;
     #Players;
@@ -80,10 +79,9 @@ export class RoundController extends PhaseController {
             .then(() => this.#selectShot(this.store.shot.types[0]))
             .then(() => this.#setupSfx())
             .then(() => distributePlayers(this.Plane, this.Players)) // [!] temporary
-            .then(() => this.setViewbox(this.ActivePlayer.tank.position))
+            .then(() => this.Camera.setPosition(this.ActivePlayer.tank.position))
             .then(() => this.trackActivePlayer())
             .then(() => this.state = this.constructor.STATES.Ready)
-            .catch((err) => console.error(`[${this.constructor.name}]:`, err));
     }
 
     #init () {
@@ -116,9 +114,7 @@ export class RoundController extends PhaseController {
         this.Audio.Layer.blast.volume = 0.55;
         this.Audio.Player.volume = 0.35;
 
-        this.#Interface = new Menu.Interface();
         this.#setInputMap();
-
         this.#Threaded = new WorkerController(new WorkerPool(new URL(`../../workers/web-worker.js`, import.meta.url), 4, 3));
     }
     async #load (lobbySrc, terrainSrc) {
@@ -161,7 +157,7 @@ export class RoundController extends PhaseController {
     async #loadTerrain (terrainSrc) {
         const iterator = await readTerrain(terrainSrc);
         const { plane, terrain } = createTerrain(iterator);
-        this.#Plane = plane;
+        this.Plane.apply(plane);
         this.#Terrain = terrain;
         this.Global.Display.cursor.planeSize.apply(plane.size);
     }
@@ -204,6 +200,7 @@ export class RoundController extends PhaseController {
     #setupLobby () {
         this.#Camera = new ViewboxController(this.Global.Display, this.Plane.size);
         this.Interface.Viewbox = this.Camera.Viewbox;
+        this.Camera.Viewbox.bounding.top = false;
     }
     #setupSelectPhase () {
         const selections = [];
@@ -261,7 +258,7 @@ export class RoundController extends PhaseController {
         const panSensitivity = this.constructor.SETTINGS.PAN_SENSITIVITY / 5;
         underButton.ondrag = (point, origin, delta) => {
             this.untrackActivePlayer();
-            this.panViewbox(delta.mul(-panSensitivity).div(this.Camera.Viewbox.canvasScale, true));
+            this.Camera.offsetPosition(delta.mul(-panSensitivity).div(this.Camera.Viewbox.canvasScale, true));
         }
         underButton.onrelease = (point, delta) => {
         }
@@ -269,7 +266,7 @@ export class RoundController extends PhaseController {
             const { Viewbox } = this.Camera;
             if (this.Global.Input.pointer.pointerCount < 2 && !floatEqual(delta.x, 0)) {
                 this.untrackActivePlayer();
-                this.panViewbox(delta.x * panSensitivity);
+                this.Camera.offsetPosition(delta.x * panSensitivity);
             }
             if (!floatEqual(delta.y, 0)) {
                 const { MAX_VIEWBOX_SCALE } = this.Global.constructor.SETTINGS;
@@ -287,7 +284,7 @@ export class RoundController extends PhaseController {
                 const doPan = !size.eq(Viewbox.size);
                 Viewbox.restore();
                 this.Camera.restore();
-                if (doPan) this.lerpViewbox(pt, undefined, .4);
+                if (doPan) this.Camera.lerpPosition(pt, undefined, .4);
             }
         }
 
@@ -709,39 +706,6 @@ export class RoundController extends PhaseController {
         this.#setShot(shot, map);
         this.trackShot();
     }
-    // sets viewbox to player
-    setViewbox (x = undefined, y = undefined) {
-        const { Viewbox } = this.Camera;
-        const pos = Viewbox.getPosition();
-        if (x?.isVector) pos.apply(x);
-        else {
-            if (Number.isFinite(x)) pos.x = x;
-            if (Number.isFinite(y)) pos.y = y;
-        }
-        Viewbox.setPosition(pos);
-    }
-    // moves the viewbox (additive)
-    panViewbox (x = undefined, y = undefined) {
-        const { Viewbox } = this.Camera;
-        const pos = Viewbox.getPosition();
-        if (x?.isVector) pos.add(x, true);
-        else {
-            if (Number.isFinite(x)) pos.x += x;
-            if (Number.isFinite(y)) pos.y += y;
-        }
-        Viewbox.setPosition(pos);
-    }
-    // moves the viewbox by some factor
-    lerpViewbox (x = undefined, y = undefined, factor = 1) {
-        const { Viewbox } = this.Camera;
-        const pos = Viewbox.getPosition();
-        if (x?.isVector) pos.apply(x);
-        else {
-            if (Number.isFinite(x)) pos.x = x;
-            if (Number.isFinite(y)) pos.y = y;
-        }
-        Viewbox.setPosition(Viewbox.getPosition().lerp(pos, factor, true));
-    }
     openSelect () {
         this.#getSelectionBackground(false);
         this.SelectionPhase.start();
@@ -751,7 +715,8 @@ export class RoundController extends PhaseController {
     }
     closeSelect () {
         this.flags.SELECTING = false;
-        if (this.SelectionPhase.store.SELECTED) this.#selectShot(this.SelectionPhase.store.SELECTED);
+        if (this.SelectionPhase.EXPORT)
+            this.#selectShot(this.SelectionPhase.EXPORT);
         this.SelectionPhase.reset();
         this.Global.Input.keyMap = this.constructor.INPUT_MAP;
         this.Global.Input.pointerMap = this.Interface;
@@ -824,12 +789,12 @@ export class RoundController extends PhaseController {
         if (!keyboard.keyActive("debug+")) {
             if (keyboard.keyActive("pan+")) {
                 this.untrackActivePlayer();
-                this.panViewbox(PAN_SENSITIVITY);
+                this.Camera.offsetPosition(PAN_SENSITIVITY);
                 
             }
             if (keyboard.keyActive("pan-")) {
                 this.untrackActivePlayer();
-                this.panViewbox(-PAN_SENSITIVITY);
+                this.Camera.offsetPosition(-PAN_SENSITIVITY);
             }
         }
         if (flags.isTurn) {
@@ -968,6 +933,13 @@ export class RoundController extends PhaseController {
                     this.setTurn(true);
                     if (this.Global.flags.DEBUG) console.info(`[${this.constructor.name}]: Shot playback finished`);
                     store.prerender = Promise.resolve();
+                    // check if round ended
+                    const alivePlayers = this.Players.filter((player) => !player.isDead);
+                    if (alivePlayers <= 1) {
+                        this.store.EXPORT = alivePlayers.length ? false : alivePlayers[0].data.profile.userid;
+                        this.state = this.constructor.STATES.Raise;
+                        this.flags.EXIT = true;
+                    }
                 }
             }
         }
@@ -991,12 +963,10 @@ export class RoundController extends PhaseController {
     get ActivePlayer () { return this.#ActivePlayer }
     get Players () { return this.#Players }
     get Threaded () { return this.#Threaded }
-    get Interface () { return this.#Interface }
     get Terrain () { return this.#Terrain }
     get Animations () { return this.#Animations }
     get SelectionPhase () { return this.#SelectionPhase }
     get Camera () { return this.#Camera }
-    get Plane () { return this.#Plane }
     get onload () { return this.#loadPromise }
 }
 

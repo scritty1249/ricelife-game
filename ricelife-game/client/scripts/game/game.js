@@ -1,9 +1,11 @@
 import { MainController } from "./controller/controller.js";
 import { RoundController } from "./controller/loop/round.js"; // [!] testing
+import { MapSelectController } from "./controller/loop/map.js"; // [!] testing
 
 // [!] only for client demo
 const LOBBY_URL = "../tests/test-lobby.json";
 const TERRAIN_URL = "../maps/the-finger.csv";
+import MAPS from "../../../tests/test-maps.json" with { type: "json" }; 
 
 export async function load () {
     const URL_PARAMS = new URLSearchParams(window.location.search);
@@ -11,7 +13,8 @@ export async function load () {
     Main.flags.DEBUG = URL_PARAMS.has("debug") && URL_PARAMS.get("debug") === "true";
     window._MAIN = Main; // [!] for debug
     await Main.onload;
-    Main.transferLoop(new RoundController(Main, LOBBY_URL, TERRAIN_URL));
+    //Main.transferLoop(new RoundController(Main, LOBBY_URL, TERRAIN_URL));
+    Main.transferLoop(new MapSelectController(Main, MAPS));
     Main.Display.canvas.focus();
     Main.loop();
 }
