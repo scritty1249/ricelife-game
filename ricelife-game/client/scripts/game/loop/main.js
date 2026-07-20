@@ -35,6 +35,7 @@ export class MainLoop extends GameLoop {
     }
     static get AssetType () { return this.#AssetType }
     static get PhaseType () { return this.#PhaseType }
+    #MAPS;
     #Loops = {};
     #active;
     #Display;
@@ -43,18 +44,20 @@ export class MainLoop extends GameLoop {
     #FrameInterval;
     #TickInterval;
     #loadPromise = Promise.withResolvers();
-    constructor () {
+    constructor (maps) {
         // load a context if one doesn't exist already
         if (!MainLoop.#AudioCtx) MainLoop.#loadAudioContext();
         super(MainLoop.#AudioCtx);
-        this.#init();
+        this.#init(maps);
         this.#load()
             .then(() => this.#setupEvents())
             .then(() => this.state = this.constructor.STATES.Ready)
             .then(() => this.#loadPromise.resolve(this));
     }
 
-    #init () {
+    #init (maps) {
+        this.#MAPS = maps;
+        Object.freeze(this.#MAPS);
         this.#Display = new AppCanvas(window.appCanvas, window, MainLoop.COORDINATE_PLANE_SIZE);
         this.#FrameCounter = new FrameCounter(30);
         this.#FrameInterval = new Interval(1000 / this.constructor.SETTINGS.FPS);
@@ -173,13 +176,8 @@ export class MainLoop extends GameLoop {
             this.Events.raiseEvent("PHASE_NEW", {Phase: 1, args: ["../tests/test-lobby.json", selection.src], close: true });
         } else if (activeLoop?.isRoundPhase) {
             const { players } = data;
-            console.log(`[${this.constructor.name}]: Round won by ${players.length ? players[0].data.team : "no"} team!\n\tSurvivors: ${players.length ? players.map(({data})=>data.profile.name).join(", ") : "none."}`);
-
-            // [!] temporary - testing
-            const response = await fetch("../tests/test-maps.json");
-            const maps = await response.json();
-            
-            this.Events.raiseEvent("PHASE_NEW", {Phase: 0, args: [maps], close: true });
+            console.log(`[${this.constructor.name}]: Round won by ${players.length ? players[0].data.team : "no"} team!\n\tSurvivors: ${players.length ? players.map(({data})=>data.profile.name).join(", ") : "none."}`);            
+            this.Events.raiseEvent("PHASE_NEW", {Phase: 0, args: [this.#MAPS], close: true });
         }
     }
 

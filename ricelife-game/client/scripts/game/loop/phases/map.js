@@ -61,27 +61,32 @@ export class MapPhase extends Phase {
         );
         const planeSize = this.Plane.size;
         this.store.viewSize = new Vector(planeSize.x, tileSize.y + (padY * 2));
+        this.store.viewStartY = planeSize.y - (tileSize.y / 2) - padY;
         this.#Camera = new ViewboxController(this.Global.Display, planeSize, this.store.viewSize);
         this.Interface.Viewbox = this.Camera.Viewbox;
         this.Global.Display.cursor.planeSize.apply(planeSize);
-        this.Camera.setTargetSize(this.store.viewSize.x, this.store.viewSize.y, true);
-        this.Camera.scalingBehavior = this.Camera.constructor.SCALING_BEHAVIOR.Always;
-        this.Camera.setPosition(undefined, planeSize.y - (tileSize.y / 2) - padY);
+        this.#setupCamera();
     }
     #setupInterface () {
         const overButton = new BoundingBox();
         overButton.isOver = overButton.isIntersecting;
         overButton.id = uuid();
         overButton.onscroll = (point, delta) => {
+            if (this.flags.SELECTED) return;
+            this.flags.FOCUS = false;
             this.#scroll(delta);
         }
         overButton.ondrag = (point, origin, delta) => {
+            if (this.flags.SELECTED) return;
+            this.flags.FOCUS = false;
             this.#scroll(delta.div(this.constructor.SETTINGS.SCROLL_SENSITIVITY));
         }
         const underButton = new BoundingBox();
         underButton.isOver = underButton.isIntersecting;
         underButton.id = uuid();
         underButton.onclick = () => {
+            if (this.flags.SELECTED) return;
+            this.flags.FOCUS = false;
             for (const tile of this.store.selectionLayer.items) tile.close();
         }
         this.Interface.insert().push(underButton).fixed = true;
@@ -101,13 +106,14 @@ export class MapPhase extends Phase {
         const {
             fontColor, fillColor, strokeColor,
             openFontColor, openFillColor, openStrokeColor, openTextOffset,
-            closeFontColor, closeFillColor, closeStrokeColor, closeTextOffset
+            closeFontColor, closeFillColor, closeStrokeColor, closeTextOffset,
+            activeFontColor, activeFillColor, activeStrokeColor, activeTextOffset
         } = selection;
 
         selection.thumb.width = selection.maxWidth;
 
         selection.fontSize = 24;
-        closeFontColor.apply(fontColor.apply(255, 255, 255, 1));
+        activeFontColor.apply(closeFontColor.apply(fontColor.apply(255, 255, 255, 1)));
         closeFillColor.apply(fillColor.apply(0, 0, 0, 0.7));
         closeStrokeColor.apply(strokeColor.apply(255, 255, 255, 1));
         openFontColor.apply(closeFontColor);
@@ -116,26 +122,43 @@ export class MapPhase extends Phase {
         openFillColor.a = 0.2;
         openStrokeColor.apply(closeStrokeColor);
         openTextOffset.apply(0, -(1.2/3) * bbox.height);
+        activeFontColor.apply(activeStrokeColor.apply(255, 0, 0, 1));
+        activeFillColor.apply(openFillColor);
+        activeFillColor.a = 0.4;
 
         // adding listeners
         selection.onclick = () => {
+            if (this.flags.SELECTED) return;
             if (selection.isOpen) {
+                selection.active();
+                this.flags.SELECTED = true;
+                this.Camera.untrackAll();
+                for (const tile of this.store.selectionLayer.items)
+                    if (!tile.isActive) tile.close();
+                this.Camera.lerpFactor = 0.2;
+                this.Camera.track(selection.getPosition());
+                const size = this.Camera.getTargetSize();
+                this.Camera.setTargetSize(size.x / 2, size.y / 2, true);
                 this.#selectMap(selection);
-            } else {
+            } else if (!selection.isActive) {
                 selection.open();
+                this.#focusMap(selection);
             }
         }
         return selection;
     }
     #selectMap (selection) {
-        this.state = this.constructor.STATES.Raise;
-        this.store.EXPORT = selection.src;
         this.Events.raiseEvent("EXIT", {selection});
+    }
+    #focusMap (selection) {
+        if (this.flags.SELECTED) return;
+        this.flags.FOCUS = true;
+        this.Camera.untrackAll();
+        this.Camera.track(selection.getPosition());
     }
     #onResize = () => {
         const { under, over } = this.store.screenButtons;
         under.apply(over.apply(this.Global.Display.getBoundingBox()));
-        this.Camera.update(); // [!] hacky solution
     }
     #attachListeners () {
         this.Global.Display.addResizeListener(this.#onResize);
@@ -149,16 +172,27 @@ export class MapPhase extends Phase {
         const scroll = delta.mul(this.flags.INVERT_TRACKING ? -sensitivity : sensitivity);
         this.Camera.offsetPosition(scroll);
     }
+    #setupCamera () {
+        this.Camera.lerpFactor = 0.1;
+        this.Camera.setTargetSize(this.store.viewSize.x, this.store.viewSize.y, true);
+        this.Camera.scalingBehavior = this.Camera.constructor.SCALING_BEHAVIOR.Always;
+        this.Camera.setPosition(undefined, this.store.viewStartY);
+    }
 
     animate (clear = true) {
         const { cursor } = this.Global.Display;
         if (clear) cursor.clear();
-        
+        this.Camera.update();
         this.Interface.draw(cursor);
+    }
+    async tick (delta) {
+        if (!this.flags.FOCUS && !this.flags.SELECTED) this.Camera.untrackAll();
     }
     reset () {
         super.reset();
-        this.store.EXPORT = null;
+        this.#setupCamera();
+        this.flags.SELECTED = false;
+        this.flags.FOCUS = false;
         this.store.selectionLayer.items.forEach((item) => item.close());
     }
 
@@ -183,7 +217,8 @@ export class MapSelection extends ShapeButton {
     #lerpState = {
         isLerping: false,
         amount: 0, // flag for when all lerps are done
-        open: false
+        open: false,
+        active: false
     };
     #openState = {
         font: new Color(),
@@ -201,6 +236,14 @@ export class MapSelection extends ShapeButton {
         anchor: new Path(),
         expand: new Path(),
     }
+    #activeState = {
+        font: new Color(),
+        fill: new Color(),
+        stroke: new Color(),
+        offset: new Vector(),
+        anchor: new Path(),
+        expand: new Path(),
+    };
     #expandLength;
     constructor (name, src, thumbnail) {
         super(new Equigon(6, MapSelection.TILE_LEG_LENGTH));
@@ -223,12 +266,13 @@ export class MapSelection extends ShapeButton {
         this.#points.expand.push(path.at(-3), path.at(-2), path.at(-1), path.at(0));
         this.#points.anchor.push(path.at(1), path.at(2), path.at(3), path.at(4));
 
+        // setup thumbnail scaling and origin
         this.thumb.origin.apply(this.thumb.rawSize.div(2));
     }
     #lerpValues () {
         const lerpState = this.#lerpState;
         if (!lerpState.isLerping) return;
-        const target = lerpState.open ? this.#openState : this.#closeState;
+        const target = lerpState.active ? this.#activeState : (lerpState.open ? this.#openState : this.#closeState);
         const { LERP_FACTOR, LERP_CLAMP_THRESHOLD } = this.constructor;
         let isDone = true;
         if (target.font?.isColor) {
@@ -272,10 +316,15 @@ export class MapSelection extends ShapeButton {
     }
     #drawGlow (cursor) {
         cursor.save();
+        if (this.isActive) cursor.lineWidth = 8;
+        else if (this.isOpen) cursor.lineWidth = 1;
+        else cursor.lineWidth = 4;
+        cursor.fillColor = "transparent";
         cursor.filter = "blur(10px)";
         cursor.strokeStyle = this.strokeColor.toString();
         this.shape.draw(cursor, true);
         cursor.stroke();
+        cursor.fill();
         cursor.restore();
     }
 
@@ -285,29 +334,46 @@ export class MapSelection extends ShapeButton {
             console.warn(`[${this.constructor.name}]: Passing call, unable to save state during animation`);
             return;
         }
+        if (this.thumb.width < this.thumb.height) {
+            this.thumb.width = this.getBoundingBox().width;
+        } else if (this.thumb.width > this.thumb.height) {
+            this.thumb.height = this.getBoundingBox().height;
+        }
         const open = this.#openState;
         const close = this.#closeState;
+        const active = this.#activeState;
         const length = this.#expandLength / 2;
         open.anchor.apply(...this.anchor.map((pt) => pt.clone()));
         open.expand.apply(...this.expand.map((pt) => pt.clone()));
         close.anchor.apply(...this.anchor.map((pt) => pt.clone()));
         close.expand.apply(...this.expand.map((pt) => pt.clone()));
+        active.anchor.apply(...this.anchor.map((pt) => pt.clone()));
+        active.expand.apply(...this.expand.map((pt) => pt.clone()));
         if (this.isOpen) {
             close.anchor.forEach((pt) => pt.x += length);
             close.expand.forEach((pt) => pt.x -= length);
         } else {
             open.anchor.forEach((pt) => pt.x -= length);
             open.expand.forEach((pt) => pt.x += length);
+            active.anchor.forEach((pt) => pt.x -= length);
+            active.expand.forEach((pt) => pt.x += length);
         }
     }
     open () {
+        this.#lerpState.active = false;
         if (this.isOpen) return;
         this.#lerpState.open = true;
         this.#lerpState.isLerping = true;
     }
     close () {
+        this.#lerpState.active = false;
         if (!this.isOpen) return;
         this.#lerpState.open = false;
+        this.#lerpState.isLerping = true;
+    }
+    active () {
+        if (this.isActive) return;
+        this.#lerpState.active = true;
         this.#lerpState.isLerping = true;
     }
     draw (cursor, fixed = false) {
@@ -333,6 +399,7 @@ export class MapSelection extends ShapeButton {
     get isMapSelection () { return true }
     get isAnimating () { return this.#lerpState.isLerping }
     get isOpen () { return this.#lerpState.open }
+    get isActive () { return this.#lerpState.active }
     get anchor () { return this.#points.anchor }
     get expand () { return this.#points.expand }
     get thumb () { return this.#thumb }
@@ -346,4 +413,8 @@ export class MapSelection extends ShapeButton {
     get closeFillColor () { return this.#closeState.fill }
     get closeStrokeColor () { return this.#closeState.stroke }
     get closeTextOffset () { return this.#closeState.offset }
+    get activeFontColor () { return this.#activeState.font }
+    get activeFillColor () { return this.#activeState.fill }
+    get activeStrokeColor () { return this.#activeState.stroke }
+    get activeTextOffset () { return this.#activeState.offset }
 }
