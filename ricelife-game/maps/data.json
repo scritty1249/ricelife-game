@@ -1,0 +1,17 @@
+[
+    {
+        "name": "Summit",
+        "src": "../maps/summit/terrain.csv",
+        "thumb": "../maps/summit/thumb.png"
+    },
+    {
+        "name": "The Finger",
+        "src": "../maps/the-finger/terrain.csv",
+        "thumb": "../maps/the-finger/thumb.png"
+    },
+    {
+        "name": "The Towers",
+        "src": "../maps/the-towers/terrain.csv",
+        "thumb": "../maps/the-towers/thumb.png"
+    }
+]
