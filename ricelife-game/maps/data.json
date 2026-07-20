@@ -10,8 +10,23 @@
         "thumb": "../maps/the-finger/thumb.png"
     },
     {
+        "name": "The Pit",
+        "src": "../maps/pit/terrain.csv",
+        "thumb": "../maps/pit/thumb.png"
+    },
+    {
         "name": "The Towers",
         "src": "../maps/the-towers/terrain.csv",
         "thumb": "../maps/the-towers/thumb.png"
+    },
+    {
+        "name": "Exo",
+        "src": "../maps/exo/terrain.csv",
+        "thumb": "../maps/exo/thumb.png"
+    },
+    {
+        "name": "Ditch",
+        "src": "../maps/ditch/terrain.csv",
+        "thumb": "../maps/ditch/thumb.png"
     }
 ]
