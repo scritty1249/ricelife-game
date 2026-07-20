@@ -10,6 +10,7 @@ const clearBtn = document.getElementById("clear-btn");
 const sliderEl = document.getElementById('stabilizer-slider');
 const copyBtn = document.getElementById("copy-btn");
 const csvBtn = document.getElementById("save-btn");
+const mirrorBtn = document.getElementById("mirrored-toggle");
 
 const StablizerSlider = new Slider(document.getElementById("stabilizer-slider"), document.getElementById("stabilizer-val"), 0, 250, 80, 1);
 const Drawer = new DrawingCanvas(document.getElementById("draw-canvas"), StablizerSlider);
@@ -45,7 +46,7 @@ const BaseSliderY = new Slider(
 const EMPTY_CANVAS_MESSAGE = "No Data.";
 
 function loadOutput () {
-    const updatedPayload = Drawer.exportData(ScaleSliderX.value, ScaleSliderY.value, BaseSliderY.value);
+    const updatedPayload = Drawer.exportData(ScaleSliderX.value, ScaleSliderY.value, BaseSliderY.value, mirrorBtn.checked);
     outputBox.value = updatedPayload
         ? updatedPayload
         : EMPTY_CANVAS_MESSAGE;
@@ -57,6 +58,7 @@ function hasOutputData () {
 ScaleSliderX.onchange = () => loadOutput();
 ScaleSliderY.onchange = () => loadOutput();
 BaseSliderY.onchange = () => loadOutput();
+mirrorBtn.addEventListener("change", () => loadOutput());
 SmoothingPassSlider.onchange = () => Drawer.smoothingPasses = SmoothingPassSlider.value;
 SmoothingFactorSlider.onchange = () => Drawer.smoothingFactor = SmoothingFactorSlider.value;
 SnapSlider.onchange = () => Drawer.snapDistance = SnapSlider.value;

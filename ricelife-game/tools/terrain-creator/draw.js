@@ -87,7 +87,13 @@ export class DrawingCanvas {
             } 
         }, { passive: false });
         window.addEventListener("touchend", () => this.endStroke());
-        window.addEventListener("resize", () => this.#onResize());
+        window.addEventListener("resize", () => this.#onResize()); 
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+                event.preventDefault();
+                this.undo();
+            }
+        });
         this.slider.onchange = () => this.#stablizer.length = this.slider.value;
     }
     #onResize () {
@@ -327,7 +333,13 @@ export class DrawingCanvas {
         this.#stroke.current.splice(0, this.#stroke.current.length);
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     }
-    exportData (scaleX = 1.0, scaleY = 1.0, baseY = 0) {
+    undo () {
+        if (!this.#stroke.current.splice(0, this.#stroke.current.length).length)
+            this.#stroke.all.pop();
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        this.drawAllStrokes();
+    }
+    exportData (scaleX = 1.0, scaleY = 1.0, baseY = 0, mirror = true) {
         if (this.#stroke.all.length === 0) return null;
 
         const visiblePoints = [];
@@ -345,8 +357,25 @@ export class DrawingCanvas {
             (i % 2 ? baseY : 0) + Math.round(value * (i % 2 ? scaleY : scaleX)));
         const allX = points.filter((_, i) => !(i % 2));
         const allY = points.filter((_, i) => i % 2);
-        const maxX = Math.ceil(Math.max(...allX));
+        let maxX = Math.ceil(Math.max(...allX));
         const maxY = Math.ceil(Math.max(...allY));
+
+        if (mirror) {
+            const length = points.length;
+            let idx = -1;
+            for (let i = 0; i < length && idx === -1; i+=2) {
+                const x = points[i];
+                const y = points[i + 1];
+                if (x >= this.canvas.width) idx = i;
+            }
+            if (idx >= 0) points.splice(idx, length - idx);
+            for (let i = points.length - 1; i >= 0; i-=2) {
+                const x = points[i-1];
+                const y = points[i];
+                points.push(maxX + (maxX - x), y);
+            }
+            maxX *= 2;
+        }
 
         return [ points.length + 2, maxX, maxY, ]
             .concat(points)
