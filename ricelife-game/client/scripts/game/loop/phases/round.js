@@ -673,6 +673,7 @@ export class RoundPhase extends Phase {
         const { LOADING_PAUSE_THRESHOLD } = this.constructor.SETTINGS;
         this.setTurn(false);
         this.animate(true); // draw one last frame so the game doesn't look like it just froze
+        this.Global.Events.raiseEvent("LOADING", {hide: false, message: "loading turn"});
         const shot = this.createShot();
         const totalStart = performance.now();
         let waitStart = performance.now();
@@ -690,6 +691,7 @@ export class RoundPhase extends Phase {
         if (map.blasts.length)
             this.#preloadMap(map);
         await store.prerender;
+        this.Global.Events.raiseEvent("LOADING", {hide: true});
         if (this.Global.flags.DEBUG)
             console.info(`[${this.constructor.name}]: Collision map loaded in ${(performance.now() - waitStart) / 1000} seconds`);
         console.info(`[${this.constructor.name}]: Shot playback ready`);
