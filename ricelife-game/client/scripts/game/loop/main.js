@@ -43,19 +43,22 @@ export class MainLoop extends GameLoop {
     #FrameCounter;
     #FrameInterval;
     #TickInterval;
+    #loadingCallback;
     #loadPromise = Promise.withResolvers();
-    constructor (maps) {
+    constructor (maps, loadingCallbackFn) {
         // load a context if one doesn't exist already
         if (!MainLoop.#AudioCtx) MainLoop.#loadAudioContext();
         super(MainLoop.#AudioCtx);
-        this.#init(maps);
+        this.#init(maps, loadingCallbackFn);
         this.#load()
             .then(() => this.#setupEvents())
             .then(() => this.state = this.constructor.STATES.Ready)
+            .then(() => this.Events.raiseEvent("LOADING", {hide: true}))
             .then(() => this.#loadPromise.resolve(this));
     }
 
-    #init (maps) {
+    #init (maps, loadingCallback) {
+        this.#loadingCallback = loadingCallback;
         this.#MAPS = maps;
         Object.freeze(this.#MAPS);
         this.#Display = new AppCanvas(window.appCanvas, window, MainLoop.COORDINATE_PLANE_SIZE);
@@ -105,6 +108,7 @@ export class MainLoop extends GameLoop {
         this.store.DEFAULT_FONT = this.AssetPool.get(defualtFontKey);
     }
     #setupEvents () {
+        this.Events.addEventListener("LOADING", (data) => this.#loadingCallback?.(data));
         // register and switch phase
         this.Events.addEventListener("PHASE_NEW", (data) => {
             const { Phase = 0, args = [], close = true } = data;
@@ -122,7 +126,7 @@ export class MainLoop extends GameLoop {
                         this.activeLoop.reset();
                         this.activeLoop.start();
                     }
-                });
+                }).then(() => this.Events.raiseEvent("LOADING", {hide: true}));
         });
         // register phase
         this.Events.addEventListener("PHASE_REGISTER", (data) => {
@@ -132,11 +136,13 @@ export class MainLoop extends GameLoop {
             const newPhase = new PhaseType(this, ...args);
             const phaseName = newPhase?.constructor?.name;
             this.#registerPhase(newPhase)
-                .catch((err) => console.error(`[${this.constructor.name}]: Failed to register ${phaseName} phase\n\t${err}`));
+                .catch((err) => console.error(`[${this.constructor.name}]: Failed to register ${phaseName} phase\n\t${err}`))
+                .then(() => this.Events.raiseEvent("LOADING", {hide: true}));
         });
         // switch phase
         this.Events.addEventListener("PHASE_SWITCH", (data) => {
             this.switchPhase(data?.id, data?.close);
+            this.Events.raiseEvent("LOADING", {hide: true});
         });
     }
     #drawFramerate () {
@@ -161,6 +167,7 @@ export class MainLoop extends GameLoop {
             ? this.activeLoop.state
             : oldState;
         console.error(`[${this.constructor.name}]: ${loopName}rashed${currentState === Crashed ? "" : " fatally"}\n\t`, err);
+        this.Events.raiseEvent("LOADING", {hide: false, message: "crashed", error: true});
     }
     async #registerPhase (newLoop) {
         this.#Loops[newLoop.id] = newLoop;
@@ -172,9 +179,11 @@ export class MainLoop extends GameLoop {
         if (this.flags.DEBUG)
             console.info(`[${this.constructor.name}]: ${activeLoop?.constructor?.name} phase exited`);
         if (activeLoop?.isMapPhase) {
+            this.Events.raiseEvent("LOADING", {hide: false, message: "loading map"});
             const { selection } = data;
             this.Events.raiseEvent("PHASE_NEW", {Phase: 1, args: ["../tests/test-lobby.json", selection.src], close: true });
         } else if (activeLoop?.isRoundPhase) {
+            this.Events.raiseEvent("LOADING", {hide: false, message: "returning to menu"});
             const { players } = data;
             console.log(`[${this.constructor.name}]: Round won by ${players.length ? players[0].data.team : "no"} team!\n\tSurvivors: ${players.length ? players.map(({data})=>data.profile.name).join(", ") : "none."}`);            
             this.Events.raiseEvent("PHASE_NEW", {Phase: 0, args: [this.#MAPS], close: true });
