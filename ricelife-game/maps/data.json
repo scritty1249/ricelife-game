@@ -25,6 +25,11 @@
         "thumb": "../maps/exo/thumb.png"
     },
     {
+        "name": "Wedge",
+        "src": "../maps/wedge/terrain.csv",
+        "thumb": "../maps/wedge/thumb.png"
+    },
+    {
         "name": "Ditch",
         "src": "../maps/ditch/terrain.csv",
         "thumb": "../maps/ditch/thumb.png"
