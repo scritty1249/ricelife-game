@@ -1,7 +1,8 @@
-import { AssetPool } from "../../lobby/lobby.js";
-import { TrackableObject } from "../../utils/utils.js";
+import { AssetPool } from "../lobby/lobby.js";
+import { TrackableObject } from "../utils/utils.js";
+import { EventController } from "../controller/events.js";
 
-export class LoopController extends TrackableObject {
+export class GameLoop extends TrackableObject {
     static STATES = {
         Crashed: -1,
         Closed: 0,
@@ -11,16 +12,15 @@ export class LoopController extends TrackableObject {
     };
     #AssetPool = new AssetPool();
     #AssetTable = {};
+    #Events = new EventController();
     #Audio = {
         Context: undefined,
         Player: undefined,
         Layer: {}
     };
-    #flags = {
-        EXIT: false
-    };
+    #flags = {};
     #store = {};
-    #state = LoopController.STATES.Busy;
+    #state = GameLoop.STATES.Busy;
     constructor (audioContext) {
         super();
         this.#Audio.Context = audioContext;
@@ -28,9 +28,10 @@ export class LoopController extends TrackableObject {
     }
 
     async loop () {
-        if (this.flags.EXIT) return;
+        const { Crashed, Closed } = this.constructor.STATES;
+        if (this.state === Crashed || this.state === Closed) return;
         // don't loop unless method has been overrided by child
-        if (this.loop !== LoopController.prototype.loop)
+        if (this.loop !== GameLoop.prototype.loop)
             requestAnimationFrame(() => this.loop());
     }
     async tick (delta) {}
@@ -38,23 +39,22 @@ export class LoopController extends TrackableObject {
         this.AssetPool.add(key, args?.length ? args : this.AssetTable[key]);
         return await this.AssetPool.onready(key);
     }
-    exit () { this.flags.EXIT = true }
     close () {
         this.state = this.constructor.STATES.Busy;
-        this.flags.EXIT = true;
         this.Audio.Player.stop();
         this.state = this.constructor.STATES.Closed;
     }
 
-    get isLoopController () { return true }
+    get isGameLoop () { return true }
     get AssetTable () { return this.#AssetTable }
     get AssetPool () { return this.#AssetPool }
     get Audio () { return this.#Audio }
     get Threaded () { return false }
+    get Events () { return this.#Events }
     get onload () { return Promise.resolve(this) }
     get flags () { return this.#flags }
     get store () { return this.#store }
     get state () { return this.#state }
     set state (value) { return (this.#state = value) }
 }
-Object.freeze(LoopController.STATES);
+Object.freeze(GameLoop.STATES);

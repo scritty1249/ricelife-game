@@ -1,12 +1,13 @@
-import { PhaseController } from "./phase.js";
-import { InputListener } from "../player.js";
+import { Phase } from "./phase.js";
+import { InputListener } from "../../controller/controller.js";
 import { Color, Vector, Equigon } from "../../geometry/geometry.js";
-import { drawCircle, clamp, floatEqual } from "../../utils/utils.js";
+import { clamp, floatEqual } from "../../utils/utils.js";
 import * as Menu from "../../menu/menu.js"
 
-export class SelectionController extends PhaseController {
+// sub-phase, only exists within Round phases. Doesn't register to MainLoop directly.
+export class ShotPhase extends Phase {
     // bound to ShapeButton (Tile)
-    // controller should be the containing SelectionController
+    // controller should be the containing ShotPhase
     static tileDrawFn (controller, cursor) {
         const { TILE_MINIMIZE_SCALE } = controller.constructor.SETTINGS;
         const { TILE_HIDE_SCALE } = controller.constructor;
@@ -37,7 +38,7 @@ export class SelectionController extends PhaseController {
             cursor.lineWidth = glowRadius;
             cursor.stroke();
             cursor.globalCompositeOperation = "destination-out";
-            cursor.filter = SelectionController.tileFillFilter;
+            cursor.filter = ShotPhase.tileFillFilter;
             cursor.fillStyle = fillColor.toRGBA();
             cursor.fill();
             cursor.globalCompositeOperation = "source-over";
@@ -124,10 +125,7 @@ export class SelectionController extends PhaseController {
         const underButton = this.Global.Display.getBoundingBox().clone();
         underButton.isOver = underButton.isIntersecting;
         underButton.id = true;
-        underButton.onclick = (point) => {
-            if (this.flags.exitable)
-                this.state = this.constructor.STATES.Raise;
-        }
+        underButton.onclick = () => this.exitMenu();
         this.Interface.insert().push(underButton).fixed = true;
         this.store.tileLayer = this.Interface.insert();
         this.store.tileLayer.fixed = true;
@@ -207,15 +205,7 @@ export class SelectionController extends PhaseController {
         userData.selection = selection;
         userData.distanceCoeff = 0;
         userData.lastScale = 1;
-        btn.onclick = (point, delta) => {
-            if (btn.shape.globalTransformation.scale.lengthSquared < this.constructor.SETTINGS.TILE_MINIMIZE_SCALE) {
-                return;
-            }
-            this.store.EXPORT = userData.selection.name;
-            this.state = this.constructor.STATES.Raise;
-            this.Audio.Layer.tile.stop();
-            this.Audio.Layer.selected.add(this.AssetPool.get("tileSelect").Instance().play(), true);
-        }
+        btn.onclick = () => this.exitMenu(btn);
         // styling
         btn.text = selection.name;
         btn.fontFamily = selection.fontFamily;
@@ -342,8 +332,20 @@ export class SelectionController extends PhaseController {
             || (!this.flags.focalPointer && this.Global.Input.pointer.delta.lengthSquared);
     }
 
+    exitMenu (tileSelected = undefined) {
+        const data = {};
+        if (tileSelected) {
+            if (tileSelected.shape.globalTransformation.scale.lengthSquared < this.constructor.SETTINGS.TILE_MINIMIZE_SCALE) return;
+            this.Audio.Layer.tile.stop();
+            this.Audio.Layer.selected.add(this.AssetPool.get("tileSelect").Instance().play(), true);
+            data.shot = tileSelected.shape.polygon.userData.selection.name;
+        } else if (!this.flags.exitable) {
+            return;
+        }
+        this.Events.raiseEvent("EXIT", data);
+    }
     start () {
-        this.state = this.constructor.STATES.Ready;
+        super.start();
         this.Audio.Player.stop();
         this.flags.exitable = false;
         if (this.Global.Input.pointer.isActive)
@@ -352,7 +354,7 @@ export class SelectionController extends PhaseController {
         else this.flags.exitable = true;
     }
     reset () {
-        this.state = this.constructor.STATES.Busy;
+        super.reset();
         this.store.EXPORT = undefined;
         this.trackActive = false;
         this.store.lastDrawnPosition.apply(this.Global.Display.center);
@@ -384,7 +386,7 @@ export class SelectionController extends PhaseController {
         this.Global.Display.removeResizeListener(this.#onResize);
         super.close();
     }
-    get isSelectionController () { return true }
+    get isShotPhase () { return true }
     get ResizeObserver () { return this.#ResizeObserver }
     get onload () { return this.#loadPromise }
 }

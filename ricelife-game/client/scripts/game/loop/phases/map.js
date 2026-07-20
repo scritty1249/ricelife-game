@@ -1,10 +1,10 @@
-import { PhaseController } from "./phase.js";
+import { Phase } from "./phase.js";
 import { Equigon, Color, Vector, Path, BoundingBox } from "../../geometry/geometry.js";
 import { ShapeButton } from "../../menu/menu.js";
-import { ViewboxController } from "../display.js";
+import { ViewboxController } from "../../controller/controller.js";
 import { uuid, zip } from "../../utils/utils.js";
 
-export class MapSelectController extends PhaseController {
+export class MapPhase extends Phase {
     static SETTINGS = {
         DEFAULT_INVERT_CONTROLS: true,
         SCROLL_SENSITIVITY: 1/3 
@@ -17,8 +17,7 @@ export class MapSelectController extends PhaseController {
         this.#load(mapSelections)
             .then(() => this.#attachListeners())
             .then(() => this.#onResize())
-            .then(() => this.start())
-            .then(() => this.state = this.constructor.STATES.Ready);
+            .then(() => this.start());
     }
 
     #init () {
@@ -121,13 +120,17 @@ export class MapSelectController extends PhaseController {
         // adding listeners
         selection.onclick = () => {
             if (selection.isOpen) {
-                this.state = this.constructor.STATES.Raise;
-                this.store.EXPORT = selection.src;
+                this.#selectMap(selection);
             } else {
                 selection.open();
             }
         }
         return selection;
+    }
+    #selectMap (selection) {
+        this.state = this.constructor.STATES.Raise;
+        this.store.EXPORT = selection.src;
+        this.Events.raiseEvent("EXIT", {selection});
     }
     #onResize = () => {
         const { under, over } = this.store.screenButtons;
@@ -153,19 +156,13 @@ export class MapSelectController extends PhaseController {
         
         this.Interface.draw(cursor);
     }
-    async tick (delta) {
-
-    }
-    start () {
-        this.Global.Input.pointerMap = this.Interface;
-    }
     reset () {
-        this.state = this.constructor.STATES.Ready;
+        super.reset();
         this.store.EXPORT = null;
         this.store.selectionLayer.items.forEach((item) => item.close());
     }
 
-    get isMapSelectController () { return true }
+    get isMapPhase () { return true }
     get Camera () { return this.#Camera }
 }
 

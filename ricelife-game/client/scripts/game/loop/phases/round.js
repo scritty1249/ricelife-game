@@ -1,21 +1,20 @@
 import { AmmoPool, LobbyJSON } from "../../lobby/lobby.js";
 import { AnimationList, Animation, ShapeAnimation } from "../../animate/animate.js";
 import { Vector, Color, Ray, BoundingBox } from "../../geometry/geometry.js";
-import { PhaseController } from "./phase.js";
-import { SelectionController, ShotSelection } from "./select.js";
-import { InputListener } from "../player.js";
-import { ViewboxController } from "../display.js";
-import { WorkerController } from "../workers.js";
-import { drawBlastAnimation } from "../../projectile/projectile.js";
+import { ViewboxController, WorkerController, InputListener } from "../../controller/controller.js";
+
+import { Properties, drawBlastAnimation } from "../../projectile/projectile.js";
 import { createTerrain, readTerrain } from "../../terrain/terrain.js";
 import { WorkerPool } from "../../workers/workers.js";
-import { Properties } from "../../projectile/projectile.js";
 import { floatEqual } from "../../utils/utils.js";
+
+import { ShotPhase, ShotSelection } from "./shot.js";
+import { Phase } from "./phase.js";
 import * as Menu from "../../menu/menu.js"
 
 import { drawCircle, drawLine, drawMarker, drawText, wrapDeg, rad2deg, generateBitmapDownloadURL } from "../../utils/utils.js"; // [!] all for debug overlay
 
-export class RoundController extends PhaseController {
+export class RoundPhase extends Phase {
     static SETTINGS = {
         BUSY_SECONDS_THRESHOLD: 1.5, // time in seconds before the "busy" screen pops up while tracing shots
         SHOT_TRACE_LIMIT: 30, // (seconds) will trigger a landing early if timeout is exceeded- however a landing will only be traced within this time frame so early landings shouldn't be happening... -KT
@@ -60,7 +59,7 @@ export class RoundController extends PhaseController {
     #Interface;
     #Terrain;
     #Camera;
-    #SelectionPhase;
+    #ShotMenu;
     #Animations = {
         Main: new AnimationList()
     };
@@ -81,7 +80,7 @@ export class RoundController extends PhaseController {
             .then(() => distributePlayers(this.Plane, this.Players)) // [!] temporary
             .then(() => this.Camera.setPosition(this.ActivePlayer.tank.position))
             .then(() => this.trackActivePlayer())
-            .then(() => this.state = this.constructor.STATES.Ready)
+            .then(() => this.start());
     }
 
     #init () {
@@ -114,7 +113,6 @@ export class RoundController extends PhaseController {
         this.Audio.Layer.blast.volume = 0.55;
         this.Audio.Player.volume = 0.35;
 
-        this.#setInputMap();
         this.#Threaded = new WorkerController(new WorkerPool(new URL(`../../workers/web-worker.js`, import.meta.url), 4, 3));
     }
     async #load (lobbySrc, terrainSrc) {
@@ -214,8 +212,9 @@ export class RoundController extends PhaseController {
             selection.fontColor.a = 1;
             selections.push(selection);
         }
-        this.#SelectionPhase = new SelectionController(this.Global, selections);
-        return this.SelectionPhase.onload;
+        this.#ShotMenu = new ShotPhase(this.Global, selections);
+        return this.ShotMenu.onload
+            .then(() => this.ShotMenu.Events.addEventListener("EXIT", ({shot = undefined}) => this.closeSelect(shot)));
     }
     #setupInterface () {
         const { AssetPool, Interface, ActivePlayer, Global, store, flags } = this;
@@ -303,10 +302,6 @@ export class RoundController extends PhaseController {
         const bounceSfxFn = function () { Player.add(AssetPool.get("bouncer").Instance().play(), true); }
         AmmoPool.get("Bouncer").SFX.bounce = bounceSfxFn;
         AmmoPool.get("MegaBouncer").SFX.bounce = bounceSfxFn;
-    }
-    #setInputMap () {
-        this.Global.Input.keyMap = this.constructor.INPUT_MAP;
-        this.Global.Input.pointerMap = this.Interface;
     }
     #setShot (shot, map) {
         const { shot: st } = this.store;
@@ -605,7 +600,7 @@ export class RoundController extends PhaseController {
         if (preserveCanvas) {
             original = cursor.screenshot(false);
         }
-        cursor.filter = this.SelectionPhase.constructor.backgroundFilter;
+        cursor.filter = this.ShotMenu.constructor.backgroundFilter;
         this.flags.SELECTING = false;
         this.animate(true);
         this.flags.SELECTING = true;
@@ -705,23 +700,6 @@ export class RoundController extends PhaseController {
         console.info(`[${this.constructor.name}]: Playing shot animation`);
         this.#setShot(shot, map);
         this.trackShot();
-    }
-    openSelect () {
-        this.#getSelectionBackground(false);
-        this.SelectionPhase.start();
-        this.Global.Input.keyMap = {};
-        this.Global.Input.pointerMap = this.SelectionPhase.Interface;
-        this.flags.SELECTING = true;
-    }
-    closeSelect () {
-        this.flags.SELECTING = false;
-        if (this.SelectionPhase.EXPORT)
-            this.#selectShot(this.SelectionPhase.EXPORT);
-        this.SelectionPhase.reset();
-        this.Global.Input.keyMap = this.constructor.INPUT_MAP;
-        this.Global.Input.pointerMap = this.Interface;
-        this.store.selectPhaseBackground?.close?.();
-        this.store.selectPhaseBackground = undefined;
     }
     updateTerrain (polygon, changedBBoxes = []) {
         if (this.Terrain.hash !== polygon.hash)
@@ -842,6 +820,22 @@ export class RoundController extends PhaseController {
             }
         }
     }
+    openSelect () {
+        this.#getSelectionBackground(false);
+        this.ShotMenu.reset();
+        this.ShotMenu.start();
+        this.Global.Input.keyMap = {};
+        this.Global.Input.pointerMap = this.ShotMenu.Interface;
+        this.flags.SELECTING = true;
+    }
+    closeSelect (shot) {
+        this.flags.SELECTING = false; 
+        this.Global.Input.keyMap = this.constructor.INPUT_MAP;
+        this.Global.Input.pointerMap = this.Interface;
+        this.store.selectPhaseBackground?.close?.();
+        this.store.selectPhaseBackground = undefined;
+        if (shot) this.#selectShot(shot);
+    }
     animate (clear = true) {
         const { ActivePlayer, Camera, Animations, Interface, Threaded, Players, flags, store } = this;
         const { cursor } = this.Global.Display;
@@ -854,7 +848,7 @@ export class RoundController extends PhaseController {
                 cursor.drawImage(this.store.selectPhaseBackground, 0, 0);
                 cursor.restore();
             }
-            this.SelectionPhase.animate(false);
+            this.ShotMenu.animate(false);
         } else {
             if (store.shot.current && this.Camera.tracking(this.ActivePlayer.tank.position)) {
                 const shotBbox = store.shot.current.getBoundingBox(true, false, true);
@@ -882,12 +876,8 @@ export class RoundController extends PhaseController {
     async tick (delta) {
         const { Animations, Global, store, flags } = this;
         if (flags.SELECTING) {
-            if (this.SelectionPhase.state === this.constructor.STATES.Raise) {
-                this.closeSelect();
-            } else {
-                await this.SelectionPhase.tick(delta);
-                return;
-            }
+            await this.ShotMenu.tick(delta);
+            return;
         }
         if (store.shot.map?.intersect && (store.prerender?.isWorkerJob && !store.prerender.fulfilled)) { // wait for loading to finish before updating game loop
         } else { // game update
@@ -934,12 +924,7 @@ export class RoundController extends PhaseController {
                     if (this.Global.flags.DEBUG) console.info(`[${this.constructor.name}]: Shot playback finished`);
                     store.prerender = Promise.resolve();
                     // check if round ended
-                    const alivePlayers = this.Players.filter((player) => !player.isDead);
-                    if (alivePlayers <= 1) {
-                        this.store.EXPORT = alivePlayers.length ? false : alivePlayers[0].data.profile.userid;
-                        this.state = this.constructor.STATES.Raise;
-                        this.flags.EXIT = true;
-                    }
+                    this.checkRoundEnd();
                 }
             }
         }
@@ -950,6 +935,17 @@ export class RoundController extends PhaseController {
         this.ActivePlayer.aimer.enabled = this.flags.isTurn && !(aimerIsLarge && aimerIsCenter);
         this.handleInput();
     }
+    checkRoundEnd () {
+        const alivePlayers = this.Players.filter((player) => !player.isDead);
+        if (!alivePlayers.length
+            || alivePlayers.every(({data}) => alivePlayers[0].data.team === data.team)
+        ) {
+            this.Events.raiseEvent("EXIT", {players: alivePlayers});
+            return true;
+        }
+        return false;
+    }
+    reset () {}
     close () {
         this.state = this.constructor.STATES.Busy;
         this.Global.Display.removeResizeListener(this.#onResize);
@@ -957,7 +953,7 @@ export class RoundController extends PhaseController {
         super.close();
     }
 
-    get isRoundController () { return true }
+    get isRoundPhase () { return true }
     get AmmoPool () { return this.#AmmoPool }
     get LobbyData () { return this.#LobbyData }
     get ActivePlayer () { return this.#ActivePlayer }
@@ -965,7 +961,7 @@ export class RoundController extends PhaseController {
     get Threaded () { return this.#Threaded }
     get Terrain () { return this.#Terrain }
     get Animations () { return this.#Animations }
-    get SelectionPhase () { return this.#SelectionPhase }
+    get ShotMenu () { return this.#ShotMenu }
     get Camera () { return this.#Camera }
     get onload () { return this.#loadPromise }
 }

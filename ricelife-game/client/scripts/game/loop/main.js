@@ -1,14 +1,12 @@
-import { Spritesheet } from "../../animate/animate.js";
-import { LoadImage, AudioContext, LoadFont } from "../../asset/asset.js";
-import { FrameCounter, Interval, AppCanvas } from "../display.js";
-import { Interface } from "../../menu/menu.js";
-import { InputListener } from "../player.js";
-import { LoopController } from "./loop.js";
+import { Spritesheet } from "../animate/animate.js";
+import { LoadImage, AudioContext, LoadFont } from "../asset/asset.js";
+import { Interface } from "../menu/menu.js";
+import { InputListener, FrameCounter, Interval, AppCanvas } from "../controller/controller.js";
+import { GameLoop } from "./gameloop.js";
 
+import * as Phases from "./phases/phases.js";
 
-import { RoundController } from "./round.js";
-import { MapSelectController } from "./map.js";
-export class MainController extends LoopController {
+export class MainLoop extends GameLoop {
     static SETTINGS = {
         RESOLUTION: Math.floor((1/3) * 10) / 10,
         MAX_VIEWBOX_SCALE: 5,
@@ -23,11 +21,20 @@ export class MainController extends LoopController {
         Font: (...args) => new LoadFont(...args),
         Audio: undefined
     };
+    static #PhaseType = {
+        Map: 0,
+        Round: 1
+    };
+    static #PhaseMap = new Map([ // [!] no getter- should not be accessible externally
+        [0, Phases.MapPhase],
+        [1, Phases.RoundPhase]
+    ]);
     static #loadAudioContext () {
         this.#AudioCtx = new AudioContext();
         this.#AssetType.Audio = (...args) => this.#AudioCtx.Source(...args);
     }
     static get AssetType () { return this.#AssetType }
+    static get PhaseType () { return this.#PhaseType }
     #Loops = {};
     #active;
     #Display;
@@ -38,16 +45,17 @@ export class MainController extends LoopController {
     #loadPromise = Promise.withResolvers();
     constructor () {
         // load a context if one doesn't exist already
-        if (!MainController.#AudioCtx) MainController.#loadAudioContext();
-        super(MainController.#AudioCtx);
+        if (!MainLoop.#AudioCtx) MainLoop.#loadAudioContext();
+        super(MainLoop.#AudioCtx);
         this.#init();
         this.#load()
+            .then(() => this.#setupEvents())
             .then(() => this.state = this.constructor.STATES.Ready)
             .then(() => this.#loadPromise.resolve(this));
     }
 
     #init () {
-        this.#Display = new AppCanvas(window.appCanvas, window, MainController.COORDINATE_PLANE_SIZE);
+        this.#Display = new AppCanvas(window.appCanvas, window, MainLoop.COORDINATE_PLANE_SIZE);
         this.#FrameCounter = new FrameCounter(30);
         this.#FrameInterval = new Interval(1000 / this.constructor.SETTINGS.FPS);
         this.#TickInterval = new Interval(this.constructor.SETTINGS.TICKSPEED);
@@ -55,7 +63,7 @@ export class MainController extends LoopController {
 
         this.flags.DEBUG = false;
         
-        const { AssetType } = MainController;
+        const { AssetType } = MainLoop;
         const { AssetTable } = this;
         // Images
         AssetTable.fireBtn = [AssetType.Image, undefined, "./assets/interface/buttons/fire.png"];
@@ -93,6 +101,41 @@ export class MainController extends LoopController {
         await this.AssetPool.onload;
         this.store.DEFAULT_FONT = this.AssetPool.get(defualtFontKey);
     }
+    #setupEvents () {
+        // register and switch phase
+        this.Events.addEventListener("PHASE_NEW", (data) => {
+            const { Phase = 0, args = [], close = true } = data;
+            const PhaseType = MainLoop.#PhaseMap.get(Phase);
+            if (!PhaseType) throw new Error(`Unrecognized phase type: ${Phase}`);
+            const newPhase = new PhaseType(this, ...args);
+            const phaseName = newPhase?.constructor?.name;
+            const oldPhaseId = this.#active;
+            this.#registerPhase(newPhase)
+                .then((id) => this.switchPhase(id, close))
+                .catch((err) => {
+                    console.error(`[${this.constructor.name}]: Failed to load ${phaseName} phase\n\t${err}`);
+                    if (oldPhaseId) {
+                        this.switchPhase(oldPhaseId, false);
+                        this.activeLoop.reset();
+                        this.activeLoop.start();
+                    }
+                });
+        });
+        // register phase
+        this.Events.addEventListener("PHASE_REGISTER", (data) => {
+            const { Phase = 0, args = [] } = data;
+            const PhaseType = MainLoop.#PhaseMap.get(Phase);
+            if (!PhaseType) throw new Error(`Unrecognized phase type: ${Phase}`);
+            const newPhase = new PhaseType(this, ...args);
+            const phaseName = newPhase?.constructor?.name;
+            this.#registerPhase(newPhase)
+                .catch((err) => console.error(`[${this.constructor.name}]: Failed to register ${phaseName} phase\n\t${err}`));
+        });
+        // switch phase
+        this.Events.addEventListener("PHASE_SWITCH", (data) => {
+            this.switchPhase(data?.id, data?.close);
+        });
+    }
     #drawFramerate () {
         const { cursor, size } = this.Display;
         cursor.save();
@@ -116,46 +159,49 @@ export class MainController extends LoopController {
             : oldState;
         console.error(`[${this.constructor.name}]: ${loopName}rashed${currentState === Crashed ? "" : " fatally"}\n\t`, err);
     }
-    #phaseChange () {
-        const phase = this.activeLoop;
-        const { EXPORT } = phase;
-        this.state = this.constructor.STATES.Busy;
-        if (phase?.isRoundController) {
-            console.log(`[${this.constructor.name}]: Round won - winner ${EXPORT}`);
-            this.flags.EXIT = true;
-        } else if (phase?.isMapSelectController) {
-            console.log(`[${this.constructor.name}]: Map selected`);
-            const LOBBY_URL = "../tests/test-lobby.json"; // [!] testing
-            const newRound = new RoundController(this, LOBBY_URL, EXPORT);
-            newRound.onload.then(() => {
-                console.log(`[${this.constructor.name}]: Round loaded`);
-                this.transferLoop(newRound);
-            }).catch((err) => {
-                console.error(`[${this.constructor.name}]: Failed to load round\n\t${err}`);
-                this.activeLoop.reset();
-                this.activeLoop.start();
-            }).finally(() => {
-                this.state = this.constructor.STATES.Ready;
-            });
-        } else {
-            throw new Error(`Unrecognized phase: ${phase?.constructor?.name || typeof phase}`);
+    async #registerPhase (newLoop) {
+        this.#Loops[newLoop.id] = newLoop;
+        await newLoop.onload;
+        return newLoop.id;
+    }
+    #onPhaseExit = async (data) => {
+        const { activeLoop } = this;
+        if (this.flags.DEBUG)
+            console.info(`[${this.constructor.name}]: ${activeLoop?.constructor?.name} phase exited`);
+        if (activeLoop?.isMapPhase) {
+            const { selection } = data;
+            this.Events.raiseEvent("PHASE_NEW", {Phase: 1, args: ["../tests/test-lobby.json", selection.src], close: true });
+        } else if (activeLoop?.isRoundPhase) {
+            const { players } = data;
+            console.log(`[${this.constructor.name}]: Round won by ${players.length ? players[0].data.team : "no"} team!\n\tSurvivors: ${players.length ? players.map(({data})=>data.profile.name).join(", ") : "none."}`);
+
+            // [!] temporary - testing
+            const response = await fetch("../tests/test-maps.json");
+            const maps = await response.json();
+            
+            this.Events.raiseEvent("PHASE_NEW", {Phase: 0, args: [maps], close: true });
         }
     }
 
-    // expects PhaseController
-    async transferLoop (newLoop) {
-        const prevState = this.state;
-        this.state = this.constructor.STATES.Busy;
+    async switchPhase (id, close = true) {
         const { activeLoop } = this;
-        if (activeLoop) {
-            if (activeLoop.Threaded) await activeLoop.close();
-            else activeLoop.close();
-            delete this.#Loops[activeLoop.id];
+        if (activeLoop) { 
+            activeLoop.Events.removeEventListener("EXIT", this.#onPhaseExit);
+            if (close) {
+                if (this.flags.DEBUG)
+                    console.info(`[${this.constructor.name}]: Closing previous phase ${activeLoop?.constructor?.name}`);
+                if (activeLoop.Threaded) await activeLoop.close();
+                else activeLoop.close();
+                delete this.#Loops[activeLoop.id];
+            }
         }
-        this.#Loops[newLoop.id] = newLoop;
-        this.#active = newLoop.id;
-        await newLoop.onload;
-        this.state = prevState;
+        const newLoop = this.#Loops[id];
+        this.Input.keyMap = newLoop?.constructor?.INPUT_MAP || {};
+        this.Input.pointerMap = newLoop?.Interface || {};
+        this.#active = id;
+        newLoop.Events.addEventListener("EXIT", this.#onPhaseExit, {once: true});
+        if (this.flags.DEBUG)
+            console.info(`[${this.constructor.name}]: Switched to ${newLoop?.constructor?.name} phase`);
     }
     async loop () {
         this.tick()
@@ -164,15 +210,16 @@ export class MainController extends LoopController {
     }
     async tick () {
         if (this.state === this.constructor.STATES.Ready && this.activeLoop) {
+            const drawFrame = this.FrameInterval.ready;
             if (this.activeLoop.state === this.constructor.STATES.Ready) {
                 if (this.TickInterval.ready) await this.activeLoop?.tick?.(this.TickInterval.lastDelta);
-                if (this.FrameInterval.ready) {
-                    this.activeLoop.animate(true);
-                    if (this.flags.DEBUG) this.#drawFramerate();
-                    this.FrameCounter.update();
-                }
-            } else if (this.activeLoop.state === this.constructor.STATES.Raise && this.activeLoop.EXPORT !== null) {
-                this.#phaseChange();
+                if (drawFrame) this.activeLoop.animate(true);
+            } else if (drawFrame) {
+                this.Display.cursor.clear();
+            }
+            if (drawFrame) {
+                if (this.flags.DEBUG) this.#drawFramerate();
+                this.FrameCounter.update();
             }
         }
     }
@@ -184,7 +231,7 @@ export class MainController extends LoopController {
         super.close();
     }
     
-    get isMainController () { return true }
+    get isMainLoop () { return true }
     get Display () { return this.#Display }
     get Input () { return this.#Input }
     get FrameCounter () { return this.#FrameCounter }
