@@ -2,7 +2,7 @@ import { PhaseController } from "./phase.js";
 import { Equigon, Color, Vector, Path, BoundingBox } from "../../geometry/geometry.js";
 import { ShapeButton } from "../../menu/menu.js";
 import { ViewboxController } from "../display.js";
-import { uuid } from "../../utils/utils.js";
+import { uuid, zip } from "../../utils/utils.js";
 
 export class MapSelectController extends PhaseController {
     static SETTINGS = {
@@ -251,12 +251,12 @@ export class MapSelection extends ShapeButton {
             isDone = isDone && this.#currentState.textOffset.distance(target.offset) <= LERP_CLAMP_THRESHOLD;
         }
         if (target.anchor?.length)
-            for (const [ start, end ] of Iterator.zip([this.#points.anchor, target.anchor])) {
+            for (const [ start, end ] of zip([this.#points.anchor, target.anchor])) {
                 start.lerp(end, LERP_FACTOR, true);
                 isDone = isDone && start.distance(end) <= LERP_CLAMP_THRESHOLD;
             }
         if (target.expand?.length)
-            for (const [ start, end ] of Iterator.zip([this.#points.expand, target.expand])) {
+            for (const [ start, end ] of zip([this.#points.expand, target.expand])) {
                 start.lerp(end, LERP_FACTOR, true);
                 isDone = isDone && start.distance(end) <= LERP_CLAMP_THRESHOLD;
             }
