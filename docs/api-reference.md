@@ -64,13 +64,33 @@ The specified lobby's data, or null it does not exist.
 | :-- | :-- |
 | lobby | ?[Lobby](#object-lobby) |
 
-### `POST /lobby/round/update`
-Saves the state of an ongoing round.
+### `GET /lobby/terrain`
 
-**Request Body Parameters (JSON):**
+**Request Query Parameters**
+- `lobbyid` is the [Snowflake](#string-snowflake) ID of a waiting or active lobby
+- `userid` is the [Snowflake](#string-snowflake) ID of the calling player.
+
+**Returns (JSON):**
+
+The signed endpoint to download the lobby's terrain data.
+
 | Key | Type | Detail |
 | :-- | :-- | :-- |
-| ... | ... | ... |
+| url | [URL](#string-url) | a link to download a lobby's terrian data |
+| ttl | number | seconds before the link expires |
+
+
+- If a corrosponding lobby to `lobbyid` cannot be found, this endpoint will return `404 Not Found`
+- If the player indicated by `playerid` is not in the corrosponding lobby, this endpoint will return `403 Forbidden`
+
+### `POST /lobby/round/update`
+Saves the state of an ongoing round. Updated players corrospond to players that are already in the lobby. Updates to players that do not already in the lobby are discarded.
+
+**Request Body Parameters (Multipart/FormData):**
+| Key | Type | Detail |
+| :-- | :-- | :-- |
+| players | array of [PlayerInstance](#object-playerinstance) |  player instances in the lobby, if any have changed |
+| ?terrain | [Polygon](#object-polygon) | terrain data, if terrain state has changed |
 
 ## Type Definitions
 
@@ -122,11 +142,30 @@ Saves the state of an ongoing round.
 | increase | number | factor all increases to `amount` are applied by |
 | decrease | number | factor all decreases to `amount` are applied by |
 
+### *binary stream* `Polygon`
+Should be sent as a blob of `application/octet-stream` type.
+| Byte | Type | Detail |
+| :-- | :-- | :-- |
+| 0-4 | uint32 | length `X` of following [PolygonMetadata](#object-polygonmetadata) |
+| 4 to `X` | [PolygonMetadata](#object-polygonmetadata) ||
+| `X` ( *`i`<sub>0</sub>* ) to `Y`<sub>0</sub> | [Path](#array-path) | polygon path |
+| `i`<sub>`n`</sub> to `Y`<sub>`n`</sub> | [Path](#array-path) | `n` hole paths, if any. Depth-first order is recommended but not required |
+
+### *object* `PolygonMetadata`
+| Key | Type | Detail |
+| :-- | :-- | :-- |
+| i | uint32 | *index*. Starting byte index of pathlength |
+| p | number | *pathlength*. Length `Y` of [Path](#array-path) for corrosponding [Polygon](#object-polygon) |
+| h | array of [PolygonMetadata](#object-polygonmetadata) | *holes*. For sanity, backend will impose a recursion depth limit of 3 |
+
 ### *array* `Vector`
 | Index | Type | Detail |
 | :-- | :-- | :-- |
 | 0 | number | x |
 | 1 | number | y |
+
+### *array* `Path`
+Contains the buffer of a `Float32Array` representing [Vectors](#array-vector). Should be sent as part of a blob.
 
 ### *string* `URL`
 A link to a specified location or resource.
