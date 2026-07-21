@@ -1,7 +1,7 @@
 # API Reference
 
 ## Base URL
-The base URL for all API requests is
+The base path for all API requests is
 
 `/api`
 
@@ -102,14 +102,14 @@ Saves the state of an ongoing round.
 | userid | [Snowflake](#string-snowflake) ||
 | name | string | display name within the Discord channel |
 | avatar | [URL](#string-url) | link to the avatar within the Discord channel |
-| ?fontFamily | string | font of `name` |
+| ?fontFamily | string | font to render `name` with in-game |
 
 ### *object* `MapSelection`
 | Key | Type | Detail |
 | :-- | :-- | :-- |
-| name | [URL](#URL) ||
-| src | string | where the terrain data is stored |
-| thumb | [URL](#URL) | where the thumbnail image is stored |
+| name | string ||
+| src | [URL](#URL) | location of terrain data |
+| thumb | [URL](#URL) | location of thumbnail image |
 
 ### *object* `HitAmount`
 | Key | Type | Detail |
@@ -129,10 +129,10 @@ Saves the state of an ongoing round.
 | 1 | number | y |
 
 ### *string* `URL`
-A link to a specified location.
+A link to a specified location or resource.
 
 ### *string* `AmmoType`
-An Ammo type.
+The unique name of an in-game Ammo type.
 
 ### *string* `Snowflake`
 A unique 64 bit identifier. See [Discord's documentation](https://docs.discord.com/developers/reference#snowflakes) for more information on Snowflake IDs.
