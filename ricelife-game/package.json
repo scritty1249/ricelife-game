@@ -1,0 +1,16 @@
+{
+  "name": "ricelife-game",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "start-local": "node --env-file=dev/.env.local --input-type=commonjs -e \"const { spawn } = require('child_process'); spawn('npx', ['vercel', 'dev', '--local', '--yes'], { stdio: 'inherit', shell: true });\""
+  },
+  "devDependencies": {
+    "node": "22.11.0",
+    "vercel": "^56.4.1"
+  },
+  "allowScripts": {
+    "esbuild": true,
+    "node": true
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "cleanUrls": true,
+  "outputDirectory": "client",
+  "routes": [
+    {
+      "src": "/maps/:path*",
+      "headers": { "Cache-Control": "no-store" }
+    },
+    {
+      "src": "/dev/:path*",
+      "dest": "/dev/:path*"
+    }
+  ],
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/$1" },
+    { "source": "/(.*)", "destination": "/" }
+  ]
+}
