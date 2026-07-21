@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Map creator</title>
+        <script type="module" src="./main.js"></script>
+        <link rel="stylesheet" href="style.css">
+    </head>
+    <body>
+        <div id="draw-controls">
+            <input type="checkbox" id="controls-toggle" />
+            <label for="controls-toggle" id="controls-header">
+                <span class="header-title">Draw Settings</span>
+                <span class="toggle-arrow">▼</span>
+            </label>
+            <div class="controls-content">
+                <label class="slider">Stabilizer Length:
+                    <input type="range" id="stabilizer-slider"/>
+                    <input type="number" id="stabilizer-val"/>
+                </label>
+                <label class="slider">Snap Range:
+                    <input type="range" id="snap-slider"/>
+                    <input type="number" id="snap-val"/>
+                </label>
+                <label class="slider">Smoothing Passes:
+                    <input type="range" id="passes-slider"/>
+                    <input type="number" id="passes-val"/>
+                </label>
+                <label class="slider">Smoothing Factor:
+                    <input type="range" id="factor-slider"/>
+                    <input type="number" id="factor-val"/>
+                </label>
+                <button id="clear-btn">Clear Canvas</button>
+                <button id="export-btn">Export Data</button>
+            </div>
+        </div>
+        <canvas id="draw-canvas"></canvas>
+        <div id="modal-overlay"></div>
+            <div id="export-modal">
+                <h3>Terrain Data Export</h3>
+                <div class="modal-sliders">
+                    <div class="modal-slider">
+                        <label>Scale X:</label>
+                        <input type="range" id="scale-x-slider">
+                        <input type="number" id="scale-x-val">
+                    </div>
+                    <div class="modal-slider">
+                        <label>Scale Y:</label>
+                        <input type="range" id="scale-y-slider">
+                        <input type="number" id="scale-y-val">
+                    </div>
+                    <div class="modal-slider">
+                        <label>Base Y:</label>
+                        <input type="range" id="base-y-slider">
+                        <input type="number" id="base-y-val">
+                    </div>
+                    <label class="modal-toggle">
+                        <input type="checkbox" id="mirrored-toggle"/>
+                        Mirrored
+                    </label>
+                </div>
+
+                <textarea id="output-box" readonly></textarea>
+
+                <div class="modal-buttons">
+                    <button id="copy-btn">Copy</button>
+                    <button id="save-btn">Download</button>
+                    <button id="close-btn">Close</button>
+                </div>
+            </div>
+        </div>
+        <div id="controls-legend">
+            <h4>Mouse Controls</h4>
+            <ul class="legend-list">
+                <li>
+                    <span class="key-badge">LMB</span>
+                    <span class="action-desc">Curved strokes</span>
+                </li>
+                <li>
+                    <span class="key-badge">RMB</span>
+                    <span class="action-desc">Straight strokes</span>
+                </li>
+                <li>
+                    <span class="key-badge">CTRL Z</span>
+                    <span class="action-desc">Undo</span>
+                </li>
+            </ul>
+        </div>
+    </body>
+</html>

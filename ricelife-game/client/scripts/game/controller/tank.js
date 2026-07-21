@@ -1,10 +1,13 @@
-import { Vector } from "../geometry/geometry.js";
-import { deg2rad, rad2deg, TrackableObject } from "../utils/utils.js";
+import { Vector, Hitbox, BoundingBox } from "../geometry/geometry.js";
+import { deg2rad, rad2deg, clamp } from "../utils/utils.js";
 
-export class TankController extends TrackableObject {
+export class TankController {
     #source;
+    #hitboxHash;
+    #bboxHash;
+    #bbox;
+    #hitbox;
     constructor (bodyImage, barrelImage, position = new Vector()) {
-        super();
         this.#source = {
             // expects LOADED ResizedImage objects
             body: bodyImage,
@@ -14,8 +17,9 @@ export class TankController extends TrackableObject {
             get body () { return bodyImage.rotation },
             get barrel () { return barrelImage.rotation - (Math.PI) },
             set body (radians) {
-                bodyImage.rotation = radians;
-                return radians;
+                const val = clamp(radians % (Math.PI * 2), -(Math.PI / 2), Math.PI / 2);
+                bodyImage.rotation = val;
+                return val;
             },
             set barrel (radians) {
                 barrelImage.rotation = radians + (Math.PI);
@@ -48,11 +52,26 @@ export class TankController extends TrackableObject {
         this.#drawBarrel(cursor);
         this.#drawBody(cursor);
     }
+    getHitbox () {
+        const hash = Vector.hashVectors([Vector.fromAngle(this.rotation.body), this.position]);
+        if (this.#hitboxHash === hash) return this.#hitbox;
+        this.#hitboxHash = hash;
+        const edges = this.#source.body.getEdges(this.position.x, this.position.y);
+        this.#hitbox = new Hitbox(...edges.map((edge) => edge.add(this.offset.body)));
+        return this.#hitbox;
+    }
+    getBoundingBox () {
+        const hash = Vector.hashVectors([Vector.fromAngle(this.rotation.body), this.position]);
+        if (this.#bboxHash === hash) return this.#bbox;
+        this.#bboxHash = hash;
+        this.#bbox = BoundingBox.fromHitbox(this.getHitbox());
+        return this.#bbox;
+    }
 
     get relativePosition () { return this.position.add(this.offset.body) }
     get width () { return this.#source.body.size.x }
     get height () { return this.#source.body.size.y }
-    get barrelPos () { // gets coord at tip of barrel
+    get barrelPosition () { // gets coord at tip of barrel
         const origin = this.position.add(this.offset.barrel);
         const angle = this.rotation.barrel + (3 * (Math.PI / 2));
         return origin.project(angle, this.#source.barrel.size.y);

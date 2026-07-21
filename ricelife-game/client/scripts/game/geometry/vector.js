@@ -65,9 +65,9 @@ export class Vector {
             );
         }
     }
-    normal (vector, clockwise = true) { // finds normalized point perpendicular to the line 
-        if (!vector.isVector) throw new Error(`[${this.constructor.name}] Error: Cannot calculate normal from Vector to non-Vector type ${typeof vector}`);
-        const diff = vector.sub(this);
+    normal (targetVector, clockwise = true) { // finds normalized point perpendicular to the line 
+        if (!targetVector.isVector) throw new Error(`[${this.constructor.name}] Error: Cannot calculate normal from Vector to non-Vector type ${typeof targetVector}`);
+        const diff = targetVector.sub(this);
         diff.div(diff.length, true);
         return clockwise
             ? new Vector(diff.y, -diff.x)
@@ -103,14 +103,20 @@ export class Vector {
         vec.y = Math.floor(vec.y);
         return vec;
     }
+    ceil (mutate = false) {
+        const vec = mutate ? this : this.clone();
+        vec.x = Math.ceil(vec.x);
+        vec.y = Math.ceil(vec.y);
+        return vec;
+    }
     precision (precision, mutate = false) {
         const vec = mutate ? this : this.clone();
         const power = 10**precision;
         return vec.mul(power, true).floor(true).div(power, true);
     }
-    lerp (vector, factor) { // (Linear Interpolation) returns the point between this vector and given vector. distance from this vector determined by factor given
+    lerp (vector, factor, mutate = false) { // (Linear Interpolation) returns the point between this vector and given vector. distance from this vector determined by factor given
         if (!vector?.isVector) throw new Error(`[${this.constructor.name}] Error: Cannot linearly interpolate between Vector and non-Vector type ${typeof vector}`);
-        return this.add(vector.sub(this).mul(factor));
+        return this.add(vector.sub(this).mul(factor, true), mutate);
     }
     sum () {
         return this.x + this.y;
@@ -154,14 +160,18 @@ export class Vector {
         if (!vector?.isVector) throw new Error(`[${this.constructor.name}] Error: Cannot calculate distance between Vector and non-Vector type ${typeof vector}`);
         return Math.hypot(vector.x - this.x, vector.y - this.y);
     }
-    dot (vector) { // dot product
-        if (!vector?.isVector) throw new Error(`[${this.constructor.name}] Error: Cannot calculate dot product of Vector and non-Vector type ${typeof vector}`);
-        return this.mul(vector).sum();
+    reflect (origin, mutate = false) {
+        if (!origin?.isVector) throw new Error(`[${this.constructor.name}] Error: Cannot reflect across non-Vector type ${typeof origin}`);
+        const vec = origin.add(origin.sub(this));
+        return mutate ? this.apply(vec) : vec;
+    }
+    dot (vector = null) { // dot product
+        if (vector !== null && !vector?.isVector) throw new Error(`[${this.constructor.name}] Error: Cannot calculate dot product of Vector and non-Vector type ${typeof vector}`);
+        return this.mul(vector || this).sum();
     }
     cross (vector) { // cross product
         if (!vector?.isVector) throw new Error(`[${this.constructor.name}] Error: Cannot calculate cross product of Vector and non-Vector type ${typeof vector}`);
         return (this.x * vector.y) - (vector.x * this.y);
-
     }
     angle (...vectors) { // returns average angle between all given vectors, from this vector (in radians)
         if (vectors.length === 0) { // return angle of self
@@ -181,8 +191,11 @@ export class Vector {
             return Math.atan2(sumSin, sumCos);
         }
     }
-    eq (vector) {
+    eq (vector) { // shorthand equals. stricter comparison (vectors only)
         return vector?.isVector && floatEqual(this.x, vector.x) && floatEqual(this.y, vector.y);
+    }
+    equals (x, y = null) {
+        return (y === null && floatEqual(this.x, x) && floatEqual(this.y, x)) || (floatEqual(this.x, x) && floatEqual(this.y, y));
     }
     apply (x, y = null) {
         if (x?.isVector) {
@@ -220,11 +233,17 @@ export class Vector {
         hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
         return hash >>> 0; // unsigned 32-bit Integer
     }
-    get length () { return Math.sqrt(this.pow(2).sum()) }
+    get length () { return Math.sqrt(this.lengthSquared) }
+    get lengthSquared () { return this.pow(2).sum() }
+    get isFinite () { return Number.isFinite(this.x) && Number.isFinite(this.y) }
     clone () { return new Vector(this.x, this.y) }
     toString () { return `(${this.x.toFixed(3)}, ${this.y.toFixed(3)})` }
-    toJSON () { return {x: this.x, y: this.y} }
-    static fromObject (object) { return new Vector(object?.x, object?.y) }
+    toJSON () { return [this.x, this.y] }
+    static fromObject (object) {
+        return Array.isArray(object)
+            ? new Vector(...object)
+            : new Vector(object?.x, object?.y);
+    }
     static fromAngle (radians) { return new Vector(Math.cos(radians), Math.sin(radians)) }
     static average (vectors = []) {
         if (!vectors.every((vec) => vec.isVector)) throw new Error(`[${this.constructor.name}]: Cannot find Vector average with non-Vector type(s)`);
@@ -254,6 +273,7 @@ export class Vector {
             }
             return hash >>> 0;
         }
+        return undefined;
     }
 }
 
@@ -263,7 +283,7 @@ export class Color {
     #g;
     #b;
     #a;
-    constructor (value, g = undefined, b = undefined, a = 1) {
+    constructor (value = "#000000", g = undefined, b = undefined, a = 1) {
         this.apply(value, g, b, a);
     }
 
@@ -272,16 +292,35 @@ export class Color {
         if (typeof value === "string"
             && (matches = value.match(Color.#hexPattern)))
             [_, this.r, this.g, this.b, this.a] = Array.from(matches, (match) => parseInt(match, 16));
-        else if (Object.hasOwn(value, "r")
-            && Object.hasOwn(value, "g")
-            && Object.hasOwn(value, "b"))
+        else if (typeof value === "object" && "r" in value && "g" in value && "b" in value)
             ({r: this.r, g: this.g, b: this.b, a: this.a} = value);
         else if (b !== undefined)
             [this.r, this.g, this.b, this.a] = [value, g, b, a];
         else
-            throw new Error(`[${this.constructor.name}] Error: Cannot apply invalid type`);
+            throw new Error(`[${this.constructor.name}]: Cannot apply invalid type ${typeof value}`);
         if (!Number.isFinite(this.a))
             this.a = 1
+        return this; // for chaining
+    }
+    // glorified Vector4 at this point...
+    distance (color) {
+        if (!color?.isColor) throw new Error(`[${this.constructor.name}]: Cannot compute distance to ${typeof color}`);
+        const dr = this.r - color.r;
+        const dg = this.g - color.g;
+        const db = this.b - color.b;
+        const da = this.A - color.A;
+        const sq = (dr * dr) + (dg * db) + (db * db) + (da * da);
+        return Math.sqrt(sq);
+    }
+    lerp (color, factor, mutate = false, transparency = true) {
+        if (!color?.isColor) throw new Error(`[${this.constructor.name}]: Cannot linearly interpolate to ${typeof color}`);
+        const clr = mutate ? this : this.clone();
+        const mul = factor * (!transparency ? 1 - color.a : 1);
+        clr.r += (color.r - clr.r) * mul;
+        clr.g += (color.g - clr.g) * mul;
+        clr.b += (color.b - clr.b) * mul;
+        if (transparency) clr.A += (color.A - clr.A) * mul;
+        return clr;
     }
     toJSON () { return {r: this.r, g: this.g, b: this.b, a: this.a} }
     toString () { return "#"
@@ -294,6 +333,7 @@ export class Color {
     clone () { return new Color(this.r, this.g, this.b, this.a) }
 
     get isColor () { return true }
+    get visible () { return !floatEqual(this.a, 0) }
     get r () { return this.#r }
     get g () { return this.#g }
     get b () { return this.#b }

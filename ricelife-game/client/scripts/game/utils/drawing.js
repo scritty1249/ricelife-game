@@ -32,16 +32,17 @@ export function drawText (cursor, position, text, color = "red", font = "48px se
 }
 
 export function outlineImage (cursor, loadedImage, position, thickness = 2, color = "red") { // [!] debugging function
-    const { size } = loadedImage;
-    const one = position.clone(),
-        two = position.clone(),
-        three = position.clone(),
-        four = position.clone();
-    two.x += size.x;
-    three.x += size.x; three.y -= size.y;
-    four.y -= size.y;
-    drawLine(cursor, one, two, thickness, color);
-    drawLine(cursor, two, three, thickness, color);
-    drawLine(cursor, three, four, thickness, color);
-    drawLine(cursor, four, one, thickness, color);
+    const [ tl, tr, br, bl ] = loadedImage.getEdges(position);
+    drawLine(cursor, tl, tr, thickness, color);
+    drawLine(cursor, tr, br, thickness, color);
+    drawLine(cursor, br, bl, thickness, color);
+    drawLine(cursor, bl, tl, thickness, color);
+}
+
+export async function generateBitmapDownloadURL (bitmap, filename = "test.png") {
+    const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(bitmap, 0, 0);
+    const blob = await canvas.convertToBlob({ type: "image/png" });
+    return URL.createObjectURL(blob);
 }

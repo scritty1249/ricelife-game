@@ -12,7 +12,7 @@ export class WorkerPool extends TrackableObject {
     #transactionProxy;
     #cacheProxy;
     #src;
-    #initPromise = Promise.resolve();
+    #loadPromise = Promise.resolve();
     #CACHE_TYPES = cacheTypes;
     #LOG_LEVEL; // 1 - Transaction post messages | 2 - Transaction received messages | 3 - Transaction state change messages | 4 - Transaction completed messages 
     constructor (src, defaultPoolSize = WorkerPool.OPTIMAL_THREAD_COUNT, logLevel = 4) {
@@ -23,7 +23,7 @@ export class WorkerPool extends TrackableObject {
         const createWorkerPromises = [];
         const targetSize = (window.navigator.hardwareConcurrency || defaultPoolSize);
         for (let i = 0; i < targetSize; i++) createWorkerPromises.push(this.createWorker(i));
-        this.#initPromise = Promise.all(createWorkerPromises)
+        this.#loadPromise = Promise.all(createWorkerPromises)
             .finally(() => {
                 if (this.size >= targetSize)
                     console.info(`[${this.constructor.name}]: ${this.size} workers initalized`);
@@ -195,6 +195,23 @@ export class WorkerPool extends TrackableObject {
             true
         );
     }
+    async hashCache (id) {
+        let worker = this.#cacheAt(id);
+        if (worker?.isBusy) {
+            if (this.#LOG_LEVEL >= 1) console.debug(`[${this.constructor.name}]: Waiting for cache ${id}`);
+            await worker.onAvailable;
+            worker = this.#cacheAt(cache);
+        }
+        if (worker === undefined) throw new Error(`[${this.constructor.name}]: Cache ${id} does not exist`);
+        return this.#postJob(
+            "", 
+            { cache: id, manager: true }, 
+            [],
+            "HASHCACHE",
+            worker,
+            true
+        ).then(({payload}) => payload.hash);
+    }
     async pushCache (type, payload, id = undefined) {
         const defaultedId = (id === undefined);
         const staleCacheWorker = defaultedId ? undefined : this.#cacheAt(id);
@@ -296,7 +313,7 @@ export class WorkerPool extends TrackableObject {
     get transaction () { return this.#transactionProxy }
     get cache () { return this.#cacheProxy }
     get CACHE_TYPES () { return this.#CACHE_TYPES }
-    get initPromise () { return this.#initPromise }
+    get onload () { return this.#loadPromise }
 
     static #workerMessageHandler (entry, event) {
         const { id, error, state } = event.data;

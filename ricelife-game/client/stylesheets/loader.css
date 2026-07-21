@@ -1,14 +1,19 @@
+:root {
+    --spinner-size: min(3dvh, 3dvw);
+}
+
 .spinner {
     --fg-color: #fff;
     --bg-color: #00ccff;
-    --thickness: 12px;
-    --size: min(50dvh, 50dvw);
-    width: var(--size);
-    height: var(--size);
+    --thickness: calc(0.05 * var(--spinner-size));
+    --offset: calc(-50dvw + var(--spinner-size)) calc(50dvh - var(--spinner-size));
+    width: var(--spinner-size);
+    height: var(--spinner-size);
     border-radius: 50%;
     display: inline-block;
     margin: auto;
     inset: 0;
+    translate: var(--offset);
     border-top: var(--thickness) solid var(--fg-color);
     border-right: var(--thickness) solid transparent;
     box-sizing: border-box;
@@ -23,11 +28,12 @@
     position: absolute;
     left: 0;
     top: 0;
-    width: var(--size);
-    height: var(--size);
+    width: var(--spinner-size);
+    height: var(--spinner-size);
     margin: auto;
     inset: 0;
     border-radius: 50%;
+    translate: var(--offset), 0;
     border-left: var(--thickness) solid var(--bg-color);
     border-bottom: var(--thickness) solid transparent;
     animation: rotation 0.5s linear infinite reverse;
@@ -39,43 +45,42 @@
 }
 .loader > .caption {
     --color: #fff;
-    align-content: center;
-    text-align: center;
-    margin: auto;
+    align-content: last baseline;
+    text-align: left center;
     inset: 0;
     position: absolute;
+    left: calc(var(--spinner-size) * 2);
+    bottom: calc(var(--spinner-size) / 2);
     pointer-events: none;
     -webkit-user-select: none;
     -ms-user-select: none;
     user-select: none;
     color: var(--color);
     font-family: Arial, Helvetica, sans-serif;
-    font-size: min(10dvh, 10dvw);
+    font-size: var(--spinner-size);
 }
 .loader {
+    --blur: 0px;
     width: 100dvw;
     height: 100dvh;
     position: fixed;
-    pointer-events: all;
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px); /* Safari support */
-    background: rgba(0, 0, 0, 0.15);
+    pointer-events: none;
+    backdrop-filter: blur(var(--blur));
+    -webkit-backdrop-filter: blur(var(--blur));
+    &.cover, &.error-state {
+        pointer-events: all;
+    }
+    &.cover {
+        --blur: 10px;
+        background: rgba(0, 0, 0, 0.15);
+    }
     &.error-state {
-        backdrop-filter: blur(20px);
+        --blur: 20px;
         background: rgba(255, 0, 0, 0.3);
     }
 }
 .loader.error-state > .spinner {
     --bg-color: #ff5500;
-}
-.loader:not(.loading-state) > #loading-caption {
-    display: none;
-}
-.loader:not(.busy-state) > #busy-caption {
-    display: none;
-}
-.loader:not(.error-state) > #error-caption {
-    display: none;
 }
 .loader.hidden,
 .loader.hidden::before {

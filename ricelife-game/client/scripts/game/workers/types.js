@@ -1,5 +1,5 @@
 import { Canvas2DContextCursorFactory } from "../controller/controller.js";
-import { Polygon, Shape } from "../geometry/geometry.js";
+import { Polygon, Shape, Vector } from "../geometry/geometry.js";
 
 export const CACHE_TYPES = {
     POLY: {
@@ -7,7 +7,7 @@ export const CACHE_TYPES = {
             return this.encode({path, holes, depth});
         },
         decode: (data) => {
-            const { depth } = data;
+            const { depth } = data.poly;
             const poly = data.poly.Float64(depth); // [!] We are not expecting our holes to have more goddamn holes, but ffs JUST IN CASE...
             const { buffers } = poly;
             const reference = { depth };
@@ -19,14 +19,17 @@ export const CACHE_TYPES = {
         },
         encode: (payload, peer = true) => {
             const poly = payload?.isPolygon ? payload : Polygon.fromObject(payload, payload.depth);
-            return peer ? { poly, depth: payload.depth } : poly;
+            return peer ? { poly } : poly;
         },
         encodeReference: (reference) => {
             return {
                 poly: new Polygon(),
                 depth: reference.depth
             }
-        }
+        },
+        hash: (data) => {
+            return data?.poly?.hash;
+        },
     },
     CANVAS: {
         create (width, height) {
@@ -41,8 +44,9 @@ export const CACHE_TYPES = {
         },
         encode: (payload, peer = true) => {
             if (peer) {
-                const canvas = new OffscreenCanvas(payload?.width, payload?.height); // [!] inefficient but Contexts are non-transferrable and permanently linked to each Canvas
-                const cursor = Canvas2DContextCursorFactory(canvas);
+                const { width, height } = payload;
+                const canvas = new OffscreenCanvas(width, height); // [!] inefficient but Contexts are non-transferrable and permanently linked to each Canvas
+                const cursor = Canvas2DContextCursorFactory(canvas, new Vector(width, height));
                 cursor.drawImage(payload, 0, 0);
                 payload?.close?.();
                 return { canvas, cursor };
@@ -51,10 +55,14 @@ export const CACHE_TYPES = {
             }
         },
         encodeReference: (reference) => {
-            const canvas = new OffscreenCanvas(reference.width, reference.height);
-            const cursor = Canvas2DContextCursorFactory(canvas);
+            const { width, height } = reference;
+            const canvas = new OffscreenCanvas(width, height);
+            const cursor = Canvas2DContextCursorFactory(canvas, new Vector(width, height));
             return { canvas, cursor };
-        }
+        },
+        hash: (data) => {
+            return data?.cursor?.hash;
+        },
     },
     SHAPE: {
         create (payload) { return this.encode(payload, true) },
@@ -68,7 +76,10 @@ export const CACHE_TYPES = {
         },
         encodeReference (reference) {
             return { shape: new Shape.TYPES[reference.type]() }
-        }
+        },
+        hash (data) {
+            return data?.shape?.hash;
+        },
     }
 };
 Object.freeze(CACHE_TYPES);

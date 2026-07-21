@@ -1,0 +1,206 @@
+import { TrackableObject } from "../utils/utils.js";
+import { Color, BoundingBox, Vector } from "../geometry/geometry.js";
+import { Properties } from "./collision/collision.js";
+import { MultiShotStage } from "./stages.js";
+import { GravityController } from "../controller/controller.js";
+
+// bundle tracer to be seperated from Ammos
+class AmmoTracer {
+    #stages = new Array(); // 2D array, contains sequence of MultShotStage tracers (Paths)
+    #color = new Color(255, 255, 255, .35);
+    lineDash = new Array(10, 20);
+    constructor (stages) {
+        for (const stage of stages) {
+            if (!stage?.isMultiShotStage) throw new Error(`[${this.constructor.name}]: Invalid parameter array item, expected MultiShotStage, got ${typeof stage}`);
+            this.#stages.push(stage.tracer); // stage.tracer should be an Array of Paths
+        }
+    }
+
+    draw (cursor) {
+        cursor.save();
+        cursor.setLineDash(this.lineDash);
+        cursor.strokeStyle = this.color.toString();
+        for (const stageTrace of this.#stages)
+            for (const trace of stageTrace)
+                trace.draw(cursor, true);
+        cursor.restore();
+    }
+
+    get isAmmoTracer () { return true }
+    get color () { return this.#color }
+}
+
+// supports a sequence of shot or multishot stages
+export class Ammo extends TrackableObject {
+    static SFX = {
+        null: () => {}
+    };
+    #time = 0;
+    #colliders;
+    #currentStage;
+    #isStarted = false;
+    #stages = new Array();
+    #stageIdx = 0;
+    #blasts = new Array();
+    #decodeParams = new Array(); // to pass between threads
+    #launchCallback;
+    #displayBoundingBox;
+    constructor (colliders = [], stages = []) {
+        super();
+        this.#colliders = colliders;
+        for (const stage of stages) {
+            this.#stages.push(stage);
+        }
+        this.#currentStage = this.#stages[0];
+    }
+
+    draw (cursor) {
+        if (!this.isFinished) {
+            this.#currentStage.drawGlow(cursor);
+            this.#currentStage.drawBody(cursor);
+        }
+    }
+    nextStage () {
+        this.#currentStage = this.#stages[++this.#stageIdx];
+        this.#currentStage.blastTimeOffset += this.time;
+    }
+    update (seconds) {
+        if (!this.#isStarted) this.#isStarted = true;
+        this.time += seconds;
+        this.#currentStage?.update(seconds);
+        if (this.#currentStage?.isFinished) {
+            if (this.hasNextStage) this.nextStage();
+            else this.#currentStage = undefined;
+        }
+    }
+    // create multishot stage by default
+    newStage (delay = 0) {
+        const stage = new MultiShotStage(delay, this.blasts, this.colliders, this.constructor.SFX);
+        stage.launchCallback = this.launchCallback;
+        stage.displayBoundingBox = this.displayBoundingBox;
+        this.#stages.push(stage);
+        if (this.#stageIdx === 0 && this.#currentStage === undefined) this.#currentStage = this.#stages[this.#stageIdx];
+        return stage;
+    }
+    getBoundingBox (merge = true, includeStopped = true, includeFx = false) {
+        return this.currentStage?.getBoundingBox?.(merge, includeStopped, includeFx) || new BoundingBox();
+    }
+    // returns bounding boxes of all blasts of delay within range (start - end)
+    // if end is undefined, all blasts from start will be included
+    getBlastBoundingBox (start = 0, end = undefined, merge = true) {
+        const bboxes = [];
+        for (const blast of this.blasts)
+            if (blast.delay >= start && (end === undefined || blast.delay < end))
+                bboxes.push(blast.shape.getBoundingBox().clone());
+        if (!merge) return bboxes;
+        if (!bboxes.length) return new BoundingBox();
+        const bbox = bboxes.shift();
+        for (const bb of bboxes)
+            bbox.add(bb, true);
+        return bbox;
+    }
+    clone (deep = false) {
+        const stages = [];
+        for (const stage of this.#stages) stages.push(stage.clone(deep));
+        const ammo = new Ammo(this.colliders, stages);
+        return ammo;
+    }
+    getLegend (decode = true) {
+        return this.stages.map((stage) => stage.getLegend(decode));
+    }
+    setLegend (legend) { // expects an decoded legend 
+        try {
+            const stages = this.stages;
+            for (let i = 0; i < stages.length; i++)
+                stages[i].setLegend(legend[i]);
+        } catch (error) {
+            console.error(`[${this.constructor.name}]: Error parsing legend arrays`);
+            throw error;
+        }
+    }
+    getTracer () { return new AmmoTracer(this.stages) }
+    decode () { return this.decodeParams }
+
+    get isAmmo () { return true }
+    get isInsideDisplay () { return this.stages.some(({isInsideDisplay}) => isInsideDisplay) } // [!] will return shot as in-bounds if a display bbox is not set
+    get decodeParams () { return this.#decodeParams }
+    get colliders () { return this.#colliders }
+    get blasts () { return this.#blasts }
+    get stages () { return this.#stages }
+    get currentStage () { return this.#currentStage }
+    get hasNextStage () { return this.#stageIdx + 1 < this.#stages.length }
+    get isStarted () { return this.#isStarted }
+    get isFinished () { return this.isStarted && this.#currentStage === undefined }
+    get time () { return this.#time }
+    set time (value) { return (this.#time = value) }
+    get launchCallback () { return this.#launchCallback }
+    set launchCallback (callbackFn) {
+        for (const stage of this.stages)
+            stage.launchCallback = callbackFn;
+        return (this.#launchCallback = callbackFn);
+    }
+    get displayBoundingBox () { return this.#displayBoundingBox }
+    set displayBoundingBox (bbox) {
+        for (const stage of this.stages)
+            stage.displayBoundingBox = bbox;
+        return (this.#displayBoundingBox = bbox);
+    }
+    set applyDestruction (value) { this.stages.forEach((stage) => stage.applyDestruction = value); return value }
+}
+
+export function traceAmmo (
+    ammoType, // constructor
+    params, // Array
+    increment, // Float
+    limit, // Float
+    collisions // [...Polygon]
+) {
+    const ammo = ammoType.encode(...params);
+    for (const collisionPoly of collisions) ammo.colliders.push(collisionPoly);
+    ammo.applyDestruction = true;
+    const terrainPoly = ammo.colliders.find(({userData}) => userData.collision & Properties.TERRAIN);
+    const originalHoleCount = terrainPoly.holes.length;
+    const playerPolys = ammo.colliders.filter(({userData}) => userData.collision & Properties.PLAYER);
+    playerPolys.forEach(({userData}) => {
+        userData.position = Vector.fromObject(userData.position);
+    });
+    const result = { finished: false, time: limit };
+    let blastsCount;
+    terrainPoly.updateEdges(true);
+    while (ammo.time < limit && !result.finished) {
+        blastsCount = ammo.blasts.length;
+        // run the trace
+        ammo.update(increment);
+        // check if done
+        if (ammo.isFinished) {
+            result.time = ammo.time;
+            result.finished = true;
+            break;
+        }
+        // update player hitboxes
+        // [!] does not track if player dies. Need to do that - KT
+        if (playerPolys.length && ammo.blasts.length !== blastsCount) { // why would there ever be less?
+            const newBlasts = ammo.blasts.slice(blastsCount);
+            for (const player of playerPolys) {
+                if (!newBlasts.some((b) => b.shape.isIntersecting(player))) continue;
+                // update positioning - account for "falling"
+                const { position, rotation, heightOffset } = player.userData;
+                const hit = GravityController.computePosition(position, heightOffset, terrainPoly);
+                if (hit) {
+                    const { angle, point } = hit;
+                    const offset = point.sub(position);
+                    player.path.forEach((pt) => pt
+                        .pivot(angle - rotation, position, true)
+                        .add(offset, true));
+                    position.add(offset, true);
+                    player.userData.rotation = angle;
+                }
+            }
+        }
+    }
+    result.legend = ammo.getLegend(); // [!] no need to pass as transfer, we shouldn't have a large amount of collisions
+    result.blasts = ammo.blasts.map((blast) => blast.decode());
+    if (terrainPoly.holes.length > originalHoleCount)
+        terrainPoly.holes.splice(originalHoleCount, terrainPoly.holes.length - originalHoleCount);
+    return result;
+}

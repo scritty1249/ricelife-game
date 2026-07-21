@@ -1,16 +1,21 @@
 canvas {
-    position: fixed;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+body, html {
     width: 100dvw;
-    max-width: max-content;
     height: 100dvh;
+    position: fixed;
+    background-color: #11191c;
+}
+body, html, canvas {
     margin: 0;
+    padding: 0;
+    overflow: clip;
     touch-action: none;
     -webkit-touch-callout: none;
     -webkit-user-select: none;
     user-select: none;
-}
-body {
-    margin: 0;
-    padding: 0;
-    background-color: #11191c;
 }
