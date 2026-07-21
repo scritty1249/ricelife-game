@@ -24,8 +24,8 @@ Game wil not start until `teamcount` is met.
 | userid | [Snowflake](#string-snowflake) | from the initiating player |
 | mapid | [Snowflake](#string-snowflake) ||
 | channelid | [Snowflake](#string-snowflake) | Discord channel the invite was sent to |
-| teamsize | number | greater than `0` |
-| teamcount | number | greater than `1` |
+| teamsize | integer | greater than `0` |
+| teamcount | integer | greater than `1` |
 
 **Returns (JSON):**
 
