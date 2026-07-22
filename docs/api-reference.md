@@ -70,6 +70,9 @@ The specified lobby's data, or null it does not exist.
 - `lobbyid` is the [Snowflake](#string-snowflake) ID of a waiting or active lobby
 - `userid` is the [Snowflake](#string-snowflake) ID of the calling player.
 
+> - If a corrosponding lobby to `lobbyid` cannot be found, this endpoint will return `404 Not Found`
+> - If the player indicated by `playerid` is not in the corrosponding lobby, this endpoint will return `403 Forbidden`
+
 **Returns (JSON):**
 
 The signed endpoint to download the lobby's terrain data.
@@ -78,10 +81,7 @@ The signed endpoint to download the lobby's terrain data.
 | :-- | :-- | :-- |
 | url | [URL](#string-url) | a link to download a lobby's terrian data |
 | ttl | number | seconds before the link expires |
-
-
-- If a corrosponding lobby to `lobbyid` cannot be found, this endpoint will return `404 Not Found`
-- If the player indicated by `playerid` is not in the corrosponding lobby, this endpoint will return `403 Forbidden`
+> - The blob downloaded from `url` will be a [Polygon](#binary-stream-polygon)
 
 ### `POST /lobby/round/update`
 Saves the state of an ongoing round. Updated players corrospond to players that are already in the lobby. Updates to players that do not already in the lobby are discarded.
@@ -154,8 +154,8 @@ Should be sent as a blob of `application/octet-stream` type.
 ### *object* `PolygonMetadata`
 | Key | Type | Detail |
 | :-- | :-- | :-- |
-| i | uint32 | *index*. Starting byte index of pathlength |
-| p | number | *pathlength*. Length `Y` of [Path](#array-path) for corrosponding [Polygon](#object-polygon) |
+| o | uint32 | *index*. Starting byte offset of pathlength |
+| p | number | *pathlength*. Byte length `Y` of [Path](#array-path) for corrosponding [Polygon](#object-polygon) |
 | h | array of [PolygonMetadata](#object-polygonmetadata) | *holes*. For sanity, backend will impose a recursion depth limit of 3 |
 
 ### *array* `Vector`
