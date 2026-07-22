@@ -28,7 +28,7 @@ export async function POST (request) {
             const result = await stageUpdate(lobbyid, !keep);
             return Response.json(result);
         } else {
-            return Response.json({}, {status: 403, statusText: "Players must be in lobby to get terrain data."});
+            return Response.json({}, {status: 403, statusText: "Players must be in lobby participate."});
         }
     } catch (error) {
         console.error(error);
