@@ -148,13 +148,25 @@ export async function remove (id) {
     }
 }
 
-export async function exists (id) {
-    const response = await docClient.send(new GetCommand({
+export async function exists (id, key = ".") {
+    const command = {
         TableName: process.env.AWS_DB,
         Key: { [PK]: id },
-        ProjectionExpression: PK
-    }));
-    return response.Item !== undefined;
+        ConsistentRead: false
+    };
+    const { names, expression } = parseNestedKey(key);
+    if (expression) {
+        command.ProjectionExpression = expression;
+        command.ExpressionAttributeNames = names;
+    }
+    const response = await docClient.send(new GetCommand(command));
+    const compare = expression
+        // recurse through the returned item
+        ? keys.split(".").reduce((acc, curr) =>
+            acc && acc[curr] !== undefined ? acc[curr] : undefined,
+            response.Item)
+        : response.Item;
+    return compare !== undefined;
 }
 
 function parseNestedKey (key, indexOffset = 0, attributeName = "attr") {

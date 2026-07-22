@@ -26,7 +26,6 @@ Game wil not start until `teamcount` is met.
 | teamsize | integer | greater than `0` |
 | teamcount | integer | greater than `1` |
 | player | [PlayerProfile](#object-playerprofile) | from the initiating player |
-| username | string | display name |
 
 **Returns (JSON):**
 
@@ -42,10 +41,8 @@ Add a player to a waiting lobby.
 | Key | Type | Detail |
 | :-- | :-- | :-- |
 | lobbyid | [Snowflake](#string-snowflake) |
-| userid | [Snowflake](#string-snowflake) |
 | teamid | [Snowflake](#string-snowflake) |
 | player | [PlayerProfile](#object-playerprofile) ||
-| username | string | display name |
 
 **Returns (JSON):**
 
@@ -94,6 +91,7 @@ Stages a round update, and generates an presigned link to upload the lobby's ter
 | Key | Type | Detail |
 | :-- | :-- | :-- |
 | lobbyid | [Snowflake](#string-snowflake) ||
+| userid | [Snowflake](#string-snowflake) ||
 | ?keep | boolean | specifies if client has terrain data to upload |
 
 **Returns (JSON):**
@@ -104,6 +102,7 @@ Stages a round update, and generates an presigned link to upload the lobby's ter
 | ?url | [URL](#string-url) | a link to upload a lobby's terrian [Polygon](#binary-stream-polygon) |
 
 > - If `keep` was set to true, the response will not include a `url` field
+> - If `userid` does not corrospond to a play in the lobby, this endpoint will return `403 Forbidden`
 > - If a call to [`POST /lobby/round/update`](#post-lobbyroundupdate) is not made within `ttl`, any terrain data uploaded to `url` will be discarded
 
 ### `POST /lobby/round/update`
@@ -135,7 +134,6 @@ Commits a staged round update. Updated players corrospond to players that are al
 | Key | Type | Detail |
 | :-- | :-- | :-- |
 | players | [PlayerMap](#object-playermap) ||
-| terrain | string | database path to terrain blob |
 | state | integer ||
 | teamsize | number ||
 | teamcount | number ||

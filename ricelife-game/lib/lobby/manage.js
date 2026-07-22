@@ -7,16 +7,67 @@ import { generateToken } from "../token.js";
 
 const SNOWFLAKE = new Snowflake(0);
 const STAGING_TTL = 60; // seconds
+const DOWNLOAD_TTL = 180; // seconds
+
+export function generateTerrainPath (lobbyid) {
+    return `${lobbyid}/terrain.bin`;
+}
+
+export async function lobbyHasPlayer (lobbyid, playerid) {
+    return await KV.exists(lobbyid, `player.${playerid}`)
+}
+
+export async function exportLobby (lobbyid) {
+    const lobby = await KV.get(lobbyid);
+    if (!lobby) return null;
+    return {
+        players: lobby.players,
+        state: lobby.state,
+        teamsize: lobby.team_size,
+        teamcount: lobby.team_count,
+        channelid: lobby.channelid
+    };
+}
+
+export async function getTerrainUrl (lobbyid) {
+    const { download_url, download_expires } = await KV.get(lobbyid, "download_url", "download_expires");
+    const now = Math.ceil(Date.now() / 1000);
+    if (download_expires <= now) {
+        return {
+            url: download_url,
+            ttl: download_expires - now
+        };
+    } else {
+        const key = generateTerrainPath(lobbyid);
+        const expires = Math.floor(Date.now() / 1000) + DOWNLOAD_TTL;
+        const url = await BLOB.downloadUrl(key, DOWNLOAD_TTL);
+        await KV.set(lobbyid,
+            "download_url", url,
+            "download_expires", expires
+        );
+        return {
+            url,
+            ttl: expires - Math.ceil(Date.now() / 1000)
+        };
+    }
+}
+
+export async function addPlayer (lobbyid, player, team) {
+    if (!player?.id) return false;
+    const playerInstance = createPlayer(player.id, player.name, player.avatar, team);
+    const result = await KV.set(lobbyid, `players.${player.id}`, playerInstance);
+    return result ? true : false;
+}
 
 export async function createLobby (player, channelid, mapid, teamsize, teamcount) {
     const lobbyid = SNOWFLAKE.generate();
-    const player = createPlayer(player.id, player.name, player.avatar, team);
-    const terrainPath = `${lobbyid}/terrain.bin`;
+    const playerInstance = createPlayer(player.id, player.name, player.avatar, team);
+    const terrainPath = generateTerrainPath(lobbyid);
     const mapPath = `MASTER/${mapid}.bin`;
     const res = BLOB.copy(mapPath, terrainPath);
     const result = KV.create(lobbyid, {
         state: STATUS.WAITING,
-        players: { [player.data.profile.userid]: player },
+        players: { [player.id]: playerInstance },
         terrain: terrainPath,
         team_size: teamsize || 1,
         team_count: teamcount > 1 ? teamcount : 2,
@@ -41,7 +92,8 @@ export async function stageUpdate (lobbyid, terrainchanged) {
     const result = { token };
     let update;
     if (terrainchanged) {
-        const url = await BLOB.uploadUrl(`${lobbyid}/terrain-${token}.bin`, STAGING_TTL);
+        const stagedPath = generateStagedTerrainPath(lobbyid, token);
+        const url = await BLOB.uploadUrl(stagedPath, STAGING_TTL);
         await KV.update(lobbyid,
             "update_token", token,
             "update_expires", ttl
@@ -66,9 +118,10 @@ export async function stageUpdate (lobbyid, terrainchanged) {
 export async function commitUpdate (lobbyid, token, players) {
     const jobs = [];
     // commit staged terrain in s3 bucket ASAP, before it expires
-    const stagedPath = `${lobbyid}/terrain-${token}.bin`;
+    const stagedPath = generateStagedTerrainPath(lobbyid, token);
+    const terrainPath = generateTerrainPath(lobbyid);
     if (await BLOB.exists(stagedPath))
-        jobs.push(BLOB.copy(stagedPath, `${lobbyid}/terrain.bin`));
+        jobs.push(BLOB.copy(stagedPath, terrainPath));
     // apply updates to players
     // [!] send commands individually so condition only fails per player
     for (const [ id, player ] of Object.entries(players))
@@ -85,4 +138,8 @@ export async function commitUpdate (lobbyid, token, players) {
 export async function verifyToken (lobbyid, token, now) {
     const { update_token, update_expires } = await KV.get(lobbyid, "update_token", "update_expires");
     return update_token === token && now <= update_expires;
+}
+
+function generateStagedTerrainPath (lobbyid, token) {
+    return `${lobbyid}/terrain-${token}.bin`;
 }
