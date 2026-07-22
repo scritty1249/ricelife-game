@@ -128,6 +128,9 @@ Saves the state of an ongoing round. Updated players corrospond to players that 
 | players | array of [PlayerInstance](#object-playerinstance) ||
 | terrain | string | database path to terrain blob |
 | state | integer ||
+| teamsize | number ||
+| teamcount | number ||
+| channelid | [Snowflake](#string-snowflake) | Discord channel the invite was created in |
 
 ### *object* `PlayerData`
 | Key | Type | Detail |
