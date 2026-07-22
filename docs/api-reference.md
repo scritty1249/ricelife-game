@@ -64,7 +64,8 @@ The specified lobby's data, or null it does not exist.
 | :-- | :-- |
 | lobby | ?[Lobby](#object-lobby) |
 
-### `GET /lobby/terrain`
+### `GET /lobby/terrain/auth`
+Retrieve an presigned link to download the lobby's terrain data.
 
 **Request Query Parameters**
 - `lobbyid` is the [Snowflake](#string-snowflake) ID of a waiting or active lobby
@@ -79,18 +80,38 @@ The signed endpoint to download the lobby's terrain data.
 
 | Key | Type | Detail |
 | :-- | :-- | :-- |
-| url | [URL](#string-url) | a link to download a lobby's terrian data |
-| ttl | number | seconds before the link expires |
+| url | [URL](#string-url) | a link to download a lobby's terrian [Polygon](#binary-stream-polygon) |
+| ttl | number | seconds before the download link expires |
 > - The blob downloaded from `url` will be a [Polygon](#binary-stream-polygon)
+
+### `POST /lobby/terrain/auth`
+Retrieve an presigned link to upload the lobby's terrain data. 
+
+**Request Body Parameters (JSON):**
+| Key | Type | Detail |
+| :-- | :-- | :-- |
+| lobbyid | [Snowflake](#string-snowflake) ||
+| ?keep | boolean | specifies if client has terrain data to upload |
+
+**Returns (JSON):**
+| Key | Type | Detail |
+| :-- | :-- | :-- |
+| token | [Token](#string-token) | a token to use with [`POST /lobby/round/update`](#post-lobbyroundupdate) |
+| ?url | [URL](#string-url) | a link to upload a lobby's terrian [Polygon](#binary-stream-polygon) |
+| ?ttl | number | seconds before the upload link expires |
+
+> - If `keep` was set to true, the response will not include `url` and `ttl` fields
+> - If a call to [`POST /lobby/round/update`](#post-lobbyroundupdate) is not made within `ttl`, any terrain data uploaded to `url` will be discarded
 
 ### `POST /lobby/round/update`
 Saves the state of an ongoing round. Updated players corrospond to players that are already in the lobby. Updates to players that do not already in the lobby are discarded.
 
-**Request Body Parameters (Multipart/FormData):**
+**Request Body Parameters (JSON):**
 | Key | Type | Detail |
 | :-- | :-- | :-- |
-| players | array of [PlayerInstance](#object-playerinstance) |  player instances in the lobby, if any have changed |
-| ?terrain | [Polygon](#object-polygon) | terrain data, if terrain state has changed |
+| token | [Token](#string-token) | the token returned from [`POST /lobby/terrain/auth`](#post-lobbyterrainauth) |
+| lobbyid | [Snowflake](#string-snowflake) ||
+| ?players | array of [PlayerInstance](#object-playerinstance) |  changed player instances in the lobby |
 
 ## Type Definitions
 
@@ -100,7 +121,6 @@ Saves the state of an ongoing round. Updated players corrospond to players that 
 | position | [Vector](#array-vector) | player's current position |
 | hitpoints | array of [HitAmount](#object-hitamount) | damage applied in descending order |
 | data | [PlayerData](#object-playerdata) ||
-
 
 ### *object* `Lobby`
 | Key | Type | Detail |
@@ -175,3 +195,6 @@ The unique name of an in-game Ammo type.
 
 ### *string* `Snowflake`
 A unique 64 bit identifier. See [Discord's documentation](https://docs.discord.com/developers/reference#snowflakes) for more information on Snowflake IDs.
+
+### *string* `Token`
+A unique token generated for atomic operations.
