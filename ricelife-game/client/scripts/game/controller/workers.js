@@ -13,7 +13,7 @@ export class WorkerController {
         const payload = { callback: false, cache: dest, cuts: [], subject};
         const transfer = [];
         for (const cut of cuts) {
-            const data = cut.Float64(depth);
+            const data = cut.Float32(depth);
             payload.cuts.push(data);
             transfer.push(...data.buffers);
         }
@@ -43,7 +43,7 @@ export class WorkerController {
             const payload = { callback: true, subject: subjectid, cache: destid, cuts: []};
             const transfer = [];
             for (const cut of cuts) {
-                const data = cut.Float64(depth);
+                const data = cut.Float32(depth);
                 payload.cuts.push(data);
                 transfer.push(...data.buffers);
             }
@@ -70,7 +70,7 @@ export class WorkerController {
         const ammo = projectile.constructor.name;
         const { origin, velocity, acceleration, angle, resolution, power } = projectile;
         const collidersData = colliders.map((collider) =>
-            collider?.isPolygon ? collider.Float64(collider.depth) : collider);
+            collider?.isPolygon ? collider.Float32(collider.depth) : collider);
         const payload = {
             increment, limit, ammo,
             params: projectile.decode(),
