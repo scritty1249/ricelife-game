@@ -88,7 +88,7 @@ The signed endpoint to download the lobby's terrain data.
 > - The blob downloaded from `url` will be a [Polygon](#binary-stream-polygon)
 
 ### `POST /lobby/terrain/auth`
-Retrieve an presigned link to upload the lobby's terrain data. 
+Stages a round update, and generates an presigned link to upload the lobby's terrain data. 
 
 **Request Body Parameters (JSON):**
 | Key | Type | Detail |
@@ -100,14 +100,14 @@ Retrieve an presigned link to upload the lobby's terrain data.
 | Key | Type | Detail |
 | :-- | :-- | :-- |
 | token | [Token](#string-token) | a token to use with [`POST /lobby/round/update`](#post-lobbyroundupdate) |
+| ttl | number | remaining seconds to commit the update |
 | ?url | [URL](#string-url) | a link to upload a lobby's terrian [Polygon](#binary-stream-polygon) |
-| ?ttl | number | seconds before the upload link expires |
 
-> - If `keep` was set to true, the response will not include `url` and `ttl` fields
+> - If `keep` was set to true, the response will not include a `url` field
 > - If a call to [`POST /lobby/round/update`](#post-lobbyroundupdate) is not made within `ttl`, any terrain data uploaded to `url` will be discarded
 
 ### `POST /lobby/round/update`
-Saves the state of an ongoing round. Updated players corrospond to players that are already in the lobby. Updates to players that do not already in the lobby are discarded.
+Commits a staged round update. Updated players corrospond to players that are already in the lobby. Updates to players that do not already in the lobby are discarded.
 
 **Request Body Parameters (JSON):**
 | Key | Type | Detail |

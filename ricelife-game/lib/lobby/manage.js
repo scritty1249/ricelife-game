@@ -21,13 +21,11 @@ export async function createLobby (player, channelid, mapid, teamsize, teamcount
         team_size: teamsize || 1,
         team_count: teamcount > 1 ? teamcount : 2,
         channelid: channelid,
-        // internal use only
-        update_staged: false,
+        // internal use
         update_token: "",
-        upload_expires: -1,
-        upload_url: "",
-        download_expires: -1,
-        download_url: ""
+        update_expires: -1, // seconds
+        download_url: "",
+        download_expires: -1 // seconds
     });
     if (await result === null) throw new Error("Failed to create lobby");
     await res;
@@ -38,32 +36,53 @@ export async function createLobby (player, channelid, mapid, teamsize, teamcount
 // stage terrain update, drop changes if part 2 of operation is not completed in time
 export async function stageUpdate (lobbyid, terrainchanged) {
     const token = generateToken();
+    const ttlms = Date.now() + (STAGING_TTL * 1000);
+    const ttl = Math.floor(ttlms / 1000);
     const result = { token };
     let update;
     if (terrainchanged) {
-        const ttlms = Date.now() + (STAGING_TTL * 1000);
-        const ttl = Math.floor(ttlms / 1000);
         const url = await BLOB.uploadUrl(`${lobbyid}/terrain-${token}.bin`, STAGING_TTL);
-        await KV.update(lobbyid, {
-            update_staged: true,
-            update_token: token,
-            upload_url: url,
-            upload_expires: ttl
-        });
+        await KV.update(lobbyid,
+            "update_token", token,
+            "update_expires", ttl
+        );
         result.url = url;
-        result.ttl = Math.floor((ttlms - Date.now()) / 1000);
     } else {
-        await KV.update(lobbyid, {
-            updated_staged: false,
-            update_token: ""
-        });
+        await KV.update(lobbyid,
+            "update_token", token,
+            "update_expires", -1
+        );
+    }
+    const remainingTtl = Math.floor((ttlms - Date.now()) / 1000);
+    result.ttl = remainingTtl;
+    if (remainingTtl <= 0) {
+        console.warn(`Returning a staging TTL of ${remainingTtl}. Is staging duration limit too small?`);
     }
     return result;
 }
 
 // part 2 of atomic update
-// upload player details to DynamoDB, then commit changes in S3 Bucket
-export async function commitUpdate (lobbyid, players = []) {
+// commit changes in S3 Bucket, then upload player details to DynamoDB
+export async function commitUpdate (lobbyid, token, players) {
+    const jobs = [];
+    // commit staged terrain in s3 bucket ASAP, before it expires
+    const stagedPath = `${lobbyid}/terrain-${token}.bin`;
+    if (await BLOB.exists(stagedPath))
+        jobs.push(BLOB.copy(stagedPath, `${lobbyid}/terrain.bin`));
     // apply updates to players
-    // push to dynamodb
+    // [!] send commands individually so condition only fails per player
+    for (const [ id, player ] of Object.entries(players))
+        jobs.push(KV.update(lobbyid, `players.${id}`, player));
+    // clear staging state data
+    jobs.push(KV.update(lobbyid,
+        "update_token", "",
+        "update_expires", -1
+    ));
+    await jobs;
+}
+
+// now expected in seconds
+export async function verifyToken (lobbyid, token, now) {
+    const { update_token, update_expires } = await KV.get(lobbyid, "update_token", "update_expires");
+    return update_token === token && now <= update_expires;
 }
