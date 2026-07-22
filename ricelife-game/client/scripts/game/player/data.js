@@ -13,7 +13,7 @@ export class PlayerData {
     #team;
     #profile;
     #model;
-    constructor (model, profile, team = 1) {
+    constructor (model, profile, team) {
         this.#profile = profile; // PlayerProfile
         this.#model = model; // PlayerModel
         this.#team = team;

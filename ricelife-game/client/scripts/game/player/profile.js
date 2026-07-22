@@ -62,7 +62,7 @@ export class PlayerProfile {
     toJSON () {
         return {
             name: this.name,
-            avatar: this.avatar.img.src,
+            avatar: this.avatar?.isLoadImage ? this.avatar.img.src : this.avatar,
             fontFamily: this.fontFamily,
             userid: this.userid
         }

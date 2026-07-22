@@ -1,5 +1,6 @@
 import { DrawingCanvas } from "./draw.js";
 import { Slider } from "./slider.js"
+import { packPolygon } from "../../client/scripts/api/pack.js";
 
 const exportBtn = document.getElementById("export-btn");
 const modal = document.getElementById("export-modal");

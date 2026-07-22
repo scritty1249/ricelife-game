@@ -21,11 +21,12 @@ A list of all available maps
 Game wil not start until `teamcount` is met.
 | Key | Type | Detail |
 | :-- | :-- | :-- |
-| userid | [Snowflake](#string-snowflake) | from the initiating player |
 | mapid | [Snowflake](#string-snowflake) ||
 | channelid | [Snowflake](#string-snowflake) | Discord channel the invite was sent to |
 | teamsize | integer | greater than `0` |
 | teamcount | integer | greater than `1` |
+| player | [PlayerProfile](#object-playerprofile) | from the initiating player |
+| username | string | display name |
 
 **Returns (JSON):**
 
@@ -38,11 +39,13 @@ An ID of the created lobby, or null if one could not be made.
 Add a player to a waiting lobby.
 
 **Request Body Parameters (JSON):**
-| Key | Type |
-| :-- | :-- |
+| Key | Type | Detail |
+| :-- | :-- | :-- |
 | lobbyid | [Snowflake](#string-snowflake) |
 | userid | [Snowflake](#string-snowflake) |
 | teamid | [Snowflake](#string-snowflake) |
+| player | [PlayerProfile](#object-playerprofile) ||
+| username | string | display name |
 
 **Returns (JSON):**
 
@@ -181,6 +184,13 @@ Should be sent as a blob of `application/octet-stream` type.
 | o | uint32 | *index*. Starting byte offset of pathlength |
 | p | number | *pathlength*. Byte length `Y` of [Path](#array-path) for corrosponding [Polygon](#object-polygon) |
 | h | array of [PolygonMetadata](#object-polygonmetadata) | *holes*. For sanity, backend will impose a recursion depth limit of 3 |
+
+### *object* `PlayerProfile`
+| Key | Type | Detail |
+| :-- | :-- | :-- |
+| id | [Snowflake](#string-snowflake) ||
+| avatar | [URL](#URL) ||
+| nick | string | display name |
 
 ### *array* `Vector`
 | Index | Type | Detail |
