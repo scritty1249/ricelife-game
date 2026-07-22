@@ -1,12 +1,4 @@
-export function pack (data) {
-    if (data?.isPolygon) {
-        return packPolygon(data);
-    } else {
-        throw new Error(`Unable to pack unknown type ${data?.constructor?.name || typeof data}`);
-    }
-}
-
-function packPolygon (polygon) {
+export function packPolygon (polygon) {
     const { metadata, path } = encodePolygon(polygon, 0);
     const metadataSizeOffset = 4; // 32-bit uint
 
