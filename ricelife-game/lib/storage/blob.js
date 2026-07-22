@@ -1,56 +1,56 @@
-const STORE_URL = "https://vercel-storage.com";
-const TERRAIN_MAX_BYTES = 10 * 1024 * 1024; // 10MB
+import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-export async function downloadUrl (pathname, ttlseconds = 300) {
-    const operation = "get";
-    const token = await getToken(operation);
-    const presigned = await fetetch(STORE_URL, {
-        method,
-        headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            pathname, operation,
-            validUntil: Date.now() + (ttlseconds * 1000)
-        })
+// The SDK automatically looks up process.env.AWS_ROLE_ARN and logs into AWS securely
+const s3Client = new S3Client({ region: process.env.AWS_REGION });
+
+export async function downloadUrl (pathname, ttlseconds = 60) {
+    const fileKey = pathname.startsWith("/") ? pathname.slice(1) : pathname;
+    const command = new GetObjectCommand({
+        Bucket: process.env.AWS_BUCKET,
+        Key: fileKey,
     });
-    const data = await presigned.json();
-    return data.url;
+    return await getSignedUrl(s3Client, command, { expiresIn: ttlseconds });
 }
 
-export async function uploadUrl (pathname, ttlseconds = 300) {
-    const operation = "put"
-    const token = await getToken(operation);
-    const presigned = await fetetch(STORE_URL, {
-        method,
-        headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            pathname, operation,
-            validUntil: Date.now() + (ttlseconds * 1000),
-            options: {
-                access: "public",
-                allowedContentTypes: ["application/octet-stream"],
-                maximumSizeInBytes: TERRAIN_MAX_BYTES
-            }
-        })
-    });
-    const data = await presigned.json();
-    return data.url;
+export async function uploadUrl (pathname, ttlseconds = 60, dropafterseconds = undefined) {
+    const fileKey = pathname.startsWith("/") ? pathname.slice(1) : pathname;
+    const command = {
+        Bucket: process.env.AWS_BUCKET,
+        Key: fileKey,
+    };
+    if (dropafterseconds) {
+        command.autoDropDate = new Date();
+        command.autoDropDate.setTime(autoDropDate.getTime() + (dropafterseconds * 1000));
+    }
+    return await getSignedUrl(s3Client, new PutObjectCommand(command), { expiresIn: ttlseconds });
 }
 
-async function token (...operations) {
-    const tokResponse = await fetch(STORE_URL, {
-        method: "POST",
-        headers: {
-            Authorization: `Bearer ${process.env.BLOB_STORE_TOKEN}`,
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({operations: operations.map((op) => op.toLowerCase())})
-    });
-    const { token } = await tokResponse.json();
-    return token;
+export async function remove (pathname) {
+    try {
+        const fileKey = pathname.startsWith("/") ? pathname.slice(1) : pathname;
+        const response = await s3Client.send(new DeleteObjectCommand({
+            Bucket: process.env.AWS_BUCKET,
+            Key: fileKey
+        }));
+        return response;
+    } catch (error) {
+        return null;
+    }
+}
+
+export async function copy (sourcepath, targetpath) {
+    try {
+        const sourceKey = sourcepath.startsWith("/") ? sourcepath.slice(1) : sourcepath;
+        const targetKey = targetpath.startsWith("/") ? targetpath.slice(1) : targetpath;
+        const response = await s3Client.send(new CopyObjectCommand({
+            Bucket: process.env.AWS_BUCKET,
+            CopySource: `${process.env.AWS_BUCKET}/${sourceKey}`,
+            Key: targetKey,
+            MetadataDirective: "REPLACE" // gets rid of the Expires tag, if one exists
+        }));
+        return response;
+    } catch (error) {
+        return null;
+    }
 }
