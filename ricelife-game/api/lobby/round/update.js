@@ -4,7 +4,7 @@ const DEV_PROD = process.env.NODE_ENV === "development";
 
 export async function POST (request) {
     try {
-        const { token, lobbyid, players = [] } = await request.json();
+        const { token, lobbyid, players = {} } = await request.json();
         const now = Date.now() / 1000;
         if (await verifyToken(lobbyid, token, now)) {
             await commitUpdate(lobbyid, token, players);
