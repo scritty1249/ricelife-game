@@ -31,3 +31,9 @@ export function createTerrain (dataIterator) {
     terrain.userData.collision = Properties.DESTRUCTION | Properties.ENTER | Properties.TERRAIN;
     return { plane, terrain };
 };
+
+export function initTerrain (decodedObject) {
+    const terrain = Polygon.fromObject(decodedObject);
+    terrain.userData.collision = Properties.DESTRUCTION | Properties.ENTER | Properties.TERRAIN;
+    return terrain;
+}

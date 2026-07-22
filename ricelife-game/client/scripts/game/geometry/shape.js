@@ -606,7 +606,7 @@ export class Poly extends Shape {
     }
     decode () {
         const decoded = super.decode();
-        const data = this.polygon.Float64(this.polygon.depth);
+        const data = this.polygon.Float32(this.polygon.depth);
         for (const buffer of data.buffers) decoded.buffers.push(buffer);
         delete data.buffers;
         decoded.data.blob = data;

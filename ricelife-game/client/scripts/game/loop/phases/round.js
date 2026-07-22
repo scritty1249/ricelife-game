@@ -143,7 +143,7 @@ export class RoundPhase extends Phase {
             // draw the first terrain background
             return Promise.all([
                 this.Threaded.createCache(this.store.cacheKey.background, "CANVAS", ...this.Plane.size),
-                this.Threaded.insertCache(this.store.cacheKey.terrain, "POLY", this.Terrain.Float64(1))
+                this.Threaded.insertCache(this.store.cacheKey.terrain, "POLY", this.Terrain.Float32(1))
             ])
             .then(() =>
                 this.Threaded.drawTerrain(this.store.cacheKey.background, this.store.cacheKey.terrain, SETTINGS.TERRAIN_FILL, SETTINGS.TERRAIN_EDGE))
