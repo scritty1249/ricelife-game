@@ -46,6 +46,30 @@ export async function set (id, key, value) {
     }
 }
 
+export async function update (id, item) {
+    try {
+        const keys = Object.keys(item);
+        const expression = "SET " + keys.map((key, i) => `#attr${i} = :value${i}`).join(", ");
+        const itemKeys = {};
+        const itemValues = {};
+        keys.forEach((key, i) => {
+            itemKeys[`#attr${i}`] = key;
+            itemValues[`:value${i}`] = item[key];
+        });
+        return await docClient.send(new UpdateCommand({
+            TableName: process.env.AWS_DB,
+            Key: { [PK]: id },
+            UpdateExpression: expression,
+            ConditionExpression: "attribute_exists(#pk)", 
+            ExpressionAttributeNames: itemKeys,
+            ExpressionAttributeValues: itemValues
+        }));
+    } catch (error) {
+        if (error.name === ERROR_NAME) return null;
+        else throw error;
+    }
+}
+
 export async function push (id, key, value) {
     try {
         return await docClient.send(new UpdateCommand({

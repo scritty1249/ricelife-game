@@ -3,6 +3,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 // The SDK automatically looks up process.env.AWS_ROLE_ARN and logs into AWS securely
 const s3Client = new S3Client({ region: process.env.AWS_REGION });
+const NOTFOUND_ERROR = "NotFound";
 
 export async function downloadUrl (pathname, ttlseconds = 60) {
     const fileKey = pathname.startsWith("/") ? pathname.slice(1) : pathname;
@@ -51,6 +52,8 @@ export async function copy (sourcepath, targetpath) {
         }));
         return response;
     } catch (error) {
-        return null;
+        return (error.name === NOTFOUND_ERROR || error.$metadata?.httpStatusCode === 404)
+            ? false
+            : null;
     }
 }

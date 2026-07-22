@@ -114,7 +114,7 @@ Saves the state of an ongoing round. Updated players corrospond to players that 
 | :-- | :-- | :-- |
 | token | [Token](#string-token) | the token returned from [`POST /lobby/terrain/auth`](#post-lobbyterrainauth) |
 | lobbyid | [Snowflake](#string-snowflake) ||
-| ?players | array of [PlayerInstance](#object-playerinstance) |  changed player instances in the lobby |
+| ?players | [PlayerMap](#object-playermap) |  changed player instances in the lobby |
 
 ## Type Definitions
 
@@ -125,10 +125,16 @@ Saves the state of an ongoing round. Updated players corrospond to players that 
 | hitpoints | array of [HitAmount](#object-hitamount) | damage applied in descending order |
 | data | [PlayerData](#object-playerdata) ||
 
+### *object* `PlayerMap`
+| Key | Type | Detail |
+| :-- | :-- | :-- |
+| [PlayerInstance](#object-playerinstance).[PlayerData](#object-playerdata).[PlayerProfile](#object-playerprofile).`userid` | [PlayerInstance](#object-playerinstance) | each instance is mapped to it's own ID |
+| ... | ... | continuing for each player |
+
 ### *object* `Lobby`
 | Key | Type | Detail |
 | :-- | :-- | :-- |
-| players | array of [PlayerInstance](#object-playerinstance) ||
+| players | [PlayerMap](#object-playermap) ||
 | terrain | string | database path to terrain blob |
 | state | integer ||
 | teamsize | number ||
