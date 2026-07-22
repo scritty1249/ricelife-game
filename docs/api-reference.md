@@ -125,8 +125,9 @@ Saves the state of an ongoing round. Updated players corrospond to players that 
 ### *object* `Lobby`
 | Key | Type | Detail |
 | :-- | :-- | :-- |
-| terrain | [URL](#string-url) | link to download the terrain data |
 | players | array of [PlayerInstance](#object-playerinstance) ||
+| terrain | string | database path to terrain blob |
+| state | integer ||
 
 ### *object* `PlayerData`
 | Key | Type | Detail |
