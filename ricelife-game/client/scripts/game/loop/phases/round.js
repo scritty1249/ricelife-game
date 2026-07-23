@@ -4,7 +4,7 @@ import { Vector, Color, Ray, BoundingBox } from "../../geometry/geometry.js";
 import { ViewboxController, WorkerController, InputListener } from "../../controller/controller.js";
 
 import { Properties, drawBlastAnimation } from "../../projectile/projectile.js";
-import { createTerrain, readTerrain } from "../../terrain/terrain.js";
+import { loadTerrain } from "../../terrain/terrain.js";
 import { WorkerPool } from "../../workers/workers.js";
 import { floatEqual } from "../../utils/utils.js";
 
@@ -153,11 +153,10 @@ export class RoundPhase extends Phase {
         await Promise.all(waitPromises);
     }
     async #loadTerrain (terrainSrc) {
-        const iterator = await readTerrain(terrainSrc);
-        const { plane, terrain } = createTerrain(iterator);
-        this.Plane.apply(plane);
-        this.#Terrain = terrain;
-        this.Global.Display.cursor.planeSize.apply(plane.size);
+        this.#Terrain = await loadTerrain(terrainSrc);
+        const planeSize = this.Terrain.getBoundingBox().size;
+        this.Plane.max.apply(planeSize);
+        this.Global.Display.cursor.planeSize.apply(planeSize);
     }
     async #loadLobby (lobbySrc) {
         const waitPromises = [];

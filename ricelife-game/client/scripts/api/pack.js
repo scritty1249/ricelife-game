@@ -1,20 +1,22 @@
 export function packPolygon (polygon) {
     const { metadata, path } = encodePolygon(polygon, 0);
-    const metadataSizeOffset = 4; // 32-bit uint
+    const metadataSizeOffset = 4;
 
     const metadataBytes = new TextEncoder().encode(JSON.stringify(metadata));
     const metadataSize = metadataBytes.length;
+    
     const headerOffset = metadataSizeOffset + metadataSize;
     const totalBytes = headerOffset + path.byteLength;
 
     const buffer = new ArrayBuffer(totalBytes);
     const view = new DataView(buffer);
     const uint8View = new Uint8Array(buffer);
-    const float32View = new Float32Array(buffer, headerOffset);
 
-    view.setUint32(0, metadataSize, true); // in Little Endian
+    view.setUint32(0, metadataSize, true);
     uint8View.set(metadataBytes, metadataSizeOffset);
-    float32View.set(path);
+    
+    const pathByteView = new Uint8Array(path.buffer, path.byteOffset, path.byteLength);
+    uint8View.set(pathByteView, headerOffset);
 
     return buffer;
 }
