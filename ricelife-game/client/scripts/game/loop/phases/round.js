@@ -4,7 +4,7 @@ import { Vector, Color, Ray, BoundingBox } from "../../geometry/geometry.js";
 import { ViewboxController, WorkerController, InputListener } from "../../controller/controller.js";
 
 import { Properties, drawBlastAnimation } from "../../projectile/projectile.js";
-import { createTerrain, readTerrain } from "../../terrain/terrain.js";
+import { loadTerrain } from "../../terrain/terrain.js";
 import { WorkerPool } from "../../workers/workers.js";
 import { floatEqual } from "../../utils/utils.js";
 
@@ -143,7 +143,7 @@ export class RoundPhase extends Phase {
             // draw the first terrain background
             return Promise.all([
                 this.Threaded.createCache(this.store.cacheKey.background, "CANVAS", ...this.Plane.size),
-                this.Threaded.insertCache(this.store.cacheKey.terrain, "POLY", this.Terrain.Float64(1))
+                this.Threaded.insertCache(this.store.cacheKey.terrain, "POLY", this.Terrain.Float32(1))
             ])
             .then(() =>
                 this.Threaded.drawTerrain(this.store.cacheKey.background, this.store.cacheKey.terrain, SETTINGS.TERRAIN_FILL, SETTINGS.TERRAIN_EDGE))
@@ -153,11 +153,10 @@ export class RoundPhase extends Phase {
         await Promise.all(waitPromises);
     }
     async #loadTerrain (terrainSrc) {
-        const iterator = await readTerrain(terrainSrc);
-        const { plane, terrain } = createTerrain(iterator);
-        this.Plane.apply(plane);
-        this.#Terrain = terrain;
-        this.Global.Display.cursor.planeSize.apply(plane.size);
+        this.#Terrain = await loadTerrain(terrainSrc);
+        const planeSize = this.Terrain.getBoundingBox().size;
+        this.Plane.max.apply(planeSize);
+        this.Global.Display.cursor.planeSize.apply(planeSize);
     }
     async #loadLobby (lobbySrc) {
         const waitPromises = [];

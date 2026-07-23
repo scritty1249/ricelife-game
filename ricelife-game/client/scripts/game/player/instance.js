@@ -84,11 +84,13 @@ export class PlayerInstance extends TrackableObject  {
     }
     toJSON () {
         // [!] don't store aiming angle- save on backend storage, don't think anyone will notice/care... - KT
-        return {
+        const payload = {
             data: this.data.toJSON(),
             hitpoints: this.hitpoints.toJSON(),
-            position: this.tank.position.toJSON()
         };
+        if (this.#isLoaded)
+            payload.position = this.tank.position.toJSON();
+        return payload;
     }
 
     get isPlayer () { return true }

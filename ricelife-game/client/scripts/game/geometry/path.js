@@ -306,11 +306,11 @@ export class Path extends TrackableObject { // points should be ordered clockwis
         // just hashes points, does not account for Path attributes (like ID)
         return Vector.hashVectors(this.points);
     }
-    Float64 () {
+    Float32 () {
         const arr = [];
         for (let i = 0; i < this.length; i++)
             arr.push(...this.at(i));
-        return new Float64Array(arr);
+        return new Float32Array(arr);
     }
     get isClockwise () { // "Shoelace formula"
         if (this.length < 3) return true;

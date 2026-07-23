@@ -292,11 +292,11 @@ export class Polygon extends TrackableObject { // points should be ordered clock
         return poly;
     }
 
-    Float64 (depth = undefined) {
+    Float32 (depth = undefined) {
         if (!Number.isInteger(depth) || depth < 0) throw new Error(`[${this.constructor.name}]: Invalid depth ${depth}`);
         const data = {depth};
-        data.path = this.path.Float64();
-        data.holes = depth > 0 ? this.holes.map((hole) => hole.Float64(depth-1)) : [];
+        data.path = this.path.Float32();
+        data.holes = depth > 0 ? this.holes.map((hole) => hole.Float32(depth-1)) : [];
         data.buffers = [data.path.buffer];
         if (this.userData) data.userData = this.userData;
         for (const hole of data.holes.flat(depth))

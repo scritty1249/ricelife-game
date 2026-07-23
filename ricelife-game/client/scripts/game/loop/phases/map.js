@@ -55,10 +55,14 @@ export class MapPhase extends Phase {
             i++;
         }
         // setup camera and viewbox
-        this.Plane.max.apply(
-            tileSize.x + (padX * 2),
-            ((tileSize.y + padY) * selections.length) + padY
-        );
+        if (selections?.length) {
+            this.Plane.max.apply(
+                tileSize.x + (padX * 2),
+                ((tileSize.y + padY) * selections.length) + padY
+            );
+        } else {
+            this.Plane.max.apply(MapSelection.TILE_LEG_LENGTH * 2);
+        }
         const planeSize = this.Plane.size;
         this.store.viewSize = new Vector(planeSize.x, tileSize.y + (padY * 2));
         this.store.viewStartY = planeSize.y - (tileSize.y / 2) - padY;

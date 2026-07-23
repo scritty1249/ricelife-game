@@ -8,7 +8,7 @@ export const CACHE_TYPES = {
         },
         decode: (data) => {
             const { depth } = data.poly;
-            const poly = data.poly.Float64(depth); // [!] We are not expecting our holes to have more goddamn holes, but ffs JUST IN CASE...
+            const poly = data.poly.Float32(depth); // [!] We are not expecting our holes to have more goddamn holes, but ffs JUST IN CASE...
             const { buffers } = poly;
             const reference = { depth };
             delete poly.buffers;

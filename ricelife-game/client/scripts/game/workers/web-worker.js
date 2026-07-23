@@ -141,7 +141,7 @@ self.onmessage = async (e) => {
             const result = {};
             let bufs = [];
             if (callback) {
-                result.polygon = polygon.Float64(polygon.depth);
+                result.polygon = polygon.Float32(polygon.depth);
                 bufs = result.polygon.buffers;
             }
             postResponse(id, result, bufs);

@@ -216,7 +216,41 @@ textarea {
     z-index: 20;
     width: 80%;
     max-width: 500px;
+    max-height: 80dvh;
+    &.show {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
 }
+
+#export-modal > * {
+    width: 100%;
+    max-width: 100%;
+}
+
+#modal-overlay:has(+ #export-modal.show) {
+    display: block;
+}
+
+#render-canvas {
+    display: block;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--draw-background);
+    background: var(--draw-background);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    backdrop-filter: blur(16px) saturate(180%);
+    border-radius: 4px;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    margin: 20px auto;
+    overflow: scroll;
+    max-height: 100%;
+    max-width: 100%;
+}
+
 
 #modal-overlay {
     display: none;
@@ -292,11 +326,11 @@ textarea {
     --bg: #007bff;
 }
 
-#copy-btn {
+#thumb-btn {
     --bg: #28a745;
 }
 
-#save-btn {
+#blob-btn {
     --bg: #ffc107;
     --fg: #212529;
 }
@@ -333,6 +367,7 @@ div.modal-sliders {
     display: flex;
     flex-direction: column;
     gap: 10px;
+    box-sizing: border-box;
 }
 
 div.modal-buttons {

@@ -181,7 +181,7 @@ export class MainLoop extends GameLoop {
         if (activeLoop?.isMapPhase) {
             this.Events.raiseEvent("LOADING", {hide: false, message: "loading map"});
             const { selection } = data;
-            this.Events.raiseEvent("PHASE_NEW", {Phase: 1, args: ["../tests/test-lobby.json", selection.src], close: true });
+            this.Events.raiseEvent("PHASE_NEW", {Phase: 1, args: ["/test-lobby.json", selection.src], close: true });
         } else if (activeLoop?.isRoundPhase) {
             this.Events.raiseEvent("LOADING", {hide: false, message: "returning to menu"});
             const { players } = data;
