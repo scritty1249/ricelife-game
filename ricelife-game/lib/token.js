@@ -1,5 +1,5 @@
-import { crypto } from "node:crypto";
+import crypto from "node:crypto";
 
-export async function generateToken () {
+export function generateToken () {
     return crypto.randomBytes(32).toString("base64url");
 }

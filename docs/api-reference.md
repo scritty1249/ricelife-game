@@ -104,6 +104,7 @@ Stages a round update, and generates an presigned link to upload the lobby's ter
 > - If `keep` was set to true, the response will not include a `url` field
 > - If `userid` does not corrospond to a play in the lobby, this endpoint will return `403 Forbidden`
 > - If a call to [`POST /lobby/round/update`](#post-lobbyroundupdate) is not made within `ttl`, any terrain data uploaded to `url` will be discarded
+> - If an update is made for a lobby that is still in the `Waiting` state, this endpoint will return `403 Forbidden`
 
 ### `POST /lobby/round/update`
 Commits a staged round update. Updated players corrospond to players that are already in the lobby. Updates to players that do not already in the lobby are discarded.

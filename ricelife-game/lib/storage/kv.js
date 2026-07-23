@@ -1,7 +1,13 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, PutCommand, GetCommand, UpdateCommand, DeleteCommand } from "@aws-sdk/lib-dynamodb";
+import { awsCredentialsProvider } from "@vercel/oidc-aws-credentials-provider";
 
-const docClient = DynamoDBDocumentClient.from(new DynamoDBClient({}));
+const docClient = DynamoDBDocumentClient.from(new DynamoDBClient({
+    region: process.env.AWS_REGION,
+    credentials: awsCredentialsProvider({
+        roleArn: process.env.AWS_ROLE_ARN
+    }),
+}));
 const PK = "LOBBYID";
 const PK_EXISTS_CONDITION = "attribute_exists(#pk)";
 const PK_EXPRESSION_NAME = {"#pk": PK};
@@ -62,16 +68,16 @@ export async function set (id, ...kwargs) {
             values[`:val${idx}`] = value;
             expressions.push(expression);
         }
-        const expression = "SET " + expressions.map((e, i) => `${e} = :val${i}`);
+        const expression = "SET " + expressions.map((e, i) => `${e} = :val${i}`).join(", ");
         const command = {
             TableName: process.env.AWS_DB,
             Key: { [PK]: id },
             UpdateExpression: expression,
             ConditionExpression: PK_EXISTS_CONDITION, 
-            ExpressionAttributeNames: {...names, PK_EXPRESSION_NAME},
+            ExpressionAttributeNames: {...names, ...PK_EXPRESSION_NAME},
             ExpressionAttributeValues: values
         };
-        return await docClient.send(new GetCommand(command));
+        return await docClient.send(new UpdateCommand(command));
     } catch (error) {
         if (error.name === ERROR_NAME) return null;
         else throw error;
@@ -102,10 +108,10 @@ export async function update (id, ...kwargs) {
             Key: { [PK]: id },
             UpdateExpression: expression,
             ConditionExpression: condition, 
-            ExpressionAttributeNames: {...names, PK_EXPRESSION_NAME},
+            ExpressionAttributeNames: {...names, ...PK_EXPRESSION_NAME},
             ExpressionAttributeValues: values
         };
-        return await docClient.send(new GetCommand(command));
+        return await docClient.send(new UpdateCommand(command));
     } catch (error) {
         if (error.name === ERROR_NAME) return null;
         else throw error;
@@ -140,7 +146,7 @@ export async function remove (id) {
             TableName: process.env.AWS_DB,
             Key: { [PK]: id },
             ConditionExpression: "attribute_exists(#pk)",
-            ExpressionAttributeNames: { "#pk": PK }
+            ExpressionAttributeNames: PK_EXPRESSION_NAME
         }));
     } catch (error) {
         if (error.name === ERROR_NAME) return null;
@@ -154,7 +160,7 @@ export async function exists (id, key = ".") {
         Key: { [PK]: id },
         ConsistentRead: false
     };
-    const { names, expression } = parseNestedKey(key);
+    const { names, expression, keys } = parseNestedKey(key);
     if (expression) {
         command.ProjectionExpression = expression;
         command.ExpressionAttributeNames = names;
@@ -162,7 +168,7 @@ export async function exists (id, key = ".") {
     const response = await docClient.send(new GetCommand(command));
     const compare = expression
         // recurse through the returned item
-        ? keys.split(".").reduce((acc, curr) =>
+        ? keys.reduce((acc, curr) =>
             acc && acc[curr] !== undefined ? acc[curr] : undefined,
             response.Item)
         : response.Item;
@@ -177,5 +183,5 @@ function parseNestedKey (key, indexOffset = 0, attributeName = "attr") {
     const expression = keys.length
         ? keys.map((k, i) => `#${attributeName}${i + indexOffset}`).join(".")
         : "";
-    return { names: names, expression: expression };
+    return { keys, names: names, expression: expression };
 }

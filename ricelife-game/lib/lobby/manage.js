@@ -10,11 +10,23 @@ const STAGING_TTL = 60; // seconds
 const DOWNLOAD_TTL = 180; // seconds
 
 export function generateTerrainPath (lobbyid) {
-    return `${lobbyid}/terrain.bin`;
+    return `terrain/lobbies/${lobbyid}/terrain.bin`;
+}
+
+function generateStagedTerrainPath (lobbyid, token) {
+    return `terrain/staged/${lobbyid}/terrain-${token}.bin`;
+}
+
+function generateMapPath (mapid) {
+    return `terrain/MASTER/${mapid}.bin`;
 }
 
 export async function lobbyHasPlayer (lobbyid, playerid) {
-    return await KV.exists(lobbyid, `player.${playerid}`)
+    return await KV.exists(lobbyid, `players.${playerid}`)
+}
+
+export async function lobbyIsWaiting (lobbyid) {
+    return (await KV.get(lobbyid, "state"))?.state === STATUS.WAITING;
 }
 
 export async function exportLobby (lobbyid) {
@@ -30,44 +42,32 @@ export async function exportLobby (lobbyid) {
 }
 
 export async function getTerrainUrl (lobbyid) {
-    const { download_url, download_expires } = await KV.get(lobbyid, "download_url", "download_expires");
     const now = Math.ceil(Date.now() / 1000);
-    if (download_expires <= now) {
-        return {
-            url: download_url,
-            ttl: download_expires - now
-        };
-    } else {
-        const key = generateTerrainPath(lobbyid);
-        const expires = Math.floor(Date.now() / 1000) + DOWNLOAD_TTL;
-        const url = await BLOB.downloadUrl(key, DOWNLOAD_TTL);
-        await KV.set(lobbyid,
-            "download_url", url,
-            "download_expires", expires
-        );
-        return {
-            url,
-            ttl: expires - Math.ceil(Date.now() / 1000)
-        };
-    }
+    const key = generateTerrainPath(lobbyid);
+    const expires = Math.floor(Date.now() / 1000) + DOWNLOAD_TTL;
+    const url = await BLOB.downloadUrl(key, DOWNLOAD_TTL);
+    return {
+        url,
+        ttl: expires - Math.ceil(Date.now() / 1000)
+    };
 }
 
-export async function addPlayer (lobbyid, player, team) {
-    if (!player?.id) return false;
-    const playerInstance = createPlayer(player.id, player.name, player.avatar, team);
-    const result = await KV.set(lobbyid, `players.${player.id}`, playerInstance);
+export async function addPlayer (lobbyid, playerProfile, team) {
+    if (!playerProfile?.userid) return false;
+    const playerInstance = createPlayer(playerProfile.userid, playerProfile.name, playerProfile.avatar, team);
+    const result = await KV.set(lobbyid, `players.${playerProfile.userid}`, playerInstance);
     return result ? true : false;
 }
 
-export async function createLobby (player, channelid, mapid, teamsize, teamcount) {
+export async function createLobby (playerProfile, channelid, mapid, teamsize, teamcount) {
     const lobbyid = SNOWFLAKE.generate();
-    const playerInstance = createPlayer(player.id, player.name, player.avatar, team);
+    const playerInstance = createPlayer(playerProfile.userid, playerProfile.name, playerProfile.avatar, "0");
     const terrainPath = generateTerrainPath(lobbyid);
-    const mapPath = `MASTER/${mapid}.bin`;
+    const mapPath = generateMapPath(mapid);
     const res = BLOB.copy(mapPath, terrainPath);
     const result = KV.create(lobbyid, {
         state: STATUS.WAITING,
-        players: { [player.id]: playerInstance },
+        players: { [playerProfile.userid]: playerInstance },
         terrain: terrainPath,
         team_size: teamsize || 1,
         team_count: teamcount > 1 ? teamcount : 2,
@@ -75,12 +75,26 @@ export async function createLobby (player, channelid, mapid, teamsize, teamcount
         // internal use
         update_token: "",
         update_expires: -1, // seconds
-        download_url: "",
-        download_expires: -1 // seconds
     });
     if (await result === null) throw new Error("Failed to create lobby");
     await res;
+    console.info("Created lobby " + lobbyid);
     return lobbyid;
+}
+
+export async function closeLobby (lobbyid) {
+    try {
+        const terrainPath = generateTerrainPath(lobbyid);
+        await Promise.all([
+            KV.remove(lobbyid),
+            BLOB.remove(terrainPath)
+        ]);
+        console.info("Closed lobby " + lobbyid);
+        return true;
+    } catch (error) {
+        console.error("Failed to close lobby " + lobbyid)
+        return false;
+    }
 }
 
 // part 1 of atomic operation
@@ -138,8 +152,4 @@ export async function commitUpdate (lobbyid, token, players) {
 export async function verifyToken (lobbyid, token, now) {
     const { update_token, update_expires } = await KV.get(lobbyid, "update_token", "update_expires");
     return update_token === token && now <= update_expires;
-}
-
-function generateStagedTerrainPath (lobbyid, token) {
-    return `${lobbyid}/terrain-${token}.bin`;
 }
