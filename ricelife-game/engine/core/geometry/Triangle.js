@@ -13,7 +13,7 @@ export class Triangle extends Shape {
     };
     static get TYPE () { return 1 }
     static fromObject (payload) {
-        const { blob, globalTransform } = payload.data;
+        const { blob, globalTransform } = payload;
         const { origin, right, left } = blob;
         const triangle = new Triangle();
         triangle.blob.origin.apply(origin.x, origin.y);

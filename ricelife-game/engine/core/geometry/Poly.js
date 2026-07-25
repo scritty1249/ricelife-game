@@ -4,6 +4,13 @@ import { Shape } from "./Shape.js";
 // wraps Polygon, for anything we can't classify as a Circle or Triangle (optimize/workaround for "compound" shapes when computing intersections)
 export class Poly extends Shape {
     static get TYPE () { return 2 }
+    static fromObject (payload) {
+        const { blob, globalTransform } = payload;
+        const polygon = Polygon.fromObject(blob, blob.depth);
+        const poly = new Poly(polygon);
+        poly.globalTransform.apply(Transform.fromObject(globalTransform));
+        return poly;
+    }
     constructor (polygon) {
         super();
         this.blob.polygon = polygon || new Polygon();
@@ -76,13 +83,6 @@ export class Poly extends Shape {
     get origin () { return this.polygon.center }
     get center () { return this.polygon.center }
     get polygon () { return this.blob.polygon }
-    static fromObject (payload) {
-        const { blob, globalTransform } = payload.data;
-        const polygon = Polygon.fromObject(blob, blob.depth);
-        const poly = new Poly(polygon);
-        poly.globalTransform.apply(Transform.fromObject(globalTransform));
-        return poly;
-    }
 }
 
 Shape.TYPES.set(Poly.TYPE, Poly);

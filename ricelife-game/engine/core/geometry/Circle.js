@@ -6,7 +6,7 @@ import { Polygon } from "./Polygon.js";
 export class Circle extends Shape {
     static get TYPE () { return 0 }
     static fromObject (payload) {
-        const { blob, globalTransform } = payload.data;
+        const { blob, globalTransform } = payload;
         const { origin, radii } = blob;
         const circle = new Circle();
         circle.blob.radii.apply(radii.x, radii.y);

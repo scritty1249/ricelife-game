@@ -398,6 +398,7 @@ export class Polygon extends TrackableObject { // points should be ordered clock
         if (!polygon?.isPolygon) throw new Error(`[${typeString(this)}] Error: Cannot apply non-Polygon type ${typeString(polygon)}`);
         this.#path.apply(polygon.path);
         this.#holes.apply(...polygon.holes);
+        this.userData = structuredClone(polygon.userData);
         return this; // for chaining
     }
     toString () {
