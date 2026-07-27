@@ -807,7 +807,7 @@ export class Round extends Phase {
                                 throw error;
                             });
                 }
-                ActivePlayer.tank.position.round(1/Global.constructor.SETTINGS.RESOLUTION);
+                ActivePlayer.tank.position.round(1/(Math.floor((1/3) * 10) / 10));
                 if (keyboard.keyActive("mv+")) {
                     ActivePlayer.mover.move(MOVE_SPEED);
                     this.trackActivePlayer();
