@@ -1,5 +1,6 @@
 import { Vector, Color } from "../../core/Core.js";
 
+// houses cosmetic data for AmmoTypes
 export class AmmoTypeSelection {
     static textOffsetScale = new Vector(0, -.3);
     name;
