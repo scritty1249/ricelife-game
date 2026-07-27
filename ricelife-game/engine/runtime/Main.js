@@ -50,6 +50,7 @@ export class Main extends Loop {
         if (!Main.#AudioCtx) Main.#loadAudioContext();
         super(Main.#AudioCtx);
         this.#init(loadingCallbackFn);
+        this.#initAssetTable();
         this.#load()
             .then(() => this.#setupEvents())
             .then(() => this.resolveLoad(this))
@@ -63,9 +64,9 @@ export class Main extends Loop {
         this.#FrameInterval = new Interval(1000 / this.constructor.SETTINGS.FPS);
         this.#TickInterval = new Interval(this.constructor.SETTINGS.TICKSPEED);
         this.#Input = new InputListener(this.Display, this.constructor.SETTINGS.CLICK_DURATION_MS, {}, {});
-
         this.flags.DEBUG = false;
-        
+    }
+    #initAssetTable () {
         const { AssetType } = Main;
         const { AssetTable } = this;
         // Images
@@ -120,17 +121,26 @@ export class Main extends Loop {
     }
 
     async loadCreatePhase (maps) {
-        const phase = new Create();
+        const phase = new Create(this, maps);
     }
-    async loadRoundPhase (lobbyData, terrainSrc) {
-
+    async loadRoundPhase (lobbyData, terrainData) {
+        const lobby = initLobby(lobbyData);
+        const terrain = initTerrain(terrainData);
+        const phase = new Round(this, lobby, terrain);
     }
     async loadJoinPhase () {
-
+        const phase = new Join(this);
     }
     async loadLoadoutPhase () {
-
+        const phase = new Loadout(this);
     }
+
+    get Display () { return this.#Display }
+    get Input () { return this.#Input }
+    get FrameCounter () { return this.#FrameCounter }
+    get FrameInterval () { return this.#FrameInterval }
+    get TickInterval () { return this.#TickInterval }
+    get Loops () { return this.#Loops }
 }
 
 export class Main extends Loop {
