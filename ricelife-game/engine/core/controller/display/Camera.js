@@ -137,7 +137,7 @@ export class Camera extends TrackableObject {
         if (!this.#states.length) return;
         this.setState(this.#states.pop());
     }
-    getState () {
+    getState (includeViewbox = true) {
         return {
             targets: new Set(this.#targets),
             follows: new Set(this.#follows),
@@ -150,11 +150,26 @@ export class Camera extends TrackableObject {
             setBbox: this.#setBoundBox,
             bbox: this.#boundBox.clone(),
             tbbox: this.#tempBox.clone(),
-            enabled: this.enabled
+            enabled: this.enabled,
+            viewbox: includeViewbox ? this.Viewbox.getState() : undefined
         };
     }
     setState (state) {
-        const { targets, follows, lerp, lerpingSize, lerpingCenter, scalingBehavior, keepSize, tSize, setBbox, bbox, tbbox, enabled } = state;
+        const {
+          targets,
+          follows,
+          lerp,
+          lerpingSize,
+          lerpingCenter,
+          scalingBehavior,
+          keepSize,
+          tSize,
+          setBbox,
+          bbox,
+          tbbox,
+          enabled,
+          viewbox,
+        } = state;
         this.#targets.clear();
         targets.forEach((t) => this.#targets.add(t));
         this.#follows.clear();
@@ -169,6 +184,7 @@ export class Camera extends TrackableObject {
         this.#boundBox.apply(bbox);
         this.#tempBox.apply(tbbox);
         this.enabled = enabled;
+        if (viewbox) this.Viewbox.setState(viewbox);
     }
     // sets viewbox to position
     // [!] conflicts if target size is set

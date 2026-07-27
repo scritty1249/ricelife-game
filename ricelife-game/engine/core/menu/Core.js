@@ -1,3 +1,2 @@
-export { ShotPick } from "./ShotPick.js";
-export { MapPick } from "./MapPick.js";
+export { Menu } from "./Menu.js";
 export * from "./item/Core.js";

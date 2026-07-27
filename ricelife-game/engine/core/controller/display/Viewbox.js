@@ -35,13 +35,23 @@ export class Viewbox extends BoundingBox {
         this.max.apply(this.min.apply(x, y)).add(newSize, true);
     }
 
-    save () { this.#states.push({min: this.min.clone(), max: this.max.clone()}) }
+    save () { this.#states.push(this.getState()) }
+    getState () {
+        return {
+            min: this.min.clone(),
+            max: this.max.clone(),
+            plane: this.planeSize.clone()
+        };
+    }
     restore () {
-        if (this.#states.length) {
-            const { min, max } = this.#states.pop();
-            this.max.apply(max);
-            this.min.apply(min);
-        }
+        if (this.#states.length)
+            this.setState(this.#states.pop());
+    }
+    setState (state) {
+        const { min, max, plane } = state;
+        this.max.apply(max);
+        this.min.apply(min);
+        this.planeSize.apply(plane);
     }
     getPosition () { return super.center }
     setPosition (point) {
@@ -90,6 +100,7 @@ export class Viewbox extends BoundingBox {
     // expects bounding box
     setPlane (plane) {
         const { size } = plane;
+        this.min.apply(0, 0);
         this.max.apply(size);
         this.planeSize.apply(size);
     }

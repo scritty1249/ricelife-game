@@ -37,6 +37,9 @@ class Canvas2DContextCursorProto {
     save () {
         const state = {
             fixed: this.#isFixed,
+            // store lighter weight versions to save on performance. This may be invoked within animate() calls
+            sizeX: this.#size.x,
+            sizeY: this.#size.y
         };
         this.#states.push(state);
         this.#ctx.save();
@@ -45,6 +48,7 @@ class Canvas2DContextCursorProto {
         const state = this.#states.pop();
         if (state) {
             this.#isFixed = state.fixed;
+            this.#size.apply(state.sizeX, state.sizeY);
         }
         this.#ctx.restore();
     }
