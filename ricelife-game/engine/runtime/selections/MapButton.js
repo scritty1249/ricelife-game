@@ -51,8 +51,8 @@ export class MapButton extends ShapeButton {
         expand: new Path(),
     };
     #expandLength;
-    constructor (name, src, thumbnail) {
-        super(new Equigon(6, MapSelection.TILE_LEG_LENGTH));
+    constructor (name, src, thumbnail, legLength) {
+        super(new Equigon(6, legLength || MapButton.TILE_LEG_LENGTH));
         this.text = name;
         this.#src = src;
         this.#thumb = thumbnail;

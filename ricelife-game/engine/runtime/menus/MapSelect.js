@@ -7,7 +7,8 @@ export class MapSelect extends Menu {
     constructor (phase, drawBackgroundFn, maps) {
         super (phase, drawBackgroundFn);
         this.#load(maps)
-            .then(() => this.resolveLoad());
+            .then(() => this.resolveLoad())
+            .catch((error) => this.rejectLoad(error));
     }
 
     async #load (maps) {
