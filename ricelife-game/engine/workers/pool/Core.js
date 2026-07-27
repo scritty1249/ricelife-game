@@ -1,2 +1,2 @@
-export * from "./CacheType.js";
+export * from "./Cache.js";
 export { WorkerPool} from "./WorkerPool.js";

@@ -121,4 +121,3 @@ export class Ammo extends TrackableObject {
     }
     set applyDestruction (value) { this.stages.forEach((stage) => stage.applyDestruction = value); return value }
 }
-
