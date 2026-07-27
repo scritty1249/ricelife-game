@@ -1,11 +1,9 @@
-import { drawTerrain } from "../terrain/terrain.js";
-
 import { Polygon } from "/engine/core/geometry/Polygon.js";
 import { Color } from "/engine/core/math/Color.js";
 import { Vector } from "/engine/core/math/Vector.js";
 import { Properties } from "/engine/core/projectile/collision/Properties.js";
 import { traceAmmo } from "/engine/core/projectile/utils.js";
-import { CacheType } from "/engine/workers/pool/CacheType.js";
+import { Cache, TerrainCache } from "/engine/workers/pool/CacheType.js";
 
 const _queryString = self.location.search;
 const _urlParams = new URLSearchParams(_queryString);
@@ -41,25 +39,25 @@ function currentState () {
     return {cache: Object.keys(CACHE)};
 }
 
-function initCache (id, type, args) { // create new
-    if (type in CACHE_TYPES) {
-        const TYPE = CACHE_TYPES[type];
+function createCache (data) { // create new from encoded cahe
+    const { id, type } = data;
+    if (Cache.TYPES.has(type)) {
         if (id in CACHE) {
-            if (LOG_LEVEL >= 3) console.debug(`${CONSOLE_PREFIX}: Overwriting cache ${id} - INIT`);
+            if (LOG_LEVEL >= 3) console.debug(`${CONSOLE_PREFIX}: Overwriting ${CACHE[id]?.isFilled ? "" : "empty "}cache ${id} - CREATE`);
         }
-        CACHE[id] = { type, data: TYPE.create(...args) };
+        CACHE[id] = data?.isCache ? data : Cache.decode(data);
         return true;
     }
     return false;
 }
 
-function createCache (id, type, payload, reference = false, isTransfer = false) { // create from payload
-    if (type in CACHE_TYPES) {
-        const TYPE = CACHE_TYPES[type];
-        if (id in CACHE) {
-            if (LOG_LEVEL >= 3) console.debug(`${CONSOLE_PREFIX}: Overwriting cache ${id} - ${isTransfer ? "TRANSFER" : "CREATE"}`);
+function fillCache (id, data) { // create from payload data
+    if (id in CACHE) {
+        const target = CACHE[id];
+        if (target?.isFilled) {
+            if (LOG_LEVEL >= 3) console.debug(`${CONSOLE_PREFIX}: Overwriting cache ${id} - FILL`);
         }
-        CACHE[id] = { type, data: reference ? TYPE.encodeReference(payload) : TYPE.encode(payload) };
+        target.fill(data);
         return true;
     }
     return false;
@@ -70,11 +68,11 @@ const onworkermessage = (e) => {
     const port = e.target;
     if (LOG_LEVEL >= 2) console.debug(`${CONSOLE_PREFIX}: Transaction ${id} receieved from peer\n\t${command}: `,  payload);
     if (command === "CACHE") {
-        if (createCache(payload.cache, payload.type, payload.data, false, true)) {
+        if (createCache(payload)) {
             port.postMessage({command: "ACK", id});
             postSuccess("CACHEUPDATE_" + id);
         } else {
-            const err = new Error(`[WebWorker]  (${ID}): Failed to create cache "${payload.cache}"`);
+            const err = new Error(`[WebWorker]  (${ID}): Failed to create cache "${payload?.id}"`);
             postFailure("", err);
             TRANSACTIONS[id]?.reject(err);
         }
@@ -96,115 +94,75 @@ self.onmessage = async (e) => {
         if (LOG_LEVEL >= 2) console.debug(`${CONSOLE_PREFIX}: Transaction ${id} receieved from parent\n\t${command ? command : type}: `,  payload);
         if (command) {
             processManagerCommand(command, id, payload);
-        } else if (type === "TRACESHOT") {
+        } else if (type === "TRACEAMMO") {
             /* Payload expected:
              * {
              *    ammo: String,
              *    params: Array,
-             *    collisions: [...Polygon64 | UUID], // at least one of these must have userData.collision flag set to Properties.Collision.TERRAIN
+             *    terrain: Terrain32 || UUID, // encoded terrain
+             *    collisions: [...Polygon32 | UUID], // at least one of these must have userData.collision flag set to Properties.Collision.TERRAIN
              *    increment: Number,
              *    limit: Number
              * }
              */
-            const { ammo, collisions, params, increment, limit } = payload;
+            const { ammo, collisions, params, increment, limit, terrain } = payload;
             if (!AMMO_TYPES.has(ammo)) AMMO_TYPES.add(ammo);
-            const targetPolys = collisions.map((target) =>
+            const terrainCollider = typeof terrain === "string"
+                ? getCache(target).terrain
+                : Terrain.fromObject(terrain);
+            const colliders = collisions.map((target) =>
                 typeof target === "string"
                     ? getCache(target).data?.poly
                     : Polygon.fromObject(target, target.depth));
-            const result = traceAmmo((await AMMO_TYPES.onready(ammo)), params, increment, limit, targetPolys);
+            const result = traceAmmo((await AMMO_TYPES.onready(ammo)), params, increment, limit, terrainCollider, colliders);
             if (!result.finished) console.debug(`${CONSOLE_PREFIX}: Trace operation timed out in Transaction ${id}`);
             postResponse(id, result);
-        } else if (type === "CUTPOLY") {
+        } else if (type === "CUTTERRAIN") {
             /* Payload expected:
              * {
              *    callback: Boolean, (send it back, will leave a copy in worker memory)
-             *    subject: Polygon64 | UUID,
-             *    cuts: [ ...<Polygon64 | UUID> ],
-             *    cache: UUID, (cache result, can be used to mutate original)
+             *    source: Terrain32 | UUID,
+             *    cuts: [ ...Polygon32 | UUID> ],
+             *    dest: UUID, (cache result, can be used to mutate original)
              * }
              */
-            const { subject, cuts, callback, cache } = payload;
-            const polygon = typeof subject === "string"
-                ? cache === subject
-                    ? getCache(subject).data?.poly
-                    : getCache(subject).data?.poly?.clone(true)
-                : Polygon.fromObject(subject, subject.depth);
+            const { source, cuts, callback, dest } = payload;
+            const mutate = dest === source;
+            const terrain = typeof source === "string"
+                ? mutate
+                    ? getCache(source).terrain
+                    : getCache(source).terrain.clone(true)
+                : Terrain.fromObject(source);
             for (const cut of cuts) {
-                polygon.cut(
+                terrain.polygon.cut(
                     typeof cut === "string"
-                        ? getCache(cut).data?.poly
+                        ? getCache(cut).polygon
                         : Polygon.fromObject(cut, cut.depth),
                     true
                 );
             }
-            if (subject !== cache) createCache(cache, "POLY", polygon);
+            if (!mutate) createCache(new TerrainCache(terrain, dest));
             const result = {};
             let bufs = [];
             if (callback) {
-                result.polygon = polygon.Float32(polygon.depth);
-                bufs = result.polygon.buffers;
+                result.terrain = terrain.Float32();
+                bufs = result.terrain.buffers;
             }
             postResponse(id, result, bufs);
         } else if (type === "DRAWTERRAIN") {
             /* Payload expected:
              * {
              *    canvas: UUID,
-             *    polygon: Polygon64 | UUID,
-             *    edgeColor: String,
-             *    fillColor: String,
-             *    gradientWidth: Number,
-             *    resolution: Number
+             *    terrain: Terrain32 | UUID,
              * }
              */
-            const { polygon, edgeColor, fillColor, gradientWidth, resolution } = payload;
             const { canvas, cursor } = CACHE[payload.canvas]?.data;
-            const isUuid = typeof polygon === "string";
+            const isUuid = typeof payload.terrain === "string";
             const terrain = isUuid
-                ? getCache(polygon).data?.poly
-                : Polygon.fromObject(polygon, polygon.depth);
+                ? getCache(payload.terrain).terrain
+                : Terrain.fromObject(payload.terrain);
             cursor.clear();
-            drawTerrain(cursor, terrain, new Color(fillColor), new Color(edgeColor), gradientWidth, resolution);
-            postSuccess(id);
-        } else if (type === "DRAWIMG") {
-            /* Payload expected:
-             * {
-             *    callback: Boolean,
-             *    subject: Canvas | Bitmap | UUID,
-             *    cache: UUID,
-             *    x: Number,
-             *    y: Number,
-             *    width?: Number,
-             *    height?: Number,
-             *    duplicate?: Boolean (false) (keep a copy of the image cached when transferring the result back)
-             * }
-             */
-            const { subject, cache, x, y, width, height, duplicate, callback = false } = payload;
-            const from = typeof subject === "string"
-                ? getCache(subject).data?.canvas
-                : subject;
-            const { canvas, cursor } = getCache(cache).data;
-            if (width === undefined || height === undefined) cursor.drawImage(from, x, y);
-            else cursor.drawImage(from, x, y, width, height);
-            subject.close?.();
-            if (callback) {
-                let image;
-                if (duplicate) {
-                    image = await createImageBitmap(canvas);
-                } else {
-                    image = canvas.transferToImageBitmap();
-                    delete CACHE[cache];
-                }
-                postResponse(id, {image}, [image]);
-            } else postSuccess(id);
-        } else if (type === "CLRCANVAS") {
-            /* Payload expected:
-             * {
-             *    cache: UUID
-             * }
-             */
-            const { cursor } = getCache(payload.cache).data;
-            cursor.clear();
+            terrain.draw(cursor);
             postSuccess(id);
         } else {
             postFailure(id, new Error("Unrecognized message type " + type));
@@ -233,77 +191,72 @@ async function processManagerCommand (command, id, payload) {
         } else if (command === "HASHCACHE") {
             /* Payload expected:
              * {
-             *    cache: UUID
+             *    target: UUID
              * }
              */
-            const { cache } = payload;
-            const { type, data } = getCache(cache);
-            postResponse(id, {hash: CACHE_TYPES[type].hash(data) });
-        } else if (command === "INITCACHE") {
+            const { hash } = getCache(payload.target);
+            postResponse(id, { hash });
+        } else if (command === "CREATECACHE") {
            /* Payload expected:
             * {
-            *   type: "POLY" | "CANVAS",
-            *   cache: UUID.
-            *   args: [...argv]
+            *   cache: Cache, // encoded
             * }
             */
-            const { cache, type, args } = payload;
-            if (initCache(cache, type, args)) postSuccess(id);
+            if (createCache(payload)) postSuccess(id);
             else postFailure(id, new Error(`[WebWorker]  (${ID}): Failed to initalize ${type} cache "${cache}"`));
-        } else if (command === "PUSHCACHE") {
+        } else if (command === "FILLCACHE") {
            /* Payload expected:
             * {
-            *   type: "POLY" | "CANVAS",
-            *   cache: UUID.
-            *   payload: {...kwargs}
+            *   target: UUID,
+            *   data: <Object>32, // Float32 (encoded) version of cache source
             * }
             */
-            const { cache, type, payload: dataPayload } = payload;
-            if (createCache(cache, type, dataPayload)) postSuccess(id);
-            else postFailure(id, new Error(`[WebWorker]  (${ID}): Failed to push to ${type} cache "${cache}"`));
+            const { target, data } = payload;
+            if (fillCache(target, data)) postSuccess(id);
+            else postFailure(id, new Error(`[WebWorker]  (${ID}): Failed to fill cache "${target}"`));
         } else if (command === "SENDCACHE") { // [!] Canvas caches are transfer-only.
            /* Payload expected:
             * {
-            *    manager: Boolean,
-            *    cache: UUID,
-            *    transfer: Boolean,
-            *    newCache?: UUID, new cache id to store at. If undefined, will reuse original cache key
+            *    manager: Boolean, send cache to manager instead of another worker
+            *    source: UUID,
+            *    dest?: UUID, new cache id to store at. If undefined, will reuse original cache key
             *    worker?: UUID,
-            *    preserveKey?: Boolean (false) when trasnferring payload, leave a key with blank data of type in this worker's cache for future use
+            *    clone?: Boolean (false) transfer payload as clone
             * }
             */
-            const { worker, cache, manager, transfer, newCache, preserveKey = false } = payload;
-            const { type, data } = getCache(cache);
-            const { payload: dataPayload, buffers, reference } = CACHE_TYPES[type].decode(data, transfer && preserveKey);
-            const isCavnas = type === "CANVAS";
-            const buf = ((transfer || isCavnas) ? buffers : []); // [!] canvases cannot be cloned once a context is bound to them. Receiving worker will copy Canvas content onto a new instance and toss it
+            const { worker, source, manager, dest, clone = false } = payload;
+            const cache = getCache(source);
+            const data = await cache.encode(clone);
+            const targetID = dest || source;
+            const changeID = source !== targetID;
+            if (changeID) data.id = targetID;
             if (manager) {
-                self.postMessage({id, type, payload: dataPayload}, buf);
-            } else if (worker === ID) {
-                CACHE[newCache || cache] = CACHE[cache];
-            } else {
+                self.postMessage({id, payload: data}, data.buffers);
+                if (!clone) delete CACHE[source];
+            } else if (ID !== worker) {
                 const tid = id + "_" + performance.now().toString();
                 TRANSACTIONS[tid] = Promise.withResolvers();
                 CHANNELS[worker].postMessage(
-                    { id: tid, command: "CACHE", payload: { type, cache: (newCache || cache), data: dataPayload }},
-                    buf
+                    { id: tid, command: "CACHE", payload: data },
+                    data.buffers
                 );
                 await TRANSACTIONS[tid].promise;
                 delete TRANSACTIONS[tid];
-            }
-            if (transfer) {
-                if (preserveKey) createCache(cache, type, reference, true);
-                else delete CACHE[cache];
-            }
+                if (!clone) delete CACHE[source];
+            } else if (changeID) {
+                if (createCache(data) && !clone)
+                    delete CACHE[source];
+            }   
             if (!manager) postSuccess(id);
         } else if (command === "DROPCACHE") {
            /* Payload expected:
             * {
-            *    cache: UUID,
+            *    target: UUID,
             * }
             */
-           const { cache } = payload;
-           delete CACHE[cache];
+           const { target } = payload;
+           const cache = getCache(target);
+           delete CACHE[target];
            postSuccess(id);
         }
     } catch (e) {

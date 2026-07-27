@@ -7,20 +7,32 @@ export function traceAmmo (
     params, // Array
     increment, // Float
     limit, // Float
+    terrain, // Terrain
     collisions // [...Polygon]
 ) {
     const ammo = ammoType.encode(...params);
-    for (const collisionPoly of collisions) ammo.colliders.push(collisionPoly);
-    ammo.applyDestruction = true;
-    const terrainPoly = ammo.colliders.find(({userData}) => userData.collision & Properties.TERRAIN);
-    const originalHoleCount = terrainPoly.holes.length;
-    const playerPolys = ammo.colliders.filter(({userData}) => userData.collision & Properties.PLAYER);
+    // expose and seperate polygons to use in trace loop
+    const terrainPoly = terrain.polygon;
+    const playerPolys = collisions.filter(({userData}) => userData.collision & Properties.PLAYER);
     playerPolys.forEach(({userData}) => {
         userData.position = Vector.fromObject(userData.position);
     });
+    // setup ammo colliders
+    ammo.colliders.push(terrainPoly);
+    for (const collisionPoly of collisions)
+        ammo.colliders.push(collisionPoly);
+    ammo.applyDestruction = true;
+    // save polygon states to restore after trace
+    const destructiblePolys = ammo.colliders.filter(({userData}) => userData.collision & Properties.DESTRUCTION);
+    const originalHoleCounts = new Map();
+    for (const poly of destructiblePolys) {
+        originalHoleCounts.set(poly.id, poly.holes.length);
+    }
+    // trace ammo
     const result = { finished: false, time: limit };
+    terrainPoly.updateEdges(true); // [!] doesn't register holes, or changes to the edge hashes, unless we force update here for some reason. -KT
+    let terrainHash = terrainPoly.hash;
     let blastsCount;
-    terrainPoly.updateEdges(true);
     while (ammo.time < limit && !result.finished) {
         blastsCount = ammo.blasts.length;
         // run the trace
@@ -31,12 +43,13 @@ export function traceAmmo (
             result.finished = true;
             break;
         }
-        // update player hitboxes
+        // update player hitboxes if terrain has changed
         // [!] does not track if player dies. Need to do that - KT
-        if (playerPolys.length && ammo.blasts.length !== blastsCount) { // why would there ever be less?
+        const updatedTerrainHash = terrainPoly.hash;
+        if (playerPolys.length && terrainHash !== terrainPoly.hash) {
             const newBlasts = ammo.blasts.slice(blastsCount);
             for (const player of playerPolys) {
-                if (!newBlasts.some((b) => b.shape.isIntersecting(player))) continue;
+                if (newBlasts.length && !newBlasts.some((b) => b.shape.isIntersecting(player))) continue;
                 // update positioning - account for "falling"
                 const { position, rotation, heightOffset } = player.userData;
                 const hit = Mover.computePosition(position, heightOffset, terrainPoly);
@@ -51,10 +64,28 @@ export function traceAmmo (
                 }
             }
         }
+        terrainHash = updatedTerrainHash;
     }
-    result.legend = ammo.getLegend(); // [!] no need to pass as transfer, we shouldn't have a large amount of collisions
+    result.legend = ammo.getLegend();
     result.blasts = ammo.blasts.map((blast) => blast.decode());
-    if (terrainPoly.holes.length > originalHoleCount)
-        terrainPoly.holes.splice(originalHoleCount, terrainPoly.holes.length - originalHoleCount);
+    for (const poly of destructiblePolys) {
+        const count = originalHoleCounts.get(poly.id);
+        poly.holes.splice(count, poly.holes.length - count);
+    }
     return result;
+}
+
+export function sortBlastIntervals (blasts = []) {
+    if (!blasts?.length) return [];
+    // group blasts that occur at the same time
+    const uniq = [];
+    const blastIntervals = Array.from(Map.groupBy(blasts, ({delay}) => {
+        const value = uniq.find((key) => floatEqual(key, delay))
+        if (value !== undefined) return value;
+        uniq.push(delay);
+        return delay;
+    }).entries())
+    .sort((a, b) => a[0] - b[0])
+    .map(([_, blast]) => blast);
+    return blastIntervals;
 }

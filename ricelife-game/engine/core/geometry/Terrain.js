@@ -18,11 +18,17 @@ export class Terrain {
     #edgeColor = new Color();
     gradientWidth = 75;
     resolution = 15;
-    constructor (data, depth = Terrain.MAX_HOLE_DEPTH) {
-        this.#polygon = data?.isPolygon
-            ? data
-            : Polygon.fromObject(data, depth);
-        this.polygon.userData.collision = Properties.DESTRUCTION | Properties.ENTER | Properties.TERRAIN;
+    // options can fil the properties: fillColor, edgeColor, gradientWidth, resolution
+    constructor (data, options = undefined) {
+        this.apply(data, options)
+    }
+
+    #applyOptions (options) {
+        if (!options) returnl
+        if ("fillColor" in options) this.fillColor.apply(options.fillColor);
+        if ("edgeColor" in options) this.edgeColor.apply(options.edgeColor);
+        if ("gradientWidth" in options) this.gradientWidth = options.gradientWidth;
+        if ("resolution" in options) this.resolution = options.resolution;
     }
 
     draw (cursor) {
@@ -68,6 +74,24 @@ export class Terrain {
             gradient: this.gradientWidth,
             resolution: this.resolution
         }
+    }
+    apply (data, options = undefined, clone = false) {
+        if (data?.isTerrain) {
+            this.#polygon = clone ? data.polygon.clone(true) : data.polygon;
+            this.#applyOptions(data);
+        } else if (data?.isPolygon) {
+            this.#polygon = clone ? data.clone(true) : data;
+        } else {
+            this.#polygon = Polygon.fromObject(data, data?.depth || Terrain.MAX_HOLE_DEPTH);
+        }
+        if (this.polygon?.isPolygon)
+            this.polygon.userData.collision = Properties.DESTRUCTION | Properties.ENTER | Properties.TERRAIN;
+        this.#applyOptions(options);
+        return this;
+    }
+    clone (deep = false) {
+        const terrain = new Terrain();
+        return terrain.apply(this, undefined, deep);
     }
 
     get isTerrain () { return true }

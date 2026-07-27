@@ -1,6 +1,6 @@
 import { TrackableObject } from "/engine/core/utils/tracking/TrackableObject.js";
 import { generateUUID } from "/engine/core/utils/tracking/UUID.js";
-import { CacheType } from "/engine/workers/pool/CacheType.js";
+import { Cache } from "/engine/workers/pool/CacheType.js";
 import { Job } from "/engine/workers/pool/Job.js";
 import { Transaction } from "/engine/workers/pool/Transaction.js";
 import { PoolEntry } from "/engine/workers/pool/PoolEntry.js";
@@ -117,7 +117,7 @@ export class WorkerPool extends TrackableObject {
     async #dropCache (id, worker) {
         return await this.#postJob(
             "", 
-            { cache: id }, 
+            { target: id }, 
             [], 
             "DROPCACHE",
             worker,
@@ -183,23 +183,6 @@ export class WorkerPool extends TrackableObject {
         return await this.#postJob(type, payload, transfer, "", worker) // don't dispose of transaction
             .then(({payload}) => Object.keys(payload).length === 0 ? undefined : payload ); // [!] getting empty objects instead of undefined for some reason on webworker response??
     }
-    terminate () {
-        for (const { instance } of this.#workers) instance.terminate();
-        this.#workers.splice(0, this.#workers.length);
-        this.#queue.splice(0, this.#queue.length);
-    }
-    initCache (type, args = [], id = generateUUID()) {
-        if (!(type in CACHE_TYPES)) throw new Error(`[${typeString(this)}]: ${type} is not a valid cache type`);
-        const worker = this.#getWorker();
-        return this.#postJob(
-            "", 
-            { cache: id, type, args }, 
-            [], 
-            "INITCACHE",
-            worker,
-            true
-        );
-    }
     async hashCache (id) {
         let worker = this.#cacheAt(id);
         if (worker?.isBusy) {
@@ -210,45 +193,60 @@ export class WorkerPool extends TrackableObject {
         if (worker === undefined) throw new Error(`[${typeString(this)}]: Cache ${id} does not exist`);
         return this.#postJob(
             "", 
-            { cache: id, manager: true }, 
+            { target: id, manager: true }, 
             [],
             "HASHCACHE",
             worker,
             true
         ).then(({payload}) => payload.hash);
     }
-    async pushCache (type, payload, id = undefined) {
-        const defaultedId = (id === undefined);
-        const staleCacheWorker = defaultedId ? undefined : this.#cacheAt(id);
-        const cache = defaultedId ? generateUUID() : id;
+    async fillCache (id, data) {
+        let worker = this.#cacheAt(id);
+        if (worker?.isBusy) {
+            if (this.#LOG_LEVEL >= 1) console.debug(`[${typeString(this)}]: Waiting for cache ${id}`);
+            await worker.onAvailable;
+            worker = this.#cacheAt(cache);
+        }
+        if (worker === undefined) throw new Error(`[${typeString(this)}]: Cache ${id} does not exist`);
+        return this.#postJob(
+            "", 
+            { data, target: id, manager: true }, 
+            [],
+            "FILLCACHE",
+            worker,
+            true
+        ).then(() => true)
+        .catch((err) => false);
+    }
+    // [!] Safer version of createCache, deletes the cache from an old worker if it already exists
+    async setCache (cache) {
+        if (!cache?.isCache) throw new Error(`[${typeString(this)}]: ${typeString(cache)} is not a valid cache`);
+        const staleCacheWorker = this.#cacheAt(cache.id);
         const worker = this.#getWorker();
         let concurrent = Promise.resolve();
 
         if (staleCacheWorker && worker.id !== staleCacheWorker.id) {
             // drop cache from old worker, push new cache onto available worker
-            concurrent = this.#dropCache(cache, staleCacheWorker);
+            concurrent = this.#dropCache(cache.id, staleCacheWorker);
         }
+        const data = cache.encode();
         const result = this.#postJob(
-            "", 
-            { cache, type, payload }, 
-            [], 
-            "PUSHCACHE",
+            "",
+            { cache: data }, 
+            data.buffers, 
+            "CREATECACHE",
             worker,
             true
         );
         await Promise.all([concurrent, result]);
     }
-    dropCache (id) {
-        const worker = this.#cacheAt(id);
-        if (!worker) return;
-        return this.#dropCache(id, worker);
-    }
-    async copyCache (cache, dest, transfer = true, preserveKey = true) { // copies one cache to another
-        let worker = this.#cacheAt(cache);
+    // copies one cache to another
+    async copyCache (source, dest, clone = false) {
+        let worker = this.#cacheAt(source);
         if (worker?.isBusy) {
-            if (this.#LOG_LEVEL >= 1) console.debug(`[${typeString(this)}]: Waiting for cache ${cache}`);
+            if (this.#LOG_LEVEL >= 1) console.debug(`[${typeString(this)}]: Waiting for cache ${source}`);
             await worker.onAvailable;
-            worker = this.#cacheAt(cache);
+            worker = this.#cacheAt(source);
         }
         let receiver = this.#cacheAt(dest);
         if (receiver?.isBusy) {
@@ -256,60 +254,64 @@ export class WorkerPool extends TrackableObject {
             await receiver.onAvailable;
             receiver = this.#cacheAt(dest);
         }
-        if (worker === undefined) throw new Error(`[${typeString(this)}]: Cache ${cache} does not exist`);
+        if (worker === undefined) throw new Error(`[${typeString(this)}]: Cache ${source} does not exist`);
         if (receiver === undefined) throw new Error(`[${typeString(this)}]: Cache ${dest} does not exist`);
         return this.#postJob(
             "", 
-            { worker: receiver.id, manager: false, newCache: dest, preserveKey, transfer, cache }, 
+            { dest, source, clone, worker: receiver.id, manager: false }, 
             [],
             "SENDCACHE",
             worker,
             true
         );
     }
-    async transferCache (cache, dest, copy = true, preserveKey = true) { // copies one cache to a worker
-        let worker = this.#cacheAt(cache);
+    async pullCache (source, clone = true) {
+        let worker = this.#cacheAt(source);
         if (worker?.isBusy) {
-            if (this.#LOG_LEVEL >= 1) console.debug(`[${typeString(this)}]: Waiting for cache ${cache}`);
+            if (this.#LOG_LEVEL >= 1) console.debug(`[${typeString(this)}]: Waiting for cache ${source}`);
             await worker.onAvailable;
-            worker = this.#cacheAt(cache);
-        }
-        const receiver = this.#workerAt(dest);
-        if (worker === undefined) throw new Error(`[${typeString(this)}]: Cache ${cache} does not exist`);
-        if (receiver === undefined) throw new Error(`[${typeString(this)}]: Worker ${dest} does not exist`);
-        if (worker.id === receiver.id) return;
-        return this.#postJob(
-            "", 
-            { worker: receiver.id, manager: false, transfer: copy, preserveKey, cache }, 
-            [],
-            "SENDCACHE",
-            worker,
-            true
-        );
-    }
-    async pullCache (cache, transfer = true, preserveKey = true) {
-        let worker = this.#cacheAt(cache);
-        if (worker?.isBusy) {
-            if (this.#LOG_LEVEL >= 1) console.debug(`[${typeString(this)}]: Waiting for cache ${cache}`);
-            await worker.onAvailable;
-            worker = this.#cacheAt(cache);
+            worker = this.#cacheAt(source);
         }
         if (worker === undefined) return null; // signal something went wrong
-        const { type, payload } = await this.#postJob(
+        const { payload } = await this.#postJob(
             "", 
-            { manager: true, preserveKey, transfer, cache }, 
+            { source, clone, manager: true }, 
             [],
             "SENDCACHE",
             worker,
             true
         );
-        if (type in CACHE_TYPES) {
-            this.cache[cache] = CACHE_TYPES[type].encode(payload, false);
+        if (Cache.TYPES.has(payload?.type)) {
+            this.cache[source] = Cache.decode(payload);
         } else {
             // callers responsiblity to deal with the mess
-            throw new Error(`[${typeString(this)}]: Worker ${worker.id} returned a cache of unknown type ${type}`);
+            throw new Error(`[${typeString(this)}]: Worker ${worker.id} returned a cache of unknown type ${typeString(payload)}`);
         }
         return true;
+    }
+    dropCache (id) {
+        const worker = this.#cacheAt(id);
+        if (!worker) return;
+        return this.#dropCache(id, worker);
+    }
+    // [!] creates a cache without checking if it already exists. Should only be used in controlled situations. For most cases, use setCache() to create new caches instead.
+    createCache (cache) {
+        if (!cache?.isCache) throw new Error(`[${typeString(this)}]: ${typeString(cache)} is not a valid cache`);
+        const worker = this.#getWorker();
+        const data = cache.encode();
+        return this.#postJob(
+            "", 
+            { cache: data }, 
+            [], 
+            "CREATECACHE",
+            data.buffers,
+            true
+        );
+    }
+    terminate () {
+        for (const { instance } of this.#workers) instance.terminate();
+        this.#workers.splice(0, this.#workers.length);
+        this.#queue.splice(0, this.#queue.length);
     }
 
     get isWorkerPool () { return true }

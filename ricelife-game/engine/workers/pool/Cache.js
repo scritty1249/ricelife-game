@@ -6,118 +6,6 @@ import { Terrain } from "/engine/core/geometry/Terrain.js";
 import { typeString } from "/engine/core/utils/logging.js";
 import { TrackableObject } from "/engine/core/utils/tracking/TrackableObject.js";
 
-export const CacheType = {
-    POLY: {
-        create (path, holes, depth) {
-            return this.encode({path, holes, depth});
-        },
-        decode: (data) => {
-            const { depth } = data.poly;
-            const poly = data.poly.Float32(depth); // [!] We are not expecting our holes to have more goddamn holes, but ffs JUST IN CASE...
-            const { buffers } = poly;
-            const reference = { depth };
-            delete poly.buffers;
-            return {
-                buffers, reference,
-                payload: poly,
-            };
-        },
-        encode: (payload, peer = true) => {
-            const poly = payload?.isPolygon ? payload : Polygon.fromObject(payload, payload.depth);
-            return peer ? { poly } : poly;
-        },
-        encodeReference: (reference) => {
-            return {
-                poly: new Polygon(),
-                depth: reference.depth
-            }
-        },
-        hash: (data) => {
-            return data?.poly?.hash;
-        },
-    },
-    CANVAS: {
-        create (width, height) {
-            const canvas = new OffscreenCanvas(width, height);
-            return this.encode(canvas);
-        },
-        decode: (data) => {
-            const { canvas } = data;
-            const reference = { width: canvas?.width, height: canvas?.height };
-            const img = canvas.transferToImageBitmap();
-            return {reference, payload: img, buffers: [img]};
-        },
-        encode: (payload, peer = true) => {
-            if (peer) {
-                const { width, height } = payload;
-                const canvas = new OffscreenCanvas(width, height); // [!] inefficient but Contexts are non-transferrable and permanently linked to each Canvas
-                const cursor = new Canvas2DContextCursor(canvas, new Vector(width, height));
-                cursor.drawImage(payload, 0, 0);
-                payload?.close?.();
-                return { canvas, cursor };
-            } else {
-                return payload;
-            }
-        },
-        encodeReference: (reference) => {
-            const { width, height } = reference;
-            const canvas = new OffscreenCanvas(width, height);
-            const cursor = new Canvas2DContextCursor(canvas, new Vector(width, height));
-            return { canvas, cursor };
-        },
-        hash: (data) => {
-            return data?.cursor?.hash;
-        },
-    },
-    SHAPE: {
-        create (payload) { return this.encode(payload, true) },
-        decode (data) {
-            const payload = data.decode();
-            return { payload, buffers: payload?.buffers || [] };
-        },
-        encode (payload, peer = true) {
-            const shape = Shape.fromObject(payload);
-            return peer ? { shape, reference: {type: shape.constructor.TYPE} } : shape
-        },
-        encodeReference (reference) {
-            return { shape: new Shape.TYPES[reference.type]() }
-        },
-        hash (data) {
-            return data?.shape?.hash;
-        },
-    },
-    TERRAIN:{
-        create (path, holes, depth) {
-            return this.encode({path, holes, depth});
-        },
-        decode: (data) => {
-            const { depth } = data.poly;
-            const poly = data.poly.Float32(depth); // [!] We are not expecting our holes to have more goddamn holes, but ffs JUST IN CASE...
-            const { buffers } = poly;
-            const reference = { depth };
-            delete poly.buffers;
-            return {
-                buffers, reference,
-                payload: poly,
-            };
-        },
-        encode: (payload, peer = true) => {
-            const poly = payload?.isPolygon ? payload : Polygon.fromObject(payload, payload.depth);
-            return peer ? { poly } : poly;
-        },
-        encodeReference: (reference) => {
-            return {
-                poly: new Polygon(),
-                depth: reference.depth
-            }
-        },
-        hash: (data) => {
-            return data?.poly?.hash;
-        },
-    },
-};
-Object.freeze(CacheType);
-
 // [!] we break the project formatting rules here for efficiency. Multiple classes in one file shrinks the number of lookups each worker
 //  has to do, but increases overhead (potential bloat) as a tradeoff. -KT
 export class Cache extends TrackableObject {
@@ -127,7 +15,7 @@ export class Cache extends TrackableObject {
         const { id, type, payload } = cacheObj;
         return this.TYPES.get(type).decode(id, payload);
     }
-    // creates a "refernece" (empty cache with specifications)
+    // creates a "reference" (empty cache with specifications)
     constructor (id) { super(id) }
 
     async encode () {
@@ -140,22 +28,27 @@ export class Cache extends TrackableObject {
         }
     }
     fill (...args) {
-        if (!this.isEmpty) throw new Error(`[${typeString(this)}]: Can only fill an empty cache`);
+        if (this.isFilled) throw new Error(`[${typeString(this)}]: Can only fill an empty cache`);
     }
 
     get isCache () { return true }
-    get isEmpty () { return true }
+    get isFilled () { return false }
+    get type () { return this.constructor.name }
     get hash () { return undefined }
 }
 
 export class CanvasCache extends Cache {
     static decode (id, payload) {
         const cache = new CanvasCache(payload.width, payload.height, id);
-        cache.cursor.drawImage(payload.img, 0, 0);
+        if (payload.img) {
+            cache.cursor.drawImage(payload.img, 0, 0);
+            payload.img.close();
+        }
         return cache;
     }
     #canvas;
     #cursor;
+    #isFilled = false;
     constructor (width, height, id = null) {
         super(id);
         this.#canvas = new OffscreenCanvas(width, height);
@@ -165,18 +58,23 @@ export class CanvasCache extends Cache {
     async encode (clone = false) {
         const encoded = super.encode();
         const { width, height } = this.canvas;
-        const img = clone
-            ? await createImageBitmap(this.canvas)
-            : this.canvas.transferToImageBitmap();
-        encoded.payload = { img, width, height };
-        encoded.buffers.push(img);
+        encoded.payload = { width, height };
+        if (this.isFilled) {
+            const img = clone
+                ? await createImageBitmap(this.canvas)
+                : this.canvas.transferToImageBitmap();
+            encoded.buffers.push(img);
+        }
         return encoded;
     }
 
     get isCanvasCache () { return true }
-    get isEmpty () { return false }
+    get isFilled () { return this.#isFilled }
     get canvas () { return this.#canvas }
-    get cursor () { return this.#cursor }
+    get cursor () {
+        this.#isFilled = true;
+        return this.#cursor;
+    }
     get hash () { return this.cursor.hash }
 }
 
@@ -186,7 +84,7 @@ export class PolygonCache extends Cache {
         return new PolygonCache(polygon, id);
     }
     #polygon;
-    #isEmpty = true;
+    #isFilled = false;
     constructor (polygon, id = null) {
         super(id);
         this.fill(polygon);
@@ -203,12 +101,14 @@ export class PolygonCache extends Cache {
         super.fill();
         if (polygon?.isPolygon) {
             this.#polygon = polygon;
-            this.#isEmpty = false;
+            this.#isFilled = true;
+        } else if (polygon) {
+            this.fill(Polygon.fromObject(polygon, polygon?.depth));
         }
     }
 
     get isPolygonCache () { return true }
-    get isEmpty () { return this.#isEmpty }
+    get isFilled () { return this.#isFilled }
     get polygon () { return this.#polygon }
     get hash () { return this.polygon.hash }
 }
@@ -219,11 +119,10 @@ export class ShapeCache extends Cache {
         return new ShapeCache(shape, id);
     }
     #shape;
+    #isFilled = false;
     constructor (shape, id = null) {
         super(id);
-        this.#shape = shape?.isShape
-            ? shape
-            : new Shape.TYPES.get(shape)()
+        this.fill(shape);
     }
 
     async encode () {
@@ -233,8 +132,18 @@ export class ShapeCache extends Cache {
         encoded.buffers.push(...encoded.payload.buffers);
         return encoded;
     }
+    fill (shape) {
+        super.fill();
+        if (shape?.isShape) {
+            this.#shape = shape;
+            this.#isFilled = true;
+        } else if (shape) {
+            this.fill(Shape.fromObject(shape));
+        }
+    }
 
     get isShapeCache () { return true }
+    get isFilled () { return this.#isFilled }
     get shape () { return this.#shape }
     get hash () { return this.#shape.hash }
 }
@@ -245,12 +154,23 @@ export class TerrainCache extends Cache {
         return new TerrainCache(terrain, id);
     }
     #terrain;
+    #isFilled = false;
     constructor (terrain, id = null) {
         super(id);
-
+        this.fill(terrain);
+    }
+    fill (terrain) {
+        super.fill();
+        if (terrain?.isTerrain) {
+            this.#terrain = terrain;
+            this.#isFilled = true;
+        } else if (terrain) {
+            this.fill(Terrain.fromObject(terrain));
+        }
     }
 
     get isTerrainCache () { return true }
+    get isFilled () { return this.#isFilled }
     get terrain () { return this.#terrain }
 }
 
