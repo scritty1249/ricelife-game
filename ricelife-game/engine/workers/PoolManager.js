@@ -153,7 +153,7 @@ export class PoolManager {
     }
     async setCache (cache) { return await this.#pool.setCache(cache) }
     async fillCache (id, data) { return await this.#pool.fillCache(id, data) }
-    async updateCache (id, clone = false) { await this.#pool.pullCache(id, clone) }
+    async updateCache (id, clone = true) { await this.#pool.pullCache(id, clone) }
     async destroyCache (id) { return await this.#pool.dropCache(id) }
     async hashCache (id) { return await this.#pool.hashCache(id) }
     terminate () { this.#pool.terminate() }

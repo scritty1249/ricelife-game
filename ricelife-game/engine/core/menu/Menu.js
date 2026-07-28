@@ -14,6 +14,7 @@ export class Menu extends Loop {
     #InterfaceLayers = {};
     #drawBackgroundCallback;
     #Interface = new PointerInterface();
+    #isOpen = false; // private flag
     #Area = new BoundingBox(); // Menu equivalent for Phase.Plane
     constructor (phase, drawBackgroundCallback = undefined) {
         super(phase.Global.Audio.Context);
@@ -48,6 +49,7 @@ export class Menu extends Loop {
     open () {
         this.#CameraLastState = this.Parent.Camera.getState(true);
         this.Parent.Global.Input.pointer.callbacks = this.Interface;
+        this.#isOpen = true;
         this.state = this.constructor.STATES.Ready;
     }
     close (returnData = undefined, haltAudio = true) {
@@ -57,6 +59,7 @@ export class Menu extends Loop {
             this.#CameraLastState = undefined;
         }
         this.Parent.Global.Input.pointer.callbacks = this.Parent.Interface;
+        this.#isOpen = false;
         this.state = this.constructor.STATES.Closed;
         this.Events.raiseEvent("EXIT", returnData || {});
     }
@@ -69,6 +72,7 @@ export class Menu extends Loop {
     }
 
     get isMenu () { return true }
+    get isOpen () { return this.#isOpen }
     get Parent () { return this.#Parent }
     get Interface () { return this.#Interface }
     get InterfaceLayers () { return this.#InterfaceLayers }

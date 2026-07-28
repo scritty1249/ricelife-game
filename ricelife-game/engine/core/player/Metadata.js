@@ -6,8 +6,8 @@ import { Loadable } from "../load/Loadable.js";
 export class Metadata extends Loadable {
     static fromObject (obj) {
         const { profile, model, team } = obj;
-        const m = new PlayerModel(model);
-        const p = PlayerProfile.fromObject(profile);
+        const m = new Model(model);
+        const p = Profile.fromObject(profile);
         return new PlayerData(m, p, team);
     }
     #team;

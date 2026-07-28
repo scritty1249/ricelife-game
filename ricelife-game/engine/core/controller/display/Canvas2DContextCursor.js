@@ -133,7 +133,7 @@ class Canvas2DContextCursorProto {
     get ctx () {
         return this.#ctx;
     }
-    get isCanvasCursor () {
+    get isCanvas2DContextCursor () {
         return true;
     }
     get hash () {
