@@ -1,7 +1,7 @@
 import { Vector, Color } from "../../core/Core.js";
 
 // houses cosmetic data for AmmoTypes
-export class AmmoTypeSelection {
+export class AmmoTypeDetails {
     static textOffsetScale = new Vector(0, -.3);
     name;
     fontSize = 24;
@@ -20,7 +20,7 @@ export class AmmoTypeSelection {
         this.#icon = icon;
     }
 
-    get isAmmoTypeSelection () { return true }
+    get isAmmoTypeDetails () { return true }
     get hasGlow () { return this.glowColor.visible && this.glowRadius && this.glowResolution }
     get icon () { return this.#icon }
     get fontColor () { return this.#fontColor }
