@@ -36,11 +36,6 @@ export class Menu extends Loop {
     async loadAsset () {}
     onResize = () => {}
     init () {
-        const position = this.Parent.Global.Display.center;
-        this.store.pointerPosition = {
-            lastDrawn: position.clone(),
-            lastActive: position.clone()
-        };
         this.store.underButton = new ScreenButton(this.Parent.Display);
         this.flags.INVERT_TRACKING = true;
         this.InterfaceLayers.under = this.Interface.insert();

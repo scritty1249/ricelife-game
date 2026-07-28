@@ -3,7 +3,8 @@ import {
     Color,
     Vector,
     Path,
-    Equigon
+    Equigon,
+    zip
 } from "../../core/Core.js";
 
 export class MapButton extends ShapeButton {

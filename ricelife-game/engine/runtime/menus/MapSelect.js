@@ -34,7 +34,7 @@ export class MapSelect extends Menu {
         underButton.onclick = () => {
             if (this.flags.OVERRIDE_PANNING) return;
             this.flags.CAMERA_PANNING = false;
-            for (const tile of this.store.selectionLayer.items) tile.close();
+            for (const button of this.InterfaceLayers.buttons.items) button.close();
         }
     }
     #setupMapButtons (maps, spacingScale = 0.1) {
@@ -56,7 +56,7 @@ export class MapSelect extends Menu {
             const offsetY = (tileHeight / 2) + size.y;
             mapButton.setPosition(offsetX, offsetY);
             mapButton.save();
-            this.InterfaceLayers.maps.push(mapButton);
+            this.InterfaceLayers.buttons.push(mapButton);
             size.y += tileHeight;
         }        
     }
@@ -122,7 +122,7 @@ export class MapSelect extends Menu {
         this.flags.OVERRIDE_PANNING = false; // use when map is selected (not just opened)
         this.flags.CAMERA_PANNING = false;
 
-        this.InterfaceLayers.maps = this.Interface.insert();
+        this.InterfaceLayers.buttons = this.Interface.insert();
         this.store.overButton = new ScreenButton(this.Parent.Global.Display);
         this.InterfaceLayers.over = this.Interface.insert();
         this.InterfaceLayers.over.push(this.store.overButton);
@@ -131,7 +131,7 @@ export class MapSelect extends Menu {
         this.#setupButtons();
     }
     closeAllButtons (closeActive = false) {
-        for (const button of this.InterfaceLayers.maps.items)
+        for (const button of this.InterfaceLayers.buttons.items)
             if (closeActive || !button.isActive) button.close();
     }
     // set Camera size and pan to top
@@ -139,7 +139,7 @@ export class MapSelect extends Menu {
         super.open();
         const { Camera } = this.Parent;
         const planeSize = this.Parent.Global.Display.size;
-        const mapCount = this.InterfaceLayers.maps.size || 1;
+        const mapCount = this.InterfaceLayers.buttons.size || 1;
         const heightSpacing = this.Area.height / mapCount;
         const offsetY = (heightSpacing * ((mapCount - 1) || 1));
         const top = (heightSpacing / 2) + offsetY;
