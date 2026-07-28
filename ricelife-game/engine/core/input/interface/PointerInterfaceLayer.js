@@ -35,6 +35,12 @@ export class PointerInterfaceLayer extends TrackableObject { // pointer events a
         }
         return this; // for chaining
     }
+    remove (item) {
+        return this.#items.delete(item?.id || item);
+    }
+    clear () {
+        this.#items.clear();
+    }
     has (item) {
         return (item?.id)
             ? this.#items.has(item.id)
