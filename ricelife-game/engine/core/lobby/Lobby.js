@@ -1,4 +1,10 @@
 import { typeString } from "../utils/logging.js";
+import { Model } from "../player/Model.js";
+import { Profile } from "../player/Profile.js";
+import { Metadata } from "../player/Metadata.js";
+import { HitTotal } from "../player/HitTotal.js";
+import { Actor } from "../player/Actor.js";
+import { Vector } from "../math/Vector.js";
 
 // provides a View for parsing, interfacing with, and sending Lobby information
 // [!] as the rest of the game's feature are added, this class will fill out more. Build around supporting it, even if it's sparse at the time of writing -KT
@@ -24,6 +30,24 @@ export class Lobby {
         this.#lock();
     }
 
+    #getAffiliation (clientUserID, otherUserID) {
+        const client = this.Players.get(clientUserID);
+        const other = this.Players.get(otherUserID);
+        return clientUserID === otherUserID
+            ? "self"
+            : client?.data?.team === other?.data?.team
+                ? "ally"
+                : "enemy";
+    }
+    #getModelKeys (clientUserID, player) {
+        const { model } = player.data;
+        const affiliation = this.#getAffiliation(clientUserID, player.data.profile.userid);
+        const modelPrefix = `${model}/${affiliation}`;
+        return {
+            body: modelPrefix + "/body",
+            barrel: modelPrefix + "/barrel"
+        };
+    }
     #init (players) {
         this.#populatePlayers(players);
     }
@@ -59,19 +83,19 @@ export class Lobby {
         if (!ammoPool?.isAmmoPool) throw new Error(`[${typeString(this)}]: ${typeString(ammoPool)} is not an AmmoPool`);
         const modelPromises = [];
         const ammoPromises = [];
+        const avatarPromises = [];
         // player models
-        for (const modelType of this.ModelTypes) {
-            const bodyKey = modelType + "/body";
-            const barrelKey = modelType + "/barrel";
+        for (const [ id, player ] of this.Players) {
+            const modelKeys = this.#getModelKeys(clientUserID, player);
             assetPool.add(
-                bodyKey,
-                [assetTypes.Image, undefined, `./assets/tank/${bodyKey}.png`],
-                barrelKey,
-                [assetTypes.Image, undefined, `./assets/tank/${barrelKey}.png`]
+                modelKeys.body,
+                [assetTypes.Image, undefined, `/assets/tank/${modelKeys.body}.png`],
+                modelKeys.barrel,
+                [assetTypes.Image, undefined, `/assets/tank/${modelKeys.barrel}.png`]
             );
             modelPromises.push(
-                assetPool.onready(bodyKey),
-                assetPool.onready(barrelKey)
+                assetPool.onready(modelKeys.body),
+                assetPool.onready(modelKeys.barrel)
             );
         }
         // ammo imports
@@ -79,8 +103,45 @@ export class Lobby {
             ammoPool.add(ammoType);
             ammoPromises.push(ammoPool.onready(ammoType));
         }
+        // player avatars
+        for (const avatar of this.Avatars) {
+            assetPool.add(
+                avatar,
+                [assetTypes.Image, undefined, avatar]
+            );
+            avatarPromises.push(assetPool.onready(avatar));
+        }
         await Promise.all(ammoPromises);
         await Promise.all(modelPromises);
+        await Promise.all(avatarPromises);
+    }
+    generatePlayerActors (clientUserID, assetPool, actorMap) {
+        if (!this.Players.has(clientUserID)) throw new Error(`[${typeString(this)}]: Client UserID ${clientUserID} does not exist`);
+        if (!assetPool?.isAssetPool) throw new Error(`[${typeString(this)}]: ${typeString(assetPool)} is not an AssetPool`);
+        for (const [ id, player ] of this.Players) {
+            const modelKeys = this.#getModelKeys(clientUserID, player);
+            const model = new Model(
+                player.data.model,
+                assetPool.get(modelKeys.body).clone(false),
+                assetPool.get(modelKeys.barrel).clone(false)
+            );
+            const profile = new Profile(
+                player.data.profile.name,
+                assetPool.get(player.data.profile.avatar).clone(false),
+                id
+            );
+            const metadata = new Metadata(model, profile, player.data.team);
+            const hittotal = HitTotal.fromObject(player.hitpoints);
+            const actor = new Actor(metadata, hittotal);
+            if (player.position) {
+                const position = Vector.fromObject(player.position);
+                if (!position.equals(0))
+                    actor.onload.then(() => actor.Mover.apply(position));
+                else
+                    console.warn(`[${typeString(this)}]: Invalid position from object for player ${profile.name} (${id})`);
+            }
+            actorMap.set(id, actor);
+        }
     }
 
     get isLobby () { return true }
