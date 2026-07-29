@@ -38,11 +38,11 @@ export class Mover { // only moves along X axis
     #puppet;
     offsetY = 0; // visual offset
     climbHeight = 0; // how much space above the puppet's actual position we allow the player to "climb" (jump) up
-    constructor (puppet, terrain = undefined) {
+    constructor (puppet, terrain) {
         if (!puppet?.isPuppet) throw new Error(`[${typeString(this)}]: Invalid parameter - expected Puppet, got ${typeString(puppet)}`);
         this.#puppet = puppet;
         this.#terrain = terrain;
-        this.computeTerrain();
+        this.computeTerrain(true);
     }
 
     #applyToPlayer (x, y, angle) { // takes raw terrain normal(angle) and x,y coord, and sets player position and rotation with defined offsets
