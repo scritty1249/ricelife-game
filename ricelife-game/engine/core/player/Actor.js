@@ -6,20 +6,9 @@ import { HitTotal } from "./HitTotal.js";
 import { Loadable } from "../load/Loadable.js";
 import { typeString } from "../utils/logging.js";
 import { Vector } from "../math/Vector.js";
+import { Ray } from "../math/Ray.js";
 
 export class Actor extends Loadable {
-    static fromObject (obj) {
-        const { data, hitpoints, position } = obj;
-        const h = HitTotal.fromObject(hitpoints);
-        const d = Metadata.fromObject(data);
-        const other = new Actor(d, h);
-        if (position) {
-            const p = Vector.fromObject(position);
-            if (!p.equals(0)) other.onload.then((o) => o.Mover.apply(p));
-            else console.warn(`[${typeString(this)}]: Invalid position from object for player ${other.Metadata.Profile.name} (${other.id})`);
-        }
-        return other;
-    }
     #Aimer;
     #Mover;
     #Puppet;
@@ -97,6 +86,18 @@ export class Actor extends Loadable {
         collider.userData.rotation = Puppet.rotation.body;
         collider.userData.heightOffset = Puppet.height + Mover.offsetY;
         return collider;
+    }
+    *getLaunchParameters (terrain) {
+        const { relativePosition, barrelPosition } = this.Puppet;
+        const { Aimer } = this;
+        const barrelPath = new Ray(relativePosition, barrelPosition);
+        const hit = terrain.raycast(barrelPath)
+            .sort((a, b) =>
+                a.distance(relativePosition) - b.distance(relativePosition))
+            .at(0);
+        yield hit?.point || barrelPosition;
+        yield Aimer.rotation + (3 * (Math.PI / 2));
+        yield Aimer.power;
     }
 
     get isActor () { return true }

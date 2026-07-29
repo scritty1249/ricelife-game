@@ -6,12 +6,6 @@ import { Color } from "../math/Color.js";
 // discord profile related data (icon, display name)
 // is responsible for drawing
 export class Profile extends Loadable {
-    static fromObject (obj) {
-        const img = new LoadImage(obj.avatar);
-        const other = new Profile(obj.name, img, obj.userid);
-        other.fontFamily = obj.fontFamily;
-        return other;
-    }
     #name;
     #avatar;
     #fontSize = 12;
@@ -20,7 +14,7 @@ export class Profile extends Loadable {
     #avatarOffset = new Vector();
     #nameOffset = new Vector();
     #userid; // Snowflake ID from discord. these are strings
-    // String, LoadedImage
+    // String, LoadImage, String
     constructor (name, avatar, userid) {
         super();
         this.#name = name.trim();

@@ -4,12 +4,6 @@ import { Loadable } from "../load/Loadable.js";
 
 // wraps all loadable player data
 export class Metadata extends Loadable {
-    static fromObject (obj) {
-        const { profile, model, team } = obj;
-        const m = new Model(model);
-        const p = Profile.fromObject(profile);
-        return new PlayerData(m, p, team);
-    }
     #team;
     #Profile;
     #Model;
