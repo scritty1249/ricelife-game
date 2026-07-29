@@ -87,6 +87,7 @@ export class Shot extends TrackableObject {
     #hasLaunched = false;
     #playLaunchCallback = true;
     #displayBoundingBox; // optimization- when set, will only draw projectile if bounding box intersects with it
+    userData = {};
     constructor (projectile, delay = 0, blastsReference = [], collisionsReference = [], sfxCallbackReference = {}) {
         if (!projectile?.isProjectile) throw new Error(`[${typeString(this)}]: Invalid parameter - expected Projectile, got ${typeof projectile}`);
         super();
@@ -275,7 +276,8 @@ export class Shot extends TrackableObject {
             throw error;
         }
     }
-    // creates a fresh instance with the same Projectile, delay and callback. References and blast time offset are not copied.
+    // creates a fresh instance with the same Projectile, delay and collision callback
+    // References, userData, update callback, launch callback, and blast time offset are not copied.
     clone (deep = false, blastsReference = [], collisionsReference = []) {
         const stage = new ShotStage(this.projectile.clone(deep), this.delay, blastsReference, collisionsReference);
         stage.collisionCallback = this.collisionCallback;
