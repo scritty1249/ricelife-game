@@ -20,6 +20,7 @@ export class Menu extends Loop {
         super(phase.Global.Audio.Context);
         this.#Parent = phase;
         this.#drawBackgroundCallback = drawBackgroundCallback;
+        this.Interface.Viewbox = this.Parent.Camera.Viewbox;
         this.onload.then(() => this.#initAfterLoad());
     }
 
@@ -48,13 +49,20 @@ export class Menu extends Loop {
         this.#drawBackgroundCallback?.();
     }
     open () {
+        if (this.isOpen) return;
+        if (this.Parent.Global.flags.DEBUG)
+            console.log(`[${typeString(this)}]: Opened`);
         this.#CameraLastState = this.Parent.Camera.getState(true);
         this.Parent.Global.Input.pointer.callbacks = this.Interface;
         this.#isOpen = true;
         this.state = this.constructor.STATES.Ready;
+        return true;
     }
     close (returnData = undefined, haltAudio = true) {
+        if (!this.isOpen) return;
         if (haltAudio) this.Audio.Player.stop();
+        if (this.Parent.Global.flags.DEBUG)
+            console.log(`[${typeString(this)}]: Closed with `, returnData);
         if (this.#CameraLastState) {
             this.Parent.Camera.setState(this.#CameraLastState);
             this.#CameraLastState = undefined;
@@ -63,6 +71,7 @@ export class Menu extends Loop {
         this.#isOpen = false;
         this.state = this.constructor.STATES.Closed;
         this.Events.raiseEvent("EXIT", returnData || {});
+        return true;
     }
     stop () {
         this.state = this.constructor.STATES.Busy;

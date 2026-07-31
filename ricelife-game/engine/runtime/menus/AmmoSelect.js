@@ -35,7 +35,7 @@ export class AmmoSelect extends Menu {
             if (a.distance !== b.distance) return a.distance - b.distance;
             return a.q - b.q || a.r - b.r;
         });
-        for (const [ {q, r}, {shape} ] of zip(coords, this.InterfaceLayers.buttons.items)) {
+        for (const [ {q, r}, {shape} ] of zip([coords, this.InterfaceLayers.buttons.items])) {
             shape.moveTo(center);
             shape.transform.offset.apply(spacing.x * (q + r / 2), spacing.y * r);
             shape.applyTransform();
@@ -45,15 +45,20 @@ export class AmmoSelect extends Menu {
         const { selections } = this.store;
         const { buttons } = this.InterfaceLayers;
         buttons.clear();
-        for (let i = 0; i < this.store.layout.count; i++)
-            buttons.push(new AmmoTypeButton(
+        for (let i = 0; i < this.store.layout.count; i++) {
+            const button = new AmmoTypeButton(
                 selections[i % selections.length],
                 legLength
-            ));
+            );
+            button.onclick = () => {
+                this.close({selection});
+            };
+            buttons.push(button);
+        }
     }
     // computes delta from last drawn position to last active position
     #getPointerDelta () {
-        const { lastDrawn, lastActive } = this.pointerRecord;
+        const { lastDrawn, lastActive } = this.store. pointerRecord;
         return this.flags.INVERT_TRACKING
             ? lastDrawn.sub(lastActive)
             : lastActive.sub(lastDrawn);
@@ -133,16 +138,17 @@ export class AmmoSelect extends Menu {
         const buttonWidth = clamp(this.Parent.Global.Display.size.x / 2, MIN_BUTTON_SIZE, MAX_BUTTON_SIZE);
         const legLength = buttonWidth / Math.sqrt(3);
         const padding = buttonWidth * BUTTON_SPACING_SCALE;
-        this.#createButtons(legLength);
-        if (!this.InterfaceLayers.buttons.size) return;
-        const { shape } = this.InterfaceLayers.buttons.items[0];
-        
+
         let layers = 1;
         while (3 * layers * layers - 3 * layers + 1 < this.store.selections.length)
             layers++;
         layout.rings = Math.max(5, --layers);
         const triple = 3 * layers;
         layout.count = Math.max(37, (triple * triple) - triple + 1);
+        this.#createButtons(legLength);
+        if (!this.InterfaceLayers.buttons.size) return;
+        const { shape } = this.InterfaceLayers.buttons.items[0];
+        
         layout.buttonSize = shape.globalTransform.scale.clone();
         layout.buttonSize.x *= Math.sqrt(3) * shape.length;
         layout.buttonSize.y *= 1.5 * shape.length;
@@ -171,7 +177,7 @@ export class AmmoSelect extends Menu {
         }
     }
     open () {
-        super.open();
+        if (!super.open()) return;
         const { lastDrawn, lastActive } = this.store.pointerRecord;
         this.flags.trackActive = false;
         lastDrawn.apply(this.Parent.Global.Display.center);

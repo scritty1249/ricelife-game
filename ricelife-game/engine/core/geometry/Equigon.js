@@ -1,5 +1,6 @@
 import { Poly } from "./Poly.js";
 import { Polygon } from "./Polygon.js";
+import { Vector } from "../math/Vector.js";
 
 // Equilateral Polygon 
 // unoptimized, can be used to substitute other shapes or support shapes with more sides (Hexagon, Octogon, etc)

@@ -25,6 +25,7 @@ import {
 
 import { WorkerPool, PoolManager, TerrainCache, CanvasCache } from "../../workers/Core.js";
 import { AmmoSelect } from "../menus/AmmoSelect.js";
+import { AmmoTypeDetails } from "../selections/AmmoTypeDetails.js";
 import { initTerrain, initLobby } from "../utils.js";
 
 import * as HP from "../../hitpoints/Core.js"; // only import to register types with parent class. Subclass constructors not directly needed
@@ -111,7 +112,7 @@ export class Round extends Phase {
         this.Audio.Player.volume = 0.35;
 
         this.#setupInterface();
-        this.Menus.set("Ammo", new AmmoSelect(this, () => this.drawBackground(), Array.from(this.Lobby.AmmoTypes)));
+        this.Menus.set("Ammo", new AmmoSelect(this, () => this.drawBackground(), this.#createAmmoSelections()));
         this.setTurn(this.Lobby.ActivePlayerID === this.#ClientPlayerID);
     }
     async #load (playerID) {
@@ -134,6 +135,16 @@ export class Round extends Phase {
         )
         this.Lobby.generatePlayerActors(this.#ClientPlayerID, this.AssetPool, this.Players, this.Terrain);
         await Promise.all(this.Players.values().map(({onload}) => onload));
+    }
+    #createAmmoSelections () {
+        return Array.from(this.Lobby.AmmoTypes, (ammoType) => {
+            const ammo = this.AmmoPool.get(ammoType);
+            const selection = new AmmoTypeDetails(ammo.name, );
+            const { borderColor, fillColor, fontColor } = selection;
+            fillColor.apply(ammo.mainColor);
+            fontColor.apply(borderColor.apply(ammo.glowColor));
+            return selection;
+        });
     }
     async #setupThreads () {
         const pool = new WorkerPool(new URL(this.constructor.WEB_WORKER_PATH, window.location.origin), 4, 3);
@@ -451,6 +462,9 @@ export class Round extends Phase {
                 this.Camera.untrackAll();
                 this.Camera.offsetPosition(-PAN_SENSITIVITY);
             }
+        }
+        if (INPUT_MAP.isActive(keyboard, "debug+")) {
+            this.Menus.get("Ammo").open();
         }
         if (flags.isTurn) {
             // [!] most pointer logic handled by callbacks
