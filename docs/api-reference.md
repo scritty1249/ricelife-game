@@ -121,7 +121,7 @@ Commits a staged round update. Updated players corrospond to players that are al
 ### *object* `PlayerInstance`
 | Key | Type | Detail |
 | :-- | :-- | :-- |
-| position | [Vector](#array-vector) | player's current position |
+| ?position | [Vector](#array-vector) | player's current position |
 | hitpoints | array of [HitAmount](#object-hitamount) | damage applied in descending order |
 | data | [PlayerData](#object-playerdata) ||
 
@@ -138,6 +138,7 @@ Commits a staged round update. Updated players corrospond to players that are al
 | state | integer ||
 | teamsize | number ||
 | teamcount | number ||
+| activeplayer | [Snowflake](#string-snowflake) | Current turn holder |
 | channelid | [Snowflake](#string-snowflake) | Discord channel the invite was created in |
 
 ### *object* `PlayerData`
