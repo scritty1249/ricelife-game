@@ -1,5 +1,7 @@
 import { TrackableObject } from "../utils/tracking/TrackableObject.js";
 import { typeString } from "../utils/logging.js";
+import { AudioLayer } from "./AudioLayer.js";
+import { AudioSource } from "./AudioSource.js";
 
 export class AudioContext extends TrackableObject {
     static #INSTANCES = new Array();

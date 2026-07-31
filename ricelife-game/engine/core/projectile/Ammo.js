@@ -9,6 +9,7 @@ export class Ammo extends TrackableObject {
     static SFX = {
         null: () => {}
     };
+    #bbox = new BoundingBox();
     #time = 0;
     #colliders;
     #currentStage;
@@ -46,6 +47,13 @@ export class Ammo extends TrackableObject {
             if (this.hasNextStage) this.nextStage();
             else this.#currentStage = undefined;
         }
+        const bbox = this.currentStage?.getBoundingBox?.(true, true, false);
+        if (bbox) {
+            this.#bbox.apply(bbox);
+        } else {
+            this.#bbox.min.apply(0);
+            this.#bbox.max.apply(0);
+        }
     }
     // create multishot stage by default
     newStage (delay = 0) {
@@ -57,7 +65,13 @@ export class Ammo extends TrackableObject {
         return stage;
     }
     getBoundingBox (merge = true, includeStopped = true, includeFx = false) {
-        return this.currentStage?.getBoundingBox?.(merge, includeStopped, includeFx) || new BoundingBox();
+        if (this.currentStage) {
+            this.#bbox.apply(this.currentStage.getBoundingBox?.(merge, includeStopped, includeFx));
+        } else {
+            this.#bbox.min.apply(0);
+            this.#bbox.max.apply(0);
+        }
+        return this.#bbox;
     }
     // returns bounding boxes of all blasts of delay within range (start - end)
     // if end is undefined, all blasts from start will be included
@@ -79,8 +93,8 @@ export class Ammo extends TrackableObject {
         const ammo = new Ammo(this.colliders, stages);
         return ammo;
     }
-    getLegend (decode = true) {
-        return this.stages.map((stage) => stage.getLegend(decode));
+    getLegend (encode = true) {
+        return this.stages.map((stage) => stage.getLegend(encode));
     }
     setLegend (legend) { // expects an decoded legend 
         try {
@@ -93,7 +107,7 @@ export class Ammo extends TrackableObject {
         }
     }
     getTracer () { return new AmmoTracer(this.stages) }
-    decode () { return this.decodeParams }
+    encode () { return this.decodeParams }
 
     get isAmmo () { return true }
     get isInsideDisplay () { return this.stages.some(({isInsideDisplay}) => isInsideDisplay) } // [!] will return shot as in-bounds if a display bbox is not set

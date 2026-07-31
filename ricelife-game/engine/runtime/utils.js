@@ -1,7 +1,7 @@
-import { Terrain, Lobby } from "../core/Core.js";
+import { Terrain, Polygon, Lobby } from "../core/Core.js";
 
-export function initTerrain (decodedTerrain) {
-    return Terrain.fromObject(decodedTerrain);
+export function initTerrain (decodedTerrainPoly) {
+    return Terrain.fromObject({polygon: decodedTerrainPoly});
 }
 
 export function initLobby (lobbyJson) {

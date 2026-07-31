@@ -10,9 +10,9 @@ export default class Default extends Ammo {
         const origin = Vector.fromObject(o);
         return new this(origin, angle, power, resolution);
     }
-    // <this> context will be rebound to ShotStage
+    // <this> context will be rebound to Shot
     static collisionCallback (point, normal, collisionFlags) { // default
-        this.shot.current.velocity.mul(0, true);
+        this.projectile.current.velocity.mul(0, true);
         createBlasts.call(this);
     }
     static stageCount = 1;

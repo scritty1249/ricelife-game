@@ -18,7 +18,7 @@ export class AmmoTracer {
         cursor.setLineDash(this.lineDash);
         cursor.strokeStyle = this.color.toString();
         for (const traces of this.#multishots)
-            for (const trace of v)
+            for (const trace of traces)
                 trace.draw(cursor, true);
         cursor.restore();
     }

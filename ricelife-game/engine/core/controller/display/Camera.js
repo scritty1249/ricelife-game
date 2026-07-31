@@ -1,6 +1,8 @@
 import { TrackableObject } from "../../utils/tracking/TrackableObject.js";
 import { BoundingBox } from "../../geometry/BoundingBox.js";
 import { Vector } from "../../math/Vector.js";
+import { Viewbox } from "./Viewbox.js";
+import { clamp } from "../../math/utils.js";
 
 // viewbox controller
 export class Camera extends TrackableObject {
@@ -57,9 +59,9 @@ export class Camera extends TrackableObject {
     }
     // returns true if cached, false otherwise
     #getBounds (target) {
-        if (target?.isVector) {
+        if (target?.isVector && target.isFinite) {
             this.#cacheBox(target.x, target.y, target.x, target.y);
-        } else if (target?.isBoundingBox) {
+        } else if (target?.isBoundingBox && target.extentSquared) {
             this.#cacheBox(target.min.x, target.min.y, target.max.x, target.max.y);
         } else if (target?.isShape) {
             this.#getBounds(target.getBoundingBox());
@@ -295,10 +297,11 @@ export class Camera extends TrackableObject {
     get isCamera () { return true }
     get Viewbox () { return this.#Viewbox }
     get isTracking () { return this.#targets.size > 0 || this.#follows.size > 0}
-    get isSizeSet () { return this.#targetSize.x > 0 || this.#targetSize.y > 0 }
+    get isSizeSet () { return this.#targetSize.lengthSquared > 0 }
     get isSizing () { return this.#isLerping.size }
     get isCentering () { return this.#isLerping.center }
     get targets () { return this.#targets.size + this.#follows.size }
+    get position () { return this.Viewbox.center }
     get lerpFactor () { return this.#lerpFactor }
     set lerpFactor (value) { return (this.#lerpFactor = clamp(value, 0, 1)) }
 }

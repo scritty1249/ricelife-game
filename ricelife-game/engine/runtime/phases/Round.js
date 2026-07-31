@@ -25,6 +25,9 @@ import {
 
 import { WorkerPool, PoolManager, TerrainCache, CanvasCache } from "../../workers/Core.js";
 import { AmmoSelect } from "../menus/AmmoSelect.js";
+import { initTerrain, initLobby } from "../utils.js";
+
+import * as HP from "../../hitpoints/Core.js"; // only import to register types with parent class. Subclass constructors not directly needed
 
 const INPUT_MAP = new KeyMap({
     "esc": ["Escape"],
@@ -59,10 +62,10 @@ const MOVE_SPEED = 1;
 
 export class Round extends Phase {
     static WEB_WORKER_PATH = "/engine/workers/Worker.js";
-    #AmmoPool = new AmmoPool(new URL('.', import.meta.url).pathname + "../../projectile/types");
+    #AmmoPool = new AmmoPool("/engine/ammotypes");
     #Players = new Map();
     #Lobby;
-    #ActivePlayerID; // id of client player
+    #ClientPlayerID; // id of client player
     #Threaded;
     #Interface;
     #Terrain;
@@ -70,32 +73,72 @@ export class Round extends Phase {
     #Animations = {
         Main: new AnimationList()
     };
-    constructor (mainController, playerID, lobby, terrain) {
+    constructor (mainController, playerID, lobbyData, terrainData) {
         super(mainController);
-        this.#ActivePlayerID = playerID;
-        this.#Lobby = lobby;
-        this.#Terrain = terrain;
-        this.#load()
+
+        this.#Lobby = initLobby(lobbyData);
+        this.#Terrain = initTerrain(terrainData);
+        // [!] testing
+        this.Terrain.apply(undefined, {
+            edgeColor: new Color("#00e8f0"),
+            fillColor: new Color("#0098eb")
+        });
+        this.Plane.max.apply(this.Terrain.polygon.getBoundingBox().width, this.Terrain.polygon.getBoundingBox().height * 2);
+
+        this.#load(playerID)
+            .then(() => this.#init())
             .then(() => this.resolveLoad())
             .catch((error) => this.rejectLoad(error));
     }
 
-    async #load () {
+    #init () {
+        this.store.prerender = Promise.resolve();
+        this.store.ammo = {
+            tracer: undefined,
+            current: undefined,
+            selected: "basic",
+            map: undefined,
+            types: undefined,
+            impacts: [],
+            debug: {
+                legend: undefined,
+                blasts: [],
+                collisions: [],
+            }            
+        };
+        this.Audio.Layer.blast = this.Audio.Player.Layer();
+        this.Audio.Layer.blast.volume = 0.55;
+        this.Audio.Player.volume = 0.35;
+
+        this.#setupInterface();
+        this.Menus.set("Ammo", new AmmoSelect(this, () => this.drawBackground(), Array.from(this.Lobby.AmmoTypes)));
+        this.setTurn(this.Lobby.ActivePlayerID === this.#ClientPlayerID);
+    }
+    async #load (playerID) {
         const waitPromises = [
             this.#setupThreads(),
-            this.Lobby.loadAssets(
-                this.#ActivePlayerID,
-                this.AssetPool,
-                this.AmmoPool,
-                this.Global.constructor.AssetType
-            )
+            this.#loadLobby(playerID),
+            this.loadGlobalAsset("blast"),
+            this.loadGlobalAsset("muzzleFlash"),
+            this.loadGlobalAsset("fire")
         ];
-
         await Promise.all(waitPromises);
     }
+    async #loadLobby (playerID) {
+        this.#ClientPlayerID = playerID;
+        await this.Lobby.loadAssets(
+            this.#ClientPlayerID,
+            this.AssetPool,
+            this.AmmoPool,
+            this.Global.constructor.AssetType
+        )
+        this.Lobby.generatePlayerActors(this.#ClientPlayerID, this.AssetPool, this.Players, this.Terrain);
+        await Promise.all(this.Players.values().map(({onload}) => onload));
+    }
     async #setupThreads () {
-        const pool = new WorkerPool(new URL(this.constructor.WEB_WORKER_PATH));
-        this.#Threaded = new PoolManager(pool, 4, 3);
+        const pool = new WorkerPool(new URL(this.constructor.WEB_WORKER_PATH, window.location.origin), 4, 3);
+        await pool.onload;
+        this.#Threaded = new PoolManager(pool);
         this.store.cacheKey = {
             terrain: "lastTerrainState",
             background: "backgroundCanvas"
@@ -112,17 +155,32 @@ export class Round extends Phase {
     #setupInterface () {
         const underButton = new ScreenButton(this.Global.Display);
         underButton.ondrag = (point, origin, delta) => {
-            this.untrackActivePlayer();
-            this.Camera.offsetPosition(delta.mul(-panSensitivity).div(this.Camera.Viewbox.canvasScale, true));
+            this.Camera.untrackAll();
+            this.Camera.offsetPosition(delta.mul(-PAN_SENSITIVITY).div(this.Camera.Viewbox.canvasScale, true));
         }
-
+        underButton.onscroll = (point, delta) => {
+            const { Viewbox } = this.Camera;
+            if (this.Global.Input.pointer.pointerCount < 2 && !equals(delta.x, 0)) {
+                this.Camera.untrackAll();
+                this.Camera.offsetPosition(delta.x * PAN_SENSITIVITY);
+            }
+            if (!equals(delta.y, 0)) {
+                const { size: displaySize } = this.Global.Display;
+                const { canvasScale } = Viewbox;
+                this.Camera.untrackAll();
+                const scale = 1 / ((displaySize.y - delta.y) / displaySize.y);
+                //if (scale < 1 && (canvasScale.x > MAX_VIEWBOX_SCALE || canvasScale.y > MAX_VIEWBOX_SCALE)) return;
+                Viewbox.applyScale(scale);
+            }
+        }
         // screen touch controls
         this.Interface.insert()
             .push(underButton)
             .fixed = true;
-        // player aimer
+        // player Aimer
         this.Interface.insert()
-            .push(this.ActivePlayer.Aimer);
+            .push(this.ClientPlayer.Aimer)
+            .fixed = false;
         // overlay buttons
         this.Interface.insert()
             .push()
@@ -163,7 +221,7 @@ export class Round extends Phase {
         const self = this;
         // gets bound to Shot
         return function () {
-            const { Puppet, Aimer } = self.ActivePlayer;
+            const { Puppet, Aimer } = self.ClientPlayer;
             const blastSizes = this.userData.hitbox
                 ?.filter((blast) => blast?.shape?.isCircle)
                 ?.map(({shape}) => shape.radii.length * 2) || [1];
@@ -171,7 +229,7 @@ export class Round extends Phase {
             const blastMagnitude = blastAverageSize / Math.max(Puppet.width, Puppet.height);
             const muzzleFlashSize = (blastMagnitude * 400) * (Aimer.power**3);
             const muzzleFlash = createMuzzleFlashAnimation(
-                self.ActivePlayer,
+                self.ClientPlayer,
                 self.AssetPool.get("muzzleFlash").clone(),
                 muzzleFlashSize
             );
@@ -192,14 +250,16 @@ export class Round extends Phase {
             blastInterval
         );
         impact.ontrigger.then(({
-            frame, terrain, bboxes, blasts, animations
+            frame, terrain, bboxes, blasts, animations, combinedbbox
         }) => {
             Threaded.cache[background]?.close?.();
             Threaded.cache[background] = frame;
             animations.play();
             this.updateTerrain(terrain, bboxes);
             for (const blast of blasts)
-                this.#applyBlastDamage(blast, this.ActivePlayer);            
+                this.#applyBlastDamage(blast, this.ClientPlayer);
+            if (this.Camera.targets)
+                this.Camera.track(combinedbbox);
         });
         return impact;
     }
@@ -219,8 +279,8 @@ export class Round extends Phase {
     }
     #applyBlastDamage (blast, sourcePlayer) {
         for (const player of this.Players.values()) {
-            if (!blast.damage || !Player.Puppet.getHitbox().isIntersecting(blast.shape)) continue;
-            Player.HitTotal.damage(blast.damage);
+            if (!blast.damage || !player.Puppet.getHitbox().isIntersecting(blast.shape)) continue;
+            player.HitTotal.damage(blast.damage);
             const targetName = player.Metadata.Profile.name;
             const sourceName = sourcePlayer?.Metadata?.Profile?.name || "unknown";
             console.info(`[${typeString(this)}]: Registered ${blast.damage} damage on ${targetName} from ${sourceName}`);
@@ -235,63 +295,39 @@ export class Round extends Phase {
         }
     }
 
-    init () {
-        this.store.prerender = Promise.resolve();
-        this.store.ammo = {
-            tracer: undefined,
-            current: undefined,
-            selected: undefined,
-            map: undefined,
-            types: undefined,
-            impacts: [],
-            debug: {
-                legend: undefined,
-                blasts: [],
-                collisions: [],
-            }            
-        };
-
-        this.Audio.Layer.blast = this.Audio.Player.Layer();
-        this.Audio.Layer.blast.volume = 0.55;
-        this.Audio.Player.volume = 0.35;
-
-        this.Lobby.generatePlayerActors(this.#ActivePlayerID, this.AssetPool, this.Players);
-        this.#setupInterface();
-
-        this.Menus.set("Ammo", new AmmoSelect(this, () => this.#drawBackground(), Array.from(this.Lobby.AmmoTypes)));
-    }
     async ontick (delta) {
         const { Animations, Global, store } = this;
-        if (store.shot.map?.intersect && (store.prerender?.isWorkerJob && !store.prerender.fulfilled)) {
+        if (store.ammo.map?.intersect && (store.prerender?.isWorkerJob && !store.prerender.fulfilled)) {
             // wait for loading to finish before updating
         } else {
             // game update
             if (store.ammo.current) {
                 if (this.updateAmmoTick(delta)) {
                     await store.prerender;
-                    this.untrackShot();
-                    this.#clearShot();
-                    // unlock player
-                    this.setTurn(true);
-                    if (this.Global.flags.DEBUG) console.info(`[${typeString(this)}]: Shot playback finished`);
+                    //this.untrackShot();
+                    this.#unsetAmmo();
+                    if (Global.flags.DEBUG)
+                        console.info(`[${typeString(this)}]: Shot playback finished`);
                     store.prerender = Promise.resolve();
+                    // unlock player
+                    setTimeout(() => this.setTurn(true), 1000)
                     // check if round ended
-                    this.checkRoundEnd();
+                    //this.checkRoundEnd();
                 }
             }
         }
-        // disable aimer if it covers enough of the screen
-        const aimerIsLarge = this.Camera.Viewbox.size.max() / 2 <= this.ActivePlayer.aimer.radius * 2;
-        let aimerIsCenter = this.ActivePlayer.Aimer.isOver(this.Camera.Viewbox.toGlobal(this.Global.Display.getBoundingBox().center));
-        if (!this.ActivePlayer.Aimer.enabled) aimerIsCenter = !aimerIsCenter;
-        this.ActivePlayer.Aimer.enabled = this.flags.isTurn && !(aimerIsLarge && aimerIsCenter);
+        // disable Aimer if it covers enough of the screen
+        const AimerIsLarge = this.Camera.Viewbox.size.max() / 2 <= this.ClientPlayer.Aimer.radius * 2;
+        let AimerIsCenter = this.ClientPlayer.Aimer.isOver(this.Camera.Viewbox.toGlobal(this.Global.Display.getBoundingBox().center));
+        if (!this.ClientPlayer.Aimer.enabled) AimerIsCenter = !AimerIsCenter;
+        this.ClientPlayer.Aimer.enabled = this.flags.isTurn && !(AimerIsLarge && AimerIsCenter);
         this.handleInput();
     }
     onanimate () {
-        const { ActivePlayer, Camera, Animations, Interface, Threaded, Players, flags, store } = this;
+        const { ClientPlayer, Camera, Animations, Interface, Threaded, Players, flags, store } = this;
         const { cursor } = this.Global.Display;
-        if (store.shot.current && Camera.tracking(ActivePlayer.tank.position)) {
-            const shotBbox = store.shot.current.getBoundingBox(true, false, true);
+        if (store.ammo.current && Camera.tracking(ClientPlayer.Puppet.position)) {
+            const shotBbox = store.ammo.current.getBoundingBox(true, false, true);
             Camera.follow(shotBbox.extentSquared ? shotBbox : undefined);
         }
         Camera.update();
@@ -307,20 +343,65 @@ export class Round extends Phase {
             store.ammo.current.draw(cursor);
         Animations.Main.update(cursor);
         for (const player of Players.values())
-            player.drawProfile(cursor);
+            player.drawOverlay(cursor, player.isDead);
         cursor.restore();
         if (flags.isTurn) Interface.draw(cursor, 2);
-        // if (this.Global.flags.DEBUG) this.drawDebugOverlay()
+        if (this.Global.flags.DEBUG) this.drawDebugOverlay();
     }
-    updateAmmoTick (delta) {
+    drawDebugOverlay () {
+        const { ClientPlayer, Terrain, Interface, store, flags } = this;
+        const { Input, Display } = this.Global;
+        const { Viewbox } = this.Camera;
+        const { cursor } = Display;
+        const displaySize = Display.size;
+        // draw any holes in terrain
+        Viewbox.setCursor(cursor, true);
+
+        // terrain outline
+        cursor.save();
+        cursor.strokeStyle = "blue";
+        cursor.lineWidth = 3;
+        Terrain.polygon.draw(cursor, true);
+        cursor.stroke();
+        cursor.restore();
+
+        // terrain holes
+        cursor.save();
+        cursor.strokeStyle = "yellow";
+        cursor.lineWidth = 2;
+        for (const hole of Terrain.polygon.holes) {
+            cursor.save();
+            hole.draw(cursor);
+            cursor.stroke();
+            cursor.restore();
+        }
+        cursor.restore();
+
+        // player hitboxes
+        cursor.save();
+        cursor.strokeStyle = "red";
+        cursor.lineWidth = 2;
+        for (const { Puppet } of this.Players.values()) {
+            cursor.save();
+            Puppet.getBoundingBox()
+                .draw(cursor, true);
+            cursor.stroke();
+            cursor.restore();
+        }
+        cursor.restore();
+
+        cursor.restore();
+    }
+    updateAmmoTick (delta = 0) {
         const { Animations } = this;
         const { ammo } = this.store;
         const blastAnimationsFinished = (!Animations.blasts || Animations.blasts.ended);
         // trigger blast animations
         for (const impact of ammo.impacts) {
             if (impact.triggered) continue;
-            if (impact.time <= shot.time) impact.play();
+            if (impact.time <= ammo.current.time) impact.play();
         }
+        const prevBbox = ammo.current.getBoundingBox().clone();
         // update projectile
         ammo.current.update(delta / 1000);
         // are we done with projectile?
@@ -344,30 +425,30 @@ export class Round extends Phase {
             ammo.current = undefined;
         }
         // [!] boolean logic here could be written better -KT
-        const playbackFinished = Animations.blasts?.endeed
+        const playbackFinished = Animations.blasts?.ended
             || (!Animations.blasts && isTimedout);
         return playbackFinished;
     }
     drawBackground () {
-        const img = this.Threaded.cache[this.store.cacheKey.background];
+        const img = this.Threaded.cache[this.store.cacheKey.background].canvas;
         const { cursor, size } = this.Global.Display;
         const { Viewbox } = this.Camera;
         cursor.drawImage(img, Viewbox.min.x, cursor.normalizeY(Viewbox.max.y), Viewbox.width, Viewbox.height, 0, 0, size.x, size.y);
     }
     handleInput () {
-        const { ActivePlayer, Interface, Global, flags, store } = this;
+        const { ClientPlayer, Interface, Global, flags, store } = this;
         const { keyboard, pointer } = Global.Input;
         if (INPUT_MAP.isActive(keyboard, "esc")) {
             // pause menu logic
         }
         if (!INPUT_MAP.isActive(keyboard, "debug+")) {
             if (INPUT_MAP.isActive(keyboard, "pan+")) {
-                //this.untrackActivePlayer();
+                this.Camera.untrackAll();
                 this.Camera.offsetPosition(PAN_SENSITIVITY);
                 
             }
             if (INPUT_MAP.isActive(keyboard, "pan-")) {
-                //this.untrackActivePlayer();
+                this.Camera.untrackAll();
                 this.Camera.offsetPosition(-PAN_SENSITIVITY);
             }
         }
@@ -376,7 +457,7 @@ export class Round extends Phase {
 
             // keyboard
             if (!INPUT_MAP.isActive(keyboard, "debug+")) {
-                if (store.shot.current === undefined) {
+                if (store.ammo.current === undefined && store.ammo.selected) {
                     if (INPUT_MAP.isActive(keyboard, "shootActive"))
                         this.launchAmmo()
                             .catch((error) => {
@@ -384,26 +465,28 @@ export class Round extends Phase {
                                 throw error;
                             });
                 }
-                ActivePlayer.tank.position.round(1/Global.constructor.SETTINGS.RESOLUTION);
+                ClientPlayer.Puppet.position.round(1/Global.constructor.SETTINGS.RESOLUTION);
                 if (INPUT_MAP.isActive(keyboard, "mv+")) {
-                    ActivePlayer.Mover.move(MOVE_SPEED);
-                    this.trackActivePlayer();
+                    ClientPlayer.Mover.move(MOVE_SPEED);
+                    if (!pointer.isActive)
+                        this.Camera.track(this.ClientPlayer.Puppet.position);
                 }
                 if (INPUT_MAP.isActive(keyboard, "mv-")) {
-                    ActivePlayer.Mover.move(-MOVE_SPEED);
-                    this.trackActivePlayer();
+                    ClientPlayer.Mover.move(-MOVE_SPEED);
+                    if (!pointer.isActive)
+                        this.Camera.track(this.ClientPlayer.Puppet.position);
                 }
                 if (INPUT_MAP.isActive(keyboard, "shot+")) {
-                    ActivePlayer.Aimer.power += POWER_SENSITIVITY;
+                    ClientPlayer.Aimer.power += POWER_SENSITIVITY;
                 }
                 if (INPUT_MAP.isActive(keyboard, "shot-")) {
-                    ActivePlayer.Aimer.power -= POWER_SENSITIVITY;
+                    ClientPlayer.Aimer.power -= POWER_SENSITIVITY;
                 }
                 if (INPUT_MAP.isActive(keyboard, "aim+")) {
-                    ActivePlayer.Aimer.rotation += AIM_SENSITIVITY;
+                    ClientPlayer.Aimer.rotation += AIM_SENSITIVITY;
                 }
                 if (INPUT_MAP.isActive(keyboard, "aim-")) {
-                    ActivePlayer.Aimer.rotation -= AIM_SENSITIVITY;
+                    ClientPlayer.Aimer.rotation -= AIM_SENSITIVITY;
                 }
             }
         } else {
@@ -417,7 +500,7 @@ export class Round extends Phase {
         }
     }
     updateTerrain (terrain, changedBBoxes = []) {
-        if (this.Terrain.hash !== terrain.hash)
+        if (this.Terrain.hash !== terrain.polygon.hash)
             this.Terrain.apply(terrain);
         // if bboxes of changed areas are provided, only update player positions that lie within them.
         //  otherwise, update all player positions
@@ -436,42 +519,47 @@ export class Round extends Phase {
         const { Camera, AmmoPool, Terrain } = this;
         const type = AmmoPool.get(typeKey);
         const ammo = new type(...playerActor.getLaunchParameters(Terrain));
-        ammo.colliders.push(Terrain);
+        ammo.colliders.push(Terrain.polygon);
         ammo.launchCallback = this.#createLaunchCallback();
         ammo.displayBoundingBox = Camera.Viewbox;
         return ammo;
     }
-    createAmmoColliders () {
-        const { Players } = this;
-        const colliders = [this.store.cacheKey.terrain];
-        for (const { Puppet, Mover, isDead } of Players.values()) {
-            if (isDead) continue;
-            const hitbox = Puppet.getHitbox().Polygon();
-            hitbox.userData.collision = Properties.PLAYER | Properties.ENTER;
-            hitbox.userData.position = Puppet.position.round(2, true).toJSON();
-            hitbox.userData.rotation = Puppet.rotation.body;
-            hitbox.userData.heightOffset = Puppet.height + Mover.offsetY;
-            colliders.push(hitbox);
+    createPlayerColliders () {
+        const colliders = [];
+        for (const player of this.Players.values()) {
+            if (player.isDead) continue;
+            colliders.push(player.getCollider());
         }
         return colliders;
     }
     setTurn (bool) {
-        this.flags.isTurn = this.ActivePlayer.aimer.enabled = bool;
+        this.Camera.untrackAll();
+        this.Camera.setTargetSize(0, 0, false);
+        if (bool) {
+            const size = this.ClientPlayer.Puppet.getBoundingBox().size.mul(15);
+            this.Camera.setTargetSize(size.x, size.y, true);
+            this.Camera.lerpFactor = 0.2;
+            this.Camera.track(this.ClientPlayer.Puppet.position);
+        } else {
+            this.Camera.lerpFactor = 0.12;
+        }
+        this.flags.isTurn = this.ClientPlayer.Aimer.enabled = bool;
     }
     async launchAmmo () {
-        const { ActivePlayer, AmmoPool, Global, store, flags } = this;
+        const { ClientPlayer, AmmoPool, Global, store, flags } = this;
         this.setTurn(false);
         this.animate(true); // draw one last frame so the game doesn't look like it just froze
         Global.Events.raiseEvent("LOADING", {hide: false, message: "loading turn"});
-        const ammo = this.createAmmo(ActivePlayer, store.ammo.selected);
+        const ammo = this.createAmmo(ClientPlayer, store.ammo.selected);
         const totalStart = performance.now();
         let waitStart = performance.now();
-        console.info(`[${typeString(this)}]: Tracing shot (${store.shot.selected})`);
-        const map = await this.Threaded.traceProjectile(
-            this.createAmmoColliders(),
+        console.info(`[${typeString(this)}]: Tracing shot (${store.ammo.selected})`);
+        const map = await this.Threaded.traceAmmo(
             ammo,
             Global.TickInterval.interval / 1000,
-            SHOT_TRACE_LIMIT
+            SHOT_TRACE_LIMIT,
+            this.store.cacheKey.terrain,
+            this.createPlayerColliders()
         );
         if (Global.flags.DEBUG)
             console.info(`[${typeString(this)}]: Shot trace finished in ${(performance.now() - waitStart) / 1000} seconds`);
@@ -490,22 +578,23 @@ export class Round extends Phase {
         }
         console.info(`[${typeString(this)}]: Playing shot animation`);
         this.#setAmmo(ammo, map);
-        this.trackShot();
+        this.Camera.track(ammo.getBoundingBox(), this.ClientPlayer.Puppet.getBoundingBox());
     }
 
     get AmmoPool () { return this.#AmmoPool }
     get Lobby () { return this.#Lobby }
-    get ActivePlayer () { return this.#Players.get(this.#ActivePlayerID) }
+    get ClientPlayer () { return this.Players.get(this.#ClientPlayerID) }
+    get ActivePlayer () { return this.Players.get(this.Lobby.ActivePlayerID) }
     get Players () { return this.#Players }
     get Threaded () { return this.#Threaded }
     get Terrain () { return this.#Terrain }
     get Animations () { return this.#Animations }
-    get onload () { return this.#loadPromise }
 }
 
 class BlastImpact {
     #Round;
     #Animations = new AnimationList();
+    #audioContext;
     #blastSFXLayer;
     #blastSFXSource;
     #AudioLayers = new Map();
@@ -523,7 +612,6 @@ class BlastImpact {
         this.#audioContext = audioContext;
         this.#blastSFXLayer = blastSFXLayer;
         this.#blastSFXSource = blastSFXSource;
-        this.#sourceActor = sourceActor;
         this.#terrain = blastInterval.terrain;
         this.#frame = blastInterval.frame;
         this.#time = blastInterval.delay;
@@ -550,6 +638,7 @@ class BlastImpact {
         this.#resolvePayload = {
             frame: this.#frame,
             terrain: this.#terrain,
+            combinedbbox: this.#blastBboxes.length < 2 ? this.#blastBboxes[0] : BoundingBox.merge(this.#blastBboxes),
             bboxes: this.#blastBboxes,
             blasts: this.#blasts,
             animations: this.Animations
@@ -577,7 +666,7 @@ class BlastImpact {
     get isBlastImpact () { return true }
     get isTriggered () { return this.#triggered }
     get Animations () { return this.#Animations }
-    get ontrigger () { this.#triggerPromise.promise }
+    get ontrigger () { return this.#triggerPromise.promise }
     get time () { return this.#time }
 }
 
@@ -621,7 +710,7 @@ function distributePlayers (bbox, players, recursionLimit = 10000) {
     const spacing = (bbox.width / players.length);
     const range = (max - min) / spacing; 
     const spots = new Set()
-    for (const { aimer, mover } of players) {
+    for (const { Aimer, mover } of players) {
         let x;
         let added = false;
         let i = 0;
@@ -635,6 +724,6 @@ function distributePlayers (bbox, players, recursionLimit = 10000) {
             i++;
         }
         if (!added && i >= recursionLimit) throw new Error("Recusion limit reached while distributing players. Is terrain invalid?");
-        aimer.update(players[0].tank.position.add({x: 0, y: bbox.max.y})); // aim straight up and set power to 100% (1)
+        Aimer.update(players[0].Puppet.position.add({x: 0, y: bbox.max.y})); // aim straight up and set power to 100% (1)
     }
 }

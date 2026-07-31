@@ -4,9 +4,9 @@ import { Ray } from "../math/Ray.js";
 import { typeString } from "../utils/logging.js";
 
 export class Mover { // only moves along X axis
-    static #getGroundLevel(x, maxHeight, terrain) {
+    static #getGroundLevel(x, maxHeight, terrainPolygon) {
         const ray = new Ray(new Vector(x, maxHeight), Vector.fromAngle((3 * Math.PI) / 2), maxHeight + 1);
-        const hits = terrain.raycast(ray);
+        const hits = terrainPolygon.raycast(ray);
         if (!hits || !hits.length) return undefined;
         let highest = null;
         const hasExiting = hits.some(({ entering }) => !entering);
@@ -18,12 +18,12 @@ export class Mover { // only moves along X axis
         }
         return highest;
     }
-    static computePosition (position, heightOffset, terrain) {
-        const pts = terrain.edgePoints;
+    static computePosition (position, heightOffset, terrainPolygon) {
+        const pts = terrainPolygon.edgePoints;
         const terrainElevations = pts.map(({y}) => y);
         const terrainHeight = Math.max(...terrainElevations) - Math.min(...terrainElevations);
         const maxHeight = position.y + heightOffset;
-        const hit = Mover.#getGroundLevel(position.x, maxHeight, terrain);
+        const hit = Mover.#getGroundLevel(position.x, maxHeight, terrainPolygon);
         if (!hit) {
             console.warn(`[${this.name}] Warning: No valid terrain found for Y position (from ${maxHeight}) at X ${position.x}`);
         } else {
@@ -31,8 +31,8 @@ export class Mover { // only moves along X axis
         }
         return hit;
     }
+    #Terrain;
     #terrainHash;
-    #terrain;
     #range;
     #terrainHeight;
     #puppet;
@@ -41,13 +41,12 @@ export class Mover { // only moves along X axis
     constructor (puppet, terrain) {
         if (!puppet?.isPuppet) throw new Error(`[${typeString(this)}]: Invalid parameter - expected Puppet, got ${typeString(puppet)}`);
         this.#puppet = puppet;
-        this.#terrain = terrain;
-        this.computeTerrain(true);
+        this.Terrain = terrain;
     }
 
     #applyToPlayer (x, y, angle) { // takes raw terrain normal(angle) and x,y coord, and sets player position and rotation with defined offsets
         const offset = this.#calculateOffset(angle);
-        this.#puppet.position.apply(x, y + offset);
+        this.position.apply(x, y + offset);
         this.#puppet.rotation.body = angle - (Math.PI / 2);
     }
     #calculateOffset (bodyAngle) {
@@ -57,15 +56,15 @@ export class Mover { // only moves along X axis
     #raycastPosition (x, y = undefined) {
         const maxHeight = (y || this.#puppet.position.y)
             + (this.climbHeight * Math.sin(this.#puppet.rotation.body + (Math.PI / 2)));
-        return Mover.#getGroundLevel(x, maxHeight, this.#terrain);
+        return Mover.#getGroundLevel(x, maxHeight, this.Terrain.polygon);
     }
 
     computeTerrain (force = false) {
-        const hash = this.#terrain?.hash;
+        const hash = this.Terrain?.polygon?.hash;
         if (hash === this.#terrainHash && !force) return;
         this.#terrainHash = hash;
-        if (!this.#terrain) return;
-        const pts = this.#terrain.edgePoints;
+        if (!this.Terrain) return;
+        const pts = this.Terrain.polygon.edgePoints;
         this.#range = pts.map((pt) => pt.x).toSorted((a, b) => b - a).at(0); // [!] unsafe math
         const terrainElevations = pts.map(({y}) => y);
         this.#terrainHeight = Math.max(...terrainElevations) - Math.min(...terrainElevations);
@@ -97,5 +96,11 @@ export class Mover { // only moves along X axis
     get isMover () { return true }
     get position () {
         return this.#puppet.position;
+    }
+    get Terrain () { return this.#Terrain }
+    set Terrain (terrain) {
+        this.#Terrain = terrain;
+        this.computeTerrain(true);
+        return terrain;
     }
 }

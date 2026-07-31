@@ -1,5 +1,6 @@
 import { SpriteFrame } from "./SpriteFrame.js";
 import { Vector } from "../math/Vector.js";
+import { LoadImage } from "../load/LoadImage.js";
 
 export class Spritesheet extends LoadImage {
     #frameSize = new Vector();
@@ -21,8 +22,8 @@ export class Spritesheet extends LoadImage {
         }
         this.onload.then(() => {
             this.#dimensions.apply(
-                this.img.width / this.#frameSize.x,
-                this.img.height / this.#frameSize.y
+                this.source.width / this.#frameSize.x,
+                this.source.height / this.#frameSize.y
             ).floor(true);
             this.#length = this.#dimensions.prod();
             // populate frames

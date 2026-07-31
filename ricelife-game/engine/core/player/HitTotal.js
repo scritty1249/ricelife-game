@@ -1,4 +1,5 @@
 import { HitPoints } from "./hitpoints/HitPoints.js";
+import { Vector } from "../math/Vector.js";
 
 // assigned to each player
 export class HitTotal {
@@ -21,14 +22,14 @@ export class HitTotal {
         return rollover;
     }
     push (...layers) {
-        if (layers.some((layer) => !layer?.isHitAmount)) throw new Error(`[${this.constructor.name}]: Layers must be of type HitAmount`);
+        if (layers.some((layer) => !layer?.isHitPoints)) throw new Error(`[${this.constructor.name}]: Layers must be of type HitPoints`);
         this.#layers.push(...layers);
     }
     pop () { 
         return this.#layers.pop();
     }
     insert (index, ...layers) {
-        if (layers.some((layer) => !layer?.isHitAmount)) throw new Error(`[${this.constructor.name}]: Layers must be of type HitAmount`);
+        if (layers.some((layer) => !layer?.isHitPoints)) throw new Error(`[${this.constructor.name}]: Layers must be of type HitPoints`);
         this.#layers.splice(index, 0, ...layers);
     }
     remove (index, deleteCount = 1) {

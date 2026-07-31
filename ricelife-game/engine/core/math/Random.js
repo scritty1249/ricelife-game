@@ -36,7 +36,7 @@ export class Random {
         this.#b = this.#c + (this.#c << 3) | 0;
         this.#c = (this.#c << 21 | this.#c >>> 11);
         this.#c = this.#c + t | 0;
-        return (t >>> 0) / Random.#BASE;
+        return (t >>> 0) / BIT32_SPACE;
     }
 
     get seed () { return [this.#seedA, this.#seedB, this.#seedC, this.#seedD] }

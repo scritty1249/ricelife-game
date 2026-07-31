@@ -2,7 +2,7 @@ import Default from "./Default.js";
 import { Vector } from "../core/math/Vector.js";
 import { Circle } from "../core/geometry/Circle.js";
 import { Blast } from "../core/projectile/Blast.js";
-import { Shot } from "../core/projectile/Shot.js";
+import { Projectile } from "../core/projectile/Projectile.js";
 
 export default class Basic extends Default {
     constructor (origin, angle, power = 1, resolution = 1) {
@@ -14,7 +14,7 @@ export default class Basic extends Default {
         const velocity = Vector.fromAngle(angle).mul(initalSpeed * power);
         // init geometry
         const shape = new Circle(radius, origin);
-        const shot = new Shot(origin, velocity, acceleration, drag, shape);
+        const shot = new Projectile(origin, velocity, acceleration, drag, shape);
         shot.glowColor.apply(glowColor);
         shot.mainColor.apply(mainColor);
         const hitbox = [new Blast(new Circle(blastRadius), 0, 15)];

@@ -12,7 +12,7 @@ export class Lobby {
     // expects parsed JSON object
     static fromObject (lobbyJson) {
         try {
-            return new Lobby(...lobbyJson.players);
+            return new Lobby(lobbyJson);
         } catch (error) {
             console.error(`[${typeString(this)}]: Failed to deocde and parse data\n\t`, lobbyJson);
             throw error;
@@ -24,9 +24,9 @@ export class Lobby {
     #NameRegistry = {}; // immutable
     #ModelTypes = new Set(); // immutable
     #AmmoTypes = new Set(); // mutable
-    #ActivePlayer; // current turn holder
-    constructor (...players) {
-        this.#init(players);
+    #ActivePlayerID; // current turn holder
+    constructor (lobbyJson) {
+        this.#init(lobbyJson);
         this.#lock();
     }
 
@@ -48,8 +48,9 @@ export class Lobby {
             barrel: modelPrefix + "/barrel"
         };
     }
-    #init (players) {
-        this.#populatePlayers(players);
+    #init (lobbyJson) {
+        this.#populatePlayers(Object.values(lobbyJson.players));
+        this.#ActivePlayerID = lobbyJson.activeplayer;
     }
     #populatePlayers (players) {
         try {
@@ -115,7 +116,7 @@ export class Lobby {
         await Promise.all(modelPromises);
         await Promise.all(avatarPromises);
     }
-    generatePlayerActors (clientUserID, assetPool, actorMap) {
+    generatePlayerActors (clientUserID, assetPool, actorMap, terrain = undefined) {
         if (!this.Players.has(clientUserID)) throw new Error(`[${typeString(this)}]: Client UserID ${clientUserID} does not exist`);
         if (!assetPool?.isAssetPool) throw new Error(`[${typeString(this)}]: ${typeString(assetPool)} is not an AssetPool`);
         for (const [ id, player ] of this.Players) {
@@ -133,13 +134,18 @@ export class Lobby {
             const metadata = new Metadata(model, profile, player.data.team);
             const hittotal = HitTotal.fromObject(player.hitpoints);
             const actor = new Actor(metadata, hittotal);
-            if (player.position) {
-                const position = Vector.fromObject(player.position);
-                if (!position.equals(0))
-                    actor.onload.then(() => actor.Mover.apply(position));
-                else
-                    console.warn(`[${typeString(this)}]: Invalid position from object for player ${profile.name} (${id})`);
-            }
+            actor.onload.then(() => {
+                actor.Mover.Terrain = terrain;
+                const invalidMsg = `[${typeString(this)}]: Invalid position from object for player ${profile.name} (${id})`;
+                if (player.position) {
+                    const position = Vector.fromObject(player.position);
+                    if (!(
+                        !position.equals(0)
+                        && actor.Mover.apply(position)
+                    )) console.warn(invalidMsg);
+                } else console.warn(invalidMsg);
+                actor.Aimer.update(actor.Puppet.position.add({x: 0, y: actor.Aimer.radius * 2})); // aim straight up and set power to 100%
+            });
             actorMap.set(id, actor);
         }
     }
@@ -151,4 +157,5 @@ export class Lobby {
     get Avatars () { return this.#Avatars }
     get ModelTypes () { return this.#ModelTypes }
     get NameRegistry () { return this.#NameRegistry }
+    get ActivePlayerID () { return this.#ActivePlayerID }
 }

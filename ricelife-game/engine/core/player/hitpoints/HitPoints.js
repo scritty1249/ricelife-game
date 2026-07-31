@@ -1,5 +1,6 @@
 import { HitBar } from "./HitBar.js";
 import { clamp } from "../../math/utils.js";
+import { typeString } from "../../utils/logging.js";
 
 // parent class for health, shields, etc.
 // final stored value of anything should never be a decimal. Clamp or round instead of throwing error
@@ -8,7 +9,9 @@ export class HitPoints {
     static ROUNDING_FN = Math.floor; // Can be reconfigured by children. (Math.floor | Math.ceil | Math.round | (value) => Integer )
     static fromObject (obj) {
         const { type, increase, decrease, amount, regen, max, reserve } = obj;
-        const other = new HitPoints.TYPES.get(type)(max);
+        if (!HitPoints.TYPES.has(type))
+            throw new Error(`[${typeString(this)}]: Unrecognized Hitpoint type ${type}`);
+        const other = new (HitPoints.TYPES.get(type))(max);
         other.increaseMultiplier = increase;
         other.decreaseMultiplier = decrease;
         other.amount = amount;

@@ -1,4 +1,5 @@
 import { TrackableObject } from "../utils/tracking/TrackableObject.js";
+import { BoundingBox } from "../geometry/BoundingBox.js";
 import { Vector } from "../math/Vector.js";
 import { Hitbox } from "../geometry/Hitbox.js";
 import { clamp } from "../math/utils.js";
@@ -10,6 +11,7 @@ export class Puppet extends TrackableObject {
     #bbox;
     #hitbox;
     constructor (bodyImage, barrelImage, position = new Vector()) {
+        super();
         this.#source = {
             // expects LoadImage objects
             body: bodyImage,
@@ -38,28 +40,17 @@ export class Puppet extends TrackableObject {
         barrelImage.origin.apply(barrelImage.rawSize.x / 2, barrelImage.rawSize.y); // pivot around bottom-center of image
     }
 
-    #drawBarrel (cursor) { // barrel assumed to be pointed UP
-        const { barrel } = this.#source;
-        const position = this.position.add(this.offset.barrel);
-        barrel.draw(cursor, position.x, position.y);
-    }
-    #drawBody (cursor) { // [!] repetitive?
-        const { body } = this.#source;
-        const position = this.position.add(this.offset.body);
-        body.draw(cursor, position.x, position.y);
-    }
-
     #drawPart (cursor, source, offset) {
         const position = this.position.add(offset);
         source.draw(cursor, position.x, position.y);
     }
 
     draw (cursor) {
-        this.#drawBarrel(cursor, this.#source.barrel, this.offest.barrel);
-        this.#drawBarrel(cursor, this.#source.barrel, this.offest.barrel);
+        this.#drawPart(cursor, this.#source.barrel, this.offset.barrel);
+        this.#drawPart(cursor, this.#source.body, this.offset.body);
     }
     getHitbox () {
-        const hash = Vector.hashVectors([Vector.fromAngle(this.rotation.body), this.position]);
+        const hash = Vector.hash([Vector.fromAngle(this.rotation.body), this.position]);
         if (this.#hitboxHash === hash) return this.#hitbox;
         this.#hitboxHash = hash;
         const edges = this.#source.body.getEdges(this.position.x, this.position.y);
@@ -67,7 +58,7 @@ export class Puppet extends TrackableObject {
         return this.#hitbox;
     }
     getBoundingBox () {
-        const hash = Vector.hashVectors([Vector.fromAngle(this.rotation.body), this.position]);
+        const hash = Vector.hash([Vector.fromAngle(this.rotation.body), this.position]);
         if (this.#bboxHash === hash) return this.#bbox;
         this.#bboxHash = hash;
         this.#bbox = BoundingBox.fromHitbox(this.getHitbox());

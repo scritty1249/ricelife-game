@@ -1,4 +1,4 @@
-import { TrackableObject } from "../utils/tracking/TrackableObject.js";
+import { TrackableObject } from "../../utils/tracking/TrackableObject.js";
 import { typeString } from "../../utils/logging.js";
 
 // just a map with some bells + whistles

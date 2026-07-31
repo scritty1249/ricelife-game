@@ -9,9 +9,9 @@ export class Multishot extends TrackableObject {
     #collisionCallback; // <bound to This> ([...{polygon: Polygon, overlap: Path}]) => undefined
     #time = 0; // need to track a global time, seperate from each individal shot
     #blastTimeOffset = 0; // offset time when creating new Blasts
-    #delayTime; // don't start updating stages until this duration has passed
-    #colliders; // list of polygons that stages can collide with
-    #isStarted = false; // trip this flag once we start updating stages, never set again to prevent tracking errors
+    #delayTime; // don't start updating shots until this duration has passed
+    #colliders; // list of polygons that shots can collide with
+    #isStarted = false; // trip this flag once we start updating shots, never set again to prevent tracking errors
     #finishedPromise = Promise.withResolvers();
     #isResolved = false;
     #sfxCallback;
@@ -26,7 +26,7 @@ export class Multishot extends TrackableObject {
     }
 
     #updateStages (seconds) {
-        for (const stage of this.stages)
+        for (const stage of this.shots)
             stage.update(seconds);
     }
 
@@ -49,16 +49,16 @@ export class Multishot extends TrackableObject {
         }
     }
     draw (cursor) {
-        for (const stage of this.stages) stage.draw(cursor); // each stage knows whether to draw itself or not
+        for (const stage of this.shots) stage.draw(cursor); // each stage knows whether to draw itself or not
     }
     drawGlow (cursor) {
-        for (const stage of this.stages) stage.drawGlow(cursor);
+        for (const stage of this.shots) stage.drawGlow(cursor);
     }
     drawBody (cursor) {
-        for (const stage of this.stages) stage.drawBody(cursor);
+        for (const stage of this.shots) stage.drawBody(cursor);
     }
     // delay is amount of time before starting to update the shot
-    newShot (shot, delay = 0) {
+    newStage (shot, delay = 0) {
         const stage = new Shot(shot, delay, this.blasts, this.colliders, this.sfxCallback);
         stage.blastTimeOffset = this.blastTimeOffset;
         stage.launchCallback = this.launchCallback;
@@ -69,32 +69,32 @@ export class Multishot extends TrackableObject {
     // creates a fresh instance with the same ShotStages, callbacks, and delay. References and blast time offset are not copied.
     clone (deep = false, blastsReference = [], collisionsReference = [], sfxCallbackReference = {}) {
         const multishot = new Multishot(this.delay, blastsReference, collisionsReference, sfxCallbackReference);
-        for (const stage of this.stages) {
+        for (const stage of this.shots) {
             const newStage = multishot.newStage(stage.shot.clone(deep), stage.delay);
             newStage.collisionCallback = stage.collisionCallback;
         }
         return multishot;
     }
-    getLegend (decode = true) {
-        return this.stages
-            .map((stage) => stage.getLegend(decode))
-            .map(decode
+    getLegend (encode = true) {
+        return this.shots
+            .map((stage) => stage.getLegend(encode))
+            .map(encode
                 ? ({duration, collisions}) => [duration, collisions]
                 : (legend) => legend);
     }
     setLegend (legend) {
         try {
-            const stages = this.stages;
+            const shots = this.shots;
             for (let i = 0; i < this.size; i++)
-                stages[i].setLegend(legend[i]);
+                shots[i].setLegend(legend[i]);
         } catch (error) {
             console.error(`[${typeString(this)}]: Error parsing legend array`);
             throw error;
         }
     }
     getBoundingBox (merge = true, includeStopped = true, includeFx = false) {
-        const bboxes = (includeStopped ? this.stages : this.stages.filter(({shot}) => !shot.isStopped))
-            .map(({shot}) => shot.getBoundingBox(includeFx));
+        const bboxes = (includeStopped ? this.shots : this.shots.filter(({projectile}) => !projectile.isStopped))
+            .map(({projectile}) => projectile.getBoundingBox(includeFx));
         if (!merge) return bboxes;
         if (!bboxes.length) return new BoundingBox();
         const bbox = bboxes.shift();
@@ -107,11 +107,11 @@ export class Multishot extends TrackableObject {
     get size () { return this.#shots.length }
     get blasts () { return this.#blasts }
     get colliders () { return this.#colliders } 
-    get isFinished () { return this.size === 0 || this.stages.every(({isFinished}) => isFinished) }
+    get isFinished () { return this.size === 0 || this.shots.every(({isFinished}) => isFinished) }
     get isStarted () { return this.#isStarted } // [!] stage tracking- may be redundant
-    get isInsideDisplay () { return this.stages.some(({isInsideDisplay}) => isInsideDisplay) } // [!] will return shot as in-bounds if a display bbox is not set
+    get isInsideDisplay () { return this.shots.some(({isInsideDisplay}) => isInsideDisplay) } // [!] will return shot as in-bounds if a display bbox is not set
     get delay () { return this.#delayTime }
-    get stages () { return this.#shots }
+    get shots () { return this.#shots }
     get onend () { return this.#finishedPromise.promise }
     get time () { return this.#time }
     set time (value) { return (this.#time = value) }
@@ -120,16 +120,16 @@ export class Multishot extends TrackableObject {
     get sfxCallback () { return this.#sfxCallback }
     get launchCallback () { return this.#launchCallback }
     set launchCallback (callbackFn) {
-        for (const stage of this.stages)
+        for (const stage of this.shots)
             stage.launchCallback = callbackFn;
         return (this.#launchCallback = callbackFn);
     }
     get displayBoundingBox () { return this.#displayBoundingBox }
     set displayBoundingBox (bbox) {
-        for (const stage of this.stages)
+        for (const stage of this.shots)
             stage.displayBoundingBox = bbox;
         return (this.#displayBoundingBox = bbox);
     }
-    set applyDestruction (value) { this.stages.forEach((stage) => stage.applyDestruction = value); return value }
-    get tracer () { return this.stages.map(({tracer}) => tracer) }
+    set applyDestruction (value) { this.shots.forEach((stage) => stage.applyDestruction = value); return value }
+    get tracer () { return this.shots.map(({tracer}) => tracer) }
 }

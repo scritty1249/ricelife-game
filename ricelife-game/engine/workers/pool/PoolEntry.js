@@ -1,4 +1,4 @@
-import { TrackableObject } from "/engine/core/utils/tracking/TrackableObject.js";
+import { TrackableObject } from "../../core/utils/tracking/TrackableObject.js";
 
 export class PoolEntry extends TrackableObject {
     #instance;
@@ -12,6 +12,7 @@ export class PoolEntry extends TrackableObject {
     //  pool manager needs to make sure this mirrors worker state while avoiding polling/querying
     #cache = new Set();
     #jobs = new Set();
+    #wait = false; // hold workers involved in multi-step tasks. These entries should not be returned from the queue of available workers
     constructor (workerSrc, workerParams = {}) {
         super();
         const src = new URL(workerSrc);
@@ -38,8 +39,15 @@ export class PoolEntry extends TrackableObject {
         this.#state.resolve();
         this.#regeneratePromise();
     }
+    hold () {
+        this.#wait = true;
+    }
+    release () {
+        this.#wait = false;
+    }
 
     get isPoolEntry () { return true }
+    get isWaiting () { return this.#wait }
     get instance () { return this.#instance }
     get cache () { return this.#cache }
     get jobs () { return this.#jobs }

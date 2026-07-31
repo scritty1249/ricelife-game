@@ -1,7 +1,7 @@
-import { isAwaiting, isThenable } from "/engine/workers/pool/utils.js";
+import { isAwaiting, isThenable } from "./utils.js";
 
 // Chainable Transaction that does not expose resolve() and reject()
-export class WorkerJob {
+export class Job {
     #chained;
     #promise;
     #link;

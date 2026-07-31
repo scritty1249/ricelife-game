@@ -37,8 +37,11 @@ export class Loop extends TrackableObject {
             requestAnimationFrame(() => this.loop());
     }
     async tick (delta) {}
-    async loadAsset (key, ...args) {
-        this.AssetPool.add(key, args?.length ? args : this.AssetTable[key]);
+    async loadAsset (key) {
+        const { AssetTable } = this;
+        if (!(key in AssetTable))
+            throw new Error(`[${typeString(this)}]: "${key}" does not exist in local AssetTable`);
+        this.AssetPool.add(key, AssetTable[key]);
         return await this.AssetPool.onready(key);
     }
     stop () {

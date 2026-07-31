@@ -1,6 +1,7 @@
 import { Aimer } from "./Aimer.js";
 import { Mover } from "./Mover.js";
 import { Puppet } from "./Puppet.js";
+import { Properties } from "../projectile/collision/Properties.js";
 import { Metadata } from "./Metadata.js";
 import { HitTotal } from "./HitTotal.js";
 import { Loadable } from "../load/Loadable.js";
@@ -22,7 +23,9 @@ export class Actor extends Loadable {
         this.#HitTotal = hittotal;
         this.#saveStyling();
         this.onload.then(() => {
-            this.#Puppet = new Puppet(this.Metadata.Model.body, this.Metadata.Model.barrel);
+            const { Model } = this.Metadata;
+            this.#resizeModel(50);
+            this.#Puppet = new Puppet(Model.body, Model.barrel);
             this.#Aimer = new Aimer(this.Puppet, this.Puppet.width * 3);
             this.#Mover = new Mover(this.Puppet);
             this.Mover.offsetY = -(this.Puppet.offset.body.y / 10);
@@ -34,13 +37,16 @@ export class Actor extends Loadable {
         const styling = this.#originalStyling;
         styling.barOffset = this.HitTotal.barOffset.clone();
     }
+    #resizeModel (width) {
+        const { Model } = this.Metadata;
+        Model.body.width = 50;
+        Model.barrel.scale.apply(Model.body.scale);
+    }
 
     applyStyling (cursor) {
         if (!cursor?.isCanvas2DContextCursor) return;
         const original = this.#originalStyling;
         const { Profile, Model } = this.Metadata;
-        Model.body.width = 50;
-        Model.barrel.scale.apply(Model.body.scale);
         Profile.fontSize = 18;
         const nameWidth = Profile.getNameWidth(cursor);
         const profileLinePadding = 5;
@@ -91,7 +97,7 @@ export class Actor extends Loadable {
         const { relativePosition, barrelPosition } = this.Puppet;
         const { Aimer } = this;
         const barrelPath = new Ray(relativePosition, barrelPosition);
-        const hit = terrain.raycast(barrelPath)
+        const hit = terrain.polygon.raycast(barrelPath)
             .sort((a, b) =>
                 a.distance(relativePosition) - b.distance(relativePosition))
             .at(0);

@@ -8,7 +8,7 @@ export class InputListener { // wrapper for K&M input
         clickThresholdMs,
         pointerCallbacks
     ) {
-        this.#keyboard = new KeyboardListener(window, keyCodeMap);
+        this.#keyboard = new KeyboardListener(window);
         this.#pointer = new PointerListener(appCanvas, clickThresholdMs, pointerCallbacks);
         this.pointer.onleave = this.resetState;
     }

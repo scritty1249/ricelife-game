@@ -4,8 +4,9 @@ import { Circle } from "../geometry/Circle.js";
 import { Triangle } from "../geometry/Triangle.js";
 import { clamp, equals } from "../math/utils.js";
 import { typeString } from "../utils/logging.js";
+import { TrackableObject } from "../utils/tracking/TrackableObject.js";
 
-export class Aimer { // takes control of rotation for a Tank barrel
+export class Aimer extends TrackableObject { // takes control of rotation for a Tank barrel
     static DEFAULT = {
         circleColor: new Color(255, 255, 255, .025),
         beamColor: new Color(255, 255, 255, .05),
@@ -20,6 +21,7 @@ export class Aimer { // takes control of rotation for a Tank barrel
     #display;
     enabled = true; // disables pointer events if unset
     constructor (puppet, radius, circleColor, beamColor, coneColor) {
+        super();
         if (!puppet?.isPuppet) throw new Error(`[${typeString(this)}]: Expected Puppet, got ${typeString(puppet)}`);
         this.#puppet = puppet;
         this.#radius = radius;

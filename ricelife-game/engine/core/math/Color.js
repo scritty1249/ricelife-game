@@ -1,4 +1,4 @@
-import { equals } from "./utils.js";
+import { equals, clamp } from "./utils.js";
 import { typeString } from "../utils/logging.js";
 
 // [!] Color implementation will remain standalone, as a 2D game should never otherwise need 4D vectors.

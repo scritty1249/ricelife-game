@@ -2,6 +2,8 @@ import { Shape } from "./Shape.js";
 import { Vector } from "../math/Vector.js";
 import { Path } from "../math/Path.js";
 import { Polygon } from "./Polygon.js";
+import { equals } from "../math/utils.js";
+import { Transform } from "./Transform.js";
 
 export class Circle extends Shape {
     static get TYPE () { return 0 }
@@ -171,7 +173,7 @@ export class Circle extends Shape {
     getBoundingBox () {
         const bbox = super.getBoundingBox();
         const { origin, radii } = this.blob;
-        const hash = Vector.hashVectors([origin, radii]);
+        const hash = Vector.hash([origin, radii]);
         if (this.#lastBboxHash === hash) return bbox;
         this.#lastBboxHash = hash;
         bbox.min.apply(origin.sub(radii));
@@ -179,7 +181,7 @@ export class Circle extends Shape {
         return bbox;
     }
     get isCircle () { return true }
-    get isEllipse () { return !floatEqual(this.blob.radii.modulo(), 0) }
+    get isEllipse () { return !equals(this.blob.radii.modulo(), 0) }
     get radii () { return this.blob.radii }
     set radius (value) { // convenience
         this.transform.save();

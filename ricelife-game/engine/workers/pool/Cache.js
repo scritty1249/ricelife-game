@@ -1,10 +1,10 @@
-import { Canvas2DContextCursor } from "/engine/core/controller/display/Canvas2DContextCursor.js";
-import { Polygon } from "/engine/core/geometry/Polygon.js";
-import { Shape } from "/engine/core/geometry/Shape.js";
-import { Vector } from "/engine/core/math/Vector.js";
-import { Terrain } from "/engine/core/geometry/Terrain.js";
-import { typeString } from "/engine/core/utils/logging.js";
-import { TrackableObject } from "/engine/core/utils/tracking/TrackableObject.js";
+import { Canvas2DContextCursor } from "../../core/controller/display/Canvas2DContextCursor.js";
+import { Polygon } from "../../core/geometry/Polygon.js";
+import { Shape } from "../../core/geometry/Shape.js";
+import { Vector } from "../../core/math/Vector.js";
+import { Terrain } from "../../core/geometry/Terrain.js";
+import { typeString, objectString } from "../../core/utils/logging.js";
+import { TrackableObject } from "../../core/utils/tracking/TrackableObject.js";
 
 // [!] we break the project formatting rules here for efficiency. Multiple classes in one file shrinks the number of lookups each worker
 //  has to do, but increases overhead (potential bloat) as a tradeoff. -KT
@@ -12,8 +12,13 @@ export class Cache extends TrackableObject {
     static TYPES = new Map();
     // unpacks a cache that was sent from another thread
     static decode (cacheObj) {
-        const { id, type, payload } = cacheObj;
-        return this.TYPES.get(type).decode(id, payload);
+        try {
+            const { id, type, payload } = cacheObj;
+            return this.TYPES.get(type).decode(id, payload);
+        } catch (err) {
+            console.error(`[${typeString(this)}]: Failed to decode cache\n\t${objectString(cacheObj)}`);
+            throw err;
+        }
     }
     // creates a "reference" (empty cache with specifications)
     constructor (id) { super(id) }
@@ -56,7 +61,7 @@ export class CanvasCache extends Cache {
     }
 
     async encode (clone = false) {
-        const encoded = super.encode();
+        const encoded = await super.encode();
         const { width, height } = this.canvas;
         encoded.payload = { width, height };
         if (this.isFilled) {
@@ -64,6 +69,7 @@ export class CanvasCache extends Cache {
                 ? await createImageBitmap(this.canvas)
                 : this.canvas.transferToImageBitmap();
             encoded.buffers.push(img);
+            encoded.payload.img = img;
         }
         return encoded;
     }
@@ -72,7 +78,7 @@ export class CanvasCache extends Cache {
     get isFilled () { return this.#isFilled }
     get canvas () { return this.#canvas }
     get cursor () {
-        this.#isFilled = true;
+        this.#isFilled = this.canvas.width > 0 && this.canvas.height > 0;
         return this.#cursor;
     }
     get hash () { return this.cursor.hash }
@@ -91,7 +97,7 @@ export class PolygonCache extends Cache {
     }
 
     async encode () {
-        const encoded = super.encode();
+        const encoded = await super.encode();
         const { polygon } = this;
         encoded.payload = polygon.Float32(polygon.depth);
         encoded.buffers.push(...encoded.payload.buffers);
@@ -126,7 +132,7 @@ export class ShapeCache extends Cache {
     }
 
     async encode () {
-        const encoded = super.encode();
+        const encoded = await super.encode();
         const { shape } = this;
         encoded.payload = shape.encode();
         encoded.buffers.push(...encoded.payload.buffers);
@@ -158,6 +164,14 @@ export class TerrainCache extends Cache {
     constructor (terrain, id = null) {
         super(id);
         this.fill(terrain);
+    }
+
+    async encode () {
+        const encoded = await super.encode();
+        const { terrain } = this;
+        encoded.payload = terrain.Float32();
+        encoded.buffers.push(...encoded.payload.buffers);
+        return encoded;
     }
     fill (terrain) {
         super.fill();

@@ -67,7 +67,7 @@ export function traceAmmo (
         terrainHash = updatedTerrainHash;
     }
     result.legend = ammo.getLegend();
-    result.blasts = ammo.blasts.map((blast) => blast.decode());
+    result.blasts = ammo.blasts.map((blast) => blast.encode());
     for (const poly of destructiblePolys) {
         const count = originalHoleCounts.get(poly.id);
         poly.holes.splice(count, poly.holes.length - count);
@@ -80,7 +80,7 @@ export function sortBlastIntervals (blasts = []) {
     // group blasts that occur at the same time
     const uniq = [];
     const blastIntervals = Array.from(Map.groupBy(blasts, ({delay}) => {
-        const value = uniq.find((key) => floatEqual(key, delay))
+        const value = uniq.find((key) => equals(key, delay))
         if (value !== undefined) return value;
         uniq.push(delay);
         return delay;

@@ -1,4 +1,4 @@
-import { Menu, Vector, zip } from "../../core/Core.js";
+import { Menu, Vector, zip, clamp } from "../../core/Core.js";
 import { AmmoTypeButton } from "../selections/AmmoTypeButton.js";
 import { AmmoTypeDetails } from "../selections/AmmoTypeDetails.js";
 
@@ -87,6 +87,7 @@ export class AmmoSelect extends Menu {
             lastDrawn: position.clone(),
             lastActive: position.clone()
         };
+        this.store.layout = {};
         this.flags.followPointer = false;
         this.flags.trackActive = false;
         this.flags.focalUpdated = false;

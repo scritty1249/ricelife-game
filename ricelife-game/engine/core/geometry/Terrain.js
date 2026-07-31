@@ -6,16 +6,16 @@ export class Terrain {
     static MAX_HOLE_DEPTH = 3;
     static fromObject (obj) {
         const { polygon, fill, edge, gradient, resolution, depth } = obj;
-        const terrain = new Terrain(polygon, depth);
-        terrain.fillColor.apply(fill);
-        terrain.edgeColor.apply(edge);
-        terrain.gradientWidth = gradient;
-        terrain.resolution = resolution;
+        const terrain = new Terrain(polygon);
+        if (fill) terrain.fillColor.apply(fill);
+        if (edge) terrain.edgeColor.apply(edge);
+        if (Number.isFinite(gradient)) terrain.gradientWidth = gradient;
+        if (Number.isFinite(resolution)) terrain.resolution = resolution;
         return terrain;
     }
     #polygon;
-    #fillColor = new Color();
-    #edgeColor = new Color();
+    #fillColor = new Color(0, 0, 0, 1);
+    #edgeColor = new Color(255, 255, 255, 1);
     gradientWidth = 75;
     resolution = 15;
     // options can fil the properties: fillColor, edgeColor, gradientWidth, resolution
@@ -24,7 +24,7 @@ export class Terrain {
     }
 
     #applyOptions (options) {
-        if (!options) returnl
+        if (!options) return;
         if ("fillColor" in options) this.fillColor.apply(options.fillColor);
         if ("edgeColor" in options) this.edgeColor.apply(options.edgeColor);
         if ("gradientWidth" in options) this.gradientWidth = options.gradientWidth;
@@ -72,7 +72,8 @@ export class Terrain {
             fill: this.fillColor.toJSON(),
             edge: this.edgeColor.toJSON(),
             gradient: this.gradientWidth,
-            resolution: this.resolution
+            resolution: this.resolution,
+            buffers: polygon.buffers
         }
     }
     apply (data, options = undefined, clone = false) {
@@ -81,7 +82,7 @@ export class Terrain {
             this.#applyOptions(data);
         } else if (data?.isPolygon) {
             this.#polygon = clone ? data.clone(true) : data;
-        } else {
+        } else if (data) {
             this.#polygon = Polygon.fromObject(data, data?.depth || Terrain.MAX_HOLE_DEPTH);
         }
         if (this.polygon?.isPolygon)

@@ -18,6 +18,7 @@ export class Menu extends Loop {
     #Area = new BoundingBox(); // Menu equivalent for Phase.Plane
     constructor (phase, drawBackgroundCallback = undefined) {
         super(phase.Global.Audio.Context);
+        this.#Parent = phase;
         this.#drawBackgroundCallback = drawBackgroundCallback;
         this.onload.then(() => this.#initAfterLoad());
     }
@@ -37,7 +38,7 @@ export class Menu extends Loop {
     async loadAsset () {}
     onResize = () => {}
     init () {
-        this.store.underButton = new ScreenButton(this.Parent.Display);
+        this.store.underButton = new ScreenButton(this.Parent.Global.Display);
         this.flags.INVERT_TRACKING = true;
         this.InterfaceLayers.under = this.Interface.insert();
         this.InterfaceLayers.under.push(this.store.underButton);

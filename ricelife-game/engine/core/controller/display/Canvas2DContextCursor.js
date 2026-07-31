@@ -138,7 +138,7 @@ class Canvas2DContextCursorProto {
     }
     get hash () {
         // pixels should be a Uint8ClampedArray
-        const pixels = this.#ctx.getImageData(0, 0, this.#size.x, this.#size.y)?.data;
+        const pixels = this.#ctx.getImageData(0, 0, this.#ctx.canvas.width, this.#ctx.canvas.height)?.data;
         let hash = 0;
         for (const val of pixels)
             hash = (hash * 31 + val) | 0; // 32-bit range

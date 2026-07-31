@@ -1,5 +1,5 @@
-import { Color } from "../math/Color.js";
-import { Vector } from "../math/Vector.js";
+import { Color } from "../../math/Color.js";
+import { Vector } from "../../math/Vector.js";
 import { typeString } from "../../utils/logging.js";
 import { equals } from "../../math/utils.js";
 

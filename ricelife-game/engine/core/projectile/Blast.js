@@ -24,8 +24,8 @@ export class Blast { // only intended to record information, properties should b
             radius: this.radius
         }
     }
-    decode () {
-        const decoded = this.shape.decode();
+    encode () {
+        const decoded = this.shape.encode();
         return {
             delay: this.delay,
             shape: decoded,

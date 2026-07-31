@@ -16,6 +16,7 @@ export class Phase extends Loop {
         super(mainController.Audio.Context);
         this.#Global = mainController;
         this.#Camera = new Camera(this.Global.Display);
+        this.Interface.Viewbox = this.Camera.Viewbox;
         this.onload.then(() => {
             this.Camera.Viewbox.setPlane(this.Plane);
         });
@@ -51,6 +52,14 @@ export class Phase extends Loop {
         else
             await this.ontick?.(delta);
     }
+    async loadGlobalAsset (key) {
+        const { AssetTable } = this.Global;
+        if (!(key in AssetTable))
+            throw new Error(`[${typeString(this)}]: "${key}" does not exist in global AssetTable`);
+        this.AssetPool.add(key, AssetTable[key]);
+        return await this.AssetPool.onready(key);
+    }
+
     get isPhase () { return true }
     get Global () { return this.#Global }
     get Interface () { return this.#Interface }

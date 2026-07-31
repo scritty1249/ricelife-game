@@ -15,8 +15,8 @@ export class ShapeButton extends Button {
     }
 
     drawButton (cursor, fixed = false) {
-        const hasFill = !floatEqual(this.fillColor.a, 0);
-        const hasStroke = !floatEqual(this.strokeColor.a, 0);
+        const hasFill = !equals(this.fillColor.a, 0);
+        const hasStroke = !equals(this.strokeColor.a, 0);
         cursor.save();
         cursor.fixed = fixed;
         if (hasFill) cursor.fillStyle = this.fillColor.toString();

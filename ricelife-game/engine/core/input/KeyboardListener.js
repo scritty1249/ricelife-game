@@ -16,7 +16,7 @@ export class KeyboardListener {
     #keyUpListener = (event) => this.#setKeyState(event, false)
     #setKeyState (event, keyDown) {
         if (this.enabled) {
-            this.#rawKeys[event.code] = keyDown;
+            this.#keys[event.code] = keyDown;
             this.#events.raiseEvent(this.#generateEvent(event.code, keyDown));
             this.#events.raiseEvent(this.#generateEvent("_", keyDown));
             event?.preventDefault?.();

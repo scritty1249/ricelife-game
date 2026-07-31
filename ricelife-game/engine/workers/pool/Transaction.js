@@ -1,6 +1,6 @@
-import { TrackableObject } from "/engine/core/utils/tracking/TrackableObject.js";
-import { isAwaiting } from "/engine/workers/pool/utils.js";
-import { Job } from "/engine/workers/pool/Job.js";
+import { TrackableObject } from "../../core/utils/tracking/TrackableObject.js";
+import { isAwaiting } from "./utils.js";
+import { Job } from "./Job.js";
 
 export class Transaction extends TrackableObject {
     #promise;

@@ -164,11 +164,11 @@ export class AmmoTypeButton extends ShapeButton {
     }
 
     get isAmmoTypeButton () { return true }
-    get isLayoutSet () { return
+    get isLayoutSet () { return (
         this.#layout.totalSpace?.isVector
         && this.#layout.halfSpace?.isVector
         && Number.isFinite(this.#layout.rowSkew)
-        && Number.isFinite(this.#layout.maxDistance)
+        && Number.isFinite(this.#layout.maxDistance))
     }
     get typeDetails () { return this.#typeDetails }
     set typeDetails (typeDetails) {

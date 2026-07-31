@@ -10,6 +10,7 @@ export class Model extends Loadable {
     #ready = false;
     // parameters should be passed in by reference
     constructor (type, body, barrel) {
+        super();
         this.#type = type;
         this.#body = body.clone(false);
         this.#barrel = barrel.clone(false);

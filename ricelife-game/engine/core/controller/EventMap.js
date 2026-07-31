@@ -16,7 +16,7 @@ export class EventMap {
         const oldSize = this.#events[event].size;
         this.#events[event].set(callback,
             {
-                ...EventController.#DEFAULT_EVENT_OPTIONS,
+                ...EventMap.#DEFAULT_EVENT_OPTIONS,
                 ...(typeof options === "object" ? options : {})
             });
         if (oldSize !== this.#events[event].size) this.#size++;

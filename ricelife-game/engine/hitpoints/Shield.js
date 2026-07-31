@@ -55,3 +55,4 @@ export class Shield extends HitPoints {
 }
 
 HitPoints.TYPES.set(Shield.name, Shield);
+console.debug(`HP type registered: ${Shield.name}`);

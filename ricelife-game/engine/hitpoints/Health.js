@@ -54,3 +54,4 @@ export class Health extends HitPoints {
 }
 
 HitPoints.TYPES.set(Health.name, Health);
+console.debug(`HP type registered: ${Health.name}`);

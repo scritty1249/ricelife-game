@@ -1,6 +1,6 @@
 import { BoundingBox } from "../../geometry/BoundingBox.js";
 import { Vector } from "../../math/Vector.js";
-import { typeString } from "../utils/logging.js";
+import { typeString } from "../../utils/logging.js";
 
 // virtual coordinate space viewport window
 export class Viewbox extends BoundingBox {
@@ -25,13 +25,19 @@ export class Viewbox extends BoundingBox {
     }
 
     #clampChange (newSize, newMin) {
-        const limit = this.planeSize.sub(newSize);
-        const maxX = this.bounding.right ? Math.min(newMin.x, limit.x) : newMin.x;
-        const minX = this.bounding.left ? 0 : maxX;
-        const maxY = this.bounding.top ? Math.min(newMin.y, limit.y) : newMin.y;
-        const minY = this.bounding.bottom ? 0 : maxY;
-        const x = Math.max(minX, maxX);
-        const y = Math.max(minY, maxY);
+        let x, y;
+        if (this.planeSize.lengthSquared) {
+            const limit = this.planeSize.sub(newSize);
+            const maxX = this.bounding.right ? Math.min(newMin.x, limit.x) : newMin.x;
+            const minX = this.bounding.left ? 0 : maxX;
+            const maxY = this.bounding.top ? Math.min(newMin.y, limit.y) : newMin.y;
+            const minY = this.bounding.bottom ? 0 : maxY;
+            x = Math.max(minX, maxX);
+            y = Math.max(minY, maxY);
+        } else {
+            x = newMin.x;
+            y = newMin.y;
+        }
         this.max.apply(this.min.apply(x, y)).add(newSize, true);
     }
 
@@ -72,8 +78,10 @@ export class Viewbox extends BoundingBox {
         const max = this.max.sub(offset).mul(scale, true).add(offset, true);
         const size = max.sub(min).abs(true);
         const aspect = size.quot();
-        if (!this.#canvas.isPortrait && size.x > planeSize.x) size.apply(planeSize.x, planeSize.x / aspect);
-        if (!this.#canvas.isLandscape && size.y > planeSize.y) size.apply(planeSize.y * aspect, planeSize.y);
+        if (planeSize.lengthSquared) {
+            if (!this.#canvas.isPortrait && size.x > planeSize.x) size.apply(planeSize.x, planeSize.x / aspect);
+            if (!this.#canvas.isLandscape && size.y > planeSize.y) size.apply(planeSize.y * aspect, planeSize.y);
+        }
         if (this.size.eq(size)) return this;
         this.#clampChange(size, min);
         return this; // for chaining
@@ -100,9 +108,11 @@ export class Viewbox extends BoundingBox {
     // expects bounding box
     setPlane (plane) {
         const { size } = plane;
-        this.min.apply(0, 0);
-        this.max.apply(size);
         this.planeSize.apply(size);
+        if (!this.extent) {
+            this.min.apply(0, 0);
+            this.max.apply(size);
+        }
     }
 
     get isViewbox () { return true }

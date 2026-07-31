@@ -8,7 +8,7 @@ import { typeString } from "../utils/logging.js";
 import { Properties } from "./collision/Properties.js";
 import { getSegmentCollision } from "./collision/utils.js";
 
-// Projectile that supports multiple stages. Only supports ONE projectile at a time
+// A stage of a projectile's lifetime
 export class Shot extends TrackableObject {
     static getCircleCollision (position, projection, colliders = []) {
         if (!colliders?.length) return;
@@ -77,7 +77,7 @@ export class Shot extends TrackableObject {
     #applyDestruction = false; // push new blasts to collider polygon holes
     #blastTimeOffset = 0; // offset time when creating new Blasts
     #finishedPromise = Promise.withResolvers();
-    #legend; // when set, ShotStage will skip all collision checks and follow based on this
+    #legend; // when set, Shot will skip all collision checks and follow based on this
     #record = { // records data to be exported
         collisions: [],
         duration: 0
@@ -89,8 +89,8 @@ export class Shot extends TrackableObject {
     #displayBoundingBox; // optimization- when set, will only draw projectile if bounding box intersects with it
     userData = {};
     constructor (projectile, delay = 0, blastsReference = [], collisionsReference = [], sfxCallbackReference = {}) {
-        if (!projectile?.isProjectile) throw new Error(`[${typeString(this)}]: Invalid parameter - expected Projectile, got ${typeof projectile}`);
         super();
+        if (!projectile?.isProjectile) throw new Error(`[${typeString(this)}]: Invalid parameter - expected Projectile, got ${typeof projectile}`);
         this.#projectile = projectile;
         this.#delayTime = delay;
         this.#blasts = blastsReference; // by reference
@@ -107,7 +107,7 @@ export class Shot extends TrackableObject {
         let collision;
         if (nearbyColliders.length) {
             if (projectile.shape.isCircle && !projectile.shape.isEllipse)
-                collision = ShotStage.getCircleCollision(projectile.position, projection, colliders);
+                collision = Shot.getCircleCollision(projectile.position, projection, colliders);
             else
                 throw new Error(`[${typeString(this)}]: Cannot compute collision for non-Circle projectile shape`);
         }
@@ -213,8 +213,8 @@ export class Shot extends TrackableObject {
     }
     applyBlast (blast) {
         const hitbox = blast.clone(true);
-        hitbox.shape.transformation.offset.add(this.projectile.position, true);
-        hitbox.shape.applyTransformation();
+        hitbox.shape.transform.offset.add(this.projectile.position, true);
+        hitbox.shape.applyTransform();
         hitbox.delay += this.time + this.blastTimeOffset;
         this.blasts.push(hitbox);
         if (this.applyDestruction) {
@@ -279,12 +279,12 @@ export class Shot extends TrackableObject {
     // creates a fresh instance with the same Projectile, delay and collision callback
     // References, userData, update callback, launch callback, and blast time offset are not copied.
     clone (deep = false, blastsReference = [], collisionsReference = []) {
-        const stage = new ShotStage(this.projectile.clone(deep), this.delay, blastsReference, collisionsReference);
+        const stage = new Shot(this.projectile.clone(deep), this.delay, blastsReference, collisionsReference);
         stage.collisionCallback = this.collisionCallback;
         return stage;
     }
 
-    get isShotStage () { return true }
+    get isShot () { return true }
     get isFinished () { return this.#isFinished }
     get isStarted () { return this.#isStarted } // [!] stage tracking- may be redundant
     get isTracing () { return this.#legend === undefined }

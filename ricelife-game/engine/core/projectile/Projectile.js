@@ -1,4 +1,4 @@
-import { Color } from "../math/Path.js";
+import { Color } from "../math/Color.js";
 import { equals } from "../math/utils.js";
 import { PhysicsObject } from "./PhysicsObject.js";
 
@@ -52,11 +52,11 @@ export class Projectile extends PhysicsObject {
         for (let i = 0; i < this.tail.length; i++) {
             const tail = this.tail[i];
             const scale = minScale + (i / this.tail.length);
-            tail.transformation.save();
-            tail.transformation.reset();
-            tail.transformation.scale.apply(equals(scale, 0) ? 0 : 1 / scale);
-            tail.applyTransformation();
-            tail.transformation.restore();
+            tail.transform.save();
+            tail.transform.reset();
+            tail.transform.scale.apply(equals(scale, 0) ? 0 : 1 / scale);
+            tail.applyTransform();
+            tail.transform.restore();
         }
         this.tail.push(this.shape.clone(true));
         if (this.tail.length >= this.tailLength) this.tail.shift();
@@ -64,11 +64,11 @@ export class Projectile extends PhysicsObject {
         for (let i = 0; i < this.tail.length; i++) {
             const tail = this.tail[i];
             const scale = minScale + (i / this.tail.length);
-            tail.transformation.save();
-            tail.transformation.reset();
-            tail.transformation.scale.apply(scale);
-            tail.applyTransformation();
-            tail.transformation.restore();
+            tail.transform.save();
+            tail.transform.reset();
+            tail.transform.scale.apply(scale);
+            tail.applyTransform();
+            tail.transform.restore();
         }
     }
 

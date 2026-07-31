@@ -1,9 +1,11 @@
 import { Polygon } from "/engine/core/geometry/Polygon.js";
+import { Terrain } from "/engine/core/geometry/Terrain.js";
 import { Color } from "/engine/core/math/Color.js";
 import { Vector } from "/engine/core/math/Vector.js";
 import { Properties } from "/engine/core/projectile/collision/Properties.js";
 import { traceAmmo } from "/engine/core/projectile/utils.js";
-import { Cache, TerrainCache } from "/engine/workers/pool/CacheType.js";
+import { Cache, TerrainCache } from "/engine/workers/pool/Cache.js";
+import { AmmoPool } from "/engine/core/load/pool/AmmoPool.js";
 
 const _queryString = self.location.search;
 const _urlParams = new URLSearchParams(_queryString);
@@ -13,7 +15,7 @@ const CACHE = {};
 const CHANNELS = {};
 const TRANSACTIONS = {};
 const CONSOLE_PREFIX = `[WebWorker] (${ID})`;
-const AMMO_TYPES = new AmmoPool(new URL('.', import.meta.url).pathname + "/engine/ammo-types");
+const AMMO_TYPES = new AmmoPool("/engine/ammotypes");
 
 function postSuccess (id) { postResponse(id) }
 
@@ -39,7 +41,7 @@ function currentState () {
     return {cache: Object.keys(CACHE)};
 }
 
-function createCache (data) { // create new from encoded cahe
+function createCache (data) { // create new from encoded cache
     const { id, type } = data;
     if (Cache.TYPES.has(type)) {
         if (id in CACHE) {
@@ -91,7 +93,8 @@ self.onmessage = async (e) => {
         payload
     } = e.data;
     try {
-        if (LOG_LEVEL >= 2) console.debug(`${CONSOLE_PREFIX}: Transaction ${id} receieved from parent\n\t${command ? command : type}: `,  payload);
+        if ((command !== "ADDWKR" && LOG_LEVEL >= 2) || (command === "ADDWKR" && LOG_LEVEL >= 4))
+            console.debug(`${CONSOLE_PREFIX}: Transaction ${id} receieved from parent\n\t${command ? command : type}: `,  payload);
         if (command) {
             processManagerCommand(command, id, payload);
         } else if (type === "TRACEAMMO") {
@@ -99,7 +102,7 @@ self.onmessage = async (e) => {
              * {
              *    ammo: String,
              *    params: Array,
-             *    terrain: Terrain32 || UUID, // encoded terrain
+             *    terrain: Terrain32 | UUID, // encoded terrain
              *    collisions: [...Polygon32 | UUID], // at least one of these must have userData.collision flag set to Properties.Collision.TERRAIN
              *    increment: Number,
              *    limit: Number
@@ -108,12 +111,13 @@ self.onmessage = async (e) => {
             const { ammo, collisions, params, increment, limit, terrain } = payload;
             if (!AMMO_TYPES.has(ammo)) AMMO_TYPES.add(ammo);
             const terrainCollider = typeof terrain === "string"
-                ? getCache(target).terrain
+                ? getCache(terrain).terrain
                 : Terrain.fromObject(terrain);
             const colliders = collisions.map((target) =>
                 typeof target === "string"
-                    ? getCache(target).data?.poly
-                    : Polygon.fromObject(target, target.depth));
+                    ? getCache(target).polygon
+                    : Polygon.fromObject(target, target.depth)
+            );
             const result = traceAmmo((await AMMO_TYPES.onready(ammo)), params, increment, limit, terrainCollider, colliders);
             if (!result.finished) console.debug(`${CONSOLE_PREFIX}: Trace operation timed out in Transaction ${id}`);
             postResponse(id, result);
@@ -156,12 +160,12 @@ self.onmessage = async (e) => {
              *    terrain: Terrain32 | UUID,
              * }
              */
-            const { canvas, cursor } = CACHE[payload.canvas]?.data;
+            const { canvas, cursor } = getCache(payload.canvas);
             const isUuid = typeof payload.terrain === "string";
             const terrain = isUuid
                 ? getCache(payload.terrain).terrain
                 : Terrain.fromObject(payload.terrain);
-            cursor.clear();
+            cursor.clear();            
             terrain.draw(cursor);
             postSuccess(id);
         } else {
@@ -202,8 +206,9 @@ async function processManagerCommand (command, id, payload) {
             *   cache: Cache, // encoded
             * }
             */
-            if (createCache(payload)) postSuccess(id);
-            else postFailure(id, new Error(`[WebWorker]  (${ID}): Failed to initalize ${type} cache "${cache}"`));
+            const { cache } = payload;
+            if (createCache(cache)) postSuccess(id);
+            else postFailure(id, new Error(`[WebWorker]  (${ID}): Failed to initalize cache "${cache?.id}"`));
         } else if (command === "FILLCACHE") {
            /* Payload expected:
             * {
@@ -266,3 +271,4 @@ async function processManagerCommand (command, id, payload) {
 
 // signal READY to porent
 self.postMessage({type: "READY"});
+if (LOG_LEVEL >= 4) console.debug(`${CONSOLE_PREFIX}: Ready`);
