@@ -29,7 +29,7 @@ export class Phase extends Loop {
         for (const menu of this.Menus.values()) {
             menu.Events.addEventListener("OPEN", () => {
                 if (!this.hasOpenMenu)
-                    this.#captureCanvas();
+                    this.captureCanvas();
             });
             menu.Events.addEventListener("CLOSE", () => {
                 if (!this.hasOpenMenu)
@@ -37,7 +37,25 @@ export class Phase extends Loop {
             });
         }
     }
-    #captureCanvas (preserveCanvas = false) {
+    #releaseCanvasScreenshot () {
+        if (this.#canvasScreenshot) {
+            this.#canvasScreenshot.close();
+            this.#canvasScreenshot = undefined;
+        }
+    }
+    #drawMenuBackground () {
+        if (!this.#canvasScreenshot
+            || !this.#canvasScreenshot.width
+            || !this.#canvasScreenshot.height
+        ) return;
+        const { cursor } = this.Global.Display;
+        cursor.save();
+        cursor.fixed = true;
+        cursor.drawImage(this.#canvasScreenshot, 0, 0);
+        cursor.restore();
+    }
+
+    captureCanvas (preserveCanvas = false) {
         const originalState = this.state;
         this.state = this.constructor.STATES.Busy;
         const { cursor } = this.Global.Display;
@@ -58,27 +76,9 @@ export class Phase extends Loop {
         cursor.restore();
         this.state = originalState;
     }
-    #releaseCanvasScreenshot () {
-        if (this.#canvasScreenshot) {
-            this.#canvasScreenshot.close();
-            this.#canvasScreenshot = undefined;
-        }
-    }
-    #drawMenuBackground () {
-        if (!this.#canvasScreenshot
-            || !this.#canvasScreenshot.width
-            || !this.#canvasScreenshot.height
-        ) return;
-        const { cursor } = this.Global.Display;
-        cursor.save();
-        cursor.fixed = true;
-        cursor.drawImage(this.#canvasScreenshot, 0, 0);
-        cursor.restore();
-    }
-
     onResize = () => {
         if (this.hasOpenMenu)
-            this.#captureCanvas();
+            this.captureCanvas();
     }
     drawBackground () {}
     onanimate () {}

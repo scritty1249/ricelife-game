@@ -144,9 +144,10 @@ export class Round extends Phase {
         return Array.from(this.Lobby.AmmoTypes, (ammoType) => {
             const ammo = this.AmmoPool.get(ammoType);
             const selection = new AmmoTypeDetails(ammo.name, ); // [!] needs icon
-            const { borderColor, fillColor, fontColor } = selection;
-            fillColor.apply(ammo.mainColor);
-            fontColor.apply(borderColor.apply(ammo.glowColor));
+            const { glowColor, borderColor, fillColor, fontColor } = selection;
+            borderColor.apply(ammo.mainColor);
+            fontColor.apply(glowColor.apply(ammo.glowColor));
+            fillColor.apply(0, 0, 0, .8);
             return selection;
         });
     }
@@ -444,17 +445,21 @@ export class Round extends Phase {
             || (!Animations.blasts && isTimedout);
         return playbackFinished;
     }
-    drawBackground (openMenu = false) {
+    captureCanvas (preserveCanvas = false) {
+        const originalState = this.state;
+        this.state = this.constructor.STATES.Busy;
+        const { cursor } = this.Global.Display;
+        cursor.save();
+        cursor.filter = "blur(10px)";
+        super.captureCanvas(preserveCanvas);
+        cursor.restore();
+        this.state = originalState;
+    }
+    drawBackground () {
         const img = this.Threaded.cache[this.store.cacheKey.background].canvas;
         const { cursor, size } = this.Global.Display;
         const { Viewbox } = this.Camera;
-        if (openMenu) {
-            cursor.save();
-            cursor.filter = "blur(5px)";
-        }
         cursor.drawImage(img, Viewbox.min.x, cursor.normalizeY(Viewbox.max.y), Viewbox.width, Viewbox.height, 0, 0, size.x, size.y);
-        if (openMenu)
-            cursor.restore();
     }
     handleInput () {
         const { ClientPlayer, Interface, Global, flags, store } = this;

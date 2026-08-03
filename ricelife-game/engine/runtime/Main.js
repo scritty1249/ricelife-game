@@ -175,9 +175,11 @@ export class Main extends Loop {
     get ActivePhase () { return this.#ActivePhase }
     set ActivePhase (phase) {
         if (!phase.isPhase) throw new Error(`[${typeString(this)}]: Expected Phase, got ${typeString(phase)}`);
+        if (this.ActivePhase?.isPhase) this.ActivePhase.reset();
         this.#ActivePhase = phase;
         this.Input.pointer.callbacks = phase.Interface;
         this.Display.cursor.planeSize.apply(phase.Plane.size);
+        phase.start();
         return phase;
     }
     get clientID () { return this.#clientUserID }
