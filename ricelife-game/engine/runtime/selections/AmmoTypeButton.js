@@ -73,9 +73,7 @@ export class AmmoTypeButton extends ShapeButton {
             cursor.fillStyle = fillColor.toRGBA();
             cursor.fill();
             cursor.globalCompositeOperation = "source-over";
-            cursor.restore();
         } else {
-            cursor.save();
             cursor.fillStyle = fillColor.toRGBA();
             cursor.fill();
         }
