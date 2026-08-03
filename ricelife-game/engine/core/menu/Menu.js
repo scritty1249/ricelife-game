@@ -30,7 +30,6 @@ export class Menu extends Loop {
         this.Parent.Global.Display.removeResizeListener(this.onResize);
     }
     #initAfterLoad () {
-        this.#attachListeners();
         this.init();
     }
 
@@ -54,6 +53,7 @@ export class Menu extends Loop {
         this.Events.raiseEvent("OPEN");
         this.#isOpen = true;
         this.state = this.constructor.STATES.Ready;
+        this.#attachListeners();
         return true;
     }
     close (returnData = undefined, haltAudio = true) {
@@ -65,6 +65,7 @@ export class Menu extends Loop {
             this.Parent.Camera.setState(this.#CameraLastState);
             this.#CameraLastState = undefined;
         }
+        this.#detachListeners();
         this.Parent.Global.Input.pointer.callbacks = this.Parent.Interface;
         this.#isOpen = false;
         this.state = this.constructor.STATES.Closed;

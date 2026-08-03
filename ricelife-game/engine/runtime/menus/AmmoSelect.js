@@ -88,7 +88,7 @@ export class AmmoSelect extends Menu {
     }
 
     onResize = () => {
-        this.updateLayout();
+        this.reset(true);
     }
     init () {
         super.init();
@@ -108,6 +108,7 @@ export class AmmoSelect extends Menu {
         this.InterfaceLayers.buttons.fixed = true;
 
         this.updateLayout();
+        this.#resetButtonPositions();
     }
     animate () {
         const { cursor } = this.Parent.Global.Display;
@@ -138,6 +139,21 @@ export class AmmoSelect extends Menu {
                 lastDrawn.apply(lastActive.apply(pointer.position));
             }
         } else this.flags.trackActive = false;
+    }
+    reset (resetPositions = true) {
+        const { lastDrawn, lastActive } = this.store.pointerRecord;
+        this.flags.followPointer = false;
+        this.flags.trackActive = false;
+        this.flags.focalUpdated = false;
+        this.flags.snapToFocal = false;
+        lastDrawn.apply(this.Parent.Global.Display.center);
+        lastActive.apply(lastDrawn);
+        if (resetPositions) {
+            this.updateLayout();
+            this.#resetButtonPositions();
+        } else {
+            this.updateButtons();
+        }
     }
     setFocalTarget (followPointer) {
         this.flags.snapToFocal = followPointer === this.flags.followPointer && this.flags.snapToFocal
@@ -189,11 +205,15 @@ export class AmmoSelect extends Menu {
     }
     open () {
         if (!super.open()) return;
-        const { lastDrawn, lastActive } = this.store.pointerRecord;
-        this.flags.trackActive = false;
-        lastDrawn.apply(this.Parent.Global.Display.center);
-        lastActive.apply(lastDrawn);
-        this.#resetButtonPositions();
-        this.updateButtons();
+        this.reset(false);
+        return true;
+    }
+
+    close (returnData = undefined, haltAudio = true) {
+        if (!super.close(returnData, haltAudio)) return;
+        if (returnData?.selection?.isAmmoTypeDetails)
+            // don't need to update buttons, will be called on next open
+            this.#resetButtonPositions();
+        return true;
     }
 }
