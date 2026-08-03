@@ -7,11 +7,12 @@ import { Camera } from "./display/Camera.js";
 // uses ontick and onanimate instead of tick and animate
 export class Phase extends Loop {
     static INPUT_MAP = {};
-    #Menus = new Map();
+    #Menus = new Map(); // [!] Menus must never be removed once set
     #Interface = new PointerInterface();
     #Plane = new BoundingBox();
     #Camera;
     #Global;
+    #canvasScreenshot;
     constructor (mainController) {
         super(mainController.Audio.Context);
         this.#Global = mainController;
@@ -19,37 +20,106 @@ export class Phase extends Loop {
         this.Interface.Viewbox = this.Camera.Viewbox;
         this.onload.then(() => {
             this.Camera.Viewbox.setPlane(this.Plane);
+            this.#attachMenuListeners();
         });
+    }
+
+    #attachMenuListeners () {
+        const { cursor } = this.Global.Display;
+        for (const menu of this.Menus.values()) {
+            menu.Events.addEventListener("OPEN", () => {
+                if (!this.hasOpenMenu)
+                    this.#captureCanvas();
+            });
+            menu.Events.addEventListener("CLOSE", () => {
+                if (!this.hasOpenMenu)
+                    this.#releaseCanvasScreenshot();
+            });
+        }
+    }
+    #captureCanvas (preserveCanvas = false) {
+        const originalState = this.state;
+        this.state = this.constructor.STATES.Busy;
+        const { cursor } = this.Global.Display;
+        this.#releaseCanvasScreenshot();
+        let original;
+        cursor.save();
+        if (preserveCanvas) {
+            original = cursor.screenshot(false);
+        }
+        cursor.clear();
+        this.onanimate();
+        this.#canvasScreenshot = cursor.screenshot(false);
+        if (preserveCanvas) {
+            cursor.fixed = true;
+            cursor.drawImage(original, 0, 0);
+            original.close();
+        }
+        cursor.restore();
+        this.state = originalState;
+    }
+    #releaseCanvasScreenshot () {
+        if (this.#canvasScreenshot) {
+            this.#canvasScreenshot.close();
+            this.#canvasScreenshot = undefined;
+        }
+    }
+    #drawMenuBackground () {
+        if (!this.#canvasScreenshot
+            || !this.#canvasScreenshot.width
+            || !this.#canvasScreenshot.height
+        ) return;
+        const { cursor } = this.Global.Display;
+        cursor.save();
+        cursor.fixed = true;
+        cursor.drawImage(this.#canvasScreenshot, 0, 0);
+        cursor.restore();
+    }
+
+    onResize = () => {
+        if (this.hasOpenMenu)
+            this.#captureCanvas();
     }
     drawBackground () {}
     onanimate () {}
     animate (clear = true) {
         if (clear) this.Global.Display.cursor.clear();
+        let noOpenMenus = true;
         const openMenus = this.Menus
             .values()
             .filter(({isOpen}) => isOpen);
-        if (openMenus?.length) {
-            this.drawBackground();
-            for (const menu of openMenus)
-                menu.animate(false);
-        } else
+        for (const menu of openMenus) {
+            if (noOpenMenus) {
+                noOpenMenus = false;
+                this.#drawMenuBackground();
+            }
+            menu.animate();
+        }
+        if (noOpenMenus) {
             this.onanimate();
+        }
     }
     start () {
+        this.Global.Display.addResizeListener(this.onResize);
         this.state = this.constructor.STATES.Ready;
     }
     reset () {
         this.state = this.constructor.STATES.Busy;
+        this.Global.Display.removeResizeListener(this.onResize);
     }
     async ontick (delta) {}
     async tick (delta) {
         super.tick(delta);
+        let noOpenMenus = true;
         const openMenus = this.Menus
             .values()
             .filter(({isOpen}) => isOpen);
-        if (openMenus?.length)
-            await Promise.all(openMenus.map((menu) => menu?.tick?.(delta)));
-        else
+        for (const menu of openMenus) {
+            if (noOpenMenus)
+                noOpenMenus = false;
+            await menu?.tick?.(delta);
+        }
+        if (noOpenMenus)
             await this.ontick?.(delta);
     }
     async loadGlobalAsset (key) {
@@ -61,6 +131,7 @@ export class Phase extends Loop {
     }
 
     get isPhase () { return true }
+    get hasOpenMenu () { return this.Menus.values().some(({isOpen}) => isOpen) }
     get Global () { return this.#Global }
     get Interface () { return this.#Interface }
     get Plane () { return this.#Plane }

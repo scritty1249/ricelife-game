@@ -4,8 +4,8 @@ import { MapButton } from "../selections/MapButton.js";
 const SCROLL_SENSITIVITY = 1/3; // [!] temporary
 
 export class MapSelect extends Menu {
-    constructor (phase, drawBackgroundFn, maps) {
-        super (phase, drawBackgroundFn);
+    constructor (phase, maps) {
+        super (phase);
         this.#load(maps)
             .then(() => this.resolveLoad())
             .catch((error) => this.rejectLoad(error));

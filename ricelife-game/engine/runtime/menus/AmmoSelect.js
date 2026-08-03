@@ -8,8 +8,8 @@ export class AmmoSelect extends Menu {
     static BUTTON_SPACING_SCALE = -0.1;
     static FOCAL_LERP_FACTOR = 0.15; // speed that focal point moves from different points onscreen
     static FOCAL_SNAP_THRESHOLD = 10**2; // (squared) distance in pixels that focal point will snap to target position
-    constructor (phase, drawBackgroundFn, ammoTypes) {
-        super(phase, drawBackgroundFn);
+    constructor (phase, ammoTypes) {
+        super(phase);
         try {
             this.store.selections = ammoTypes;
             this.resolveLoad();
@@ -46,10 +46,8 @@ export class AmmoSelect extends Menu {
         const { buttons } = this.InterfaceLayers;
         buttons.clear();
         for (let i = 0; i < this.store.layout.count; i++) {
-            const button = new AmmoTypeButton(
-                selections[i % selections.length],
-                legLength
-            );
+            const selection = selections[i % selections.length];
+            const button = new AmmoTypeButton(selection, legLength);
             button.onclick = () => {
                 this.close({selection});
             };
@@ -105,7 +103,6 @@ export class AmmoSelect extends Menu {
         this.updateLayout();
     }
     animate () {
-        super.animate();
         const { cursor } = this.Parent.Global.Display;
         const { lastDrawn, lastActive } = this.store.pointerRecord;
         if (this.flags.focalUpdated)

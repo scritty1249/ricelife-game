@@ -9,17 +9,16 @@ export class Menu extends Loop {
         Closed: 4,
         ...Loop.STATES
     };
+    #backgroundSnapshot;
     #Parent; // the containing Phase this Menu is running in
     #CameraLastState; // state of Parent Phase's Camera before opening
     #InterfaceLayers = {};
-    #drawBackgroundCallback;
     #Interface = new PointerInterface();
     #isOpen = false; // private flag
     #Area = new BoundingBox(); // Menu equivalent for Phase.Plane
-    constructor (phase, drawBackgroundCallback = undefined) {
+    constructor (phase) {
         super(phase.Global.Audio.Context);
         this.#Parent = phase;
-        this.#drawBackgroundCallback = drawBackgroundCallback;
         this.Interface.Viewbox = this.Parent.Camera.Viewbox;
         this.onload.then(() => this.#initAfterLoad());
     }
@@ -37,6 +36,7 @@ export class Menu extends Loop {
 
     async loop () {}
     async loadAsset () {}
+    animate () {}
     onResize = () => {}
     init () {
         this.store.underButton = new ScreenButton(this.Parent.Global.Display);
@@ -45,15 +45,13 @@ export class Menu extends Loop {
         this.InterfaceLayers.under.push(this.store.underButton);
         this.InterfaceLayers.under.fixed = true;
     }
-    animate () {
-        this.#drawBackgroundCallback?.();
-    }
     open () {
         if (this.isOpen) return;
         if (this.Parent.Global.flags.DEBUG)
             console.log(`[${typeString(this)}]: Opened`);
         this.#CameraLastState = this.Parent.Camera.getState(true);
         this.Parent.Global.Input.pointer.callbacks = this.Interface;
+        this.Events.raiseEvent("OPEN");
         this.#isOpen = true;
         this.state = this.constructor.STATES.Ready;
         return true;
@@ -70,7 +68,7 @@ export class Menu extends Loop {
         this.Parent.Global.Input.pointer.callbacks = this.Parent.Interface;
         this.#isOpen = false;
         this.state = this.constructor.STATES.Closed;
-        this.Events.raiseEvent("EXIT", returnData || {});
+        this.Events.raiseEvent("CLOSE", returnData || {});
         return true;
     }
     stop () {

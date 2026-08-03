@@ -112,7 +112,7 @@ export class Round extends Phase {
         this.Audio.Player.volume = 0.35;
 
         this.#setupInterface();
-        this.Menus.set("Ammo", new AmmoSelect(this, () => this.drawBackground(), this.#createAmmoSelections()));
+        this.Menus.set("Ammo", new AmmoSelect(this, this.#createAmmoSelections()));
         this.setTurn(this.Lobby.ActivePlayerID === this.#ClientPlayerID);
     }
     async #load (playerID) {
@@ -347,7 +347,7 @@ export class Round extends Phase {
         for (const { Puppet, isDead } of Players.values())
             if (!isDead) Puppet.draw(cursor);
         cursor.restore();
-        this.drawBackground();
+        this.drawBackground(false);
         Camera.Viewbox.setCursor(cursor, true);
         if (store.ammo.tracer) store.ammo.tracer.draw(cursor);
         if (store.ammo.current && store.ammo.current.time > 0)
@@ -440,11 +440,17 @@ export class Round extends Phase {
             || (!Animations.blasts && isTimedout);
         return playbackFinished;
     }
-    drawBackground () {
+    drawBackground (openMenu = false) {
         const img = this.Threaded.cache[this.store.cacheKey.background].canvas;
         const { cursor, size } = this.Global.Display;
         const { Viewbox } = this.Camera;
+        if (openMenu) {
+            cursor.save();
+            cursor.filter = "blur(5px)";
+        }
         cursor.drawImage(img, Viewbox.min.x, cursor.normalizeY(Viewbox.max.y), Viewbox.width, Viewbox.height, 0, 0, size.x, size.y);
+        if (openMenu)
+            cursor.restore();
     }
     handleInput () {
         const { ClientPlayer, Interface, Global, flags, store } = this;
