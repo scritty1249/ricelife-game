@@ -97,7 +97,7 @@ export class Round extends Phase {
         this.store.ammo = {
             tracer: undefined,
             current: undefined,
-            selected: "basic",
+            selected: undefined,
             map: undefined,
             types: undefined,
             impacts: [],
@@ -113,6 +113,10 @@ export class Round extends Phase {
 
         this.#setupInterface();
         this.Menus.set("Ammo", new AmmoSelect(this, this.#createAmmoSelections()));
+        this.Menus.get("Ammo").Events.addEventListener("CLOSE", ({selection}) => {
+            if (!selection?.isAmmoTypeDetails) return;
+            this.store.ammo.selected = selection.name.toLowerCase();
+        })
         this.setTurn(this.Lobby.ActivePlayerID === this.#ClientPlayerID);
     }
     async #load (playerID) {
@@ -139,7 +143,7 @@ export class Round extends Phase {
     #createAmmoSelections () {
         return Array.from(this.Lobby.AmmoTypes, (ammoType) => {
             const ammo = this.AmmoPool.get(ammoType);
-            const selection = new AmmoTypeDetails(ammo.name, );
+            const selection = new AmmoTypeDetails(ammo.name, ); // [!] needs icon
             const { borderColor, fillColor, fontColor } = selection;
             fillColor.apply(ammo.mainColor);
             fontColor.apply(borderColor.apply(ammo.glowColor));
