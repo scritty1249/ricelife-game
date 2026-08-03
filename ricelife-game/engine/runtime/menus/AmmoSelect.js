@@ -112,6 +112,13 @@ export class AmmoSelect extends Menu {
         this.Interface.draw(cursor);
         this.#updateFocalPoint();
     }
+    async tick (delta) {
+        this.handleInput();
+        const { isHovering, isActive, isDragging, delta: dt } = this.Parent.Global.Input.pointer;
+        const followPointer = isHovering || (isActive && (!isDragging || !dt.lengthSquared));
+        this.setFocalTarget(followPointer);
+        this.#updateFocalPoint();
+    }
     handleInput () {
         const { lastDrawn, lastActive } = this.store.pointerRecord;
         const { pointer } = this.Parent.Global.Input;
