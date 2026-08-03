@@ -28,10 +28,7 @@ export class AmmoTypeButton extends ShapeButton {
         lastScale: 1,
         distanceCoeff: 0
     };
-    #textSizing = {
-        width: undefined,
-        height: undefined,
-    };
+    #textPadding = new Vector();
     constructor (typeDetails, legLength) {
         const shape = new Equigon(6, legLength);
         shape.transform.scale.y = 0.85; // squish to make visually "even"
@@ -169,6 +166,9 @@ export class AmmoTypeButton extends ShapeButton {
     }
 
     get isAmmoTypeButton () { return true }
+    get isTextOverflowing () { return (this.textSizing.width + this.textPadding.x) > this.width
+        || (this.textSizing.height + this.textPadding.y) > this.height
+    }
     get isLayoutSet () { return (
         this.#layout.totalSpace?.isVector
         && this.#layout.halfSpace?.isVector
@@ -188,4 +188,5 @@ export class AmmoTypeButton extends ShapeButton {
     get fontColor () { return this.typeDetails.fontColor }
     get fillColor () { return this.typeDetails.fillColor }
     get strokeColor () { return this.typeDetails.borderColor }
+    get textPadding () { return this.#textPadding }
 }

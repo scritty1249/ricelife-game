@@ -8,6 +8,7 @@ export class AmmoSelect extends Menu {
     static BUTTON_SPACING_SCALE = -0.1;
     static FOCAL_LERP_FACTOR = 0.15; // speed that focal point moves from different points onscreen
     static FOCAL_SNAP_THRESHOLD = 10**2; // (squared) distance in pixels that focal point will snap to target position
+    static BUTTON_TEXT_PADDING_SCALE = new Vector(.2, .4); // percentage of button text size to treat as extra padding
     constructor (phase, ammoTypes) {
         super(phase);
         try {
@@ -44,10 +45,16 @@ export class AmmoSelect extends Menu {
     #createButtons (legLength) {
         const { selections } = this.store;
         const { buttons } = this.InterfaceLayers;
+        const { BUTTON_TEXT_PADDING_SCALE } = this.constructor;
         buttons.clear();
         for (let i = 0; i < this.store.layout.count; i++) {
             const selection = selections[i % selections.length];
             const button = new AmmoTypeButton(selection, legLength);
+            button.computeTextSizing(this.Parent.Global.Display.cursor);
+            button.textPadding.apply(
+                button.textSizing.width * BUTTON_TEXT_PADDING_SCALE.x,
+                button.textSizing.height * BUTTON_TEXT_PADDING_SCALE.y
+            );
             button.onclick = () => {
                 this.close({selection});
             };
