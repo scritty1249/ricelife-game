@@ -46,7 +46,7 @@ export class AmmoTypeButton extends ShapeButton {
     }
 
     drawButton (cursor, fixed = false) {
-        if (this.hide) return;
+        if (this.hidden) return;
         const {
             fillColor,
             fontColor,
@@ -61,29 +61,30 @@ export class AmmoTypeButton extends ShapeButton {
         cursor.fixed = fixed;
         this.shape.draw(cursor, true);
         cursor.save();
+        cursor.globalCompositeOperation = "source-over";
+        cursor.filter = this.fillFilter;
+        cursor.fillStyle = fillColor.toRGBA();
+        cursor.fill();
+        cursor.restore();
         if (this.typeDetails.hasGlow) {
             const color = glowColor.clone();
             color.A *= this.#state.distanceCoeff;
+            cursor.save();
+            cursor.globalCompositeOperation = "destination-over";
             cursor.filter = `blur(${glowResolution}px)`;
             cursor.strokeStyle = color.toRGBA();
             cursor.lineWidth = glowRadius;
             cursor.stroke();
-            cursor.globalCompositeOperation = "destination-out";
-            if (fillColor.opaque) cursor.filter = this.fillFilter;
-            cursor.fillStyle = fillColor.toRGBA();
-            cursor.fill();
-            cursor.globalCompositeOperation = "source-over";
-        } else {
-            cursor.fillStyle = fillColor.toRGBA();
-            cursor.fill();
+            cursor.restore();
         }
-        cursor.restore();
-        if (borderWidth) {
+        if (borderWidth && borderColor.visible) {
             const color = (glowColor.visible ? glowColor : borderColor).clone();
+            cursor.save();
             color.A *= this.#state.distanceCoeff**(1/4);
             cursor.strokeStyle = borderColor.lerp(color, .65, false, false).toRGBA();
             cursor.lineWidth = borderWidth;
             cursor.stroke();
+            cursor.restore();
         }
         cursor.restore();
     }
