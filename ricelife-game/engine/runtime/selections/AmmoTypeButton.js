@@ -72,7 +72,7 @@ export class AmmoTypeButton extends ShapeButton {
             cursor.lineWidth = glowRadius;
             cursor.stroke();
             cursor.globalCompositeOperation = "destination-out";
-            cursor.filter = ShotPhase.tileFillFilter;
+            if (fillColor.opaque) cursor.filter = this.fillFilter;
             cursor.fillStyle = fillColor.toRGBA();
             cursor.fill();
             cursor.globalCompositeOperation = "source-over";
