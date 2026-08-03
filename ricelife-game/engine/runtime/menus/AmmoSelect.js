@@ -208,7 +208,6 @@ export class AmmoSelect extends Menu {
         this.reset(false);
         return true;
     }
-
     close (returnData = undefined, haltAudio = true) {
         if (!super.close(returnData, haltAudio)) return;
         if (returnData?.selection?.isAmmoTypeDetails)
