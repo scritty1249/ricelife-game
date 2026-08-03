@@ -11,12 +11,12 @@ import {
 
 export class AmmoTypeButton extends ShapeButton {
     static HIDE_SCALE = 0.0001; // sentinal value for transform scale. Hides the button if scale matches this value
+    static HIDE_TEXT_SCALE = 0.45; // hide text if scale is below this value (exclusive)
     static MIN_SCALE = 0;
     static MAX_SCALE = 1.5;
     static SCALE_RATE = 3; // must be an Integer
     #typeDetails;
-    #hidden = false; // when set, draw() will not do anything
-    showText = true; // when unset, draw() will not draw text
+    hidden = false; // when set, draw() will not do anything
     fillFilter = "blur(10px)"; // [!] setting this over 30px causes massive framerate drop
     #layout = {
         totalSpace: undefined,
@@ -27,6 +27,10 @@ export class AmmoTypeButton extends ShapeButton {
     #state = {
         lastScale: 1,
         distanceCoeff: 0
+    };
+    #textSizing = {
+        width: undefined,
+        height: undefined,
     };
     constructor (typeDetails, legLength) {
         const shape = new Equigon(6, legLength);
@@ -89,7 +93,7 @@ export class AmmoTypeButton extends ShapeButton {
         cursor.restore();
     }
     drawText (cursor, offset = undefined, fixed = false) {
-        if (!this.hide && this.showText)
+        if (!this.hidden && !this.isTextOverflowing)
             super.drawText(cursor, offset, fixed);
     }
     // Vector, Vector, Number, Number
@@ -161,6 +165,7 @@ export class AmmoTypeButton extends ShapeButton {
         shape.transform.scale.apply(scale);
         shape.applyTransform();
         this.#state.lastScale = scale;
+        this.hidden = scale <= this.constructor.HIDE_SCALE;
     }
 
     get isAmmoTypeButton () { return true }
@@ -174,9 +179,11 @@ export class AmmoTypeButton extends ShapeButton {
     set typeDetails (typeDetails) {
         if (!typeDetails?.isAmmoTypeDetails)
             throw new Error(`[${typeString(this)}]: Expected AmmoTypeDetails, got ${typeString(typeDetails)}`);
-       return (this.#typeDetails = typeDetails);
+        super.text = typeDetails.name; // trigger recompute sizing
+        return (this.#typeDetails = typeDetails);
     }
-    get text () { return this.typeDetails.name }
+    get text () { return this.typeDetails?.name }
+    set text (str) {} // [!] override to prevent dangling recompute triggers
     get fontFamily () { return this.typeDetails.fontFamily }
     get fontColor () { return this.typeDetails.fontColor }
     get fillColor () { return this.typeDetails.fillColor }

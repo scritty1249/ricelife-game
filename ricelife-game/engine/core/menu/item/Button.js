@@ -25,19 +25,39 @@ export class Button extends TrackableObject {
         onscroll: undefined
     };
     #fontColor = new Color(0, 0, 0, 1);
+    #textSizing = {
+        width: 0,
+        height: 0,
+        hasUpdate: true
+    };
+    #text = "";
     fontSize = 24;
     fontFamily = "Arial";
-    text = "";
     keepDragFocus = false; // when set, drag events will continue even after pointer leaves this button's area
     constructor () {
         super();
     }
 
+    computeTextSizing (cursor) {
+        if (this.text) {
+            cursor.save();
+            cursor.font = this.fontStyle;
+            const { width, height } = cursor.measureText(this.text);
+            cursor.restore();
+            this.#textSizing.width = width;
+            this.#textSizing.height = height;
+        } else {
+            this.#textSizing.width = 0;
+            this.#textSizing.height = 0;
+        }
+        this.#textSizing.hasUpdate = false;
+    }
     draw (cursor, fixed) {
         this.drawButton(cursor, fixed);
         this.drawText(cursor, undefined, fixed);
     }
     drawText (cursor, offset = undefined, fixed = false) {
+        if (this.#textSizing.hasUpdate) this.computeTextSizing(cursor);
         if (equals(this.fontColor.a, 0) || !this.text) return;
         cursor.save();
         cursor.fixed = fixed;
@@ -53,6 +73,14 @@ export class Button extends TrackableObject {
     }
 
     get isButton () { return true }
+    get isTextOverflowing () { return this.#textSizing.width > this.width || this.#textSizing.height > this.height }
+    get textSizing () { return this.#textSizing }
+    get text () { return this.#text }
+    set text (str) {
+        if (this.text !== str)
+            this.#textSizing.hasUpdate = true;
+        return (this.#text = str);
+    }
     get onclick () { return this.#callback.onclick }
     set onclick (callbackFn) { return (this.#callback.onclick = callbackFn) }
     get onhold () { return this.#callback.onhold }
