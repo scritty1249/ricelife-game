@@ -48,7 +48,7 @@ export class Menu extends Loop {
     open () {
         if (this.isOpen) return;
         if (this.Parent.Global.flags.DEBUG)
-            console.log(`[${typeString(this)}]: Opened`);
+            console.debug(`[${typeString(this)}]: Opened`);
         this.#CameraLastState = this.Parent.Camera.getState(true);
         this.Parent.Global.Input.pointer.callbacks = this.Interface;
         this.Events.raiseEvent("OPEN");
@@ -60,7 +60,7 @@ export class Menu extends Loop {
         if (!this.isOpen) return;
         if (haltAudio) this.Audio.Player.stop();
         if (this.Parent.Global.flags.DEBUG)
-            console.log(`[${typeString(this)}]: Closed with `, returnData);
+            console.debug(`[${typeString(this)}]: Closed with `, returnData);
         if (this.#CameraLastState) {
             this.Parent.Camera.setState(this.#CameraLastState);
             this.#CameraLastState = undefined;
