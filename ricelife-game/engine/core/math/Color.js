@@ -60,6 +60,7 @@ export class Color {
 
     get isColor () { return true }
     get visible () { return !equals(this.a, 0) }
+    get opaque () { return !equals(this.a, 1) }
     get r () { return this.#r }
     get g () { return this.#g }
     get b () { return this.#b }
