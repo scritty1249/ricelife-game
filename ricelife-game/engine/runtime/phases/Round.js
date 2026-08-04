@@ -62,7 +62,7 @@ const PAN_SENSITIVITY = 5;
 const MOVE_SPEED = 1;
 
 export class Round extends Phase {
-    static MENU_BACKGROUND_TINT = new Color(0, 0, 0, .4);
+    static MENU_BACKGROUND_TINT = new Color(0, 0, 0, .7);
     static WEB_WORKER_PATH = "/engine/workers/Worker.js";
     #AmmoPool = new AmmoPool("/engine/ammotypes");
     #Players = new Map();
@@ -148,7 +148,7 @@ export class Round extends Phase {
             const { glowColor, borderColor, fillColor, fontColor } = selection;
             borderColor.apply(ammo.mainColor);
             fontColor.apply(glowColor.apply(ammo.glowColor));
-            fillColor.apply(0, 0, 0, .8);
+            fillColor.apply(0, 0, 0, .6);
             return selection;
         });
     }
@@ -353,7 +353,7 @@ export class Round extends Phase {
         for (const { Puppet, isDead } of Players.values())
             if (!isDead) Puppet.draw(cursor);
         cursor.restore();
-        this.drawBackground(false);
+        this.drawBackground();
         Camera.Viewbox.setCursor(cursor, true);
         if (store.ammo.tracer) store.ammo.tracer.draw(cursor);
         if (store.ammo.current && store.ammo.current.time > 0)
@@ -447,14 +447,22 @@ export class Round extends Phase {
         return playbackFinished;
     }
     drawMenuBackground () {
-        const { cursor } = this.Global.Display;
+        const { cursor, size } = this.Global.Display;
+        const { Viewbox } = this.Camera;
         const { MENU_BACKGROUND_TINT } = this.constructor;
         cursor.save();
         cursor.filter = "blur(10px)";
-        super.drawMenuBackground();
+        Viewbox.setCursor(cursor, true);
+        for (const { Puppet, isDead } of this.Players.values())
+            if (!isDead) Puppet.draw(cursor);
         cursor.restore();
-        cursor.save();
+        this.drawBackground();
+        Viewbox.setCursor(cursor, true);
+        if (this.store.ammo.current && this.store.ammo.current.time > 0)
+            this.store.ammo.current.draw(cursor);
+        cursor.restore();
         cursor.fillStyle = MENU_BACKGROUND_TINT.toRGBA();
+        cursor.rect(0, 0, size.x, size.y);
         cursor.fill();
         cursor.restore();
     }
