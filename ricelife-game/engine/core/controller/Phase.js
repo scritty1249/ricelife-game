@@ -29,7 +29,7 @@ export class Phase extends Loop {
         for (const menu of this.Menus.values()) {
             menu.Events.addEventListener("OPEN", () => {
                 if (!this.hasOpenMenu)
-                    this.captureCanvas();
+                    this.#captureCanvas();
             });
             menu.Events.addEventListener("CLOSE", () => {
                 if (!this.hasOpenMenu)
@@ -43,7 +43,7 @@ export class Phase extends Loop {
             this.#canvasScreenshot = undefined;
         }
     }
-    #drawMenuBackground () {
+    #drawCanvasScreenshot () {
         if (!this.#canvasScreenshot
             || !this.#canvasScreenshot.width
             || !this.#canvasScreenshot.height
@@ -54,8 +54,7 @@ export class Phase extends Loop {
         cursor.drawImage(this.#canvasScreenshot, 0, 0);
         cursor.restore();
     }
-
-    captureCanvas (preserveCanvas = false) {
+    #captureCanvas (preserveCanvas = false) {
         const originalState = this.state;
         this.state = this.constructor.STATES.Busy;
         const { cursor } = this.Global.Display;
@@ -66,7 +65,7 @@ export class Phase extends Loop {
             original = cursor.screenshot(false);
         }
         cursor.clear();
-        this.onanimate();
+        this.drawMenuBackground();
         this.#canvasScreenshot = cursor.screenshot(false);
         if (preserveCanvas) {
             cursor.fixed = true;
@@ -76,9 +75,11 @@ export class Phase extends Loop {
         cursor.restore();
         this.state = originalState;
     }
+
+    drawMenuBackground () { this.onanimate() }
     onResize = () => {
         if (this.hasOpenMenu)
-            this.captureCanvas();
+            this.#captureCanvas();
     }
     drawBackground () {}
     onanimate () {}
@@ -91,7 +92,7 @@ export class Phase extends Loop {
         for (const menu of openMenus) {
             if (noOpenMenus) {
                 noOpenMenus = false;
-                this.#drawMenuBackground();
+                this.#drawCanvasScreenshot();
             }
             menu.animate();
         }

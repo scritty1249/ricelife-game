@@ -62,6 +62,7 @@ const PAN_SENSITIVITY = 5;
 const MOVE_SPEED = 1;
 
 export class Round extends Phase {
+    static MENU_BACKGROUND_TINT = new Color(0, 0, 0, .4);
     static WEB_WORKER_PATH = "/engine/workers/Worker.js";
     #AmmoPool = new AmmoPool("/engine/ammotypes");
     #Players = new Map();
@@ -445,15 +446,17 @@ export class Round extends Phase {
             || (!Animations.blasts && isTimedout);
         return playbackFinished;
     }
-    captureCanvas (preserveCanvas = false) {
-        const originalState = this.state;
-        this.state = this.constructor.STATES.Busy;
+    drawMenuBackground () {
         const { cursor } = this.Global.Display;
+        const { MENU_BACKGROUND_TINT } = this.constructor;
         cursor.save();
         cursor.filter = "blur(10px)";
-        super.captureCanvas(preserveCanvas);
+        super.drawMenuBackground();
         cursor.restore();
-        this.state = originalState;
+        cursor.save();
+        cursor.fillStyle = MENU_BACKGROUND_TINT.toRGBA();
+        cursor.fill();
+        cursor.restore();
     }
     drawBackground () {
         const img = this.Threaded.cache[this.store.cacheKey.background].canvas;
