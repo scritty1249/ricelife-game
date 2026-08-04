@@ -60,21 +60,25 @@ export class AmmoTypeButton extends ShapeButton {
         cursor.save();
         cursor.fixed = fixed;
         this.shape.draw(cursor, true);
-        cursor.save();
-        cursor.globalCompositeOperation = "source-over";
-        cursor.filter = this.fillFilter;
-        cursor.fillStyle = fillColor.toRGBA();
-        cursor.fill();
-        cursor.restore();
         if (this.typeDetails.hasGlow) {
-            const color = glowColor.clone();
-            color.A *= this.#state.distanceCoeff;
             cursor.save();
-            cursor.globalCompositeOperation = "destination-over";
+            const color = glowColor.clone();
             cursor.filter = `blur(${glowResolution}px)`;
             cursor.strokeStyle = color.toRGBA();
             cursor.lineWidth = glowRadius;
             cursor.stroke();
+            cursor.restore();
+
+            cursor.save();
+            cursor.globalCompositeOperation = "destination-out";
+            cursor.fillStyle = "black";
+            cursor.fill();
+            cursor.restore();
+
+            cursor.save();
+            cursor.filter = this.fillFilter;
+            cursor.fillStyle = fillColor.toRGBA();
+            cursor.fill();
             cursor.restore();
         }
         if (borderWidth && borderColor.visible) {
@@ -123,7 +127,7 @@ export class AmmoTypeButton extends ShapeButton {
         if (wrapOffset.y !== 0 || wrapOffset.x !== 0) {
             shape.transform.offset.apply(wrapOffset);
             shape.applyTransform();
-            relativeOffset.x = shape.center.x - screenCenter.x;
+            relativeOffset.x = shape.center.x - centerPoint.x;
             wrapOffset.x = 0;
             wrapOffset.y = 0;
         }

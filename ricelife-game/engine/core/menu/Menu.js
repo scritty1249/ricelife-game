@@ -3,6 +3,7 @@ import { typeString } from "../utils/logging.js";
 import { PointerInterface } from "../input/interface/PointerInterface.js";
 import { ScreenButton } from "./item/ScreenButton.js";
 import { BoundingBox } from "../geometry/BoundingBox.js";
+import { AppCanvas } from "../controller/display/AppCanvas.js";
 
 export class Menu extends Loop {
     static STATES = {
@@ -16,8 +17,10 @@ export class Menu extends Loop {
     #Interface = new PointerInterface();
     #isOpen = false; // private flag
     #Area = new BoundingBox(); // Menu equivalent for Phase.Plane
+    #Display;
     constructor (phase) {
         super(phase.Global.Audio.Context);
+        this.#Display = new AppCanvas(new OffscreenCanvas(1, 1), window);
         this.#Parent = phase;
         this.Interface.Viewbox = this.Parent.Camera.Viewbox;
         this.onload.then(() => this.#initAfterLoad());
@@ -36,6 +39,14 @@ export class Menu extends Loop {
     async loop () {}
     async loadAsset () {}
     animate () {}
+    draw () {
+        const { cursor } = this.Parent.Global.Display;
+        cursor.save();
+        cursor.fixed = true;
+        cursor.drawImage(this.Display.canvas, 0, 0);
+        cursor.restore();
+        this.Display.cursor.clear();
+    }
     onResize = () => {}
     init () {
         this.store.underButton = new ScreenButton(this.Parent.Global.Display);
@@ -82,6 +93,7 @@ export class Menu extends Loop {
 
     get isMenu () { return true }
     get isOpen () { return this.#isOpen }
+    get Display () { return this.#Display }
     get Parent () { return this.#Parent }
     get Interface () { return this.#Interface }
     get InterfaceLayers () { return this.#InterfaceLayers }

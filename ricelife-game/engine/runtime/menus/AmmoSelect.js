@@ -111,13 +111,14 @@ export class AmmoSelect extends Menu {
         this.#resetButtonPositions();
     }
     animate () {
-        const { cursor } = this.Parent.Global.Display;
+        const { cursor } = this.Display;
         const { lastDrawn, lastActive } = this.store.pointerRecord;
         if (this.flags.focalUpdated)
             this.updateButtons();
         if (!lastDrawn.eq(lastActive))
             lastDrawn.apply(lastActive);
         this.Interface.draw(cursor);
+        this.draw();
         this.#updateFocalPoint();
     }
     async tick (delta) {
