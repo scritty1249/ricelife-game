@@ -129,6 +129,9 @@ export class Main extends Loop {
     async loadCreatePhase (maps) {
         const { Create } = await import(Main.#PhaseImport.Create);
         const phase = new Create(this, maps);
+        await phase.onload;
+        this.Phases.Create = phase;
+        return phase;
     }
     async loadRoundPhase (lobbyData, terrainData) {
         const { Round } = await import(Main.#PhaseImport.Round);

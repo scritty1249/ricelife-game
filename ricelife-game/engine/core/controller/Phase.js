@@ -2,6 +2,7 @@ import { PointerInterface } from "../input/interface/PointerInterface.js";
 import { BoundingBox } from "../geometry/BoundingBox.js";
 import { Loop } from "./loop/Loop.js";
 import { Camera } from "./display/Camera.js";
+import { typeString } from "../Core.js";
 
 // exists within Main loop only
 // uses ontick and onanimate instead of tick and animate
@@ -129,6 +130,11 @@ export class Phase extends Loop {
             throw new Error(`[${typeString(this)}]: "${key}" does not exist in global AssetTable`);
         this.AssetPool.add(key, AssetTable[key]);
         return await this.AssetPool.onready(key);
+    }
+    resolveLoad (value) {
+        if (this.Global.flags.DEBUG)
+            console.info(`[${typeString(this)}]: Finished loading`);
+        super.resolveLoad(value || this);
     }
 
     get isPhase () { return true }

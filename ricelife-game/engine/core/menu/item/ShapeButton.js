@@ -1,5 +1,6 @@
 import { Color } from "../../math/Color.js";
 import { Vector } from "../../math/Vector.js";
+import { equals } from "../../math/utils.js";
 import { Button } from "./Button.js";
 
 export class ShapeButton extends Button {

@@ -37,7 +37,6 @@ export class Menu extends Loop {
     }
 
     async loop () {}
-    async loadAsset () {}
     animate () {}
     draw () {
         const { cursor } = this.Parent.Global.Display;

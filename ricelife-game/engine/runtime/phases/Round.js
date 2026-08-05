@@ -340,6 +340,7 @@ export class Round extends Phase {
         this.ClientPlayer.Aimer.enabled = this.flags.isTurn && !(AimerIsLarge && AimerIsCenter);
         this.handleInput();
     }
+
     onanimate () {
         const { ClientPlayer, Camera, Animations, Interface, Threaded, Players, flags, store } = this;
         const { cursor } = this.Global.Display;
@@ -608,14 +609,15 @@ export class Round extends Phase {
         if (map.blasts.length)
             this.#preloadMap(map);
         await store.prerender;
-        Global.Events.raiseEvent("LOADING", {hide: true});
         if (Global.flags.DEBUG)
             console.info(`[${typeString(this)}]: Collision map loaded in ${(performance.now() - waitStart) / 1000} seconds`);
         console.info(`[${typeString(this)}]: Shot playback ready`);
         if (performance.now() - totalStart > LOADING_PAUSE_THRESHOLD) {
             console.info(`[${typeString(this)}]: Awaiting click event`);
+            Global.Events.raiseEvent("LOADING", {hide: false, message: "Waiting for click"});
             await Global.Input.pointer.onNextClick();
         }
+        Global.Events.raiseEvent("LOADING", {hide: true});
         console.info(`[${typeString(this)}]: Playing shot animation`);
         this.#setAmmo(ammo, map);
         this.Camera.track(ammo.getBoundingBox(), this.ClientPlayer.Puppet.getBoundingBox());

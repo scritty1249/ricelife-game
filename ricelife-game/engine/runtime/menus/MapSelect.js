@@ -12,12 +12,14 @@ export class MapSelect extends Menu {
     }
 
     async #load (maps) {
-        await this.#loadMapThumbnails(maps);
+        this.store.maps = maps; // [!] currently stores raw object from internet. Need to parse into a dedicated class! -KT
+        await this.#loadMapThumbnails();
     }
-    async #loadMapThumbnails (maps) {
+    async #loadMapThumbnails () {
         const { AssetType } = this.Parent.Global.constructor;
-        await Promise.all(selections.map(({name, thumb}) =>
-            this.loadAsset(name, AssetType.Image, undefined, thumb)));
+        const { maps } = this.store;
+        await Promise.all(maps.map(({name, thumb}) =>
+            this.AssetPool.add(name, [AssetType.Image, undefined, thumb])));
     }
     #setupPanningButtons () {
         const { overButton, underButton } = this.store;
@@ -37,8 +39,9 @@ export class MapSelect extends Menu {
             for (const button of this.InterfaceLayers.buttons.items) button.close();
         }
     }
-    #setupMapButtons (maps, spacingScale = 0.1) {
+    #setupMapButtons (spacingScale = 0.1) {
         const size = this.Area.max;
+        const { maps } = this.store;
         let padX;
         let padY;
         for (let i = 0; i < maps.length; i++) {
@@ -48,7 +51,7 @@ export class MapSelect extends Menu {
             const tileWidth = mapButton.maxWidth;
 
             padX = tileBbox.width * spacingScale;
-            padY = tileSize.y * spacingScale;
+            padY = tileBbox.height * spacingScale;
 
             if (tileWidth > size.x) size.x = tileWidth;
             size.y += padY;
@@ -123,12 +126,13 @@ export class MapSelect extends Menu {
         this.flags.CAMERA_PANNING = false;
 
         this.InterfaceLayers.buttons = this.Interface.insert();
+        this.InterfaceLayers.buttons.fixed = false;
         this.store.overButton = new ScreenButton(this.Parent.Global.Display);
         this.InterfaceLayers.over = this.Interface.insert();
         this.InterfaceLayers.over.push(this.store.overButton);
         this.InterfaceLayers.over.fixed = true;
 
-        this.#setupButtons();
+        this.#setupMapButtons();
     }
     closeAllButtons (closeActive = false) {
         for (const button of this.InterfaceLayers.buttons.items)
@@ -164,14 +168,13 @@ export class MapSelect extends Menu {
         this.store.overButton.close();
     }
     animate () {
-        super.animate();
         const { Camera } = this.Parent;
-        const { cursor } = this.Parent.Global.Display;
+        const { cursor } = this.Display;
         Camera.update();
         cursor.save();
         cursor.planeSize.apply(this.Area.size);
         this.Interface.draw(cursor);
         cursor.restore();
+        this.draw();
     }
-
 }
