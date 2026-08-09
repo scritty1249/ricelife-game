@@ -216,6 +216,7 @@ export class Round extends Phase {
     }
     #setAmmo (ammoType, map) {
         const { ammo } = this.store;
+        ammoType.setLegend(map.legend);
         ammo.current = ammoType;
         ammo.map = map;
         ammo.tracer = ammoType.getTracer();
