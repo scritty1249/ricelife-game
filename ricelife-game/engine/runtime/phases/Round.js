@@ -404,7 +404,7 @@ export class Round extends Phase {
         cursor.lineWidth = 2;
         for (const { Puppet } of this.Players.values()) {
             cursor.save();
-            Puppet.getBoundingBox()
+            Puppet.getHitbox()
                 .draw(cursor, true);
             cursor.stroke();
             cursor.restore();
