@@ -1,4 +1,4 @@
-import Default from "./Default.js";
+import Default from "./default.js";
 import { Vector } from "../core/math/Vector.js";
 import { Circle } from "../core/geometry/Circle.js";
 import { Blast } from "../core/projectile/Blast.js";
@@ -10,7 +10,7 @@ export default class Basic extends Default {
         // geometry config
         const { initalSpeed, drag, radius, blastRadius, glowColor, mainColor } = this.constructor;
         const acceleration = this.constructor.acceleration.clone();
-        // convert params for Shot(s)
+        // convert params for Projectile(s)
         const velocity = Vector.fromAngle(angle).mul(initalSpeed * power);
         // init geometry
         const shape = new Circle(radius, origin);

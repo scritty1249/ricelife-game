@@ -3,13 +3,13 @@
 // should be bound to ShotStage
 // computes bounce trajectory and return with related math
 export function computeBounce (normal) {
-    const { position, velocity } = this.shot.current;
+    const { position, velocity } = this.projectile.current;
     // reflection calculation
     const reflect = velocity
         .sub(normal.mul(2 * velocity.dot(normal)));
     // offset calculation - move projectile outside of the ground
     const displace = normal
-        .mul(Math.max(...this.shot.shape.getBoundingBox().size) / 2);
+        .mul(Math.max(...this.projectile.shape.getBoundingBox().size) / 2);
     return { reflect, displace }
 }
 

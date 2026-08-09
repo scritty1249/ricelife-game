@@ -1,16 +1,16 @@
-import Default from "./Default.js";
+import Default from "./default.js";
 import { Vector } from "../core/math/Vector.js";
 import { Color } from "../core/math/Color.js";
 import { Circle } from "../core/geometry/Circle.js";
 import { Blast } from "../core/projectile/Blast.js";
-import { Shot } from "../core/projectile/Shot.js";
+import { Projectile } from "../core/projectile/Projectile.js";
 import { Properties } from "../core/projectile/collision/Properties.js";
 import { computeBounce, createBlasts } from "../core/projectile/collision/Behaviors.js";
 
 export default class Bouncer extends Default {
     static collisionCallback (point, normal, collisionFlags) {
-        const { shot } = this;
-        const { position, velocity } = shot.current;
+        const { projectile } = this;
+        const { position, velocity } = projectile.current;
         if ((!this.userData.stopOnPlayer || !(collisionFlags & Properties.PLAYER)) // blow up instantly if hitting a player
             && !(collisionFlags & Properties.STOP)
             && this.userData.bounces < this.userData.maxBounces
@@ -28,12 +28,12 @@ export default class Bouncer extends Default {
         }
     }
     static onBounce () {
-        const { shot } = this;
+        const { projectile } = this;
         // apply cosmetic updates
         const reduce = this.userData.bounceGlowReduction / this.userData.maxBounces;
-        shot.glowColor.r -= reduce;
-        shot.glowColor.g -= reduce;
-        shot.glowColor.b -= reduce;
+        projectile.glowColor.r -= reduce;
+        projectile.glowColor.g -= reduce;
+        projectile.glowColor.b -= reduce;
         this.playSfx("bounce");
     }
     static onBounceCallback () {} // this does not apply to Projectile tracing performed by web workers. Operations done in this callback should be cosmetic-only: should NOT change projectile movement or hitbox
@@ -48,11 +48,11 @@ export default class Bouncer extends Default {
         // geometry config
         const { initalSpeed, drag, radius, blastRadius, glowColor, mainColor } = this.constructor;
         const acceleration = this.constructor.acceleration.clone();
-        // convert params for Shot(s)
+        // convert params for Projectile(s)
         const velocity = Vector.fromAngle(angle).mul(400 * power);
         // init geometry
         const shape = new Circle(radius, origin);
-        const shot = new Shot(origin, velocity, acceleration, drag, shape);
+        const shot = new Projectile(origin, velocity, acceleration, drag, shape);
         shot.glowColor.apply(glowColor);
         shot.mainColor.apply(mainColor);
         const hitbox = [new Blast(new Circle(blastRadius), 0, 25)];
