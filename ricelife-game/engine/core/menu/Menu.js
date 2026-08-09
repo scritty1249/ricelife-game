@@ -59,7 +59,7 @@ export class Menu extends Loop {
     }
     onResize () {}
     open () {
-        if (this.isOpen) return;
+        if (this.isOpen) return false;
         if (this.Parent.Global.flags.DEBUG)
             console.debug(`[${typeString(this)}]: Opened`);
         this.#CameraLastState = this.Parent.Camera.getState(true);
@@ -71,7 +71,7 @@ export class Menu extends Loop {
         return true;
     }
     close (returnData = undefined, haltAudio = true) {
-        if (!this.isOpen) return;
+        if (!this.isOpen) return false;
         if (haltAudio) this.Audio.Player.stop();
         if (this.Parent.Global.flags.DEBUG)
             console.debug(`[${typeString(this)}]: Closed with `, returnData);
