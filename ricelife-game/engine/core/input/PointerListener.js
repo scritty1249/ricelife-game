@@ -308,6 +308,8 @@ export class PointerListener  {
         this.resetState();
         return (this.#enabled = bool);
     }
+    get callbacks () { return this.#callbackFns }
     set callbacks (callbackMap) { return (this.#callbackFns = callbackMap) }
+    get onleave () { return this.#onleaveCallback }
     set onleave (callbackFn) { return (this.#onleaveCallback = callbackFn) }
 }
