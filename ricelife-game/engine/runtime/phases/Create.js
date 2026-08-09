@@ -20,7 +20,6 @@ export class Create extends Phase {
         await this.Menus.get("Maps").onload;
     }
     #postLoad () {
-        this.Menus.get("Maps").open();
         this.onResize();
     }
 
@@ -40,5 +39,9 @@ export class Create extends Phase {
         menu.Area.draw(cursor, true);
         cursor.fill();
         cursor.restore();
+    }
+    start () {
+        this.Menus.get("Maps").open();
+        super.start();
     }
 }
