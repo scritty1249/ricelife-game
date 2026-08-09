@@ -3,6 +3,7 @@ import { MapButton } from "../selections/MapButton.js";
 
 const SCROLL_SENSITIVITY = 1/3; // [!] temporary
 
+// [!] snatches control of parent phase's camera
 export class MapSelect extends Menu {
     constructor (phase, maps) {
         super (phase);
@@ -15,7 +16,7 @@ export class MapSelect extends Menu {
     #init (maps) {
         this.store.maps = maps; // [!] currently stores raw object from internet. Need to parse into a dedicated class! -KT
         this.flags.OVERRIDE_PANNING = false; // use when map is selected (not just opened)
-        this.flags.CAMERA_PANNING = false;
+        this.flags.CAMERA_PANNING = false; // moving camera without user input
 
         this.InterfaceLayers.buttons = this.Interface.insert();
         this.InterfaceLayers.buttons.fixed = false;
@@ -122,9 +123,9 @@ export class MapSelect extends Menu {
                 Camera.setTargetSize(size.x / 2, size.y / 2, true);
                 this.Events.raiseEvent("SELECTED", selection);
             } else if (!selection.isActive) {
+                Camera.untrackAll();
                 selection.open();
                 this.flags.CAMERA_PANNING = true;
-                Camera.untrackAll();
                 Camera.track(selection.getPosition());
             }
         }
@@ -153,10 +154,10 @@ export class MapSelect extends Menu {
         Camera.Viewbox.min.apply(this.Area.min);
         Camera.Viewbox.min.y += offsetY;
         Camera.Viewbox.max.apply(this.Area.max);
-        this.flags.CAMERA_PANNING = true;
         Camera.lerpFactor = 0.1;
         Camera.setTargetSize(this.Area.width / 2, heightSpacing, true);
         Camera.scalingBehavior = Camera.constructor.SCALING_BEHAVIOR.Always;
+        this.flags.CAMERA_PANNING = true;
         Camera.setPosition(undefined, top);
         return true;
     }
@@ -170,9 +171,13 @@ export class MapSelect extends Menu {
     animate () {
         const { cursor } = this.Display;
         cursor.save();
-        //cursor.planeSize.apply(this.Area.size);
         this.Interface.draw(cursor);
         cursor.restore();
         this.draw(true);
+        this.Parent.Camera.update();
+    }
+    async tick (delta) {
+        if (!this.flags.CAMERA_PANNING && !this.flags.OVERRIDE_PANNING)
+            this.Parent.Camera.untrackAll();
     }
 }
