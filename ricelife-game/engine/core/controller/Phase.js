@@ -114,6 +114,8 @@ export class Phase extends Loop {
     reset () {
         this.state = this.constructor.STATES.Busy;
         this.Global.Display.removeResizeListener(this.#resizeHandler);
+        for (const menu of this.Menus.values())
+            if (menu.isOpen) menu.close();
     }
     async ontick (delta) {}
     async tick (delta) {
