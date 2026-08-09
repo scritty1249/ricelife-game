@@ -12,13 +12,33 @@ export class AmmoSelect extends Menu {
     constructor (phase, ammoTypes) {
         super(phase);
         try {
-            this.store.selections = ammoTypes;
+            this.#init(ammoTypes);
             this.resolveLoad();
         } catch (error) {
             this.rejectLoad(error);
         }
     }
 
+    #init (ammoTypes) {
+        const position = this.Parent.Global.Display.center;
+        this.store.selections = ammoTypes;
+        this.store.pointerRecord = {
+            lastDrawn: position.clone(),
+            lastActive: position.clone()
+        };
+        this.store.layout = {};
+        this.flags.followPointer = false;
+        this.flags.trackActive = false;
+        this.flags.focalUpdated = false;
+        this.flags.snapToFocal = false;
+
+        this.store.underButton.onclick = () => this.close(undefined, true);
+        this.InterfaceLayers.buttons = this.Interface.insert();
+        this.InterfaceLayers.buttons.fixed = true;
+
+        this.updateLayout();
+        this.#resetButtonPositions();
+    }
     #resetButtonPositions () {
         const { spacing, count, center } = this.store.layout;
         const coords = [];
@@ -87,28 +107,8 @@ export class AmmoSelect extends Menu {
             || (!this.flags.followPointer && pointer.delta.lengthSquared);
     }
 
-    onResize = () => {
+    onResize () {
         this.reset(true);
-    }
-    init () {
-        super.init();
-        const position = this.Parent.Global.Display.center;
-        this.store.pointerRecord = {
-            lastDrawn: position.clone(),
-            lastActive: position.clone()
-        };
-        this.store.layout = {};
-        this.flags.followPointer = false;
-        this.flags.trackActive = false;
-        this.flags.focalUpdated = false;
-        this.flags.snapToFocal = false;
-
-        this.store.underButton.onclick = () => this.close(undefined, true);
-        this.InterfaceLayers.buttons = this.Interface.insert();
-        this.InterfaceLayers.buttons.fixed = true;
-
-        this.updateLayout();
-        this.#resetButtonPositions();
     }
     animate () {
         const { cursor } = this.Display;
@@ -118,7 +118,7 @@ export class AmmoSelect extends Menu {
         if (!lastDrawn.eq(lastActive))
             lastDrawn.apply(lastActive);
         this.Interface.draw(cursor);
-        this.draw();
+        this.draw(true);
         this.#updateFocalPoint();
     }
     async tick (delta) {

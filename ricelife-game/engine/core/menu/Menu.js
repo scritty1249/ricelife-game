@@ -23,37 +23,41 @@ export class Menu extends Loop {
         this.#Display = new AppCanvas(new OffscreenCanvas(1, 1), window);
         this.#Parent = phase;
         this.Interface.Viewbox = this.Parent.Camera.Viewbox;
-        this.onload.then(() => this.#initAfterLoad());
+        this.#init();
     }
 
-    #attachListeners () {
-        this.Parent.Global.Display.addResizeListener(this.onResize);
-    }
-    #detachListeners () {
-        this.Parent.Global.Display.removeResizeListener(this.onResize);
-    }
-    #initAfterLoad () {
-        this.init();
-    }
-
-    async loop () {}
-    animate () {}
-    draw () {
-        const { cursor } = this.Parent.Global.Display;
-        cursor.save();
-        cursor.fixed = true;
-        cursor.drawImage(this.Display.canvas, 0, 0);
-        cursor.restore();
-        this.Display.cursor.clear();
-    }
-    onResize = () => {}
-    init () {
+    #init () {
         this.store.underButton = new ScreenButton(this.Parent.Global.Display);
         this.flags.INVERT_TRACKING = true;
         this.InterfaceLayers.under = this.Interface.insert();
         this.InterfaceLayers.under.push(this.store.underButton);
         this.InterfaceLayers.under.fixed = true;
     }
+    #attachListeners () {
+        this.Parent.Global.Display.addResizeListener(this.#resizeHandler);
+    }
+    #detachListeners () {
+        this.Parent.Global.Display.removeResizeListener(this.#resizeHandler);
+    }
+    #resizeHandler = () => {
+        this.onResize();
+    }
+
+    async loop () {}
+    animate () {}
+    draw (cover = false) {
+        const { cursor } = this.Parent.Global.Display;
+        cursor.save();
+        cursor.fixed = false;
+        if (cover) {
+            const { size } = this.Parent.Global.Display;
+            cursor.drawImage(this.Display.canvas, 0, 0, size.x, size.y);
+        } else
+            cursor.drawImage(this.Display.canvas, this.Area.min, this.Area.size);
+        cursor.restore();
+        this.Display.cursor.clear();
+    }
+    onResize () {}
     open () {
         if (this.isOpen) return;
         if (this.Parent.Global.flags.DEBUG)

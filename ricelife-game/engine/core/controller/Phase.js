@@ -76,14 +76,17 @@ export class Phase extends Loop {
         cursor.restore();
         this.state = originalState;
     }
+    #resizeHandler = () => {
+        this.onResize();
+    }
 
     drawMenuBackground () { this.onanimate() }
-    onResize = () => {
+    onResize () {
         if (this.hasOpenMenu)
             this.#captureCanvas();
     }
     drawBackground () {}
-    onanimate () {}
+    onanimate () { this.Camera.update() }
     animate (clear = true) {
         if (clear) this.Global.Display.cursor.clear();
         let noOpenMenus = true;
@@ -102,12 +105,12 @@ export class Phase extends Loop {
         }
     }
     start () {
-        this.Global.Display.addResizeListener(this.onResize);
+        this.Global.Display.addResizeListener(this.#resizeHandler);
         this.state = this.constructor.STATES.Ready;
     }
     reset () {
         this.state = this.constructor.STATES.Busy;
-        this.Global.Display.removeResizeListener(this.onResize);
+        this.Global.Display.removeResizeListener(this.#resizeHandler);
     }
     async ontick (delta) {}
     async tick (delta) {

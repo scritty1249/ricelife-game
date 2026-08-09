@@ -125,6 +125,18 @@ export class Main extends Loop {
         cursor.fillText(this.FrameCounter.fps, size.x - 10, size.y - 10);
         cursor.restore();
     }
+    #drawViewboxBorder () {
+        if (!this.ActivePhase?.isPhase) return;
+        const { cursor } = this.Display;
+        const { Viewbox } = this.ActivePhase.Camera;
+        Viewbox.setCursor(cursor, true);
+        cursor.fixed = false;
+        cursor.strokeStyle = "rgba(255, 0, 0, 0.2)";
+        cursor.lineWidth = 5;
+        Viewbox.draw(cursor, true);
+        cursor.stroke();
+        cursor.restore();
+    }
 
     async loadCreatePhase (maps) {
         const { Create } = await import(Main.#PhaseImport.Create);
@@ -163,7 +175,10 @@ export class Main extends Loop {
                 this.Display.cursor.clear();
             }
             if (drawFrame) {
-                if (this.flags.DEBUG) this.#drawFramerate();
+                if (this.flags.DEBUG) {
+                    this.#drawViewboxBorder();
+                    this.#drawFramerate();
+                }
                 this.FrameCounter.update();
             }
         }

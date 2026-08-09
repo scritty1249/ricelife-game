@@ -6,14 +6,29 @@ const SCROLL_SENSITIVITY = 1/3; // [!] temporary
 export class MapSelect extends Menu {
     constructor (phase, maps) {
         super (phase);
-        this.#load(maps)
+        this.#init(maps);
+        this.#load()
             .then(() => this.resolveLoad())
             .catch((error) => this.rejectLoad(error));
     }
 
-    async #load (maps) {
+    #init (maps) {
         this.store.maps = maps; // [!] currently stores raw object from internet. Need to parse into a dedicated class! -KT
+        this.flags.OVERRIDE_PANNING = false; // use when map is selected (not just opened)
+        this.flags.CAMERA_PANNING = false;
+
+        this.InterfaceLayers.buttons = this.Interface.insert();
+        this.InterfaceLayers.buttons.fixed = false;
+        this.store.overButton = new ScreenButton(this.Parent.Global.Display);
+        this.InterfaceLayers.over = this.Interface.insert();
+        this.InterfaceLayers.over.push(this.store.overButton);
+        this.InterfaceLayers.over.fixed = true;
+
+        this.#setupPanningButtons();
+    }
+    async #load () {
         await this.#loadMapThumbnails();
+        this.#setupMapButtons();
     }
     async #loadMapThumbnails () {
         const { AssetType } = this.Parent.Global.constructor;
@@ -120,61 +135,47 @@ export class MapSelect extends Menu {
         this.Parent.Camera.offsetPosition(scroll);
     }
 
-    init () {
-        super.init();
-        this.flags.OVERRIDE_PANNING = false; // use when map is selected (not just opened)
-        this.flags.CAMERA_PANNING = false;
-
-        this.InterfaceLayers.buttons = this.Interface.insert();
-        this.InterfaceLayers.buttons.fixed = false;
-        this.store.overButton = new ScreenButton(this.Parent.Global.Display);
-        this.InterfaceLayers.over = this.Interface.insert();
-        this.InterfaceLayers.over.push(this.store.overButton);
-        this.InterfaceLayers.over.fixed = true;
-
-        this.#setupMapButtons();
-    }
     closeAllButtons (closeActive = false) {
         for (const button of this.InterfaceLayers.buttons.items)
             if (closeActive || !button.isActive) button.close();
     }
     // set Camera size and pan to top
     open () {
-        super.open();
+        if (!super.open()) return;
         const { Camera } = this.Parent;
-        const planeSize = this.Parent.Global.Display.size;
         const mapCount = this.InterfaceLayers.buttons.size || 1;
         const heightSpacing = this.Area.height / mapCount;
-        const offsetY = (heightSpacing * ((mapCount - 1) || 1));
-        const top = (heightSpacing / 2) + offsetY;
+        const offsetY = heightSpacing * ((mapCount - 1) || 1);
+        const top = offsetY + (heightSpacing / 2);
 
         Camera.Viewbox.setPlane(this.Area);
-        Camera.Viewbox.min.apply(this.Area.min.x, offsetY);
+        Camera.Viewbox.min.apply(this.Area.min);
+        Camera.Viewbox.min.y += offsetY;
         Camera.Viewbox.max.apply(this.Area.max);
         this.flags.CAMERA_PANNING = true;
         Camera.lerpFactor = 0.1;
-        Camera.setTargetSize(this.Area.width, heightSpacing, true);
+        // Camera.setTargetSize(this.Area.width / 2, heightSpacing, true);
         Camera.scalingBehavior = Camera.constructor.SCALING_BEHAVIOR.Always;
         Camera.setPosition(undefined, top);
+        return true;
     }
     close (returnData = undefined, haltAudio = true) {
-        super.close(returnData, haltAudio);
+        if (!super.close(returnData, haltAudio)) return;
         this.closeAllButtons(true);
         this.flags.OVERRIDE_PANNING = false;
         this.flags.CAMERA_PANNING = false;
+        return true;
     }
     stop () {
         super.stop();
         this.store.overButton.close();
     }
     animate () {
-        const { Camera } = this.Parent;
         const { cursor } = this.Display;
-        Camera.update();
         cursor.save();
-        cursor.planeSize.apply(this.Area.size);
+        //cursor.planeSize.apply(this.Area.size);
         this.Interface.draw(cursor);
         cursor.restore();
-        this.draw();
+        this.draw(true);
     }
 }
