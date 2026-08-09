@@ -1,18 +1,20 @@
 import { BoundingBox } from "../../geometry/BoundingBox.js";
 import { Vector } from "../../math/Vector.js";
 import { Canvas2DContextCursor } from "./Canvas2DContextCursor.js";
+import { Hashable } from "../../math/Hash.js";
 
-export class AppCanvas {
+export class AppCanvas extends Hashable {
     #cursor;
     #window;
     #ratio = 1;
     #Viewbox;
     #bbox = new BoundingBox();
-    #sizeHash;
+    #rawSizeHash;
     #size = new Vector();
     #resizeCallbacks = new Set();
     #center = new Vector();
     constructor (canvas, window) {
+        super();
         this.canvas = canvas;
         this.#window = window;
         this.window.addEventListener("resize", this.#onResize);
@@ -33,7 +35,7 @@ export class AppCanvas {
         this.size.apply(width, height);
         this.center.apply(this.size.div(2));
         this.#bbox.apply(undefined, this.size);
-        this.#sizeHash = this.#bbox.hash;
+        this.#rawSizeHash = this.#bbox.rawHash;
         this.#ratio = this.size.quot();
     }
 
@@ -55,5 +57,5 @@ export class AppCanvas {
     get window () { return this.#window }
     get isPortrait () { return this.#size.x < this.#size .y }
     get isLandscape () { return this.#size.y < this.#size.x }
-    get hash () { return this.#sizeHash }
+    get rawHash () { return this.#rawSizeHash }
 }

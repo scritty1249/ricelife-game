@@ -52,7 +52,7 @@ export class Menu extends Loop {
     // returns true if screen dimensions have changed since last resize event, and false otherwise.
     onResize () {
         const oldHash = this.#resizeHash;
-        this.#resizeHash = this.Parent.Global.Display.getBoundingBox().hash;
+        this.#resizeHash = this.Parent.Global.Display.hash;
         return oldHash !== this.#resizeHash;
     }
     open () {
