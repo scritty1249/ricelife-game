@@ -155,10 +155,16 @@ export class Main extends Loop {
     async loadJoinPhase () {
         const { Join } = await import(Main.#PhaseImport.Join);
         const phase = new Join(this);
+        await phase.onload;
+        this.Phases.Join = phase;
+        return phase;
     }
     async loadLoadoutPhase () {
         const { Loadout } = await import(Main.#PhaseImport.Loadout);
         const phase = new Loadout(this);
+        await phase.onload;
+        this.Phases.Loadout = phase;
+        return phase;
     }
     async loop () {
         this.tick()

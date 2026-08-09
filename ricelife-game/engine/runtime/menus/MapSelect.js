@@ -81,9 +81,9 @@ export class MapSelect extends Menu {
         size.y += padY / 2;
     }
     #createSelection (selectionData) {
-        const { name, src } = selectionData;
+        const { name } = selectionData;
         const thumbnail = this.AssetPool.get(name).clone(false);
-        const selection = new MapButton(name, src, thumbnail);
+        const selection = new MapButton(name, thumbnail);
         const bbox = selection.shape.getBoundingBox();
         const {
             fontColor, fillColor, strokeColor,
@@ -121,7 +121,7 @@ export class MapSelect extends Menu {
                 Camera.track(selection.getPosition());
                 const size = Camera.getTargetSize();
                 Camera.setTargetSize(size.x / 2, size.y / 2, true);
-                this.Events.raiseEvent("SELECTED", selection);
+                this.Events.raiseEvent("SELECTED", selectionData);
             } else if (!selection.isActive) {
                 Camera.untrackAll();
                 selection.open();

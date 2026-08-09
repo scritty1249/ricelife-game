@@ -13,7 +13,6 @@ export class MapButton extends ShapeButton {
     static EXPAND_LENGTH_FACTOR = 1.2;
     static TILE_LEG_LENGTH = 150;
     #thumb;
-    #src;
     #currentState = {
         textOffset: new Vector(),
     }
@@ -52,10 +51,9 @@ export class MapButton extends ShapeButton {
         expand: new Path(),
     };
     #expandLength;
-    constructor (name, src, thumbnail, legLength) {
+    constructor (name, thumbnail, legLength) {
         super(new Equigon(6, legLength || MapButton.TILE_LEG_LENGTH));
         this.text = name;
-        this.#src = src;
         this.#thumb = thumbnail;
         this.#init();
         this.save(); // make sure save is called at least once, even if wasteful
@@ -210,7 +208,6 @@ export class MapButton extends ShapeButton {
     get anchor () { return this.#points.anchor }
     get expand () { return this.#points.expand }
     get thumb () { return this.#thumb }
-    get src () { return this.#src }
     get maxWidth () { return this.#expandLength + this.shape.getBoundingBox().width }
     get openFontColor () { return this.#openState.font }
     get openFillColor () { return this.#openState.fill }

@@ -4,44 +4,40 @@ import {
 import { MapSelect } from "../menus/MapSelect.js";
 
 export class Create extends Phase {
+    static #selectedCallbackOptions = {
+        once: true
+    };
     constructor (mainController, maps) {
         super(mainController);
         this.#init(maps)
         this.#load()
             .then(() => this.resolveLoad())
             .catch((err) => this.rejectLoad(err));
-        this.onload.then(() => this.#postLoad());
+        this.onload.then(() => this.onResize());
     }
 
     #init (maps) {
         this.Menus.set("Maps", new MapSelect(this, maps));
     }
     async #load () {
-        await this.Menus.get("Maps").onload;
+        this.store.menu = await this.Menus.get("Maps").onload;
     }
-    #postLoad () {
-        this.onResize();
+    #onMapSelected (selected) {
+        this.Events.raiseEvent("SELECTED", selected);
     }
 
-    onResize () {
-        // const plane = this.Global.Display.getBoundingBox()
-        // this.Plane.apply(plane);
-        // this.Camera.Viewbox.setPlane(this.Plane);
-        super.onResize();
-    }
     onanimate () {
-        const menu = this.Menus.get("Maps");
-        const { cursor } = this.Global.Display;
-        const { Viewbox } = this.Camera;
-        this.Camera.update();
-        Viewbox.setCursor(cursor, true);
-        // cursor.fillStyle = "rgba(0, 0, 255, 0.4)";
-        // menu.Area.draw(cursor, true);
-        // cursor.fill();
-        cursor.restore();
+        const { menu } = this.store;
+        if (!menu?.isOpen) this.Camera.update();
     }
     start () {
-        this.Menus.get("Maps").open();
+        // attach per start, consume on trigger. Prevent multiple map loads from being queued up at the same time
+        this.store.menu.Events.addEventListener("SELECTED", (data) => this.#onMapSelected(data), Create.#selectedCallbackOptions);
+        this.store.menu.open();
         super.start();
+    }
+    reset () {
+        super.reset();
+        this.store.menu.close();
     }
 }
