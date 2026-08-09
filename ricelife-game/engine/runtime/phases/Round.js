@@ -28,6 +28,8 @@ import { AmmoSelect } from "../menus/AmmoSelect.js";
 import { AmmoTypeDetails } from "../selections/AmmoTypeDetails.js";
 import { initTerrain, initLobby } from "../utils.js";
 
+import { drawCircle, drawLine, drawMarker, drawText, generateBitmapDownloadURL } from "../debug/draw.js"; // [!] all for debug overlay
+
 import * as HP from "../../hitpoints/Core.js"; // only import to register types with parent class. Subclass constructors not directly needed
 
 const INPUT_MAP = new KeyMap({
@@ -408,6 +410,40 @@ export class Round extends Phase {
             cursor.restore();
         }
         cursor.restore();
+
+        // draw collision details
+        if (store.ammo.debug.legend) {
+            if (store.ammo.debug.collisions) {
+                const _lineLength = 35;
+                const red = new Color(255, 0, 0, .5)
+                    .toString();
+                const green = new Color(0, 255, 0, .5)
+                    .toString();
+                const blue = new Color(0, 0, 255, .5)
+                    .toString();
+                store.ammo.debug.collisions.forEach(({position, point, resultVelocity, velocity, normal}) => {
+                    drawCircle(cursor, position, 3, blue); // shot position during collision
+                    drawLine(cursor, point, point.add(normal.normalize().mul(_lineLength)), 2, green); // normal
+                    drawLine(cursor, point, point.add(velocity.normalize().mul(_lineLength)), 2, blue); // direction (incoming)
+                    if (resultVelocity.length) drawLine(cursor, position, position.add(resultVelocity.normalize().mul(_lineLength)), 2, red); // reflection
+                });
+            }
+            // draw blasts
+            if (store.ammo.debug.blasts?.length) {
+                const c = new Color(255, 165, 0, .15);
+                cursor.save();
+                cursor.fillStyle = c.toString();
+                for (const { shape } of store.ammo.debug.blasts) {
+                    shape.draw(cursor, true);
+                    cursor.fill();
+                }
+                cursor.restore();
+                c.a = 1;
+                for (const { position } of store.ammo.debug.blasts) {
+                    drawCircle(cursor, position, 3, c.toString());
+                }
+            }
+        }
 
         cursor.restore();
     }
