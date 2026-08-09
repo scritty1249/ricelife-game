@@ -12,6 +12,7 @@ const lobby = {
                     "bouncer",
                     "megabouncer",
                     "gigabouncer",
+                    "digger",
                 ],
                 "model": "basic",
                 "profile": {
