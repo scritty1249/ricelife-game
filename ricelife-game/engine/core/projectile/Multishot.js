@@ -1,6 +1,7 @@
 import { Shot } from "./Shot.js";
 import { typeString } from "../utils/logging.js";
 import { Identifiable } from "../utils/tracking/Identifiable.js";
+import { BoundingBox } from "../geometry/BoundingBox.js";
 
 // Multiple shots at once
 export class Multishot extends Identifiable {
