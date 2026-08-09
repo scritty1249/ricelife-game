@@ -35,9 +35,9 @@ export class Create extends Phase {
         const { Viewbox } = this.Camera;
         this.Camera.update();
         Viewbox.setCursor(cursor, true);
-        cursor.fillStyle = "rgba(0, 0, 255, 0.4)";
-        menu.Area.draw(cursor, true);
-        cursor.fill();
+        // cursor.fillStyle = "rgba(0, 0, 255, 0.4)";
+        // menu.Area.draw(cursor, true);
+        // cursor.fill();
         cursor.restore();
     }
     start () {
