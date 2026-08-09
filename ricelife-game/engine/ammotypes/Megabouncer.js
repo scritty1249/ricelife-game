@@ -1,35 +1,35 @@
-import Bouncer from "./Bouncer.js";
+import Bouncer from "./bouncer.js";
 import { Vector } from "../core/math/Vector.js";
 
 export default class MegaBouncer extends Bouncer {
     static onBounce () {
-        const { shot } = this;
+        const { projectile } = this;
         const { maxBounces } = this.userData;
         // apply cosmetic updates
         const brighten = this.userData.bounceGlowLimit / maxBounces;
-        shot.glowColor.r += brighten;
-        shot.glowColor.g += brighten;
-        shot.glowColor.b += brighten;
+        projectile.glowColor.r += brighten;
+        projectile.glowColor.g += brighten;
+        projectile.glowColor.b += brighten;
         const grow = this.userData.bounceGlowRadiusLimit / maxBounces;
-        shot.glowRadius += grow;
-        shot.glowColor.a *= this.bounceGlowAlphaMultiplier;
+        projectile.glowRadius += grow;
+        projectile.glowColor.a *= this.bounceGlowAlphaMultiplier;
         const tail = this.userData.bounceTailLengthLimit / maxBounces;
-        shot.tailLength += tail;
+        projectile.tailLength += tail;
         // "functional" updates
         if (this.userData.hitbox) {
             const factor = this.userData.bounceBlastScaleFactor;
             this.userData.hitbox.forEach((blast) => {
                 const { shape } = blast;
                 blast.damage *= this.userData.bounceDamageMultiplier;
-                shape.transformation.save();
-                shape.transformation.reset();
-                shape.transformation.scale.apply(factor);
-                shape.applyTransformation();
-                shape.transformation.restore();
+                shape.transform.save();
+                shape.transform.reset();
+                shape.transform.scale.apply(factor);
+                shape.applyTransform();
+                shape.transform.restore();
             });
         }
         const acceleration = this.userData.bounceAccelerationLimit.div(maxBounces);
-        shot.acceleration.add(acceleration);
+        projectile.acceleration.add(acceleration);
         this.playSfx("bounce");
     }
     static initalSpeed = 500;
@@ -48,16 +48,16 @@ export default class MegaBouncer extends Bouncer {
     static bounceDamageMultiplier = 1.34;
     constructor (origin, angle, power = 1, resolution = 1) {
         super(origin, angle, power, resolution);
-        const stage = this.stages[0].stages[0];
+        const shot = this.stages[0].shots[0];
         // adjust cosmetics
-        stage.userData.hitbox.at(0).radius = 30;
-        stage.shot.glowColor.a = .4;
-        stage.userData.bounceAccelerationLimit = this.constructor.bounceAccelerationLimit;
-        stage.userData.bounceTailLengthLimit = this.constructor.bounceTailLengthLimit;
-        stage.userData.bounceGlowLimit = this.constructor.bounceGlowLimit;
-        stage.userData.bounceGlowAlphaMultiplier = this.constructor.bounceGlowAlphaMultiplier;
-        stage.userData.bounceGlowRadiusLimit = this.constructor.bounceGlowRadiusLimit;
-        stage.userData.bounceBlastScaleFactor = this.constructor.bounceBlastScaleFactor;
-        stage.userData.bounceDamageMultiplier = this.constructor.bounceDamageMultiplier;
+        shot.userData.hitbox.at(0).radius = 30;
+        shot.projectile.glowColor.a = .4;
+        shot.userData.bounceAccelerationLimit = this.constructor.bounceAccelerationLimit;
+        shot.userData.bounceTailLengthLimit = this.constructor.bounceTailLengthLimit;
+        shot.userData.bounceGlowLimit = this.constructor.bounceGlowLimit;
+        shot.userData.bounceGlowAlphaMultiplier = this.constructor.bounceGlowAlphaMultiplier;
+        shot.userData.bounceGlowRadiusLimit = this.constructor.bounceGlowRadiusLimit;
+        shot.userData.bounceBlastScaleFactor = this.constructor.bounceBlastScaleFactor;
+        shot.userData.bounceDamageMultiplier = this.constructor.bounceDamageMultiplier;
     }
 }
