@@ -68,15 +68,16 @@ export class MapSelect extends Menu {
             padX = tileBbox.width * spacingScale;
             padY = tileBbox.height * spacingScale;
 
-            if (tileWidth > size.x) size.x = tileWidth;
-            size.y += padY;
+            if (tileWidth > size.x) size.x = tileWidth + padX + padX;
+            size.y += padY * (i ? 1 : 0.5);
             const offsetX = (tileWidth / 2) + padX;
             const offsetY = (tileHeight / 2) + size.y;
             mapButton.setPosition(offsetX, offsetY);
             mapButton.save();
             this.InterfaceLayers.buttons.push(mapButton);
             size.y += tileHeight;
-        }        
+        }
+        size.y += padY / 2;
     }
     #createSelection (selectionData) {
         const { name, src } = selectionData;
@@ -154,7 +155,7 @@ export class MapSelect extends Menu {
         Camera.Viewbox.max.apply(this.Area.max);
         this.flags.CAMERA_PANNING = true;
         Camera.lerpFactor = 0.1;
-        // Camera.setTargetSize(this.Area.width / 2, heightSpacing, true);
+        Camera.setTargetSize(this.Area.width / 2, heightSpacing, true);
         Camera.scalingBehavior = Camera.constructor.SCALING_BEHAVIOR.Always;
         Camera.setPosition(undefined, top);
         return true;
