@@ -4,11 +4,11 @@ import { Shape } from "../../core/geometry/Shape.js";
 import { Vector } from "../../core/math/Vector.js";
 import { Terrain } from "../../core/geometry/Terrain.js";
 import { typeString, objectString } from "../../core/utils/logging.js";
-import { TrackableObject } from "../../core/utils/tracking/TrackableObject.js";
+import { Identifiable } from "../../core/utils/tracking/Identifiable.js";
 
 // [!] we break the project formatting rules here for efficiency. Multiple classes in one file shrinks the number of lookups each worker
 //  has to do, but increases overhead (potential bloat) as a tradeoff. -KT
-export class Cache extends TrackableObject {
+export class Cache extends Identifiable {
     static TYPES = new Map();
     // unpacks a cache that was sent from another thread
     static decode (cacheObj) {

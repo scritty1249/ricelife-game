@@ -1,6 +1,6 @@
-import { TrackableObject } from "../../utils/tracking/TrackableObject.js";
+import { Identifiable } from "../../utils/tracking/Identifiable.js";
 
-export class LoadPool extends TrackableObject {
+export class LoadPool extends Identifiable {
     #pool = {};
     #promisePool;
     #loadPromise;

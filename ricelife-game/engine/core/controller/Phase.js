@@ -82,8 +82,11 @@ export class Phase extends Loop {
 
     drawMenuBackground () { this.onanimate() }
     onResize () {
-        if (this.hasOpenMenu)
+        if (this.hasOpenMenu) {
             this.#captureCanvas();
+            for (const menu of this.Menus.values())
+                if (menu.isOpen) menu.onResize();
+        }
     }
     drawBackground () {}
     onanimate () { this.Camera.update() }

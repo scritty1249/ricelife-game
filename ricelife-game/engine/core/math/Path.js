@@ -3,11 +3,30 @@
 import { Vector } from "./Vector.js";
 import { clamp, equals } from "./utils.js";
 import { typeString } from "../utils/logging.js";
+import { Hashable } from "./Hash.js";
 
-export class Path { // points should be ordered clockwise (in positioning)
+export class Path extends Hashable { // points should be ordered clockwise (in positioning)
+    static fromArray (arr) {
+        if (arr.length % 2 === 1) throw new Error(`[${typeString(this)}] Error: Cannot initalize new Path from uneven array of length ${arr.length.toString()}`);
+        const path = new Path();
+        for (let i = 0; i < arr.length; i+=2)
+            path.push(new Vector(arr[i], arr[i+1]));
+        return path;
+    }
+    static intersectAngle (p0, p1, p2, p3) { // lightweight version of interections method
+        const d0 = p1.sub(p0),
+            d1 = p3.sub(p2),
+            cross = d0.cross(d1),
+            dot = d0.dot(d1);
+        return {
+            angle: Math.atan2(cross, dot),
+            entering: cross > 0
+        };
+    }
     #points;
     #isClosed = false;
     constructor (...points) {
+        super();
         this.#points = (points.length === 1)
             ? points[0]?.isPath
                 ? points[0].points
@@ -285,39 +304,12 @@ export class Path { // points should be ordered clockwise (in positioning)
             yield segment;
         }
     }
-
-    get isPath () { return true }
-    get isClosed () { return this.#isClosed }
-    set isClosed (bool) { return (this.#isClosed = bool) }
-    get points () { return this.#points }
-    get length () { return this.#points.length }
-    get direction () { return this.#points.slice().reverse().reduce((acc, curr) => acc.sub(curr)) }
-    get angle () { return (this.length > 1) ? this.#points[0].angle(...this.slice(1)) : undefined }
-    get pointNodes () { // [!] probably should just be applying this as we push in new points... but not sure if that's what I want the Path class to do natively.
-        return this.map((pt, idx, arr) => ({
-            point: pt,
-            nextNode: arr.at((idx + 1) % arr.length),
-            prevNode: arr.at((idx - 1) % arr.length)
-        }));
-    }
-    get hash () {
-        // just hashes points, does not account for Path attributes (like ID)
-        return Vector.hash(this.points);
-    }
     Float32 () {
         const arr = [];
         for (let i = 0; i < this.length; i++)
             arr.push(...this.at(i));
         return new Float32Array(arr);
     }
-    get isClockwise () { // "Shoelace formula"
-        if (this.length < 3) return true;
-        return this.points.reduce((acc, p1, i) => {
-            const p2 = this.points[(i + 1) % this.length];
-            return acc + (p2.x - p1.x) * (p2.y + p1.y);
-        }, 0) > 0;
-    }
-
     apply (...values) {
         this.#points.splice(0, this.#points.length);
         this.#points.push(...(values.length == 1 && values[0]?.isPath ? values[0] : values));
@@ -367,21 +359,30 @@ export class Path { // points should be ordered clockwise (in positioning)
         path.isClosed = this.isClosed;
         return path;
     }
-    static fromArray (arr) {
-        if (arr.length % 2 === 1) throw new Error(`[${typeString(this)}] Error: Cannot initalize new Path from uneven array of length ${arr.length.toString()}`);
-        const path = new Path();
-        for (let i = 0; i < arr.length; i+=2)
-            path.push(new Vector(arr[i], arr[i+1]));
-        return path;
+
+    get isPath () { return true }
+    get isClosed () { return this.#isClosed }
+    set isClosed (bool) { return (this.#isClosed = bool) }
+    get points () { return this.#points }
+    get length () { return this.#points.length }
+    get direction () { return this.#points.slice().reverse().reduce((acc, curr) => acc.sub(curr)) }
+    get angle () { return (this.length > 1) ? this.#points[0].angle(...this.slice(1)) : undefined }
+    get pointNodes () { // [!] probably should just be applying this as we push in new points... but not sure if that's what I want the Path class to do natively.
+        return this.map((pt, idx, arr) => ({
+            point: pt,
+            nextNode: arr.at((idx + 1) % arr.length),
+            prevNode: arr.at((idx - 1) % arr.length)
+        }));
     }
-    static intersectAngle (p0, p1, p2, p3) { // lightweight version of interections method
-        const d0 = p1.sub(p0),
-            d1 = p3.sub(p2),
-            cross = d0.cross(d1),
-            dot = d0.dot(d1);
-        return {
-            angle: Math.atan2(cross, dot),
-            entering: cross > 0
-        };
+    get rawHash () {
+        // just hashes points, does not account for Path attributes
+        return Hashable.rawHash(this.points);
+    }
+    get isClockwise () { // "Shoelace formula"
+        if (this.length < 3) return true;
+        return this.points.reduce((acc, p1, i) => {
+            const p2 = this.points[(i + 1) % this.length];
+            return acc + (p2.x - p1.x) * (p2.y + p1.y);
+        }, 0) > 0;
     }
 }

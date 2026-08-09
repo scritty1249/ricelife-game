@@ -1,9 +1,9 @@
 import { BoundingBox } from "../../geometry/BoundingBox.js";
 import { Vector } from "../../math/Vector.js";
-import { TrackableObject } from "../../utils/tracking/TrackableObject.js";
+import { Identifiable } from "../../utils/tracking/Identifiable.js";
 import { typeString } from "../../utils/logging.js";
 
-export class Icon extends TrackableObject {
+export class Icon extends Identifiable {
     #img;
     #hash;
     #bbox = new BoundingBox();

@@ -1,8 +1,8 @@
-import { TrackableObject } from "../../core/utils/tracking/TrackableObject.js";
+import { Identifiable } from "../../core/utils/tracking/Identifiable.js";
 import { isAwaiting } from "./utils.js";
 import { Job } from "./Job.js";
 
-export class Transaction extends TrackableObject {
+export class Transaction extends Identifiable {
     #promise;
     #resolve;
     #reject;

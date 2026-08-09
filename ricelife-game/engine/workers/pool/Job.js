@@ -6,7 +6,7 @@ export class Job {
     #promise;
     #link;
     #fulfilled = false;
-    // chained may be any thenable TrackableObject
+    // chained may be any thenable Identifiable
     constructor (chained, promise = undefined) {
         this.#chained = this.#link = chained;
         if (!promise && !chained?.isTransaction)

@@ -1,9 +1,9 @@
 import { Shot } from "./Shot.js";
 import { typeString } from "../utils/logging.js";
-import { TrackableObject } from "../utils/tracking/TrackableObject.js";
+import { Identifiable } from "../utils/tracking/Identifiable.js";
 
 // Multiple shots at once
-export class Multishot extends TrackableObject {
+export class Multishot extends Identifiable {
     #shots = new Array();
     #blasts;
     #collisionCallback; // <bound to This> ([...{polygon: Polygon, overlap: Path}]) => undefined

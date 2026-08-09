@@ -2,9 +2,9 @@ import { BoundingBox } from "../../geometry/BoundingBox.js";
 import { Color } from "../../math/Color.js";
 import { Vector } from "../../math/Vector.js";
 import { equals } from "../../math/utils.js";
-import { TrackableObject } from "../../utils/tracking/TrackableObject.js";
+import { Identifiable } from "../../utils/tracking/Identifiable.js";
 
-export class Button extends TrackableObject {
+export class Button extends Identifiable {
     // these need to be set as non-functions by default for isSupported checks to work
     // all given parameters are Vectors
     #callback = {

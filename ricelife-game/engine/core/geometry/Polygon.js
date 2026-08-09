@@ -1,10 +1,10 @@
 import { BoundingBox } from "./BoundingBox.js";
 import { Path } from "../math/Path.js";
 import { Vector } from "../math/Vector.js";
-import { TrackableObject } from "../utils/tracking/TrackableObject.js";
 import { typeString } from "../utils/logging.js";
+import { Hashable, FNV1a } from "../math/Hash.js";
 
-export class Polygon extends TrackableObject { // points should be ordered clockwise (in positioning)
+export class Polygon extends Hashable { // points should be ordered clockwise (in positioning)
     static fromObject (data, depth) {
         const polygon = new Polygon(Path.fromArray(data.path));
         if (data.userData) polygon.userData = data.userData;
@@ -427,11 +427,12 @@ export class Polygon extends TrackableObject { // points should be ordered clock
 
         return total.div(this.path.length);
     }
-    get hash () {
-        // only returns the hash of the points, does not actually count ID
-        return Vector.hash(this.path.points.concat(Array.from(
-            this.holes, ({path}) => path.points
-        ).flat(1)));
+    get rawHash () {
+        let hash = this.path.rawHash;
+        const { holes } = this;
+        for (let i = 0; i < holes.length; i++)
+            hash = FNV1a.Extend32Bit(hash, holes[i].rawHash);
+        return hash;
     }
     get edges () { // [!] can be expensive
         this.updateEdges();

@@ -1,10 +1,10 @@
-import { TrackableObject } from "../utils/tracking/TrackableObject.js";
+import { Identifiable } from "../utils/tracking/Identifiable.js";
 import { BoundingBox } from "../geometry/BoundingBox.js";
 import { Vector } from "../math/Vector.js";
 import { Hitbox } from "../geometry/Hitbox.js";
 import { clamp } from "../math/utils.js";
 
-export class Puppet extends TrackableObject {
+export class Puppet extends Identifiable {
     #source;
     #hitboxHash;
     #bboxHash;

@@ -1,9 +1,9 @@
-import { TrackableObject } from "../utils/tracking/TrackableObject.js";
+import { Identifiable } from "../utils/tracking/Identifiable.js";
 import { typeString } from "../utils/logging.js";
 import { AudioLayer } from "./AudioLayer.js";
 import { AudioSource } from "./AudioSource.js";
 
-export class AudioContext extends TrackableObject {
+export class AudioContext extends Identifiable {
     static #INSTANCES = new Array();
     static #MAX_INSTANCES = 1;
     #context;

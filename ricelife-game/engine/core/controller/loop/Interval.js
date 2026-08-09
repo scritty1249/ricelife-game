@@ -1,4 +1,4 @@
-import { TrackableObject } from "../../utils/tracking/TrackableObject.js";
+import { Identifiable } from "../../utils/tracking/Identifiable.js";
 
 // everything here is in milliseconds
 export class Interval {

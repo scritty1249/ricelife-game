@@ -1,9 +1,9 @@
-import { TrackableObject } from "../../utils/tracking/TrackableObject.js";
+import { Identifiable } from "../../utils/tracking/Identifiable.js";
 import { typeString } from "../../utils/logging.js";
 import { PointerInterfaceLayer } from "./PointerInterfaceLayer.js";
 
 // Manages layers of clickable objects on the canvas
-export class PointerInterface extends TrackableObject { // pointer events are prioritized in FIFO order
+export class PointerInterface extends Identifiable { // pointer events are prioritized in FIFO order
     #Viewbox;
     #layers = new Array();
     constructor (viewbox = undefined, ...layers) {

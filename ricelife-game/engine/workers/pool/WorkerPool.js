@@ -1,4 +1,4 @@
-import { TrackableObject } from "../../core/utils/tracking/TrackableObject.js";
+import { Identifiable } from "../../core/utils/tracking/Identifiable.js";
 import { generateUUID } from "../../core/utils/tracking/UUID.js";
 import { Cache } from "./Cache.js";
 import { Job } from "./Job.js";
@@ -6,7 +6,7 @@ import { Transaction } from "./Transaction.js";
 import { PoolEntry } from "./PoolEntry.js";
 import { typeString } from "../../core/utils/logging.js";
 
-export class WorkerPool extends TrackableObject {
+export class WorkerPool extends Identifiable {
     static #workerMessage (entry, event) { // bound to WorkerPool instance
         const { id, error, state } = event.data;
         const completedMessage = [`[${typeString(this)}]: Worker ${entry.id} completed Transaction ${id}`]

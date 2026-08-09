@@ -18,6 +18,7 @@ export class Menu extends Loop {
     #isOpen = false; // private flag
     #Area = new BoundingBox(); // Menu equivalent for Phase.Plane
     #Display;
+    #resizeHash; // hash of screen bbox when onResize() was last called
     constructor (phase) {
         super(phase.Global.Audio.Context);
         this.#Display = new AppCanvas(new OffscreenCanvas(1, 1), window);
@@ -32,15 +33,6 @@ export class Menu extends Loop {
         this.InterfaceLayers.under = this.Interface.insert();
         this.InterfaceLayers.under.push(this.store.underButton);
         this.InterfaceLayers.under.fixed = true;
-    }
-    #attachListeners () {
-        this.Parent.Global.Display.addResizeListener(this.#resizeHandler);
-    }
-    #detachListeners () {
-        this.Parent.Global.Display.removeResizeListener(this.#resizeHandler);
-    }
-    #resizeHandler = () => {
-        this.onResize();
     }
 
     async loop () {}
@@ -57,7 +49,12 @@ export class Menu extends Loop {
         cursor.restore();
         this.Display.cursor.clear();
     }
-    onResize () {}
+    // returns true if screen dimensions have changed since last resize event, and false otherwise.
+    onResize () {
+        const oldHash = this.#resizeHash;
+        this.#resizeHash = this.Parent.Global.Display.getBoundingBox().hash;
+        return oldHash !== this.#resizeHash;
+    }
     open () {
         if (this.isOpen) return false;
         if (this.Parent.Global.flags.DEBUG)
@@ -67,7 +64,6 @@ export class Menu extends Loop {
         this.Events.raiseEvent("OPEN");
         this.#isOpen = true;
         this.state = this.constructor.STATES.Ready;
-        this.#attachListeners();
         return true;
     }
     close (returnData = undefined, haltAudio = true) {
@@ -79,7 +75,6 @@ export class Menu extends Loop {
             this.Parent.Camera.setState(this.#CameraLastState);
             this.#CameraLastState = undefined;
         }
-        this.#detachListeners();
         this.Parent.Global.Input.pointer.callbacks = this.Parent.Interface;
         this.#isOpen = false;
         this.state = this.constructor.STATES.Closed;
@@ -88,7 +83,6 @@ export class Menu extends Loop {
     }
     stop () {
         this.state = this.constructor.STATES.Busy;
-        this.#detachListeners();
         for (const layer of this.Interface.layers())
             for (const item of layer.items)
                 if (item?.isScreenButton)

@@ -188,6 +188,7 @@ export class Triangle extends Shape {
         const { origin, right, left } = this.blob;
         return origin.add(right).add(left, true).div(3, true);
     }
+    get blobRawHash () { return this.blob.path.rawHash }
 }
 
 Shape.TYPES.set(Triangle.TYPE, Triangle);

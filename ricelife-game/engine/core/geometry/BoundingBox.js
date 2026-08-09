@@ -1,8 +1,9 @@
 import { Vector } from "../math/Vector.js";
 import { equals } from "../math/utils.js";
 import { typeString } from "../utils/logging.js";
+import { Hashable, FNV1a } from "../math/Hash.js";
 
-export class BoundingBox {
+export class BoundingBox extends Hashable {
     static fromHitbox (hitbox) {
         const bbox = new BoundingBox();
         bbox.min.x = hitbox.edges.reduce((acc, {x: curr}) => Math.min(acc, curr), hitbox.edges.at(0).x);
@@ -28,6 +29,7 @@ export class BoundingBox {
     #min = new Vector();
     #max = new Vector();
     constructor (min = undefined, max = undefined) {
+        super();
         if (min?.isVector) this.min.apply(min);
         if (max?.isVector) this.max.apply(max);
     }
@@ -170,6 +172,6 @@ export class BoundingBox {
     get size () { return this.max.sub(this.min).abs(true) }
     get width () { return this.size.x }
     get height () { return this.size.y }
-    get hash () { return Vector.hash([this.min, this.max]) }
+    get rawHash () { return FNV1a.Extend32Bit(this.min.rawHash, this.max.rawHash) }
     get center () { return this.#min.lerp(this.#max, .5) }
 }

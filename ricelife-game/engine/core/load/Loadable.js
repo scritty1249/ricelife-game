@@ -1,6 +1,6 @@
-import { TrackableObject } from "../utils/tracking/TrackableObject.js";
+import { Identifiable } from "../utils/tracking/Identifiable.js";
 
-export class Loadable extends TrackableObject {
+export class Loadable extends Identifiable {
     constructor () { super() }
     get isLoadable () { return true }
     get ready () { return true }

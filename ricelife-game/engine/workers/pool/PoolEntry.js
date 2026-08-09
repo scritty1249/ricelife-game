@@ -1,6 +1,6 @@
-import { TrackableObject } from "../../core/utils/tracking/TrackableObject.js";
+import { Identifiable } from "../../core/utils/tracking/Identifiable.js";
 
-export class PoolEntry extends TrackableObject {
+export class PoolEntry extends Identifiable {
     #instance;
     #state = {
         promise: undefined,

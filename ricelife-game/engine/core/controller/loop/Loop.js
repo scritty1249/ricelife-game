@@ -1,9 +1,9 @@
 import { AssetPool } from "../../load/pool/AssetPool.js";
-import { TrackableObject } from "../../utils/tracking/TrackableObject.js";
+import { Identifiable } from "../../utils/tracking/Identifiable.js";
 import { EventMap } from "../EventMap.js";
 import { typeString } from "../../utils/logging.js";
 
-export class Loop extends TrackableObject {
+export class Loop extends Identifiable {
     static STATES = {
         Crashed: -1,
         Stopped: 0,

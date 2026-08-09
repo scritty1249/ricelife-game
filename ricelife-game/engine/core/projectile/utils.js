@@ -24,10 +24,7 @@ export function traceAmmo (
     ammo.applyDestruction = true;
     // save polygon states to restore after trace
     const destructiblePolys = ammo.colliders.filter(({userData}) => userData.collision & Properties.DESTRUCTION);
-    const originalHoleCounts = new Map();
-    for (const poly of destructiblePolys) {
-        originalHoleCounts.set(poly.id, poly.holes.length);
-    }
+    const originalHoleCounts = Array.from(destructiblePolys, (poly) => poly.holes.length);
     // trace ammo
     const result = { finished: false, time: limit };
     terrainPoly.updateEdges(true); // [!] doesn't register holes, or changes to the edge hashes, unless we force update here for some reason. -KT
@@ -68,10 +65,10 @@ export function traceAmmo (
     }
     result.legend = ammo.getLegend();
     result.blasts = ammo.blasts.map((blast) => blast.encode());
-    for (const poly of destructiblePolys) {
-        const count = originalHoleCounts.get(poly.id);
+    destructiblePolys.forEach((poly, i) => {
+        const count = originalHoleCounts[i];
         poly.holes.splice(count, poly.holes.length - count);
-    }
+    });
     return result;
 }
 

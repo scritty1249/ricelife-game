@@ -4,9 +4,9 @@ import { Circle } from "../geometry/Circle.js";
 import { Triangle } from "../geometry/Triangle.js";
 import { clamp, equals } from "../math/utils.js";
 import { typeString } from "../utils/logging.js";
-import { TrackableObject } from "../utils/tracking/TrackableObject.js";
+import { Identifiable } from "../utils/tracking/Identifiable.js";
 
-export class Aimer extends TrackableObject { // takes control of rotation for a Tank barrel
+export class Aimer extends Identifiable { // takes control of rotation for a Tank barrel
     static DEFAULT = {
         circleColor: new Color(255, 255, 255, .025),
         beamColor: new Color(255, 255, 255, .05),

@@ -1,11 +1,11 @@
 import { Multishot } from "./Multishot.js";
 import { BoundingBox } from "../geometry/BoundingBox.js";
 import { typeString } from "../utils/logging.js";
-import { TrackableObject } from "../utils/tracking/TrackableObject.js";
+import { Identifiable } from "../utils/tracking/Identifiable.js";
 import { AmmoTracer } from "./AmmoTracer.js";
 
 // a sequence of multishot "stages"
-export class Ammo extends TrackableObject {
+export class Ammo extends Identifiable {
     static SFX = {
         null: () => {}
     };

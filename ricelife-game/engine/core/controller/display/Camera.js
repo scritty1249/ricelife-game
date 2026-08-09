@@ -1,11 +1,11 @@
-import { TrackableObject } from "../../utils/tracking/TrackableObject.js";
+import { Identifiable } from "../../utils/tracking/Identifiable.js";
 import { BoundingBox } from "../../geometry/BoundingBox.js";
 import { Vector } from "../../math/Vector.js";
 import { Viewbox } from "./Viewbox.js";
 import { clamp } from "../../math/utils.js";
 
 // viewbox controller
-export class Camera extends TrackableObject {
+export class Camera extends Identifiable {
     static SNAP_THRESHOLD = 0.1**2;
     static SCALING_BEHAVIOR = {
         Grow: 0, // grow when necessary to match target size

@@ -8,6 +8,7 @@ export class AppCanvas {
     #ratio = 1;
     #Viewbox;
     #bbox = new BoundingBox();
+    #sizeHash;
     #size = new Vector();
     #resizeCallbacks = new Set();
     #center = new Vector();
@@ -32,6 +33,7 @@ export class AppCanvas {
         this.size.apply(width, height);
         this.center.apply(this.size.div(2));
         this.#bbox.apply(undefined, this.size);
+        this.#sizeHash = this.#bbox.hash;
         this.#ratio = this.size.quot();
     }
 
@@ -53,4 +55,5 @@ export class AppCanvas {
     get window () { return this.#window }
     get isPortrait () { return this.#size.x < this.#size .y }
     get isLandscape () { return this.#size.y < this.#size.x }
+    get hash () { return this.#sizeHash }
 }

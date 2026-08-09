@@ -79,10 +79,10 @@ export class Poly extends Shape {
     getBoundingBox () { return this.polygon.getBoundingBox() }
 
     get isPoly () { return true }
-    get hash () { return this.polygon.hash }
     get origin () { return this.polygon.center }
     get center () { return this.polygon.center }
     get polygon () { return this.blob.polygon }
+    get blobRawHash () { return this.blob.polygon.rawHash }
 }
 
 Shape.TYPES.set(Poly.TYPE, Poly);

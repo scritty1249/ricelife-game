@@ -4,6 +4,8 @@ import { Path } from "../math/Path.js";
 import { Polygon } from "./Polygon.js";
 import { equals } from "../math/utils.js";
 import { Transform } from "./Transform.js";
+import { FNV1a } from "../math/Hash.js";
+
 
 export class Circle extends Shape {
     static get TYPE () { return 0 }
@@ -193,6 +195,7 @@ export class Circle extends Shape {
     }
     get origin () { return this.blob.origin }
     get center () { return this.blob.origin.clone() }
+    get blobRawHash () { return FNV1a.Extend32Bit(this.blob.origin.rawHash, this.blob.radii.rawHash) }
 }
 
 Shape.TYPES.set(Circle.TYPE, Circle);

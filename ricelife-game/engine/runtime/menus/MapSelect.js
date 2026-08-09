@@ -141,7 +141,7 @@ export class MapSelect extends Menu {
     }
     // set Camera size and pan to top
     open () {
-        if (!super.open()) return;
+        if (!super.open()) return false;
         const { Camera } = this.Parent;
         const mapCount = this.InterfaceLayers.buttons.size || 1;
         const heightSpacing = this.Area.height / mapCount;
@@ -160,7 +160,7 @@ export class MapSelect extends Menu {
         return true;
     }
     close (returnData = undefined, haltAudio = true) {
-        if (!super.close(returnData, haltAudio)) return;
+        if (!super.close(returnData, haltAudio)) return false;
         this.closeAllButtons(true);
         this.flags.OVERRIDE_PANNING = false;
         this.flags.CAMERA_PANNING = false;

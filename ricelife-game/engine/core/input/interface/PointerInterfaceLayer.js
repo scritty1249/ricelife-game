@@ -1,8 +1,8 @@
-import { TrackableObject } from "../../utils/tracking/TrackableObject.js";
+import { Identifiable } from "../../utils/tracking/Identifiable.js";
 import { typeString } from "../../utils/logging.js";
 
 // just a map with some bells + whistles
-export class PointerInterfaceLayer extends TrackableObject { // pointer events are prioritized in FIFO order
+export class PointerInterfaceLayer extends Identifiable { // pointer events are prioritized in FIFO order
     #Viewbox;
     #items = new Map();
     // when true, coordinates from pointer events and drawing will be interpreted relative to the Viewbox, instead of global space

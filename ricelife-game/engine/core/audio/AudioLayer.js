@@ -1,8 +1,8 @@
-import { TrackableObject } from "../utils/tracking/TrackableObject.js";
+import { Identifiable } from "../utils/tracking/Identifiable.js";
 import { generateUUID } from "../utils/tracking/UUID.js";
 import { typeString } from "../utils/logging.js";
 
-export class AudioLayer extends TrackableObject {
+export class AudioLayer extends Identifiable {
     #items = {};
     #filters = []; // [!] adding new nodes to this after initalization won't do anything
     #input;

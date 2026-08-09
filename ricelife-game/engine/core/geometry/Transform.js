@@ -1,7 +1,8 @@
 import { Vector } from "../math/Vector.js";
 import { typeString } from "../utils/logging.js";
+import { Hashable, FNV1a } from "../math/Hash.js";
 
-export class Transform {
+export class Transform extends Hashable {
     static #DEFAULT = { // [!] never modify
         scl: new Vector(1, 1),
         off: new Vector(0, 0), // at origin
@@ -18,6 +19,7 @@ export class Transform {
     #rotation = Transform.#DEFAULT.rot.clone();
     #stack = new Array(); // save states, allow for save() and restore() calls
     constructor (scale = undefined, offset = undefined, rotation = undefined) {
+        super();
         if (scale?.isVector) this.scale = scale;
         if (offset?.isVector) this.offset = offset;
         if (rotation?.isVector) this.rotation = rotation;
@@ -81,4 +83,5 @@ export class Transform {
         this.rotation = Vector.fromAngle(radians);
         return radians; // for chaining
     }
+    get rawHash () { return FNV1a.Extend32Bit(FNV1a.Extend32Bit(this.offset.rawHash, this.rotation.rawHash), this.scale.rawHash) }
 }

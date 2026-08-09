@@ -3,8 +3,10 @@ import { Transform } from "./Transform.js";
 import { Vector } from "../math/Vector.js";
 import { Polygon } from "./Polygon.js";
 import { typeString } from "../utils/logging.js";
+import { Hashable, FNV1a } from "../math/Hash.js";
 
-export class Shape {
+// all subclasses of that need to support decoding Shape MUST have defaultable values (permit zero constructor parameters)
+export class Shape extends Hashable {
     static TYPES = new Map();
     static DRAW_PRECISION = 2; // during draw() calls, apply toFixed on coordinates to prevent flickering artifacts. Values greater than 4 may cause flickering depending on hardware. - KT
     static fromObject (payload) {
@@ -14,10 +16,6 @@ export class Shape {
     #transform = new Transform();
     #globalTransform = new Transform(); // all transforms applied, compounded
     #bbox = new BoundingBox();
-    // all subclasses of that need to support decoding Shape MUST have defaultable values and permit zero constructor parameters
-    constructor () {
-        if (this.constructor === Shape) throw new Error(`[${typeString(this)}]: Cannot be initalized from parent class`);
-    }
     toJSON () { return {blob: this.blob, origin: this.origin.toJSON(), globalTransform: this.globalTransform.toJSON(), type: this.constructor.TYPE} }
     encode () { return {...this.toJSON(), buffers: []} }
     applyTransform () { // children can manipulate blob data before super calling this methood
@@ -86,6 +84,7 @@ export class Shape {
     get blob () { return this.#blob }
     get transform () { return this.#transform }
     get globalTransform () { return this.#globalTransform }
+    get rawHash () { return FNV1a.Extend32Bit(this.blobRawHash, this.globalTransform.rawHash) }
 
     // === [ children should overload the following methods ] ===
     Polygon (resolution = 1) { return new Polygon() }
@@ -99,7 +98,7 @@ export class Shape {
     isPathInside (value) { return value.points.every((point) => this.isVectorIntersecting(point)) }
     isCircleInside (value) { throw new Error() }
     isTriangleInside (value) { throw new Error() }
-    get hash () { return this.Polygon(1).hash }
+    get blobRawHash () { return this.Polygon(1).rawHash }
     get origin () { return new Vector() }
     get center () { return new Vector() }
 }

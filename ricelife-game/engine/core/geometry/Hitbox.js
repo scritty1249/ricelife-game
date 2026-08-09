@@ -1,10 +1,11 @@
 import { Path } from "../math/Path.js";
 import { Vector } from "../math/Vector.js";
 import { Polygon } from "./Polygon.js";
+import { Hashable } from "../math/Hash.js";
 
 // basically a bounding box that defines all four corner points (supports rotations)
 // supposed to be lightweight
-export class Hitbox {
+export class Hitbox extends Hashable {
     #edges = new Path(
         new Vector(),
         new Vector(),
@@ -12,6 +13,7 @@ export class Hitbox {
         new Vector(),
     );
     constructor (topLeft, topRight, bottomRight, bottomLeft) {
+        super();
         this.#edges.isClosed = true;
         this.#edges.at(0).apply(topLeft);
         this.#edges.at(1).apply(topRight);
@@ -67,4 +69,5 @@ export class Hitbox {
     get bottomRight () { return this.#edges.at(2) }
     get bottomLeft () { return this.#edges.at(3) }
     get center () { return Vector.average(this.#edges.points) }
+    get rawHash () { return this.#edges.rawHash }
 }

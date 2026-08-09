@@ -1,10 +1,10 @@
 // [!] 2D is implied here
 
 import { round, equals } from "./utils.js";
-import { FNV1a_BASE } from "./Hash.js";
+import { FNV1a, Hashable } from "./Hash.js";
 import { typeString } from "../utils/logging.js";
 
-export class Vector {
+export class Vector extends Hashable {
     static *tween (start, stop, step) {
         const diff = stop.sub(start),
             dist = Math.hypot(...diff);
@@ -39,19 +39,11 @@ export class Vector {
         return start.cross(target) >= 0
             && target.cross(end) >= 0;
     }
-    static hash (vectors) {
-        if (vectors?.length) {
-            let hash = vectors[0].hash;
-            for (let i = 1; i < vectors.length; i++) {
-                hash ^= vectors[i].hash;
-                hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
-            }
-            return hash >>> 0;
-        }
-        return undefined;
-    }
 
-    constructor(x = 0, y = null) { this.apply(x, y) }
+    constructor(x = 0, y = null) {
+        super();
+        this.apply(x, y)
+    }
 
     // arithmetic operations
     add (value, mutate = false) {
@@ -280,13 +272,5 @@ export class Vector {
     get length () { return Math.sqrt(this.lengthSquared) }
     get lengthSquared () { return this.pow(2).sum() }
     get isFinite () { return Number.isFinite(this.x) && Number.isFinite(this.y) }
-    get hash () {
-        // FNV-1a hash algorithm, just need uniqueness and speed
-        let hash = FNV1a_BASE;
-        hash ^= this.x;
-        hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
-        hash ^= this.y;
-        hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
-        return hash >>> 0; // unsigned 32-bit Integer
-    }
+    get rawHash () { return FNV1a.Extend32Bit(FNV1a.Base32Bit(this.x), this.y) }
 }

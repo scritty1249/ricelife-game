@@ -1,8 +1,8 @@
-import { TrackableObject } from "../utils/tracking/TrackableObject.js";
+import { Identifiable } from "../utils/tracking/Identifiable.js";
 import { generateUUID } from "../utils/tracking/UUID.js";
 
 // replayable audio node
-export class AudioInstance extends TrackableObject {
+export class AudioInstance extends Identifiable {
     #source;
     #node;
     #start = 0;

@@ -1,9 +1,9 @@
 import { Path } from "../math/Path.js";
 import { Vector } from "../math/Vector.js";
 import { equals } from "../math/utils.js";
-import { TrackableObject } from "../utils/tracking/TrackableObject.js";
+import { Identifiable } from "../utils/tracking/Identifiable.js";
 
-export class PhysicsObject extends TrackableObject {
+export class PhysicsObject extends Identifiable {
     #tracer = new Path();
     #time = 0; // in seconds
     #origin = {

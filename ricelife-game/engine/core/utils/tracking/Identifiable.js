@@ -1,6 +1,6 @@
 import { generateUUID } from "./UUID.js";
 
-export class TrackableObject {
+export class Identifiable {
     #id;
     constructor (id = null) {
         this.#id = id === null || id === undefined ? generateUUID() : id;

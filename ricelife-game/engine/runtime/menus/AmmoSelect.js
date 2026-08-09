@@ -108,7 +108,9 @@ export class AmmoSelect extends Menu {
     }
 
     onResize () {
+        if (!super.onResize()) return false;
         this.reset(true);
+        return true;
     }
     animate () {
         const { cursor } = this.Display;
@@ -205,7 +207,7 @@ export class AmmoSelect extends Menu {
         }
     }
     open () {
-        if (!super.open()) return;
+        if (!super.open()) return false;
         this.reset(false);
         return true;
     }

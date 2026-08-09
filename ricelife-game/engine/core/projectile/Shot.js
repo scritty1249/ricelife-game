@@ -3,13 +3,13 @@ import { Path } from "../math/Path.js";
 import { Ray } from "../math/Ray.js";
 import { BoundingBox } from "../geometry/BoundingBox.js";
 import { equals } from "../math/utils.js";
-import { TrackableObject } from "../utils/tracking/TrackableObject.js";
+import { Identifiable } from "../utils/tracking/Identifiable.js";
 import { typeString } from "../utils/logging.js";
 import { Properties } from "./collision/Properties.js";
 import { getSegmentCollision } from "./collision/utils.js";
 
 // A stage of a projectile's lifetime
-export class Shot extends TrackableObject {
+export class Shot extends Identifiable {
     static getCircleCollision (position, projection, colliders = []) {
         if (!colliders?.length) return;
         if (!projection?.shape?.isCircle) throw new Error(`Invalid projection - shape must be a Circle`);
