@@ -89,7 +89,10 @@ export class Menu extends Loop {
     stop () {
         this.state = this.constructor.STATES.Busy;
         this.#detachListeners();
-        this.store.underButton.close();
+        for (const layer of this.Interface.layers())
+            for (const item of layer.items)
+                if (item?.isScreenButton)
+                    item.close();
         this.Audio.Player.stop();
         this.state = this.constructor.STATES.Stopped;
     }

@@ -166,10 +166,6 @@ export class MapSelect extends Menu {
         this.flags.CAMERA_PANNING = false;
         return true;
     }
-    stop () {
-        super.stop();
-        this.store.overButton.close();
-    }
     animate () {
         const { cursor } = this.Display;
         cursor.save();
