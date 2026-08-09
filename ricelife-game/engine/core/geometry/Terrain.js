@@ -1,8 +1,9 @@
 import { Polygon } from "./Polygon.js";
 import { Color } from "../math/Color.js";
 import { Properties } from "../projectile/collision/Properties.js";
+import { Hashable } from "../math/Hash.js";
 
-export class Terrain {
+export class Terrain extends Hashable {
     static MAX_HOLE_DEPTH = 3;
     static fromObject (obj) {
         const { polygon, fill, edge, gradient, resolution, depth } = obj;
@@ -20,6 +21,7 @@ export class Terrain {
     resolution = 15;
     // options can fil the properties: fillColor, edgeColor, gradientWidth, resolution
     constructor (data, options = undefined) {
+        super();
         this.apply(data, options)
     }
 
@@ -96,6 +98,7 @@ export class Terrain {
     }
 
     get isTerrain () { return true }
+    get rawHash () { return this.#polygon?.rawHash }
     get polygon () { return this.#polygon }
     get fillColor () { return this.#fillColor }
     get edgeColor () { return this.#edgeColor }

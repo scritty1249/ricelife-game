@@ -3,6 +3,7 @@ import { Path } from "../math/Path.js";
 import { Vector } from "../math/Vector.js";
 import { typeString } from "../utils/logging.js";
 import { Hashable, FNV1a } from "../math/Hash.js";
+import { generateUUID } from "../utils/tracking/UUID.js";
 
 export class Polygon extends Hashable { // points should be ordered clockwise (in positioning)
     static fromObject (data, depth) {
@@ -16,6 +17,7 @@ export class Polygon extends Hashable { // points should be ordered clockwise (i
             }
         return polygon;
     }
+    #id = generateUUID();
     #path;
     #holes = new Array(); // hole paths must be reordered to counter clockwise positioning
     #bbox = new BoundingBox();
@@ -412,6 +414,7 @@ export class Polygon extends Hashable { // points should be ordered clockwise (i
         poly.userData = deep ? structuredClone(this.userData) : this.userData;
         return poly;
     }
+    eq (other) { return other?.isPolygon && other?.id === this?.id }
 
     get isPolygon () { return true }
     get path () { return this.#path }
@@ -442,4 +445,5 @@ export class Polygon extends Hashable { // points should be ordered clockwise (i
         this.updateEdges();
         return this.#edgeSegmentPoints;
     }
+    get id () { return this.#id }
 }

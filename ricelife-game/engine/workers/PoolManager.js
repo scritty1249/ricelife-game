@@ -72,7 +72,7 @@ export class PoolManager {
         const caches = encodedCuts
             .filter((cut) => typeof cut === "string");
         caches.push(terrainID);
-        if (dest !== terrainID) caches.push(dest);
+        if (dest !== terrainID && this.#pool.cacheAt(dest)) caches.push(dest);
         const payload = { dest, source: terrainID, cuts: encodedCuts, callback: pullCache }
         const data = await this.#pool.post("CUTTERRAIN", payload, buffers, caches);
         return !pullCache || Terrain.fromObject(data.terrain);
@@ -83,7 +83,7 @@ export class PoolManager {
         const jobID = generateUUID();
         if (blasts.length === 0) {
             const terrain = this.#pool.pullCache(terrainID, false, false)
-                .then(() => this.#pool.cache[terrainID]);
+                .then(() => this.#pool.cache[terrainID].terrain);
             return [{
                 delay: 0,
                 frame: undefined,
@@ -141,7 +141,7 @@ export class PoolManager {
                     .then(() => this.#pool.cache[currCanvasID]));
                 cutJobs.push(cj
                     .then(() => this.#pool.pullCache(currTerrainID, true))
-                    .then(() => this.#pool.cache[currTerrainID]));
+                    .then(() => this.#pool.cache[currTerrainID].terrain));
                 cutJob = dj;
                 drawJob = dj;
                 if (i-1 > 0)

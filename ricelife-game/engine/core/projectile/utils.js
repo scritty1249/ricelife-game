@@ -1,4 +1,5 @@
 import { Vector } from "../math/Vector.js";
+import { equals } from "../math/utils.js";
 import { Mover } from "../player/Mover.js";
 import { Properties } from "./collision/Properties.js";
 
@@ -63,7 +64,7 @@ export function traceAmmo (
         }
         terrainHash = updatedTerrainHash;
     }
-    result.legend = ammo.getLegend();
+    result.legend = ammo.getLegend(true);
     result.blasts = ammo.blasts.map((blast) => blast.encode());
     destructiblePolys.forEach((poly, i) => {
         const count = originalHoleCounts[i];

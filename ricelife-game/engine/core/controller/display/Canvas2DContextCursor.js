@@ -130,6 +130,11 @@ class Canvas2DContextCursorProto {
             this.#ctx.drawImage(image, ...args);
         }
     }
+    close () {
+        this.#ctx.canvas.width = this.#ctx.canvas.height = 0;
+        this.#ctx = null;
+    }
+
     get ctx () {
         return this.#ctx;
     }

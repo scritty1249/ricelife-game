@@ -272,7 +272,7 @@ export class Round extends Phase {
         impact.ontrigger.then(({
             frame, terrain, bboxes, blasts, animations, combinedbbox
         }) => {
-            Threaded.cache[background]?.close?.();
+            Threaded.cache[background]?.cursor?.close?.();
             Threaded.cache[background] = frame;
             animations.play();
             this.updateTerrain(terrain, bboxes);
@@ -578,7 +578,7 @@ export class Round extends Phase {
         }
     }
     updateTerrain (terrain, changedBBoxes = []) {
-        if (this.Terrain.hash !== terrain.polygon.hash)
+        if (this.Terrain.hash !== terrain.hash)
             this.Terrain.apply(terrain);
         // if bboxes of changed areas are provided, only update player positions that lie within them.
         //  otherwise, update all player positions

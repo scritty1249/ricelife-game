@@ -88,7 +88,6 @@ export class Phase extends Loop {
                 if (menu.isOpen) menu.onResize();
         }
     }
-    drawBackground () {}
     onanimate () { this.Camera.update() }
     animate (clear = true) {
         if (clear) this.Global.Display.cursor.clear();

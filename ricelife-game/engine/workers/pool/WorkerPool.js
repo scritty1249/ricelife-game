@@ -312,6 +312,7 @@ export class WorkerPool extends Identifiable {
     async copyCache (source, dest, clone = false, receiverID = undefined) {
         const receiever = this.#getWorker(receiverID);
         let worker = this.#cacheAt(source);
+        if (worker === undefined) throw new Error(`[${typeString(this)}]: Cache ${source} does not exist`);
         if (worker?.isBusy) {
             if (this.LOG_LEVEL >= 1) console.debug(`[${typeString(this)}]: Waiting for cache ${source}`);
             await worker.onAvailable;

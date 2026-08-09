@@ -235,13 +235,13 @@ export class Shot extends Identifiable {
         if (sfxName in this.sfxCallback) this.sfxCallback[sfxName]?.();
         else console.warn(`[${typeString(this)}]: Unable to play SFX "${sfxName}" -  callback does not exist`);
     }
-    getLegend (decode = true) {
+    getLegend (encode = true) {
         // clones and returns everything in record. The resulting object should be safely passable between worker threads
         const record = this.#legend || this.#record;
         const legend = {
             duration: record.duration,
             collisions: Array.from(record.collisions,
-                decode
+                encode
                     ? ({time, collisionFlags, position, point, velocity, normal, resultVelocity}) => [
                         time,
                         collisionFlags,

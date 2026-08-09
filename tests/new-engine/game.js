@@ -1,23 +1,3 @@
-// import { MainLoop } from "./loop/loop.js";
-// import { loading } from "../events/loading.js";
-// import * as API from "../api/api.js";
-
-// export async function load () {
-//     const URL_PARAMS = new URLSearchParams(window.location.search);
-//     const MAPS = await API.getMapLegend().maps;
-//     const Main = new MainLoop(MAPS, loading);    
-//     Main.flags.DEBUG = URL_PARAMS.has("debug") && URL_PARAMS.get("debug") === "true";
-//     window._MAIN = Main; // [!] for debug
-//     await Main.onload;
-//     startMapPhase(Main);
-//     Main.Display.canvas.focus();
-//     Main.loop();
-// }
-
-// async function startMapPhase (main) {
-//     const MAPS = await API.getMapLegend().maps;
-//     main.Events.raiseEvent("PHASE_NEW", {Phase: 0, args: [MAPS], close: false });
-// }
 import { Main } from "../../ricelife-game/engine/runtime/Core.js";
 import { loading } from "../../ricelife-game/client/scripts/events/loading.js";
 import { stream, unpackPolygon } from "../../ricelife-game/client/scripts/api/unpack.js";
@@ -27,7 +7,12 @@ const lobby = {
         "0": {
             "position": [800, 1000],
             "data": {
-                "ammo": ["basic"],
+                "ammo": [
+                    "basic",
+                    "bouncer",
+                    "megabouncer",
+                    "gigabouncer",
+                ],
                 "model": "basic",
                 "profile": {
                     "name": "Blurple",
