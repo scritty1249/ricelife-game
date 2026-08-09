@@ -101,6 +101,8 @@ export class PointerInterface extends TrackableObject { // pointer events are pr
     *[Symbol.iterator]() {
         yield *this.#layers;
     }
+    // [!] return an iterator. Do NOT allow index modifying from returned item
+    layers () { return this.#layers.values() }
 
     get isPointerInterface () { return true }
     get length () { return this.#layers.length }
