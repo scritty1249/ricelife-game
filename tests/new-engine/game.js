@@ -16,6 +16,7 @@ const lobby = {
                     "flower",
                     "pine",
                     "rapid",
+                    "sniper",
                 ],
                 "model": "basic",
                 "profile": {
