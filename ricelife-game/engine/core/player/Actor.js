@@ -17,20 +17,22 @@ export class Actor extends Loadable {
     #HitTotal;
     #originalStyling = {};
     #stylingApplied = false;
+    #onloadProxy = Promise.withResolvers();
     constructor (metadata, hittotal) {
         super();
         this.#Metadata = metadata;
         this.#HitTotal = hittotal;
         this.#saveStyling();
-        this.onload.then(() => {
+        this.Metadata.onload.then(() => {
             const { Model } = this.Metadata;
             this.#resizeModel(50);
             this.#Puppet = new Puppet(Model.body, Model.barrel);
             this.#Aimer = new Aimer(this.Puppet, this.Puppet.width * 3);
             this.#Mover = new Mover(this.Puppet);
             this.Mover.offsetY = -(this.Puppet.offset.body.y / 10);
-            this.Mover.climbHeight = this.Puppet.height / 2
-        });
+            this.Mover.climbHeight = this.Puppet.height / 2;
+            this.#onloadProxy.resolve(this);
+        }).catch((err) => this.#onloadProxy.reject(err));
     }
 
     #saveStyling () {
@@ -107,7 +109,7 @@ export class Actor extends Loadable {
     }
 
     get isActor () { return true }
-    get onload () { return this.Metadata.onload }
+    get onload () { return this.#onloadProxy.promise }
     get ready () { return this.Metadata.ready }
     get source () { return this.Metadata.source }
     get id () { return this.Metadata.Profile.userid }
