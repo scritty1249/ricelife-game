@@ -15,9 +15,13 @@ export function unpackPolygon (buffer) {
 export async function stream (url) {
     const response = await fetch(url);
     if (!response.ok) throw new Error();
+    const reader = response.body.getReader();
     const chunks = [];
     let length = 0;
-    for await (const chunk of response.body) {
+
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
         chunks.push(chunk); // Uint8Array view
         length += chunk.length;
     }
