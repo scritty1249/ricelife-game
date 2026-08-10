@@ -120,7 +120,6 @@ export class Round extends Phase {
             if (!selection?.isAmmoTypeDetails) return;
             this.store.ammo.selected = selection.id;
         })
-        this.setTurn(this.Lobby.ActivePlayerID === this.#ClientPlayerID);
     }
     async #load (playerID) {
         const waitPromises = [
@@ -343,7 +342,10 @@ export class Round extends Phase {
         this.ClientPlayer.Aimer.enabled = this.flags.isTurn && !(AimerIsLarge && AimerIsCenter);
         this.handleInput();
     }
-
+    start () {
+        this.setTurn(this.Lobby.ActivePlayerID === this.#ClientPlayerID);
+        super.start();
+    }
     onanimate () {
         const { ClientPlayer, Camera, Animations, Interface, Threaded, Players, flags, store } = this;
         const { cursor } = this.Global.Display;
