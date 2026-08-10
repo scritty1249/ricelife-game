@@ -22,7 +22,7 @@ export async function stream (url) {
     while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        chunks.push(chunk); // Uint8Array view
+        chunks.push(value); // Uint8Array view
         length += chunk.length;
     }
 
