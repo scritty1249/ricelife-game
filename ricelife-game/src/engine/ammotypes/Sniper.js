@@ -6,7 +6,7 @@ export default class Sniper extends Basic {
     constructor (origin, angle, power = 1, resolution = 1) {
         super(origin, angle, power, resolution);
         const shot = this.stages[0].shots[0];
-        const blast = stage.userData.hitbox[0];
+        const blast = shot.userData.hitbox[0];
         const { projectile } = shot;
         // adjust sizing
         blast.damage = 60;
