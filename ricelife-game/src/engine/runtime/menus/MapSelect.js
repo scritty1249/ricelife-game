@@ -42,12 +42,12 @@ export class MapSelect extends Menu {
         overButton.onscroll = (point, delta) => {
             if (this.flags.OVERRIDE_PANNING) return;
             this.flags.CAMERA_PANNING = false;
-            this.#scroll(delta);
+            this.#scroll(delta.y);
         }
         overButton.ondrag = (point, origin, delta) => {
             if (this.flags.OVERRIDE_PANNING) return;
             this.flags.CAMERA_PANNING = false;
-            this.#scroll(delta.div(SCROLL_SENSITIVITY));
+            this.#scroll(delta.y / SCROLL_SENSITIVITY);
         }
         underButton.onclick = () => {
             if (this.flags.OVERRIDE_PANNING) return;
@@ -131,12 +131,21 @@ export class MapSelect extends Menu {
         }
         return selection;
     }
-    #scroll (delta) {
+    #scroll (deltaY) {
         const sensitivity = SCROLL_SENSITIVITY / this.Parent.Camera.Viewbox.canvasScale.y;
-        const scroll = delta.mul(this.flags.INVERT_TRACKING ? -sensitivity : sensitivity);
-        this.Parent.Camera.offsetPosition(scroll);
+        const scroll = deltaY * (this.flags.INVERT_TRACKING ? -sensitivity : sensitivity);
+        this.Parent.Camera.offsetPosition(undefined, scroll);
     }
 
+    onResize () {
+        if (!super.onResize()) return false;
+        const { Camera } = this.Parent;
+        const { width } = this.Area;
+        const mapCount = this.InterfaceLayers.buttons.size || 1;
+        const heightSpacing = this.Area.height / mapCount;
+        Camera.setTargetSize(width, heightSpacing, true);
+        return true;
+    }
     closeAllButtons (closeActive = false) {
         for (const button of this.InterfaceLayers.buttons.items)
             if (closeActive || !button.isActive) button.close();
@@ -145,6 +154,7 @@ export class MapSelect extends Menu {
     open () {
         if (!super.open()) return false;
         const { Camera } = this.Parent;
+        const { width } = this.Area;
         const mapCount = this.InterfaceLayers.buttons.size || 1;
         const heightSpacing = this.Area.height / mapCount;
         const offsetY = heightSpacing * ((mapCount - 1) || 1);
@@ -154,11 +164,11 @@ export class MapSelect extends Menu {
         Camera.Viewbox.min.apply(this.Area.min);
         Camera.Viewbox.min.y += offsetY;
         Camera.Viewbox.max.apply(this.Area.max);
+        Camera.setTargetSize(width, heightSpacing, true);
         Camera.lerpFactor = 0.1;
-        Camera.setTargetSize(this.Area.width / 2, heightSpacing, true);
         Camera.scalingBehavior = Camera.constructor.SCALING_BEHAVIOR.Always;
         this.flags.CAMERA_PANNING = true;
-        Camera.setPosition(undefined, top);
+        Camera.setPosition(width / 2, top);
         return true;
     }
     close (returnData = undefined, haltAudio = true) {
