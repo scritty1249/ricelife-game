@@ -1,5 +1,5 @@
-import { createLobby } from "@server/lobby/manage.js";
-import { printError } from "@server/main.js";
+import { createLobby } from "@server/lib/lobby/manage.js";
+import { printError } from "@server/lib/main.js";
 
 const DEV_PROD = process.env.NODE_ENV === "development";
 

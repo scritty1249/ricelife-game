@@ -4,7 +4,7 @@ import path from "path";
 import { resolveAbsolutePathsPlugin } from "./utils.js";
 
 const isDev = process.argv.includes("--dev");
-const outDir = path.normalize("./dist/engine");
+const outDir = path.normalize("./client/engine");
 
 const ammoPath = path.normalize("./src/engine/ammotypes");
 const webWorkerSource = path.normalize("./src/engine/workers/Worker.js");

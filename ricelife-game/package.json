@@ -14,7 +14,7 @@
         "@aws-sdk/client-dynamodb": "latest",
         "@aws-sdk/lib-dynamodb": "latest",
         "@vercel/oidc-aws-credentials-provider": "latest",
-        "@server": "file:./dist/lib"
+        "@server/lib": "file:./dist/lib"
     },
     "devDependencies": {
         "node": "22.11.0",
