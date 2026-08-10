@@ -19,12 +19,6 @@ export class Main extends Loop {
         FPS: 60
     };
     static #AudioCtx;
-    static #PhaseImport = {
-        Create: "/engine/runtime/phases/Create.js",
-        Join: "/engine/runtime/phases/Join.js",
-        Loadout: "/engine/runtime/phases/Loadout.js",
-        Round: "/engine/runtime/phases/Round.js"
-    };
     static #AssetType = {
         Sprite: (...args) => new Spritesheet(...args),
         Image: (...args) => new LoadImage(...args),
@@ -88,12 +82,12 @@ export class Main extends Loop {
         AssetTable.tilePing = [AssetType.Audio, undefined, "tilePing", "/assets/sfx/tile-ping.mp3"];
         AssetTable.tileSelect = [AssetType.Audio, undefined, "tileSelect", "/assets/sfx/tile-select.mp3"];
         // Fonts
-        AssetTable.defaultFont = [AssetType.Font, undefined, "Michroma", "/ricelife-game/client/assets/interface/fonts/Michroma/Michroma-Regular.ttf"];
-        AssetTable.altFont = [AssetType.Font, undefined, "Lexend", "/ricelife-game/client/assets/interface/fonts/Lexend/Lexend-VariableFont_wght.ttf"];
+        AssetTable.defaultFont = [AssetType.Font, undefined, "Michroma", "/assets/interface/fonts/Michroma/Michroma-Regular.ttf"];
+        AssetTable.altFont = [AssetType.Font, undefined, "Lexend", "/assets/interface/fonts/Lexend/Lexend-VariableFont_wght.ttf"];
         // Spritesheets
         AssetTable.muzzleFlash = [AssetType.Sprite,
             function (vfx) { vfx.origin.apply(vfx.rawSize.x / 2, vfx.rawSize.y) },
-            "/ricelife-game/client/assets/blast/muzzleflash_ss_140x162.png", 140, 162, 25];
+            "/assets/blast/muzzleflash_ss_140x162.png", 140, 162, 25];
         AssetTable.explosion = [AssetType.Sprite,
             function (vfx) {
                 vfx.width = 600;
@@ -102,7 +96,7 @@ export class Main extends Loop {
                     vfx.rawSize.y * .75
                 );
             },
-            "/ricelife-game/client/assets/blast/explosion_ss_512x512.png", 512, 512, 25];
+            "/assets/blast/explosion_ss_512x512.png", 512, 512, 25];
     }
     async #load () {
         const defualtFontKey = "altFont";
@@ -139,28 +133,28 @@ export class Main extends Loop {
     }
 
     async loadCreatePhase (maps) {
-        const { Create } = await import(Main.#PhaseImport.Create);
+        const { Create } = await import("./phases/Create.js");
         const phase = new Create(this, maps);
         await phase.onload;
         this.Phases.Create = phase;
         return phase;
     }
     async loadRoundPhase (lobbyData, terrainData) {
-        const { Round } = await import(Main.#PhaseImport.Round);
+        const { Round } = await import("./phases/Round.js");
         const phase = new Round(this, this.clientID, lobbyData, terrainData);
         await phase.onload;
         this.Phases.Round = phase;
         return phase;
     }
     async loadJoinPhase () {
-        const { Join } = await import(Main.#PhaseImport.Join);
+        const { Join } = await import("./phases/Join.js");
         const phase = new Join(this);
         await phase.onload;
         this.Phases.Join = phase;
         return phase;
     }
     async loadLoadoutPhase () {
-        const { Loadout } = await import(Main.#PhaseImport.Loadout);
+        const { Loadout } = await import("./phases/Loadout.js");
         const phase = new Loadout(this);
         await phase.onload;
         this.Phases.Loadout = phase;
