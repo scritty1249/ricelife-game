@@ -8,18 +8,18 @@ export class Button extends Identifiable {
     // these need to be set as non-functions by default for isSupported checks to work
     // all given parameters are Vectors
     #callback = {
-        // (position, delta)
+        // (position, delta, isTouch)
         onclick: undefined,
-        // (position)
+        // (position, isTouch)
         onhold: undefined,
-        // (position, origin, delta)
+        // (position, origin, delta, isTouch)
         ondrag: undefined,
-        // (position)
+        // (position, isTouch)
         onpress: undefined,
-        // (position, delta)
+        // (position, delta, isTouch)
         // delta is calculated from pressed position
         onrelease: undefined,
-        // (position, delta)
+        // (position, delta, isTouch)
         // position is where the pointer is while scrolled
         // delta is scrolled amount
         onscroll: undefined

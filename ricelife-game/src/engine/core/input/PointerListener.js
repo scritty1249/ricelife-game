@@ -69,7 +69,8 @@ export class PointerListener  {
         this.#listeningTo.removeEventListener("wheel", this.#updateWheel);
         this.#AppCanvas.removeResizeListener(this.#updateOffset);
     }
-    #setHoldInterval () {
+    #isTouchEvent (event) { return event?.pointerType === "touch" }
+    #setHoldInterval (isTouch) {
         if (this.#holding.pollInterval) return;
         this.#holding.pollInterval = setInterval(() => {
             if (!this.isActive) return this.#clearHoldInterval();
@@ -82,7 +83,7 @@ export class PointerListener  {
                     this.#holding.started = this.#holding.stamp > this.#clickMs && !this.#dragging.started;
                     if (this.isHolding) {
                         this.#holding.origin.apply(this.#tracking.position);
-                        this.#callbackFns?.onhold?.(this.position);
+                        this.#callbackFns?.onhold?.(this.position, isTouch);
                     }
                 } else {
                     this.#holding.origin.apply(this.#tracking.position);
@@ -104,15 +105,16 @@ export class PointerListener  {
     }
     #updateDown = (event, callback = true) => { // keep up and down event callbacks seperate for (marginal) perfomance boost
         if (!this.enabled) return;
+        const isTouch = this.#isTouchEvent(event);
         this.#activePointers[event.pointerId] = event;
         this.#tracking.exists = true;
         this.#updatePosition(event);
         this.#tracking.up.stamp = undefined; // clear data from last down event
         this.#tracking.down.stamp = performance.now();
         this.#tracking.down.position.apply(this.#tracking.position);
-        this.#setHoldInterval();
+        this.#setHoldInterval(isTouch);
         if (callback && this.pointerCount === 1) {
-            this.#callbackFns?.onpress?.(this.position);
+            this.#callbackFns?.onpress?.(this.position, isTouch);
         }
     }
     #updateEnter = (event, callback = true) => {
@@ -120,6 +122,7 @@ export class PointerListener  {
     }
     #updateUp = (event, callback = true) => {
         if (!this.enabled) return;
+        const isTouch = this.#isTouchEvent(event);
         const { activeDuration } = this;
         if (event.pointerId in this.#activePointers)
             delete this.#activePointers[event.pointerId];
@@ -131,17 +134,18 @@ export class PointerListener  {
         this.#clearHoldInterval();
         this.#updateDelta(event);
         if (callback && this.pointerCount === 0) {
-            this.#callbackFns?.onrelease?.(this.position, this.#tracking.totalDelta.clone());
+            this.#callbackFns?.onrelease?.(this.position, this.#tracking.totalDelta.clone(), isTouch);
             // click detection
             if (activeDuration <= this.#clickMs + Number.EPSILON) {
                 this.#clickEventPromises.splice(0, this.#clickEventPromises.length)
                     .forEach((resolve) => resolve(event));
-                this.#callbackFns?.onclick?.(this.position, this.#tracking.totalDelta.clone());
+                this.#callbackFns?.onclick?.(this.position, this.#tracking.totalDelta.clone(), isTouch);
             }
         }
     }
     #updateMove = (event, callback = true) => {
         if (!this.enabled) return;
+        const isTouch = this.#isTouchEvent(event);
         this.#activePointers[event.pointerId] = event;
         this.#tracking.exists = true;
         const { pointerCount } = this;
@@ -151,7 +155,7 @@ export class PointerListener  {
             this.#setHoldInterval();
             // drag detection
             if (callback && this.enabled && this.isDragging) {
-                if ((this.#callbackFns?.ondrag?.(this.position, this.#tracking.down.position.clone(), this.#dragging.delta.clone())) === null) {
+                if (this.#callbackFns?.ondrag?.(this.position, this.#tracking.down.position.clone(), this.#dragging.delta.clone(), isTouch) === null) {
                     // dragging was broken on an item
                     if (this.#tracking.exists)
                         this.#dragging.origin.apply(this.#tracking.position);
@@ -181,7 +185,7 @@ export class PointerListener  {
         if (!this.enabled) return;
         const { deltaX, deltaY } = event;
         if (callback) {
-            this.#callbackFns?.onscroll?.(this.position, new Vector(deltaX, deltaY).mul(this.#scale, true));
+            this.#callbackFns?.onscroll?.(this.position, new Vector(deltaX, deltaY).mul(this.#scale, true), false);
         }
     }
     // should be called after #updatePosition()
@@ -261,8 +265,11 @@ export class PointerListener  {
     }
 
     resetState () {
-        if (this.isDragging || this.isHolding)
-            this.#callbackFns?.onrelease?.(this.position, this.delta);
+        if (this.isDragging || this.isHolding) {
+            const { position, delta } = this;
+            this.#callbackFns?.onrelease?.(position, delta, false);
+            this.#callbackFns?.onrelease?.(position, delta, true);
+        }
         this.#clearHoldInterval();
         this.#tracking.down.position.apply(0);
         this.#tracking.down.stamp = undefined;
