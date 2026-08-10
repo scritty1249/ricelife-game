@@ -37,7 +37,7 @@ export class Path extends Hashable { // points should be ordered clockwise (in p
     }
 
     // removes duplicate adjacent points from Path
-    reduce (mutate = false) {
+    simplify (mutate = false) {
         const path = mutate ? this : this.clone(true);
         if (path.length <= 1) return path;
         const newPoints = [];
