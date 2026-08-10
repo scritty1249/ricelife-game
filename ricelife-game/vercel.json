@@ -1,8 +1,19 @@
 {
-  "cleanUrls": true,
-  "outputDirectory": "client",
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/$1" },
-    { "source": "/(.*)", "destination": "/" }
-  ]
+    "cleanUrls": true,
+    "outputDirectory": "client",
+    "routes": [
+        {
+            "src": "/engine/(.*)",
+            "dest": "/dist/engine/$1",
+            "headers": { 
+                "cache-control": "public, max-age=31536000, immutable",
+                "X-Frame-Options": "DENY",
+                "X-Content-Type-Options": "nosniff",
+                "Cross-Origin-Resource-Policy": "same-origin",
+                "Cross-Origin-Embedder-Policy": "require-corp"
+            }
+        },
+        { "handle": "filesystem" },
+        { "src": "/(.*)", "dest": "/index.html" }
+    ]
 }

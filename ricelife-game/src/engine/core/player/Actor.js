@@ -1,0 +1,121 @@
+import { Aimer } from "./Aimer.js";
+import { Mover } from "./Mover.js";
+import { Puppet } from "./Puppet.js";
+import { Properties } from "../projectile/collision/Properties.js";
+import { Metadata } from "./Metadata.js";
+import { HitTotal } from "./HitTotal.js";
+import { Loadable } from "../load/Loadable.js";
+import { typeString } from "../utils/logging.js";
+import { Vector } from "../math/Vector.js";
+import { Ray } from "../math/Ray.js";
+
+export class Actor extends Loadable {
+    #Aimer;
+    #Mover;
+    #Puppet;
+    #Metadata;
+    #HitTotal;
+    #originalStyling = {};
+    #stylingApplied = false;
+    #onloadProxy = Promise.withResolvers();
+    constructor (metadata, hittotal) {
+        super();
+        this.#Metadata = metadata;
+        this.#HitTotal = hittotal;
+        this.#saveStyling();
+        this.Metadata.onload.then(() => {
+            const { Model } = this.Metadata;
+            this.#resizeModel(50);
+            this.#Puppet = new Puppet(Model.body, Model.barrel);
+            this.#Aimer = new Aimer(this.Puppet, this.Puppet.width * 3);
+            this.#Mover = new Mover(this.Puppet);
+            this.Mover.offsetY = -(this.Puppet.offset.body.y / 10);
+            this.Mover.climbHeight = this.Puppet.height / 2;
+            this.#onloadProxy.resolve(this);
+        }).catch((err) => this.#onloadProxy.reject(err));
+    }
+
+    #saveStyling () {
+        const styling = this.#originalStyling;
+        styling.barOffset = this.HitTotal.barOffset.clone();
+    }
+    #resizeModel (width) {
+        const { Model } = this.Metadata;
+        Model.body.width = 50;
+        Model.barrel.scale.apply(Model.body.scale);
+    }
+
+    applyStyling (cursor) {
+        if (!cursor?.isCanvas2DContextCursor) return;
+        const original = this.#originalStyling;
+        const { Profile, Model } = this.Metadata;
+        Profile.fontSize = 18;
+        const nameWidth = Profile.getNameWidth(cursor);
+        const profileLinePadding = 5;
+        Profile.fontColor.apply(255, 255, 255);
+        Profile.avatar.width = 25;
+        Profile.nameOffset.x = ((nameWidth + Profile.avatar.width) / 2) - (nameWidth / 2);
+        Profile.avatarOffset.x = Profile.nameOffset.x - (nameWidth / 2) - (25 / 2) - profileLinePadding;
+        Profile.avatarOffset.y = Profile.nameOffset.y = Model.body.height * 2.6;
+
+        this.HitTotal.barOffset.y = original.barOffset.y + Model.body.height * 2;
+        this.HitTotal.barHeight = 8;
+        this.HitTotal.barWidth = Model.body.width;
+        this.#stylingApplied = true;
+    }
+    drawOverlay (cursor, hideProfile = false) {
+        const { Metadata, Puppet, HitTotal, isDead } = this;
+        if (!this.#stylingApplied) this.applyStyling(cursor);
+        cursor.save();
+        if (isDead) {
+            cursor.filter = "grayscale(100%)";
+            Metadata.Profile.fontColor.apply(100, 100, 100); // [!] inefficient
+        }
+        if (hideProfile)
+            Metadata.Profile.draw(cursor, Puppet.relativePosition);
+        HitTotal.draw(cursor, Puppet.relativePosition);
+        cursor.restore();
+    }
+    toJSON () {
+        // [!] don't store aiming angle- save on backend storage, don't think anyone will notice/care... - KT
+        const payload = {
+            data: this.Metadata.toJSON(),
+            hitpoints: this.HitTotal.toJSON(),
+        };
+        if (this.ready)
+            payload.position = this.Puppet.position.toJSON();
+        return payload;
+    }
+    getCollider () {
+        const { Puppet, Mover } = this;
+        const collider = Puppet.getHitbox().Polygon();
+        collider.userData.collision = Properties.PLAYER | Properties.ENTER;
+        collider.userData.position = Puppet.position.round(2, true).toJSON();
+        collider.userData.rotation = Puppet.rotation.body;
+        collider.userData.heightOffset = Puppet.height + Mover.offsetY;
+        return collider;
+    }
+    *getLaunchParameters (terrain) {
+        const { relativePosition, barrelPosition } = this.Puppet;
+        const { Aimer } = this;
+        const barrelPath = new Ray(relativePosition, barrelPosition);
+        const hit = terrain.polygon.raycast(barrelPath)
+            .sort((a, b) =>
+                a.distance(relativePosition) - b.distance(relativePosition))
+            .at(0);
+        yield hit?.point || barrelPosition;
+        yield Aimer.rotation + (3 * (Math.PI / 2));
+        yield Aimer.power;
+    }
+
+    get isActor () { return true }
+    get onload () { return this.#onloadProxy.promise }
+    get ready () { return this.Metadata.ready }
+    get source () { return this.Metadata.source }
+    get id () { return this.Metadata.Profile.userid }
+    get Metadata () { return this.#Metadata }
+    get HitTotal () { return this.#HitTotal }
+    get Puppet () { return this.#Puppet }
+    get Aimer () { return this.#Aimer }
+    get Mover () { return this.#Mover }
+}

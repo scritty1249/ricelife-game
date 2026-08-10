@@ -1,11 +1,15 @@
 {
-    "self": "1000241160",
+    "activeplayer": "1000241160",
+    "state": 1,
+    "teamsize": 3,
+    "teamcount": 2,
+    "channelid": "0",
     "players": [
         {
             "position": [0, 0],
             "hitpoints": [
                 {
-                    "type": "Health",
+                    "type": 0,
                     "increase": 1,
                     "decrease": 1,
                     "amount": 100,
@@ -14,7 +18,7 @@
                     "reserve": 0
                 },
                 {
-                    "type": "Shield",
+                    "type": 1,
                     "increase": 1,
                     "decrease": 1,
                     "amount": 35,
@@ -25,7 +29,7 @@
             ],
             "data": {
                 "model": "basic",
-                "team": 0,
+                "team": "0",
                 "profile": {
                     "name": "Greyple",
                     "avatar": "https://cdn.discordapp.com/embed/avatars/1.png",
@@ -34,7 +38,6 @@
                 },
                 "ammo": [
                     "Basic",
-                    "Spreader",
                     "Flower",
                     "Digger",
                     "Bouncer",
@@ -42,8 +45,7 @@
                     "GigaBouncer",
                     "Pine",
                     "Sniper",
-                    "Rapid",
-                    "Pickle"
+                    "Rapid"
                 ]
             }
         },
@@ -51,7 +53,7 @@
             "position": [0, 0],
             "hitpoints": [
                 {
-                    "type": "Health",
+                    "type": 0,
                     "increase": 1,
                     "decrease": 1,
                     "amount": 100,
@@ -60,7 +62,7 @@
                     "reserve": 0
                 },
                 {
-                    "type": "Shield",
+                    "type": 1,
                     "increase": 1,
                     "decrease": 1,
                     "amount": 35,
@@ -71,7 +73,7 @@
             ],
             "data": {
                 "model": "basic",
-                "team": 0,
+                "team": "0",
                 "profile": {
                     "name": "Blurple",
                     "avatar": "https://cdn.discordapp.com/embed/avatars/0.png",
@@ -80,7 +82,6 @@
                 },
                 "ammo": [
                     "Basic",
-                    "Spreader",
                     "Flower",
                     "Digger",
                     "Bouncer",
@@ -95,7 +96,7 @@
             "position": [0, 0],
             "hitpoints": [
                 {
-                    "type": "Health",
+                    "type": 0,
                     "increase": 1,
                     "decrease": 1,
                     "amount": 100,
@@ -104,7 +105,7 @@
                     "reserve": 0
                 },
                 {
-                    "type": "Shield",
+                    "type": 1,
                     "increase": 1,
                     "decrease": 1,
                     "amount": 35,
@@ -115,7 +116,7 @@
             ],
             "data": {
                 "model": "basic",
-                "team": 1,
+                "team": "1",
                 "profile": {
                     "name": "Green",
                     "avatar": "https://cdn.discordapp.com/embed/avatars/2.png",
@@ -124,7 +125,6 @@
                 },
                 "ammo": [
                     "Basic",
-                    "Spreader",
                     "Flower",
                     "Digger",
                     "Bouncer",
@@ -139,7 +139,7 @@
             "position": [0, 0],
             "hitpoints": [
                 {
-                    "type": "Health",
+                    "type": 0,
                     "increase": 1,
                     "decrease": 1,
                     "amount": 100,
@@ -148,7 +148,7 @@
                     "reserve": 0
                 },
                 {
-                    "type": "Shield",
+                    "type": 1,
                     "increase": 1,
                     "decrease": 1,
                     "amount": 35,
@@ -159,7 +159,7 @@
             ],
             "data": {
                 "model": "basic",
-                "team": 1,
+                "team": "1",
                 "profile": {
                     "name": "Yellow",
                     "avatar": "https://cdn.discordapp.com/embed/avatars/3.png",
@@ -168,7 +168,6 @@
                 },
                 "ammo": [
                     "Basic",
-                    "Spreader",
                     "Flower",
                     "Digger",
                     "Bouncer",
@@ -183,7 +182,7 @@
             "position": [0, 0],
             "hitpoints": [
                 {
-                    "type": "Health",
+                    "type": 0,
                     "increase": 1,
                     "decrease": 1,
                     "amount": 100,
@@ -192,7 +191,7 @@
                     "reserve": 0
                 },
                 {
-                    "type": "Shield",
+                    "type": 1,
                     "increase": 1,
                     "decrease": 1,
                     "amount": 35,
@@ -203,7 +202,7 @@
             ],
             "data": {
                 "model": "basic",
-                "team": 1,
+                "team": "1",
                 "profile": {
                     "name": "Red",
                     "avatar": "https://cdn.discordapp.com/embed/avatars/4.png",
@@ -212,7 +211,6 @@
                 },
                 "ammo": [
                     "Basic",
-                    "Spreader",
                     "Flower",
                     "Digger",
                     "Bouncer",
