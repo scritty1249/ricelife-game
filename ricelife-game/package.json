@@ -2,12 +2,19 @@
     "name": "ricelife-game",
     "version": "1.0.0",
     "type": "module",
+    "scripts": {
+        "build:client": "node ./build/client.js",
+        "build:server": "node ./build/server.js",
+        "build": "npm run build:client && npm run build:server",
+        "dev": "node ./build/client.js --dev && node ./build/server.js"
+    },
     "dependencies": {
         "@aws-sdk/client-s3": "latest",
         "@aws-sdk/s3-request-presigner": "latest",
         "@aws-sdk/client-dynamodb": "latest",
         "@aws-sdk/lib-dynamodb": "latest",
-        "@vercel/oidc-aws-credentials-provider": "latest"
+        "@vercel/oidc-aws-credentials-provider": "latest",
+        "@server": "file:./dist/lib"
     },
     "devDependencies": {
         "node": "22.11.0",

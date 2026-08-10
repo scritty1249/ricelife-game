@@ -1,5 +1,5 @@
 import { load } from "./game.js";
-import { init, loading } from "../../ricelife-game/client/scripts/events/loading.js";
+import { init, loading } from "/scripts/events/loading.js";
 
 if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", initSequence);

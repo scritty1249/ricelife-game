@@ -1,7 +1,6 @@
 import { DrawingCanvas } from "./draw.js";
 import { RenderingCanvas } from "./render.js";
 import { Slider } from "./slider.js"
-import { packPolygon } from "../../client/scripts/api/pack.js";
 
 const exportBtn = document.getElementById("export-btn");
 const modal = document.getElementById("export-modal");
@@ -51,7 +50,7 @@ const EMPTY_CANVAS_MESSAGE = "No Data.";
 function loadOutput () {
     const updatedPayload = Drawer.exportData(ScaleSliderX.value, ScaleSliderY.value, BaseSliderY.value, mirrorBtn.checked);
     if (updatedPayload)
-        Renderer.computePolygon(updatedPayload);
+        Renderer.decode(updatedPayload);
 }
 
 ScaleSliderX.onchange = () => loadOutput();
@@ -87,7 +86,7 @@ thumbBtn.onclick = () => {
     URL.revokeObjectURL(url);
 }
 blobBtn.onclick = () => {
-    const buffer = packPolygon(Renderer.polygon);
+    const buffer = Renderer.pack();
     const blob = new Blob([buffer], { type: "application/octet-stream" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");

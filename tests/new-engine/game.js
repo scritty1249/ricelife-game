@@ -1,6 +1,6 @@
-import { Main } from "../../ricelife-game/engine/runtime/Core.js";
-import { loading } from "../../ricelife-game/client/scripts/events/loading.js";
-import { stream, unpackPolygon } from "../../ricelife-game/client/scripts/api/unpack.js";
+import { Main } from "/engine/runtime/Core.js";
+import { loading } from "/scripts/events/loading.js";
+import { stream, unpackPolygon } from "/scripts/api/unpack.js";
 
 const lobby = {
     "players": {
@@ -8,15 +8,15 @@ const lobby = {
             "position": [800, 1000],
             "data": {
                 "ammo": [
-                    "basic",
-                    "bouncer",
-                    "megabouncer",
-                    "gigabouncer",
-                    "digger",
-                    "flower",
-                    "pine",
-                    "rapid",
-                    "sniper",
+                    "Basic",
+                    "Bouncer",
+                    "MegaBouncer",
+                    "GigaBouncer",
+                    "Digger",
+                    "Flower",
+                    "Pine",
+                    "Rapid",
+                    "Sniper"
                 ],
                 "model": "basic",
                 "profile": {
@@ -33,7 +33,7 @@ const lobby = {
                 "max": 100,
                 "regen": 0,
                 "reserve": 0,
-                "type": "Health",
+                "type": 0,
                 "increase": 1,
                 "decrease": 1
             },
@@ -42,7 +42,7 @@ const lobby = {
                 "max": 20,
                 "regen": 3.3333333333333335,
                 "reserve": 0,
-                "type": "Shield",
+                "type": 1,
                 "increase": 1,
                 "decrease": 1
             }
