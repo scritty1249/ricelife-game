@@ -29,7 +29,6 @@ export class Camera extends Identifiable {
     #keepSize = true; // when set, will attempt to maintain the target size after reached. if unset, target size will clear itself once reached.
     scalingBehavior = Camera.SCALING_BEHAVIOR.Grow;
     enabled = true;
-    lockAspectRatio = true; // locks viewbox aspect ratio to canvas
     constructor (appCanvas, planeSize = undefined, viewSize = undefined) {
         super();
         this.#canvas = appCanvas;
@@ -155,7 +154,6 @@ export class Camera extends Identifiable {
             tbbox: this.#tempBox.clone(),
             enabled: this.enabled,
             viewbox: includeViewbox ? this.Viewbox.getState() : undefined,
-            lockAspect: this.lockAspectRatio
         };
     }
     setState (state) {
@@ -173,7 +171,6 @@ export class Camera extends Identifiable {
           tbbox,
           enabled,
           viewbox,
-          lockAspect
         } = state;
         this.#targets.clear();
         targets.forEach((t) => this.#targets.add(t));
@@ -189,7 +186,6 @@ export class Camera extends Identifiable {
         this.#boundBox.apply(bbox);
         this.#tempBox.apply(tbbox);
         this.enabled = enabled;
-        this.lockAspectRatio = lockAspect;
         if (viewbox) this.Viewbox.setState(viewbox);
     }
     // sets viewbox to position
@@ -236,7 +232,6 @@ export class Camera extends Identifiable {
     }
     update () {
         if (!this.enabled) return;
-        if (this.lockAspectRatio) this.Viewbox.aspectRatio = this.#canvas.aspectRatio;
         this.#computeBounds();
         const { SNAP_THRESHOLD, SCALING_BEHAVIOR } = this.constructor;
         const vSize = this.#Viewbox.size;

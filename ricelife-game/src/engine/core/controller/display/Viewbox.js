@@ -25,18 +25,13 @@ export class Viewbox extends BoundingBox {
     }
 
     #clampChange (newSize, newMin) {
-        let x, y;
+        let { x, y } = newMin;
         if (this.planeSize.lengthSquared) {
             const limit = this.planeSize.sub(newSize);
-            const maxX = this.bounding.right ? Math.min(newMin.x, limit.x) : newMin.x;
-            const minX = this.bounding.left ? 0 : maxX;
-            const maxY = this.bounding.top ? Math.min(newMin.y, limit.y) : newMin.y;
-            const minY = this.bounding.bottom ? 0 : maxY;
-            x = Math.max(minX, maxX);
-            y = Math.max(minY, maxY);
-        } else {
-            x = newMin.x;
-            y = newMin.y;
+            const maxX = this.bounding.right ? Math.min(x, limit.x) : x;
+            const maxY = this.bounding.top ? Math.min(y, limit.y) : y;
+            x = this.bounding.left ? Math.max(0, maxX) : maxX;
+            y = this.bounding.bottom ? Math.max(0, maxY) : maxY;
         }
         this.max.apply(this.min.apply(x, y)).add(newSize, true);
     }
@@ -73,17 +68,22 @@ export class Viewbox extends BoundingBox {
     }
     applyScale (scale) {
         const { planeSize } = this;
-        const offset = this.center.clone();
+        const offset = this.center.clone(); // Capture the stable core anchor
         const min = this.min.sub(offset).mul(scale, true).add(offset, true);
         const max = this.max.sub(offset).mul(scale, true).add(offset, true);
         const size = max.sub(min).abs(true);
-        const aspect = size.quot();
+
         if (planeSize.lengthSquared) {
-            if (!this.#canvas.isPortrait && size.x > planeSize.x) size.apply(planeSize.x, planeSize.x / aspect);
-            if (!this.#canvas.isLandscape && size.y > planeSize.y) size.apply(planeSize.y * aspect, planeSize.y);
+            const canvasAspect = this.#canvas.aspectRatio;
+            if (size.x > planeSize.x)
+                size.apply(planeSize.x, planeSize.x / canvasAspect);
+            if (size.y > planeSize.y)
+                size.apply(planeSize.y * canvasAspect, planeSize.y);
         }
         if (this.size.eq(size)) return this;
-        this.#clampChange(size, min);
+
+        const correctedMin = this.min.add(this.size.sub(size).div(2));
+        this.#clampChange(size, correctedMin);
         return this; // for chaining
     }
     // sets cursor origin and scale to match viewbox
