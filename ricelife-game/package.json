@@ -18,7 +18,6 @@
     },
     "devDependencies": {
         "node": "22.11.0",
-        "vercel": "^56.4.1",
         "esbuild": "latest"
     },
     "allowScripts": {
