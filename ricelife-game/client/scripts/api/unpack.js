@@ -23,7 +23,7 @@ export async function stream (url) {
         const { done, value } = await reader.read();
         if (done) break;
         chunks.push(value); // Uint8Array view
-        length += chunk.length;
+        length += value.length;
     }
 
     const buffer = new ArrayBuffer(length);
