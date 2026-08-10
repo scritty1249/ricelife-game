@@ -22,6 +22,7 @@ export async function load () {
     const main = new Main(lobby.activeplayer, loading);
     await main.onload;
     window._MAIN = main; // [!] for debug
+    main.flags.DEBUG = URL_PARAMS.has("debug");
 
     const phase = await main.loadCreatePhase(maps);
     phase.Events.addEventListener("SELECTED", async (selected) => {
