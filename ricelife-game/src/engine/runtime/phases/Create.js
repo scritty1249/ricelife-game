@@ -17,6 +17,7 @@ export class Create extends Phase {
     }
 
     #init (maps) {
+        this.Camera.Viewbox.bounding.left = this.Camera.Viewbox.bounding.right = false;
         this.Menus.set("Maps", new MapSelect(this, maps));
     }
     async #load () {
