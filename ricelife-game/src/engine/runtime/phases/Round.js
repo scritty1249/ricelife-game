@@ -76,7 +76,7 @@ export class Round extends Phase {
     #Animations = {
         Main: new AnimationList()
     };
-    constructor (mainController, playerID, lobbyData, terrainData) {
+    constructor (mainController, playerID, lobbyData, terrainData, distribute = false) {
         super(mainController);
 
         this.#Lobby = initLobby(lobbyData);
@@ -90,6 +90,7 @@ export class Round extends Phase {
 
         this.#load(playerID)
             .then(() => this.#init())
+            .then(() => !distribute || distributePlayers(this.Plane, Array.from(this.Players.values()), 100))
             .then(() => this.resolveLoad())
             .catch((error) => this.rejectLoad(error));
     }
@@ -787,14 +788,14 @@ function distributePlayers (bbox, players, recursionLimit = 10000) {
     const max = bbox.max.x - min;
     const spacing = (bbox.width / players.length);
     const range = (max - min) / spacing; 
-    const spots = new Set()
-    for (const { Aimer, mover } of players) {
+    const spots = new Set();
+    for (const { Aimer, Mover } of players) {
         let x;
         let added = false;
         let i = 0;
         while (i < recursionLimit) {
             x = (Math.floor(Math.random() * (range + 1)) * spacing) + min;
-            if (!spots.has(x) && mover.apply(x, bbox.max.y + 1)) {
+            if (!spots.has(x) && Mover.apply(x, bbox.max.y + 1)) {
                 spots.add(x);
                 added = true;
                 break;
