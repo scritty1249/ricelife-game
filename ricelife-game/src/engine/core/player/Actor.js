@@ -18,7 +18,10 @@ export class Actor extends Loadable {
     #originalStyling = {};
     #stylingApplied = false;
     #onloadProxy = Promise.withResolvers();
-    #lastX;
+    #puppetState = {
+        lastX: undefined,
+        flipBody: false
+    }
     constructor (metadata, hittotal) {
         super();
         this.#Metadata = metadata;
@@ -83,11 +86,16 @@ export class Actor extends Loadable {
         cursor.restore();
     }
     drawModel (cursor) {
-        const { rotation } = this.Aimer;
-        const flipBody = Number.isFinite(this.#lastX) && this.#lastX > this.Mover.position.x;
+        const rotation = this.Aimer.rotation - this.Puppet.rotation.body;
+        const newX = this.Mover.position.x;
+        if (!Number.isFinite(this.#puppetState.lastX)) {
+            this.#puppetState.lastX = newX;
+        } else if (this.#puppetState.lastX !== newX) {
+            this.#puppetState.flipBody = this.#puppetState.lastX > newX;
+            this.#puppetState.lastX = newX;
+        }
         const flipBarrel = (rotation < Math.PI * 2 && rotation > Math.PI);
-        this.#lastX = this.Mover.position.x;
-        this.Puppet.draw(cursor, flipBody, flipBarrel);
+        this.Puppet.draw(cursor, this.#puppetState.flipBody, flipBarrel);
     }
     toJSON () {
         // [!] don't store aiming angle- save on backend storage, don't think anyone will notice/care... - KT
