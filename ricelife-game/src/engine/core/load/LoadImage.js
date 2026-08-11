@@ -52,13 +52,24 @@ export class LoadImage extends Loadable {
         const cos = Math.cos(-this.rotation);
         const sin = Math.sin(-this.rotation);
         cursor.transform(cos, sin, -sin, cos, dx, normalize ? cursor.normalizeY(dy) : dy);
-        const og = origin.mul(-1).mul(this.scale);
-        cursor.drawImage(this.source, sx, sy, sWidth, sHeight, og.x, og.y, dWidth, dHeight);
+        const fx = Math.sign(this.#scale.x) || 1;
+        const fy = Math.sign(this.#scale.y) || 1;
+        cursor.scale(fx, fy);
+        const absScale = new Vector(Math.abs(this.#scale.x), Math.abs(this.#scale.y));
+        const og = origin.mul(-1).mul(absScale);
+        cursor.drawImage(
+            this.source, 
+            sx, sy, sWidth, sHeight, 
+            og.x, og.y,
+            Math.abs(dWidth), Math.abs(dHeight)
+        );
         cursor.restore();
     }
     getEdges (x, y) {
         const { width, height } = this;
         const og = this.origin.mul(-1).mul(this.scale, true);
+        if (this.#scale.x < 0) og.x = -og.x - width;
+        if (this.#scale.y < 0) og.y = -og.y - height;
 
         const local = new Array(
             og.clone(), // top left

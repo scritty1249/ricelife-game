@@ -19,20 +19,20 @@ export class Puppet extends Identifiable {
         };
         this.rotation = {
             get body () { return bodyImage.rotation },
-            get barrel () { return barrelImage.rotation - (Math.PI) },
+            get barrel () { return barrelImage.rotation - Math.PI },
             set body (radians) {
                 const val = clamp(radians % (Math.PI * 2), -(Math.PI / 2), Math.PI / 2);
                 bodyImage.rotation = val;
                 return val;
             },
             set barrel (radians) {
-                barrelImage.rotation = radians + (Math.PI);
+                barrelImage.rotation = radians + Math.PI;
                 return radians;
             }
         };
         this.offset = {
-            barrel: new Vector(0, bodyImage.height / 2),
-            body: new Vector(0, bodyImage.height - bodyImage.height * 0.74)
+            barrel: new Vector(0, bodyImage.height * 0.74),
+            body: new Vector(0, bodyImage.height / 2)
         }
         this.position = position;
 
@@ -45,9 +45,13 @@ export class Puppet extends Identifiable {
         source.draw(cursor, position.x, position.y);
     }
 
-    draw (cursor) {
+    draw (cursor, flipBody = false, flipBarrel = false) {
+        if (flipBarrel) this.#source.barrel.scale.x *= -1;
+        if (flipBody) this.#source.body.scale.x *= -1;
         this.#drawPart(cursor, this.#source.barrel, this.offset.barrel);
         this.#drawPart(cursor, this.#source.body, this.offset.body);
+        if (flipBarrel) this.#source.barrel.scale.x *= -1;
+        if (flipBody) this.#source.body.scale.x *= -1;
     }
     getHitbox () {
         const hash = Vector.hash([Vector.fromAngle(this.rotation.body), this.position]);

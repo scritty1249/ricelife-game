@@ -25,7 +25,7 @@ export class Aimer extends Identifiable { // takes control of rotation for a Tan
         if (!puppet?.isPuppet) throw new Error(`[${typeString(this)}]: Expected Puppet, got ${typeString(puppet)}`);
         this.#puppet = puppet;
         this.#radius = radius;
-        this.#rotation = this.#puppet.rotation.barrel; // degrees
+        this.#rotation = this.#puppet.rotation.barrel; // radians
         this.#initDisplay(
             circleColor || Aimer.DEFAULT.circleColor.clone(),
             beamColor || Aimer.DEFAULT.beamColor.clone(),
@@ -104,7 +104,7 @@ export class Aimer extends Identifiable { // takes control of rotation for a Tan
         cursor.restore();
     }
     #powerFromPointer () { return this.#puppet.relativePosition.distance(this.pointer) / this.#radius } // unclamped
-    #angleFromPointer () { return this.pointer.angle(this.#puppet.relativePosition) - (Math.PI / 2) } // normalized
+    #angleFromPointer () { return ((this.pointer.angle(this.#puppet.relativePosition) - (Math.PI / 2)) + (Math.PI * 2)) % (Math.PI * 2) } // normalized
 
     draw (cursor) {
         const { circle, triangle, cone } = this.#display;

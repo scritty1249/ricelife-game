@@ -18,6 +18,7 @@ export class Actor extends Loadable {
     #originalStyling = {};
     #stylingApplied = false;
     #onloadProxy = Promise.withResolvers();
+    #lastX;
     constructor (metadata, hittotal) {
         super();
         this.#Metadata = metadata;
@@ -25,7 +26,7 @@ export class Actor extends Loadable {
         this.#saveStyling();
         this.Metadata.onload.then(() => {
             const { Model } = this.Metadata;
-            this.#resizeModel(50);
+            this.#resizeModel(75);
             this.#Puppet = new Puppet(Model.body, Model.barrel);
             this.#Aimer = new Aimer(this.Puppet, this.Puppet.width * 3);
             this.#Mover = new Mover(this.Puppet);
@@ -41,7 +42,7 @@ export class Actor extends Loadable {
     }
     #resizeModel (width) {
         const { Model } = this.Metadata;
-        Model.body.width = 50;
+        Model.body.width = width;
         Model.barrel.scale.apply(Model.body.scale);
     }
 
@@ -63,18 +64,30 @@ export class Actor extends Loadable {
         this.HitTotal.barWidth = Model.body.width;
         this.#stylingApplied = true;
     }
-    drawOverlay (cursor, hideProfile = false) {
+    drawOverlay (cursor, isClient = false) {
         const { Metadata, Puppet, HitTotal, isDead } = this;
         if (!this.#stylingApplied) this.applyStyling(cursor);
         cursor.save();
+        if (isClient) {
+            cursor.fillStyle = "white";
+            cursor.fillText(Math.round(this.Aimer.rotation * (180/Math.PI)), this.Puppet.barrelPosition.project(this.Aimer.rotation - (Math.PI / 2), 50));
+        }
         if (isDead) {
             cursor.filter = "grayscale(100%)";
             Metadata.Profile.fontColor.apply(100, 100, 100); // [!] inefficient
         }
-        if (hideProfile)
+        if (isClient) {
             Metadata.Profile.draw(cursor, Puppet.relativePosition);
+        }
         HitTotal.draw(cursor, Puppet.relativePosition);
         cursor.restore();
+    }
+    drawModel (cursor) {
+        const { rotation } = this.Aimer;
+        const flipBody = Number.isFinite(this.#lastX) && this.#lastX > this.Mover.position.x;
+        const flipBarrel = (rotation < Math.PI * 2 && rotation > Math.PI);
+        this.#lastX = this.Mover.position.x;
+        this.Puppet.draw(cursor, flipBody, flipBarrel);
     }
     toJSON () {
         // [!] don't store aiming angle- save on backend storage, don't think anyone will notice/care... - KT

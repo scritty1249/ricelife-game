@@ -356,8 +356,8 @@ export class Round extends Phase {
         Camera.update();
         if (flags.isTurn) Interface.draw(cursor, 0, 2);
         Camera.Viewbox.setCursor(cursor, true);
-        for (const { Puppet, isDead } of Players.values())
-            if (!isDead) Puppet.draw(cursor);
+        for (const player of Players.values())
+            if (!player.isDead) player.drawModel(cursor);
         cursor.restore();
         this.drawBackground();
         Camera.Viewbox.setCursor(cursor, true);

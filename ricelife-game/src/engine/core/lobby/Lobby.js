@@ -95,6 +95,7 @@ export class Lobby {
         const ammoPromises = [];
         const avatarPromises = [];
         const modelAccentColor = new Color(255, 0, 0);
+        const modelAccentFeatherTolerance = 50;
         // player models
         for (const [ id, player ] of this.Players) {
             const modelKeys = this.#getModelKeys(clientUserID, player);
@@ -107,7 +108,7 @@ export class Lobby {
                 modelPromises.push(
                     assetPool.onready(modelKeys.body)
                         .then((img) =>
-                            swapImageColors(img, modelAccentColor, modelKeys.color, 30))
+                            swapImageColors(img, modelAccentColor, modelKeys.color, modelAccentFeatherTolerance))
                 );
             }
             if (!assetPool.has(modelKeys.barrel)) {
@@ -118,7 +119,7 @@ export class Lobby {
                 modelPromises.push(
                     assetPool.onready(modelKeys.barrel)
                         .then((img) =>
-                            swapImageColors(img, modelAccentColor, modelKeys.color, 30))
+                            swapImageColors(img, modelAccentColor, modelKeys.color, modelAccentFeatherTolerance))
                 );
             }
         }
