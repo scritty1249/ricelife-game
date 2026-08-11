@@ -74,12 +74,12 @@ export class LoadImage extends Loadable {
 
     get isLoadImage () { return true }
     get ready () { return this.#ready }
-    get size () { return this.#size.mul(this.#scale) } // scaled
+    get size () { return this.rawSize.mul(this.#scale) } // scaled
     get rawSize () { return this.#size }
     get scale () { return this.#scale }
     get onload () { return this.#ready ? Promise.resolve(this) : this.#loadPromise }
     get source () {
-        if (!this.ready)
+        if (!this.#ready)
             throw new Error(`[${typeString(this)}] Error: Cannot access image - not loaded`);
         return this.#img;
     }

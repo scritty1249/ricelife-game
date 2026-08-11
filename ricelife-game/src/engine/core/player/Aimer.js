@@ -108,7 +108,7 @@ export class Aimer extends Identifiable { // takes control of rotation for a Tan
 
     draw (cursor) {
         const { circle, triangle, cone } = this.#display;
-        const position = this.#puppet.relativePosition;
+        const position = this.#puppet.position.add(this.#puppet.offset.barrel);
         // only need to update positions
         circle.shape.moveTo(position);
         triangle.shape.moveTo(position);

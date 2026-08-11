@@ -7,6 +7,7 @@ import {
     AudioContext,
     LoadFont,
     LoadImage,
+    EditableImage,
     Spritesheet,
     typeString
 } from "../core/Core.js";
@@ -23,6 +24,7 @@ export class Main extends Loop {
         Sprite: (...args) => new Spritesheet(...args),
         Image: (...args) => new LoadImage(...args),
         Font: (...args) => new LoadFont(...args),
+        EditableImage: (...args) => new EditableImage(...args),
         Audio: undefined
     };
     static #loadAudioContext () {

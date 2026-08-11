@@ -6,6 +6,14 @@ import { HitTotal } from "../player/HitTotal.js";
 import { Actor } from "../player/Actor.js";
 import { Vector } from "../math/Vector.js";
 
+// [!] placeholder
+import { Color } from "../math/Color.js";
+const TEAM_COLOR = {
+    ally: new Color(0, 0, 255),
+    self: new Color(0, 255, 0),
+    enemy: new Color(255, 0, 0)
+};
+
 // provides a View for parsing, interfacing with, and sending Lobby information
 // [!] as the rest of the game's feature are added, this class will fill out more. Build around supporting it, even if it's sparse at the time of writing -KT
 export class Lobby {
@@ -42,10 +50,11 @@ export class Lobby {
     #getModelKeys (clientUserID, player) {
         const { model } = player.data;
         const affiliation = this.#getAffiliation(clientUserID, player.data.profile.userid);
-        const modelPrefix = `${model}/${affiliation}`;
+        const modelPrefix = `${model}.${affiliation}`;
         return {
-            body: modelPrefix + "/body",
-            barrel: modelPrefix + "/barrel"
+            body: modelPrefix + ".body",
+            barrel: modelPrefix + ".barrel",
+            color: TEAM_COLOR[affiliation]
         };
     }
     #init (lobbyJson) {
@@ -85,19 +94,33 @@ export class Lobby {
         const modelPromises = [];
         const ammoPromises = [];
         const avatarPromises = [];
+        const modelAccentColor = new Color(255, 0, 0);
         // player models
         for (const [ id, player ] of this.Players) {
             const modelKeys = this.#getModelKeys(clientUserID, player);
-            assetPool.add(
-                modelKeys.body,
-                [assetTypes.Image, undefined, `/assets/tank/${modelKeys.body}.png`],
-                modelKeys.barrel,
-                [assetTypes.Image, undefined, `/assets/tank/${modelKeys.barrel}.png`]
-            );
-            modelPromises.push(
-                assetPool.onready(modelKeys.body),
-                assetPool.onready(modelKeys.barrel)
-            );
+            const { model } = player.data;
+            if (!assetPool.has(modelKeys.body)) {
+                assetPool.add(
+                    modelKeys.body,
+                    [assetTypes.EditableImage, undefined, `/assets/tank/${model}/body.png`]
+                );
+                modelPromises.push(
+                    assetPool.onready(modelKeys.body)
+                        .then((img) =>
+                            swapImageColors(img, modelAccentColor, modelKeys.color, 30))
+                );
+            }
+            if (!assetPool.has(modelKeys.barrel)) {
+                assetPool.add(
+                    modelKeys.barrel,
+                    [assetTypes.EditableImage, undefined, `/assets/tank/${model}/barrel.png`]
+                );
+                modelPromises.push(
+                    assetPool.onready(modelKeys.barrel)
+                        .then((img) =>
+                            swapImageColors(img, modelAccentColor, modelKeys.color, 30))
+                );
+            }
         }
         // ammo imports
         for (const ammoType of this.AmmoTypes) {
@@ -160,4 +183,24 @@ export class Lobby {
     get ModelTypes () { return this.#ModelTypes }
     get NameRegistry () { return this.#NameRegistry }
     get ActivePlayerID () { return this.#ActivePlayerID }
+}
+
+// ignores alpha channel
+function swapImageColors (editableImage, oldColor, newColor, tolerance = 0) {
+    const { imageData } = editableImage;
+    const { data } = imageData;
+    for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        if (Math.abs(r - oldColor.r) <= tolerance &&
+            Math.abs(g - oldColor.g) <= tolerance &&
+            Math.abs(b - oldColor.b) <= tolerance
+        ) {
+            data[i] = newColor.r;
+            data[i + 1] = newColor.g;
+            data[i + 2] = newColor.b;
+        }
+    }
+    editableImage.imageData = imageData;
 }

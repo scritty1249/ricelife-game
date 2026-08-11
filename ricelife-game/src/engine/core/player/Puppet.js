@@ -32,7 +32,7 @@ export class Puppet extends Identifiable {
         };
         this.offset = {
             barrel: new Vector(0, bodyImage.height / 2),
-            body: new Vector(0, bodyImage.height / 2)
+            body: new Vector(0, bodyImage.height - bodyImage.height * 0.74)
         }
         this.position = position;
 
