@@ -71,7 +71,7 @@ export class Actor extends Loadable {
         const { Metadata, Puppet, HitTotal, isDead } = this;
         if (!this.#stylingApplied) this.applyStyling(cursor);
         cursor.save();
-        if (isClient) {
+        if (isClient && !isDead) {
             cursor.fillStyle = "white";
             cursor.fillText(Math.round(this.Aimer.rotation * (180/Math.PI)), this.Puppet.barrelPosition.project(this.Aimer.rotation - (Math.PI / 2), 50));
         }
@@ -79,7 +79,7 @@ export class Actor extends Loadable {
             cursor.filter = "grayscale(100%)";
             Metadata.Profile.fontColor.apply(100, 100, 100); // [!] inefficient
         }
-        if (isClient) {
+        if (!isClient) {
             Metadata.Profile.draw(cursor, Puppet.relativePosition);
         }
         HitTotal.draw(cursor, Puppet.relativePosition);

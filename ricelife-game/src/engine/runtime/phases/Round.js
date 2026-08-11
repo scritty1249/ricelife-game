@@ -366,7 +366,7 @@ export class Round extends Phase {
             store.ammo.current.draw(cursor);
         Animations.Main.update(cursor);
         for (const player of Players.values())
-            player.drawOverlay(cursor, player.isDead);
+            player.drawOverlay(cursor, player.id === this.#ClientPlayerID);
         cursor.restore();
         if (flags.isTurn) Interface.draw(cursor, 2);
         if (this.Global.flags.DEBUG) this.drawDebugOverlay();
