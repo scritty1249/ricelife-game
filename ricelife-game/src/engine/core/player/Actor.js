@@ -67,11 +67,11 @@ export class Actor extends Loadable {
         this.HitTotal.barWidth = Model.body.width;
         this.#stylingApplied = true;
     }
-    drawOverlay (cursor, isClient = false) {
+    drawOverlay (cursor, isClient = false, isTurn = true) {
         const { Metadata, Puppet, HitTotal, isDead } = this;
         if (!this.#stylingApplied) this.applyStyling(cursor);
         cursor.save();
-        if (isClient && !isDead) {
+        if (isClient && !isDead && isTurn) {
             cursor.fillStyle = "white";
             cursor.fillText(Math.round(this.Aimer.rotation * (180/Math.PI)), this.Puppet.barrelPosition.project(this.Aimer.rotation - (Math.PI / 2), 50));
         }
