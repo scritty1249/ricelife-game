@@ -70,9 +70,7 @@ export class Round extends Phase {
     #Lobby;
     #ClientPlayerID; // id of client player
     #Threaded;
-    #Interface;
     #Terrain;
-    #Camera;
     #Animations = {
         Main: new AnimationList()
     };
@@ -113,6 +111,8 @@ export class Round extends Phase {
         this.Audio.Layer.blast = this.Audio.Player.Layer();
         this.Audio.Layer.blast.volume = 0.55;
         this.Audio.Player.volume = 0.35;
+
+        this.Camera.Viewbox.bounding.top = false;
 
         this.#setupInterface();
         this.Menus.set("Ammo", new AmmoSelect(this, this.#createAmmoSelections()));
