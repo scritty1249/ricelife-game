@@ -66,10 +66,12 @@ export class AmmoSelect extends Menu {
         const { selections } = this.store;
         const { buttons } = this.InterfaceLayers;
         const { BUTTON_TEXT_PADDING_SCALE } = this.constructor;
+        const { FONT_SIZE } = this.Parent.Global.store;
         buttons.clear();
         for (let i = 0; i < this.store.layout.count; i++) {
             const selection = selections[i % selections.length];
             const button = new AmmoTypeButton(selection, legLength);
+            button.fontSize = FONT_SIZE;
             button.computeTextSizing(this.Parent.Global.Display.cursor);
             button.textPadding.apply(
                 button.textSizing.width * BUTTON_TEXT_PADDING_SCALE.x,

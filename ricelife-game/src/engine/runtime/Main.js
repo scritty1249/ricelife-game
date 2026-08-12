@@ -107,6 +107,7 @@ export class Main extends Loop {
         this.loadAsset("altFont");
         await this.AssetPool.onload;
         this.store.DEFAULT_FONT = this.AssetPool.get(defualtFontKey);
+        this.store.FONT_SIZE = parseFloat(window.getComputedStyle(document.documentElement).fontSize);
     }
     #setupEvents () {
         this.Events.addEventListener("LOADING", (data) => this.#loadingCallback?.(data));

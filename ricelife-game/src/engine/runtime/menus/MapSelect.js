@@ -93,6 +93,7 @@ export class MapSelect extends Menu {
         const thumbnail = this.AssetPool.get(name).clone(false);
         const selection = new MapButton(name, thumbnail);
         const bbox = selection.shape.getBoundingBox();
+        const { FONT_SIZE } = this.Parent.Global.store;
         const {
             fontColor, fillColor, strokeColor,
             openFontColor, openFillColor, openStrokeColor, openTextOffset,
@@ -102,7 +103,7 @@ export class MapSelect extends Menu {
 
         selection.thumb.width = selection.maxWidth;
 
-        selection.fontSize = 24;
+        selection.fontSize = FONT_SIZE;
         activeFontColor.apply(closeFontColor.apply(fontColor.apply(255, 255, 255, 1)));
         closeFillColor.apply(fillColor.apply(0, 0, 0, 0.7));
         closeStrokeColor.apply(strokeColor.apply(255, 255, 255, 1));
