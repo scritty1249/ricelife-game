@@ -127,7 +127,8 @@ export class Round extends Phase {
             this.#loadLobby(playerID),
             this.loadGlobalAsset("blast"),
             this.loadGlobalAsset("muzzleFlash"),
-            this.loadGlobalAsset("fire")
+            this.loadGlobalAsset("fire"),
+            this.loadGlobalAsset("moveBtn")
         ];
         await Promise.all(waitPromises);
     }
@@ -138,7 +139,7 @@ export class Round extends Phase {
             this.AssetPool,
             this.AmmoPool,
             this.Global.constructor.AssetType
-        )
+        );
         this.Lobby.generatePlayerActors(this.#ClientPlayerID, this.AssetPool, this.Players, HitpointMap, this.Terrain);
         await Promise.all(this.Players.values().map(({onload}) => onload));
     }
@@ -171,6 +172,7 @@ export class Round extends Phase {
         await this.Threaded.updateCache(this.store.cacheKey.background, true);
     }
     #setupInterface () {
+        // panning/zoom controls
         const underButton = new ScreenButton(this.Global.Display);
         underButton.ondrag = (point, origin, delta) => {
             this.Camera.untrackAll();
@@ -187,11 +189,51 @@ export class Round extends Phase {
                 const { canvasScale } = Viewbox;
                 this.Camera.untrackAll();
                 const scale = 1 / ((displaySize.y - delta.y) / displaySize.y);
-                //if (scale < 1 && (canvasScale.x > MAX_VIEWBOX_SCALE || canvasScale.y > MAX_VIEWBOX_SCALE)) return;
                 Viewbox.applyScale(scale);
             }
         }
-        // screen touch controls
+        // UI
+        const moveImg = this.AssetPool.get("moveBtn"); // left-facing
+        const moveLeftBtn = new IconButton(moveImg.clone(false));
+        const moveRightBtn = new IconButton(moveImg.clone(false));
+        moveRightBtn.icon.source.scale.apply(-1, 1);
+        moveRightBtn.icon.source.origin.apply(moveImg.rawSize.x, 0);
+        const launchButton = new IconButton(moveImg.clone(false)); // [!] placeholder
+        const selectButton = new IconButton(moveImg.clone(false)); // [!] placeholder
+
+        const { Mover, Aimer, Puppet } = this.ClientPlayer;
+        const { Camera, store, flags } = this;
+        const { keyboard } = this.Global.Input;
+        moveLeftBtn.onclick = moveLeftBtn.onhold = () => {
+            if (flags.isTurn) {
+                Mover.move(-MOVE_SPEED);
+                Camera.track(Puppet.position);
+            }
+        };
+        moveRightBtn.onclick = moveRightBtn.onhold = () => {
+            if (flags.isTurn) {
+                Mover.move(MOVE_SPEED);
+                Camera.track(Puppet.position);
+            }
+        };
+        launchButton.onclick = () => {
+            if (store.ammo.current === undefined && store.ammo.selected)
+                this.launchAmmo()
+                    .catch((error) => {
+                        console.error(`[${typeString(this)}]: Projectile trace error`);
+                        throw error;
+                    });
+        };
+        selectButton.onclick = () => {
+            this.Menus.get("Ammo").open();
+        };
+
+        this.store.overlayItems = {
+            moveLeftBtn,
+            moveRightBtn,
+            launchButton,
+            selectButton
+        };
         this.Interface.insert()
             .push(underButton)
             .fixed = true;
@@ -201,8 +243,9 @@ export class Round extends Phase {
             .fixed = false;
         // overlay buttons
         this.Interface.insert()
-            .push()
+            .push(...Object.values(this.store.overlayItems))
             .fixed = true;
+        this.sizeOverlay();
     }
     #setupSFX () {
         const { AmmoPool, Audio } = this;
@@ -371,6 +414,62 @@ export class Round extends Phase {
         if (flags.isTurn) Interface.draw(cursor, 2);
         if (this.Global.flags.DEBUG) this.drawDebugOverlay();
     }
+    onResize () {
+        this.sizeOverlay();
+        super.onResize();
+    }
+    sizeOverlay () {
+        const { Display } = this.Global;
+        const { size } = Display;
+        const {
+            moveLeftBtn,
+            moveRightBtn,
+            launchButton,
+            selectButton
+        } = this.store.overlayItems;
+        const padding = size.min() / 20;
+        moveRightBtn.icon.source.width
+            = moveLeftBtn.icon.source.width
+            = launchButton.icon.source.width
+            = selectButton.icon.source.width
+            = Math.min(250, size.x / 10);
+        const baselineY = moveRightBtn.height + padding;
+        if (Display.isPortrait) {
+            moveLeftBtn.setPosition(
+                padding,
+                baselineY
+            );
+            moveRightBtn.setPosition(
+                size.x - (moveRightBtn.width + padding),
+                baselineY
+            );
+            launchButton.setPosition(
+                (size.x / 2) - (padding / 2) - launchButton.width,
+                baselineY
+            );
+            selectButton.setPosition(
+                (size.x / 2) + (padding / 2),
+                baselineY
+            );
+        } else {
+            moveLeftBtn.setPosition(
+                padding,
+                baselineY
+            );
+            moveRightBtn.setPosition(
+                moveLeftBtn.width + padding + padding,
+                baselineY
+            );
+            selectButton.setPosition(
+                size.x - (selectButton.width + padding),
+                baselineY
+            );
+            launchButton.setPosition(
+                size.x - (selectButton.width + launchButton.width + padding + padding),
+                baselineY
+            );
+        }
+    }
     drawDebugOverlay () {
         const { ClientPlayer, Terrain, Interface, store, flags } = this;
         const { Input, Display } = this.Global;
@@ -447,6 +546,18 @@ export class Round extends Phase {
             }
         }
 
+        // draw UI button areas
+        cursor.restore();
+        cursor.save();
+        cursor.fixed = true;
+        cursor.strokeStyle = "red";
+        cursor.lineWidth = 2;
+        for (const item of Object.values(this.store.overlayItems)) {
+            cursor.save();
+            item.getBoundingBox?.()?.draw?.(cursor);
+            cursor.stroke();
+            cursor.restore();
+        }
         cursor.restore();
     }
     updateAmmoTick (delta = 0) {

@@ -72,6 +72,7 @@ export class Main extends Loop {
         const { AssetType } = Main;
         const { AssetTable } = this;
         // Images
+        AssetTable.moveBtn = [AssetType.Image, undefined, "/assets/interface/buttons/move-button.png"];
         // AssetTable.fireBtn = [AssetType.Image, undefined, "./assets/interface/buttons/fire.png"];
         // AssetTable.selectBtn = [AssetType.Image, undefined, "./assets/interface/buttons/select.png"];
         // AssetTable.rightBtn = [AssetType.Image, undefined, "./assets/interface/buttons/right.png"];

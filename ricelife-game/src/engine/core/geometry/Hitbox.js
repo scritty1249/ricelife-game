@@ -15,10 +15,7 @@ export class Hitbox extends Hashable {
     constructor (topLeft, topRight, bottomRight, bottomLeft) {
         super();
         this.#edges.isClosed = true;
-        this.#edges.at(0).apply(topLeft);
-        this.#edges.at(1).apply(topRight);
-        this.#edges.at(2).apply(bottomRight);
-        this.#edges.at(3).apply(bottomLeft);
+        this.apply(topLeft, topRight, bottomRight, bottomLeft);
     }
     #isShapeIntersecting (shape) {
         return shape.isIntersecting(this.edges);
@@ -60,7 +57,19 @@ export class Hitbox extends Hashable {
         cursor.lineTo(this.bottomLeft);
         if (close) cursor.closePath();
     }
+    apply (topLeft, topRight, bottomRight, bottomLeft) {
+        if (topLeft?.isHitbox) {
+            this.#edges.apply(...topLeft.edges);
+        } else {
+            this.#edges.at(0).apply(topLeft);
+            this.#edges.at(1).apply(topRight);
+            this.#edges.at(2).apply(bottomRight);
+            this.#edges.at(3).apply(bottomLeft);
+        }
+        return this; // for chaining
+    }
     Polygon () { return new Polygon(this.edges.clone(true)) }
+    clone (deep = false) { return deep ? new Hitbox(...this.edges.clone(true)) : new Hitbox(this) }
 
     get isHitbox () { return true }
     get edges () { return this.#edges }

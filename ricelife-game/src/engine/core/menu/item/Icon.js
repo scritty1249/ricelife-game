@@ -19,7 +19,7 @@ export class Icon extends Identifiable {
         this.#img.draw(cursor, this.position.x, this.position.y);
     }
     getBoundingBox () {
-        const hash = Vector.hash([this.position, this.#img.size]);
+        const hash = Vector.hash([this.position, this.#img.size, this.#img.scale]);
         if (hash !== this.#hash) {
             this.#hash = hash;
             const { size } = this.#img;
