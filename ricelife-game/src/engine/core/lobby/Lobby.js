@@ -105,7 +105,7 @@ export class Lobby {
             if (!assetPool.has(modelKey)) {
                 assetPool.add(
                     modelKey,
-                    [(...args) => new Model(...args), undefined, model, modelSource, { [modelAccentColor]: modelColor }, 30]
+                    [(...args) => new Model(...args), undefined, model, modelSource, { [modelAccentColor]: modelColor }, 254]
                 );
                 modelPromises.push(assetPool.onready(modelKey));
             }
