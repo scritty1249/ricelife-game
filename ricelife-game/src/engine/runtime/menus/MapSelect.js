@@ -192,12 +192,12 @@ export class MapSelect extends Menu {
     open () {
         if (!super.open()) return false;
         const { Camera } = this.Parent;
+        Camera.scalingBehavior = Camera.constructor.SCALING_BEHAVIOR.Always;
+        Camera.lerpFactor = 0.1;
         this.#setSpacing();
         this.#setViewboxSize();
         this.#setCameraTop();
         Camera.jump();
-        Camera.scalingBehavior = Camera.constructor.SCALING_BEHAVIOR.Always;
-        Camera.lerpFactor = 0.1;
         return true;
     }
     close (returnData = undefined, haltAudio = true) {
