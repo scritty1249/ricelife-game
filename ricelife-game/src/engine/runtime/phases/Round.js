@@ -217,7 +217,7 @@ export class Round extends Phase {
             }
         };
         launchButton.onclick = () => {
-            if (store.ammo.current === undefined && store.ammo.selected)
+            if (flags.isTurn && store.ammo.current === undefined && store.ammo.selected)
                 this.launchAmmo()
                     .catch((error) => {
                         console.error(`[${typeString(this)}]: Projectile trace error`);
@@ -225,7 +225,8 @@ export class Round extends Phase {
                     });
         };
         selectButton.onclick = () => {
-            this.Menus.get("Ammo").open();
+            if (flags.isTurn)
+                this.Menus.get("Ammo").open();
         };
 
         this.store.overlayItems = {
