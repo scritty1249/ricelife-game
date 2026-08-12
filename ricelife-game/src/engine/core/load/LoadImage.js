@@ -90,7 +90,7 @@ export class LoadImage extends Loadable {
 
     get isLoadImage () { return true }
     get ready () { return this.#ready }
-    get size () { return this.rawSize.mul(this.#scale) } // scaled
+    get size () { return this.rawSize.mul(this.#scale).abs(true) } // scaled
     get rawSize () { return this.#size }
     get scale () { return this.#scale }
     get onload () { return this.#ready ? Promise.resolve(this) : this.#loadPromise }
@@ -99,19 +99,23 @@ export class LoadImage extends Loadable {
             throw new Error(`[${typeString(this)}] Error: Cannot access image - not loaded`);
         return this.#img;
     }
-    // applying proportional transformations
+    // applies proportional transformations
     get width () { return this.size.x } // scaled
     get height () { return this.size.y } // scaled
     set width (pixels) {
-        const { width } = this.source,
-            scale = (pixels / width);
+        const { x, y } = this.scale;
+        const scale = (pixels / this.source.width);
         this.scale.apply(scale);
+        if (x < 0) this.scale.x *= -1;
+        if (y < 0) this.scale.y *= -1;
         return pixels;
     }
     set height (pixels) {
-        const { height } = this.source,
-            scale = (pixels / height);
+        const { x, y } = this.scale;
+        const scale = (pixels / this.source.height);
         this.scale.apply(scale);
+        if (x < 0) this.scale.x *= -1;
+        if (y < 0) this.scale.y *= -1;
         return pixels;
     }
     get origin () { return this.#origin }
