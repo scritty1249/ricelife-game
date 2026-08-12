@@ -21,7 +21,7 @@ export class LoadImage extends Loadable {
                 this.#size.apply(this.#img.width, this.#img.height);
             } else {
                 this.#loadPromise = src.onload.then(() => {
-                    this.#src = src.source.src;
+                    this.#src = src.source?.src;
                     this.#img = src.source;
                     this.#size.apply(this.#img.width, this.#img.height);
                     this.#ready = true;
@@ -81,7 +81,12 @@ export class LoadImage extends Loadable {
         local.forEach((pt) => pt.rotate(this.rotation, true).add(dest, true));
         return local;
     }
-    clone (deep = false) { return new LoadImage(deep ? this.#src : this) }
+    clone (deep = false) {
+        const img = new LoadImage(deep ? this.#src : this);
+        img.scale.apply(this.scale);
+        img.origin.apply(this.origin);
+        return img;
+    }
 
     get isLoadImage () { return true }
     get ready () { return this.#ready }
