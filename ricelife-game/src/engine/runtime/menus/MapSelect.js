@@ -65,20 +65,28 @@ export class MapSelect extends Menu {
             const tileBbox = mapButton.shape.getBoundingBox();
             const tileHeight = tileBbox.height;
             const tileWidth = mapButton.maxWidth;
-
             padX = tileBbox.width * spacingScale;
             padY = tileBbox.height * spacingScale;
 
-            if (tileWidth > size.x) size.x = tileWidth + padX + padX;
-            size.y += padY * (i ? 1 : 0.5);
+            if (size.y <= 0) {
+                this.store.tileSize = new Vector(tileWidth, tileHeight);
+                this.store.tilePad = new Vector(padX, padY);
+            }
+            if (tileWidth > size.x)
+                size.x = tileWidth + padX + padX;
+
             const offsetX = (tileWidth / 2) + padX;
             const offsetY = (tileHeight / 2) + size.y;
             mapButton.setPosition(offsetX, offsetY);
+            mapButton.userData = { position: mapButton.getPosition() };
             mapButton.save();
             this.InterfaceLayers.buttons.push(mapButton);
             size.y += tileHeight;
+            if (i < maps.length - 1)
+                size.y += padY;
         }
-        size.y += padY / 2;
+        this.store.areaSize = this.Area.size;
+        this.store.targetSize = this.store.tilePad.mul(2).add(this.store.tileSize, true);
     }
     #createSelection (selectionData) {
         const { name } = selectionData;
@@ -136,14 +144,44 @@ export class MapSelect extends Menu {
         const scroll = deltaY * (this.flags.INVERT_TRACKING ? -sensitivity : sensitivity);
         this.Parent.Camera.offsetPosition(undefined, scroll);
     }
+    #getTileScale () {
+        return this.Parent.Global.Display.size.x / this.store.tileSize.x;
+    }
+    #setSpacing () {
+        const { Display } = this.Parent.Global;
+        const scale = this.#getTileScale();
+        const paddingY = Math.max(
+            this.store.tilePad.y * scale,
+            Display.size.y - (this.store.tileSize.y * scale)
+        ) / 2;
+        for (const btn of this.InterfaceLayers.buttons.items) {
+            const { position } = btn.userData;
+            btn.setPosition(position.x, position.y + paddingY);
+            btn.save();
+        }
+        this.Area.max.y = this.store.areaSize.y + paddingY + paddingY;
+        this.Parent.Camera.Viewbox.setPlane(this.Area);
+    }
+    #setViewboxSize () {
+        const { targetSize } = this.store;
+        this.Parent.Camera.setTargetSize(targetSize.x, targetSize.y, true);
+    }
+    #setCameraTop () {
+        const mapCount = this.InterfaceLayers.buttons.size || 1;
+        const heightSpacing = this.Area.height / mapCount;
+        const offsetY = heightSpacing * ((mapCount - 1) || 1);
+        const top = offsetY + (heightSpacing / 2);
+        this.Parent.Camera.setPosition(this.Area.width / 2, top);
+    }
 
     onResize () {
         if (!super.onResize()) return false;
-        const { Camera } = this.Parent;
-        const { width } = this.Area;
-        const mapCount = this.InterfaceLayers.buttons.size || 1;
-        const heightSpacing = this.Area.height / mapCount;
-        Camera.setTargetSize(width, heightSpacing, true);
+        // adjust Area padding on top and bottom so buttons fit evenly in center of viewbox
+        this.#setSpacing();
+        // set new target size
+        this.#setViewboxSize();
+        // don't transition
+        this.Parent.Camera.jump();
         return true;
     }
     closeAllButtons (closeActive = false) {
@@ -154,21 +192,12 @@ export class MapSelect extends Menu {
     open () {
         if (!super.open()) return false;
         const { Camera } = this.Parent;
-        const { width } = this.Area;
-        const mapCount = this.InterfaceLayers.buttons.size || 1;
-        const heightSpacing = this.Area.height / mapCount;
-        const offsetY = heightSpacing * ((mapCount - 1) || 1);
-        const top = offsetY + (heightSpacing / 2);
-
-        Camera.Viewbox.setPlane(this.Area);
-        Camera.Viewbox.min.apply(this.Area.min);
-        Camera.Viewbox.min.y += offsetY;
-        Camera.Viewbox.max.apply(this.Area.max);
-        Camera.setTargetSize(width, heightSpacing, true);
-        Camera.lerpFactor = 0.1;
+        this.#setSpacing();
+        this.#setViewboxSize();
+        this.#setCameraTop();
+        Camera.jump();
         Camera.scalingBehavior = Camera.constructor.SCALING_BEHAVIOR.Always;
-        this.flags.CAMERA_PANNING = true;
-        Camera.setPosition(width / 2, top);
+        Camera.lerpFactor = 0.1;
         return true;
     }
     close (returnData = undefined, haltAudio = true) {

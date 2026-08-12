@@ -34,8 +34,8 @@ export class Create extends Phase {
     start () {
         // attach per start, consume on trigger. Prevent multiple map loads from being queued up at the same time
         this.store.menu.Events.addEventListener("SELECTED", (data) => this.#onMapSelected(data), Create.#selectedCallbackOptions);
-        this.store.menu.open();
         super.start();
+        this.store.menu.open();
     }
     reset () {
         super.reset();
