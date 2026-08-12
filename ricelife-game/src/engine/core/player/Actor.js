@@ -1,6 +1,5 @@
-import { Aimer } from "./Aimer.js";
-import { Mover } from "./Mover.js";
-import { Puppet } from "./Puppet.js";
+import { Aimer } from "./round/Aimer.js";
+import { Mover } from "./round/Mover.js";
 import { Properties } from "../projectile/collision/Properties.js";
 import { Metadata } from "./Metadata.js";
 import { HitTotal } from "./HitTotal.js";
@@ -29,8 +28,8 @@ export class Actor extends Loadable {
         this.#saveStyling();
         this.Metadata.onload.then(() => {
             const { Model } = this.Metadata;
-            this.#resizeModel(75);
-            this.#Puppet = new Puppet(Model.body, Model.barrel);
+            Model.width = 50;
+            this.#Puppet = Model.Puppet();
             this.#Aimer = new Aimer(this.Puppet, this.Puppet.width * 3);
             this.#Mover = new Mover(this.Puppet);
             this.Mover.offsetY = -(this.Puppet.offset.body.y / 10);
@@ -42,11 +41,6 @@ export class Actor extends Loadable {
     #saveStyling () {
         const styling = this.#originalStyling;
         styling.barOffset = this.HitTotal.barOffset.clone();
-    }
-    #resizeModel (width) {
-        const { Model } = this.Metadata;
-        Model.body.width = width;
-        Model.barrel.scale.apply(Model.body.scale);
     }
 
     applyStyling (cursor) {

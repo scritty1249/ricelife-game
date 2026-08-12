@@ -1,10 +1,10 @@
-import { Vector } from "../math/Vector.js";
-import { Color } from "../math/Color.js";
-import { Circle } from "../geometry/Circle.js";
-import { Triangle } from "../geometry/Triangle.js";
-import { clamp, equals } from "../math/utils.js";
-import { typeString } from "../utils/logging.js";
-import { Identifiable } from "../utils/tracking/Identifiable.js";
+import { Vector } from "../../math/Vector.js";
+import { Color } from "../../math/Color.js";
+import { Circle } from "../../geometry/Circle.js";
+import { Triangle } from "../../geometry/Triangle.js";
+import { clamp, equals } from "../../math/utils.js";
+import { typeString } from "../../utils/logging.js";
+import { Identifiable } from "../../utils/tracking/Identifiable.js";
 
 export class Aimer extends Identifiable { // takes control of rotation for a Tank barrel
     static DEFAULT = {

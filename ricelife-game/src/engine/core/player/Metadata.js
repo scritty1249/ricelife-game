@@ -1,4 +1,4 @@
-import { Model } from "./Model.js";
+import { Model } from "./model/Model.js";
 import { Profile } from "./Profile.js";
 import { Loadable } from "../load/Loadable.js";
 

@@ -1,7 +1,7 @@
-import { equals } from "../math/utils.js";
-import { Vector } from "../math/Vector.js";
-import { Ray } from "../math/Ray.js";
-import { typeString } from "../utils/logging.js";
+import { equals } from "../../math/utils.js";
+import { Vector } from "../../math/Vector.js";
+import { Ray } from "../../math/Ray.js";
+import { typeString } from "../../utils/logging.js";
 
 export class Mover { // only moves along X axis
     static #getGroundLevel(x, maxHeight, terrainPolygon) {

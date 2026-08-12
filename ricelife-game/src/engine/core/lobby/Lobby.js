@@ -1,5 +1,5 @@
 import { typeString } from "../utils/logging.js";
-import { Model } from "../player/Model.js";
+import { Model } from "../player/model/Model.js";
 import { Profile } from "../player/Profile.js";
 import { Metadata } from "../player/Metadata.js";
 import { HitTotal } from "../player/HitTotal.js";
@@ -47,15 +47,14 @@ export class Lobby {
                 ? "ally"
                 : "enemy";
     }
-    #getModelKeys (clientUserID, player) {
-        const { model } = player.data;
-        const affiliation = this.#getAffiliation(clientUserID, player.data.profile.userid);
-        const modelPrefix = `${model}.${affiliation}`;
-        return {
-            body: modelPrefix + ".body",
-            barrel: modelPrefix + ".barrel",
-            color: TEAM_COLOR[affiliation]
-        };
+    #getModelKey (player, affiliation) {
+        return `${player.data.model}.${affiliation}`;
+    }
+    #getModelColor (affiliation) {
+        return TEAM_COLOR[affiliation];
+    }
+    #getModelSource (player) {
+        return `/assets/tank/${player.data.model}`;
     }
     #init (lobbyJson) {
         this.#populatePlayers(Object.values(lobbyJson.players));
@@ -94,33 +93,21 @@ export class Lobby {
         const modelPromises = [];
         const ammoPromises = [];
         const avatarPromises = [];
-        const modelAccentColor = new Color(255, 0, 0);
+        const modelAccentColor = new Color(255, 0, 0).toString();
         const modelAccentFeatherTolerance = 50;
         // player models
         for (const [ id, player ] of this.Players) {
-            const modelKeys = this.#getModelKeys(clientUserID, player);
+            const affiliation = this.#getAffiliation(clientUserID, id);
+            const modelKey = this.#getModelKey(player, affiliation);
+            const modelColor = this.#getModelColor(affiliation);
+            const modelSource = this.#getModelSource(player);
             const { model } = player.data;
-            if (!assetPool.has(modelKeys.body)) {
+            if (!assetPool.has(modelKey)) {
                 assetPool.add(
-                    modelKeys.body,
-                    [assetTypes.EditableImage, undefined, `/assets/tank/${model}/body.png`]
+                    modelKey,
+                    [(...args) => new Model(...args), undefined, model, modelSource, { [modelAccentColor]: modelColor }, 30]
                 );
-                modelPromises.push(
-                    assetPool.onready(modelKeys.body)
-                        .then((img) =>
-                            swapImageColors(img, modelAccentColor, modelKeys.color, modelAccentFeatherTolerance))
-                );
-            }
-            if (!assetPool.has(modelKeys.barrel)) {
-                assetPool.add(
-                    modelKeys.barrel,
-                    [assetTypes.EditableImage, undefined, `/assets/tank/${model}/barrel.png`]
-                );
-                modelPromises.push(
-                    assetPool.onready(modelKeys.barrel)
-                        .then((img) =>
-                            swapImageColors(img, modelAccentColor, modelKeys.color, modelAccentFeatherTolerance))
-                );
+                modelPromises.push(assetPool.onready(modelKey));
             }
         }
         // ammo imports
@@ -144,12 +131,9 @@ export class Lobby {
         if (!this.Players.has(clientUserID)) throw new Error(`[${typeString(this)}]: Client UserID ${clientUserID} does not exist`);
         if (!assetPool?.isAssetPool) throw new Error(`[${typeString(this)}]: ${typeString(assetPool)} is not an AssetPool`);
         for (const [ id, player ] of this.Players) {
-            const modelKeys = this.#getModelKeys(clientUserID, player);
-            const model = new Model(
-                player.data.model,
-                assetPool.get(modelKeys.body).clone(false),
-                assetPool.get(modelKeys.barrel).clone(false)
-            );
+            const affiliation = this.#getAffiliation(clientUserID, id);
+            const modelKey = this.#getModelKey(player, affiliation);
+            const model = assetPool.get(modelKey).clone(false);
             const profile = new Profile(
                 player.data.profile.name,
                 assetPool.get(player.data.profile.avatar).clone(false),

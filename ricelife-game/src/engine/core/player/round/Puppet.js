@@ -1,8 +1,8 @@
-import { Identifiable } from "../utils/tracking/Identifiable.js";
-import { BoundingBox } from "../geometry/BoundingBox.js";
-import { Vector } from "../math/Vector.js";
-import { Hitbox } from "../geometry/Hitbox.js";
-import { clamp } from "../math/utils.js";
+import { Identifiable } from "../../utils/tracking/Identifiable.js";
+import { BoundingBox } from "../../geometry/BoundingBox.js";
+import { Vector } from "../../math/Vector.js";
+import { Hitbox } from "../../geometry/Hitbox.js";
+import { clamp } from "../../math/utils.js";
 
 export class Puppet extends Identifiable {
     #source;
@@ -10,7 +10,12 @@ export class Puppet extends Identifiable {
     #bboxHash;
     #bbox;
     #hitbox;
-    position = new Vector();
+    #rotation;
+    #offset = {
+        body: new Vector(),
+        barrel: new Vector()
+    };
+    #position = new Vector();
     constructor (bodyImage, barrelImage) {
         super();
         this.#source = {
@@ -18,7 +23,7 @@ export class Puppet extends Identifiable {
             body: bodyImage,
             barrel: barrelImage
         };
-        this.rotation = {
+        this.#rotation = {
             get body () { return bodyImage.rotation },
             get barrel () { return barrelImage.rotation - Math.PI },
             set body (radians) {
@@ -31,13 +36,6 @@ export class Puppet extends Identifiable {
                 return radians;
             }
         };
-        this.offset = {
-            barrel: new Vector(0, bodyImage.height * 0.74),
-            body: new Vector(0, bodyImage.height / 2)
-        }
-
-        bodyImage.origin.apply(bodyImage.rawSize.x / 2, bodyImage.rawSize.y / 2); // pivot around middle-center of image
-        barrelImage.origin.apply(barrelImage.rawSize.x / 2, barrelImage.rawSize.y); // pivot around bottom-center of image
     }
 
     #drawPart (cursor, source, offset) {
@@ -78,4 +76,7 @@ export class Puppet extends Identifiable {
         const angle = this.rotation.barrel + (3 * (Math.PI / 2));
         return origin.project(angle, this.#source.barrel.size.y);
     }
+    get position () { return this.#position }
+    get offset () { return this.#offset }
+    get rotation () { return this.#rotation }
 }

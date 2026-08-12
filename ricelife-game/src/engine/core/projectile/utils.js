@@ -1,6 +1,6 @@
 import { Vector } from "../math/Vector.js";
 import { equals } from "../math/utils.js";
-import { Mover } from "../player/Mover.js";
+import { Mover } from "../player/round/Mover.js";
 import { Properties } from "./collision/Properties.js";
 
 export function traceAmmo (
