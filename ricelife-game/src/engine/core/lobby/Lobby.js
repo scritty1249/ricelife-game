@@ -185,23 +185,3 @@ export class Lobby {
     get NameRegistry () { return this.#NameRegistry }
     get ActivePlayerID () { return this.#ActivePlayerID }
 }
-
-// ignores alpha channel
-function swapImageColors (editableImage, oldColor, newColor, tolerance = 0) {
-    const { imageData } = editableImage;
-    const { data } = imageData;
-    for (let i = 0; i < data.length; i += 4) {
-        const r = data[i];
-        const g = data[i + 1];
-        const b = data[i + 2];
-        if (Math.abs(r - oldColor.r) <= tolerance &&
-            Math.abs(g - oldColor.g) <= tolerance &&
-            Math.abs(b - oldColor.b) <= tolerance
-        ) {
-            data[i] = newColor.r;
-            data[i + 1] = newColor.g;
-            data[i + 2] = newColor.b;
-        }
-    }
-    editableImage.imageData = imageData;
-}

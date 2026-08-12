@@ -10,7 +10,8 @@ export class Puppet extends Identifiable {
     #bboxHash;
     #bbox;
     #hitbox;
-    constructor (bodyImage, barrelImage, position = new Vector()) {
+    position = new Vector();
+    constructor (bodyImage, barrelImage) {
         super();
         this.#source = {
             // expects LoadImage objects
@@ -34,7 +35,6 @@ export class Puppet extends Identifiable {
             barrel: new Vector(0, bodyImage.height * 0.74),
             body: new Vector(0, bodyImage.height / 2)
         }
-        this.position = position;
 
         bodyImage.origin.apply(bodyImage.rawSize.x / 2, bodyImage.rawSize.y / 2); // pivot around middle-center of image
         barrelImage.origin.apply(barrelImage.rawSize.x / 2, barrelImage.rawSize.y); // pivot around bottom-center of image

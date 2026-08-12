@@ -21,6 +21,7 @@ export class EditableImage extends LoadImage {
         })
         .catch((err) => this.#loadPromise.reject(err));
     }
+    // [!] need to implement clone()
 
     get isEditableImage () { return true }
     get source () { return this.#canvas }
