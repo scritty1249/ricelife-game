@@ -125,8 +125,8 @@ export class AmmoSelect extends Menu {
     }
     async tick (delta) {
         this.handleInput();
-        const { isHovering, isActive, isDragging, delta: dt } = this.Parent.Global.Input.pointer;
-        const followPointer = isHovering || (isActive && (!isDragging || !dt.lengthSquared));
+        const { isHovering, isActive, isTouch, isDragging, delta: dt } = this.Parent.Global.Input.pointer;
+        const followPointer = isHovering || (isActive && !isTouch && (!isDragging || !dt.lengthSquared));
         this.setFocalTarget(followPointer);
         this.#updateFocalPoint();
     }

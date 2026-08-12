@@ -176,6 +176,7 @@ export class Round extends Phase {
         // panning/zoom controls
         const underButton = new ScreenButton(this.Global.Display);
         underButton.ondrag = (point, origin, delta, isTouch) => {
+            this.Camera.unlock();
             this.Camera.offsetPosition(delta
                 .mul(-PAN_SENSITIVITY)
                 .div(this.Camera.Viewbox.canvasScale, true)

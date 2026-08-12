@@ -28,6 +28,7 @@ export class PointerListener  {
         delta: new Vector(), // updated based on last movement event
         totalDelta: new Vector(), // cumulative movement from last pointerdown position
         pinchDelta: -1, // for touch zoom/scroll events
+        touch: false, // if active, is the pointer event a touch event?
         down: {
             position: new Vector(),
             stamp: undefined   
@@ -108,6 +109,7 @@ export class PointerListener  {
         const isTouch = this.#isTouchEvent(event);
         this.#activePointers[event.pointerId] = event;
         this.#tracking.exists = true;
+        this.#tracking.touch = isTouch;
         this.#updatePosition(event);
         this.#tracking.up.stamp = undefined; // clear data from last down event
         this.#tracking.down.stamp = performance.now();
@@ -127,6 +129,7 @@ export class PointerListener  {
         if (event.pointerId in this.#activePointers)
             delete this.#activePointers[event.pointerId];
         this.#updatePosition(event);
+        this.#tracking.touch = false;
         this.#tracking.up.stamp = performance.now();
         this.#tracking.up.position.apply(this.#tracking.position);
         this.#dragging.started = false;
@@ -148,6 +151,7 @@ export class PointerListener  {
         const isTouch = this.#isTouchEvent(event);
         this.#activePointers[event.pointerId] = event;
         this.#tracking.exists = true;
+        this.#tracking.touch = isTouch;
         const { pointerCount } = this;
         if (pointerCount === 1) {
             this.#updatePosition(event);
@@ -303,6 +307,7 @@ export class PointerListener  {
     get isHovering () { return this.#tracking.exists && !this.isActive }
     get isHolding () { return this.#holding.started && this.enabled }
     get isActive () { return this.pointerCount > 0 && this.#tracking.down.stamp !== undefined && this.#tracking.up.stamp === undefined && this.enabled }
+    get isTouch () { return this.#tracking.touch && this.isActive }
     get isDragging () { return this.isActive && this.#dragging.delta.lengthSquared > this.constructor.ONDRAG_TOLERANCE && this.enabled }
     get origin () { return this.isActive ? this.#tracking.down.position.clone() : undefined }
     get dragOrigin () { return this.isDragging ? this.#dragging.origin.clone() : undefined }
