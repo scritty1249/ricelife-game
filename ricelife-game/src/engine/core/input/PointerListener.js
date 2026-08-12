@@ -176,7 +176,7 @@ export class PointerListener  {
                     p1.clientX + p2.clientX,
                     p1.clientY + p2.clientY
                 ).div(2, true));
-                this.#callbackFns?.onscroll?.(point, delta);
+                this.#callbackFns?.onscroll?.(point, delta, isTouch);
             }
             this.#tracking.pinchDelta = distance;
         }
