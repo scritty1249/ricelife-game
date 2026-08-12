@@ -94,6 +94,7 @@ export class Round extends Phase {
     }
 
     #init () {
+        this.store.MIN_SIZE = this.Global.Display.size.div(5);
         this.store.prerender = Promise.resolve();
         this.store.ammo = {
             tracer: undefined,
@@ -174,22 +175,24 @@ export class Round extends Phase {
     #setupInterface () {
         // panning/zoom controls
         const underButton = new ScreenButton(this.Global.Display);
-        underButton.ondrag = (point, origin, delta) => {
-            this.Camera.untrackAll();
-            this.Camera.offsetPosition(delta.mul(-PAN_SENSITIVITY).div(this.Camera.Viewbox.canvasScale, true));
+        underButton.ondrag = (point, origin, delta, isTouch) => {
+            this.Camera.offsetPosition(delta
+                .mul(-PAN_SENSITIVITY)
+                .div(this.Camera.Viewbox.canvasScale, true)
+            );
         }
-        underButton.onscroll = (point, delta) => {
-            const { Viewbox } = this.Camera;
-            if (this.Global.Input.pointer.pointerCount < 2 && !equals(delta.x, 0)) {
-                this.Camera.untrackAll();
+        underButton.onscroll = (point, delta, isTouch) => {
+            const hasDeltaX = !equals(delta.x, 0);
+            const hasDeltaY = !equals(delta.y, 0);
+            if (!isTouch && hasDeltaX) {
+                this.Camera.unlock();
                 this.Camera.offsetPosition(delta.x * PAN_SENSITIVITY);
             }
-            if (!equals(delta.y, 0)) {
-                const { size: displaySize } = this.Global.Display;
-                const { canvasScale } = Viewbox;
-                this.Camera.untrackAll();
-                const scale = 1 / ((displaySize.y - delta.y) / displaySize.y);
-                Viewbox.applyScale(scale);
+            if (hasDeltaY) {
+                const { size } = this.Global.Display;
+                this.Camera.clearTargetSize();
+                const scale = 1 / ((size.y - delta.y) / size.y);
+                this.Camera.Viewbox.applyScale(scale);
             }
         }
         // UI
@@ -207,13 +210,13 @@ export class Round extends Phase {
         moveLeftBtn.onclick = moveLeftBtn.onhold = () => {
             if (flags.isTurn) {
                 Mover.move(-MOVE_SPEED);
-                Camera.track(Puppet.position);
+                this.trackClientPlayer();
             }
         };
         moveRightBtn.onclick = moveRightBtn.onhold = () => {
             if (flags.isTurn) {
                 Mover.move(MOVE_SPEED);
-                Camera.track(Puppet.position);
+                this.trackClientPlayer();
             }
         };
         launchButton.onclick = () => {
@@ -398,6 +401,9 @@ export class Round extends Phase {
             Camera.follow(shotBbox.extentSquared ? shotBbox : undefined);
         }
         Camera.update();
+        if (Camera.Viewbox.size.lengthSquared < store.MIN_SIZE.lengthSquared) {
+            Camera.Viewbox.applySize(store.MIN_SIZE);
+        }
         if (flags.isTurn) Interface.draw(cursor, 0, 2);
         Camera.Viewbox.setCursor(cursor, true);
         for (const player of Players.values())
@@ -416,7 +422,9 @@ export class Round extends Phase {
         if (this.Global.flags.DEBUG) this.drawDebugOverlay();
     }
     onResize () {
+        this.store.MIN_SIZE = this.Global.Display.size.div(5);
         this.sizeOverlay();
+        this.setTurn(this.flags.isTurn);
         super.onResize();
     }
     sizeOverlay () {
@@ -561,6 +569,14 @@ export class Round extends Phase {
         }
         cursor.restore();
     }
+    trackClientPlayer (breadthScale = 10) {
+        const { Camera } = this;
+        const { Puppet } = this.ClientPlayer;
+        Camera.track(Puppet.position);
+        const size = Puppet.getBoundingBox().size.mul(breadthScale);
+        Camera.setTargetSize(size.x, size.y, true);
+        Camera.track(Puppet.position);
+    }
     updateAmmoTick (delta = 0) {
         const { Animations } = this;
         const { ammo } = this.store;
@@ -661,12 +677,12 @@ export class Round extends Phase {
                 if (INPUT_MAP.isActive(keyboard, "mv+")) {
                     ClientPlayer.Mover.move(MOVE_SPEED);
                     if (!pointer.isActive)
-                        this.Camera.track(this.ClientPlayer.Puppet.position);
+                        this.trackClientPlayer();
                 }
                 if (INPUT_MAP.isActive(keyboard, "mv-")) {
                     ClientPlayer.Mover.move(-MOVE_SPEED);
                     if (!pointer.isActive)
-                        this.Camera.track(this.ClientPlayer.Puppet.position);
+                        this.trackClientPlayer();
                 }
                 if (INPUT_MAP.isActive(keyboard, "shot+")) {
                     ClientPlayer.Aimer.power += POWER_SENSITIVITY;
@@ -725,13 +741,10 @@ export class Round extends Phase {
         return colliders;
     }
     setTurn (bool) {
-        this.Camera.untrackAll();
-        this.Camera.setTargetSize(0, 0, false);
+        this.Camera.unlock();
         if (bool) {
-            const size = this.ClientPlayer.Puppet.getBoundingBox().size.mul(15);
-            this.Camera.setTargetSize(size.x, size.y, true);
             this.Camera.lerpFactor = 0.2;
-            this.Camera.track(this.ClientPlayer.Puppet.position);
+            this.trackClientPlayer();
         } else {
             this.Camera.lerpFactor = 0.12;
         }
