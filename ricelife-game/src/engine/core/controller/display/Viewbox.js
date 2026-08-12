@@ -75,9 +75,9 @@ export class Viewbox extends BoundingBox {
 
         if (planeSize.lengthSquared) {
             const canvasAspect = this.#canvas.aspectRatio;
-            if (size.x > planeSize.x)
+            if (size.x > planeSize.x && this.#bounding.left && this.#bounding.right)
                 size.apply(planeSize.x, planeSize.x / canvasAspect);
-            if (size.y > planeSize.y)
+            if (size.y > planeSize.y && this.#bounding.top && this.#bounding.bottom)
                 size.apply(planeSize.y * canvasAspect, planeSize.y);
         }
         if (this.size.eq(size)) return this;

@@ -230,6 +230,13 @@ export class Camera extends Identifiable {
         const after = Viewbox.getPosition();
         return !after.eq(pos);
     }
+    // trigger an update without lerp transitions
+    jump () {
+        const { lerpFactor } = this;
+        this.lerpFactor = 1;
+        this.update();
+        this.lerpFactor = lerpFactor;
+    }
     update () {
         if (!this.enabled) return;
         this.#computeBounds();
