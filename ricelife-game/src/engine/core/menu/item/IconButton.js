@@ -17,7 +17,7 @@ export class IconButton extends Button {
     drawText (cursor, offset = undefined, fixed = false) {
         cursor.save();
         cursor.fixed = fixed;
-        const centerOffset = new Vector(this.width / 2, -this.height / 2);
+        const centerOffset = this.icon.source.size.div(2);
         if (offset?.isVector) super.drawText(cursor, offset.add(centerOffset), fixed);
         else super.drawText(cursor, centerOffset, fixed);
         cursor.restore();
