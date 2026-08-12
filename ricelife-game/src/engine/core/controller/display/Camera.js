@@ -285,12 +285,22 @@ export class Camera extends Identifiable {
             if (target) this.#follows.delete(target);
         }
     }
+    unlock () {
+        this.untrackAll();
+        this.unfollowAll();
+        this.clearTargetSize();
+    }
     unfollowAll () { this.#follows.clear() }
     following (target) { return this.#follows.has(target) }
     setTargetSize (width = 0, height = 0, keep = true) {
         const { planeSize } = this.Viewbox;
         this.#targetSize.apply(Math.min(width, planeSize.x), Math.min(height, planeSize.y));
         this.#keepSize = keep;
+        return this;
+    }
+    clearTargetSize () {
+        this.#targetSize.apply(0, 0);
+        this.#keepSize = false;
         return this;
     }
     getTargetSize () { return this.#targetSize.clone() }
