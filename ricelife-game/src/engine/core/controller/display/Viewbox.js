@@ -25,17 +25,6 @@ export class Viewbox extends BoundingBox {
         if (size) this.applySize(size);
     }
 
-    #clampChange (newSize, newMin) {
-        let { x, y } = newMin;
-        if (this.planeSize.lengthSquared) {
-            const limit = this.planeSize.sub(newSize);
-            const maxX = this.bounding.right ? Math.min(x, limit.x) : x;
-            const maxY = this.bounding.top ? Math.min(y, limit.y) : y;
-            x = this.bounding.left ? Math.max(0, maxX) : maxX;
-            y = this.bounding.bottom ? Math.max(0, maxY) : maxY;
-        }
-        this.max.apply(this.min.apply(x, y)).add(newSize, true);
-    }
     #applyClampedSize (size, min) {
         if (this.planeSize.lengthSquared) {
             const maxSize = this.#applyAspectRatio(this.planeSize.clone());
