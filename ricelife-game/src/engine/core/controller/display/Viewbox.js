@@ -1,6 +1,7 @@
 import { BoundingBox } from "../../geometry/BoundingBox.js";
 import { Vector } from "../../math/Vector.js";
 import { typeString } from "../../utils/logging.js";
+import { equals } from "../../math/utils.js";
 
 // virtual coordinate space viewport window
 export class Viewbox extends BoundingBox {
@@ -35,6 +36,59 @@ export class Viewbox extends BoundingBox {
         }
         this.max.apply(this.min.apply(x, y)).add(newSize, true);
     }
+    #applyClampedSize (size, min) {
+        if (this.planeSize.lengthSquared) {
+            const maxSize = this.#applyAspectRatio(this.planeSize.clone());
+            if (this.bounding.left && this.bounding.right) {
+                if (size.x >= this.planeSize.x) {
+                    size.x = maxSize.x;
+                    min.x = 0;
+                } else if (min.x < 0) {
+                    min.x = 0;
+                } else if (min.x + size.x > this.planeSize.x) {
+                    min.x = this.planeSize.x - size.x;
+                    if (min.x < 0) {
+                        size.x += min.x;
+                        min.x = 0;
+                    }
+                }
+            } else if (this.bounding.right) {
+                min.x = Math.min(0, min.x);
+            } else if (this.bounding.left) {
+                min.x = Math.max(0, min.x);
+            }
+            if (this.bounding.top && this.bounding.bottom) {
+                if (size.y >= this.planeSize.y) {
+                    size.y = maxSize.y;
+                    min.y = 0;
+                } else if (min.y < 0) {
+                    min.y = 0;
+                } else if (min.y + size.y > this.planeSize.y) {
+                    min.y = this.planeSize.y - size.y;
+                    if (min.y < 0) {
+                        size.y += min.y;
+                        min.y = 0;
+                    }
+                }
+            } else if (this.bounding.top) {
+                min.y = Math.min(0, min.y);
+            } else if (this.bounding.bottom) {
+                min.y = Math.max(0, min.y);
+            }
+        }
+        this.max.apply(this.min.apply(min)).add(size, true);
+    }
+    #applyAspectRatio (size) {
+        const { aspectRatio, isPortrait } = this.#canvas;
+        if (!equals(size.quot(), aspectRatio)) {
+            if (isPortrait) {
+                size.apply(size.y * aspectRatio, size.y);
+            } else {
+                size.apply(size.x, size.x / aspectRatio);
+            }
+        }
+        return size;
+    }
 
     save () { this.#states.push(this.getState()) }
     getState () {
@@ -57,9 +111,9 @@ export class Viewbox extends BoundingBox {
     getPosition () { return super.center }
     setPosition (point) {
         const { planeSize } = this;
-        const { size } = this;
+        const size = this.#applyAspectRatio(this.size);
         const min = point.sub(size.div(2));
-        this.#clampChange(size, min);
+        this.#applyClampedSize(size, min);
         return this; // for chaining
     }
     applySize (size) {
@@ -71,19 +125,11 @@ export class Viewbox extends BoundingBox {
         const offset = this.center.clone(); // Capture the stable core anchor
         const min = this.min.sub(offset).mul(scale, true).add(offset, true);
         const max = this.max.sub(offset).mul(scale, true).add(offset, true);
-        const size = max.sub(min).abs(true);
-
-        if (planeSize.lengthSquared) {
-            const canvasAspect = this.#canvas.aspectRatio;
-            if (size.x > planeSize.x && this.#bounding.left && this.#bounding.right)
-                size.apply(planeSize.x, planeSize.x / canvasAspect);
-            if (size.y > planeSize.y && this.#bounding.top && this.#bounding.bottom)
-                size.apply(planeSize.y * canvasAspect, planeSize.y);
-        }
+        const size = this.#applyAspectRatio(max.sub(min).abs(true));
         if (this.size.eq(size)) return this;
 
-        const correctedMin = this.min.add(this.size.sub(size).div(2));
-        this.#clampChange(size, correctedMin);
+        const correctedMin = this.size.sub(size, true).div(2, true).add(this.min, true);
+        this.#applyClampedSize(size, correctedMin);
         return this; // for chaining
     }
     // sets cursor origin and scale to match viewbox
