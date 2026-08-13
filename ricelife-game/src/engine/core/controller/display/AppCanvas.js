@@ -55,7 +55,7 @@ export class AppCanvas extends Hashable {
     get aspectRatio () { return this.#ratio }
     get center () { return this.#center }
     get window () { return this.#window }
-    get isPortrait () { return this.#size.x < this.#size .y }
+    get isPortrait () { return this.#size.x < this.#size.y }
     get isLandscape () { return this.#size.y < this.#size.x }
     get rawHash () { return this.#rawSizeHash }
 }
