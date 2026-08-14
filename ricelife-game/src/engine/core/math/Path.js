@@ -217,7 +217,7 @@ export class Path extends Hashable { // points should be ordered clockwise (in p
                 const isEntering = direction.dot(inwardNormal) > 0;
                 if (thisStart.eq(thatStart)) {
                     if (!intersections.some(inter => inter.point.eq(thisStart))) {
-                        const dir = thatEnd.sub(pOtherStart);
+                        const dir = thatEnd.sub(thatStart);
                         intersections.push({
                             point: thisStart.clone(),
                             entering: isEntering,
