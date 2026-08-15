@@ -8,6 +8,7 @@ export class Multishot extends Identifiable {
     #shots = new Array();
     #blasts;
     #collisionCallback; // <bound to This> ([...{polygon: Polygon, overlap: Path}]) => undefined
+    #updateCallback; // <bound to This> (seconds) => undefined
     #time = 0; // need to track a global time, seperate from each individal shot
     #blastTimeOffset = 0; // offset time when creating new Blasts
     #delayTime; // don't start updating shots until this duration has passed
@@ -40,6 +41,7 @@ export class Multishot extends Identifiable {
                 if (isDelayed) return;
             }
             this.#updateStages(seconds);
+            this.updateCallback?.(seconds);
             if (!this.#isResolved && this.isFinished) {
                 this.#isResolved = true;
                 this.#finishedPromise.resolve();
@@ -59,8 +61,8 @@ export class Multishot extends Identifiable {
         for (const stage of this.shots) stage.drawBody(cursor);
     }
     // delay is amount of time before starting to update the shot
-    newStage (shot, delay = 0) {
-        const stage = new Shot(shot, delay, this.blasts, this.colliders, this.sfxCallback);
+    newStage (projectile, delay = 0) {
+        const stage = new Shot(projectile, delay, this.blasts, this.colliders, this.sfxCallback);
         stage.blastTimeOffset = this.blastTimeOffset;
         stage.launchCallback = this.launchCallback;
         stage.displayBoundingBox = this.displayBoundingBox;
@@ -131,6 +133,8 @@ export class Multishot extends Identifiable {
             stage.displayBoundingBox = bbox;
         return (this.#displayBoundingBox = bbox);
     }
+    get updateCallback () { return this.#updateCallback }
+    set updateCallback (callbackFn) { return (this.#updateCallback = callbackFn.bind(this)) }
     set applyDestruction (value) { this.shots.forEach((stage) => stage.applyDestruction = value); return value }
     get tracer () { return this.shots.map(({tracer}) => tracer) }
 }
