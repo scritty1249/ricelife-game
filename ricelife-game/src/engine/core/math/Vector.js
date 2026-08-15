@@ -33,7 +33,9 @@ export class Vector extends Hashable {
         if (denom === 0) return false; // parallel lines
         const ua = ((end2.x - start2.x) * (start1.y - start2.y) - (end2.y - start2.y) * (start1.x - start2.x)) / denom;
         const ub = ((end1.x - start1.x) * (start1.y - start2.y) - (end1.y - start1.y) * (start1.x - start2.x)) / denom;
-        return ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1;
+        return (ua >= 0 && ua <= 1 && ub >= 0 && ub <= 1)
+            ? start1.add(end1.sub(start1).mul(ua, true)) // [!] wasteful - KT
+            : null;
     }
     static isBetween (target, start, end) {
         return start.cross(target) >= 0
