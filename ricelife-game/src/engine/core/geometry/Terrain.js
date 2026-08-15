@@ -94,7 +94,7 @@ export class Terrain extends Hashable {
     }
     clone (deep = false) {
         const terrain = new Terrain();
-        return terrain.apply(this, undefined, deep);
+        return terrain.apply(this, undefined, !deep);
     }
 
     get isTerrain () { return true }
