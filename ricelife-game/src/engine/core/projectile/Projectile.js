@@ -159,7 +159,7 @@ export class Projectile extends PhysicsObject {
         return bbox;
     }
     clone (deep = false) { 
-        const shot = new this(this.origin.position, this.origin.velocity, this.origin.acceleration, this.drag, this.shape.clone(deep));
+        const shot = new this.constructor(this.origin.position, this.origin.velocity, this.origin.acceleration, this.drag, this.shape.clone(deep));
         // copy configs
         shot.ambient.apply(this.ambient);
         shot.tailLength = this.tailLength;
