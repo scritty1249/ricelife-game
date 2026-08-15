@@ -69,7 +69,8 @@ export class Shot extends Identifiable {
     #time = 0; // global time, seperate from Projectile time
     #delayTime; // don't start updating projectile until this duration has passed
     #collisionCallback; // <bound to This> (point (contact point), normal (of colliding surface), collisionFlags) => undefined
-    #updateCallback; // <bound to This> () => undefined
+    #updateCallback; // <bound to This> (seconds) => undefined
+    #preUpdateCallback; // <bound to This> (seconds) => undefined
     #launchCallback; // <bound to This> () => undefined
     #colliders; // list of polygons that can be collided with
     #isFinished = false; // trip this flag once projectile stops moving, never set again to prevent overlapping stages
@@ -88,6 +89,9 @@ export class Shot extends Identifiable {
     #playLaunchCallback = true;
     #displayBoundingBox; // optimization- when set, will only draw projectile if bounding box intersects with it
     userData = {};
+    drawAfter = false; // draw even after shot is finished
+    #totalFadeTime = 0;
+    #fadeTime = 0;
     constructor (projectile, delay = 0, blastsReference = [], collisionsReference = [], sfxCallbackReference = {}) {
         super();
         if (!projectile?.isProjectile) throw new Error(`[${typeString(this)}]: Invalid parameter - expected Projectile, got ${typeof projectile}`);
@@ -112,9 +116,9 @@ export class Shot extends Identifiable {
                 throw new Error(`[${typeString(this)}]: Cannot compute collision for non-Circle projectile shape`);
         }
         if (collision) {
-            projectile.applyPosition(collision.position);
+            projectile.applyPosition(collision.position, false);
             this.applyCollision(collision.point, collision.normal, collision.flags);
-            return;
+            if (this.projectile.isStopped) return;
         }
         projectile.update(seconds);
     }
@@ -156,34 +160,41 @@ export class Shot extends Identifiable {
                     this.launchCallback?.();
                 this.#hasLaunched = true;
             }
-            const { projectile } = this;
-            if (this.isTracing) {
-                const { projectile } = this;
-                this.time += seconds;
-                if (!this.#isFinished) {
-                    this.#projectToCollision(seconds);
-                    this.updateCallback?.();
-                    this.#trackUpdate();
-                    if (!this.#isFinished && projectile.isStopped)
+            const { isStopped, projectile } = this;
+            this.time += seconds;
+            if (!this.#isFinished) {
+                if (isStopped) {
+                    if (this.#fadeTime > 0) {
+                        this.#fadeTime = Math.max(0, this.#fadeTime - seconds);
+                    } else {
                         this.#setFinished();
+                    }
+                    return;
                 }
-            } else {
-                const legend = this.#legend;
-                this.time += seconds;
-                if (legend.collisions.length > 0
-                    && this.time >= legend.collisions[0].time
-                ) {
-                    const { time, collisionFlags, position, point, velocity, normal } = legend.collisions.shift();
-                    projectile.applyPosition(position);
-                    projectile.current.velocity.apply(velocity);
-                    this.applyCollision(point, normal, collisionFlags);
+                if (this.isTracing) {
+                    const { projectile } = this;
+                    if (!this.#isFinished) {
+                        this.preUpdateCallback?.(seconds);
+                        this.#projectToCollision(seconds);
+                        this.updateCallback?.(seconds);
+                        this.#trackUpdate();
+                    }
                 } else {
-                    projectile.update(seconds);
+                    const legend = this.#legend;
+                    this.preUpdateCallback?.(seconds);
+                    if (legend.collisions.length > 0
+                        && this.time >= legend.collisions[0].time
+                    ) {
+                        const { time, collisionFlags, position, point, velocity, normal } = legend.collisions.shift();
+                        projectile.applyPosition(position, true);
+                        projectile.current.velocity.apply(velocity);
+                        this.applyCollision(point, normal, collisionFlags);
+                    } else {
+                        projectile.update(seconds, true);
+                    }
+                    this.updateCallback?.(seconds);
+                    this.#trackUpdate();
                 }
-                this.updateCallback?.();
-                this.#trackUpdate();
-                if (!this.#isFinished && this.time >= legend.duration)
-                    this.#setFinished();
             }
         } catch (error) {
             this.#finishedPromise.reject(error);
@@ -192,23 +203,25 @@ export class Shot extends Identifiable {
     }
     draw (cursor) {
         if (!this.isInsideDisplay) return;
-        const { isStarted, isFinished, projectile, delay, time } = this;
-        if (isStarted && !isFinished && time > delay) projectile.draw(cursor);
+        const { projectile, doDraw } = this;
+        if (doDraw) projectile.draw(cursor);
     }
     drawGlow (cursor) {
         if (!this.isInsideDisplay) return;
-        const { isStarted, isFinished, projectile, delay, time } = this;
-        if (isStarted && !isFinished && time > delay) {
-            projectile.drawTailGlow(cursor);
-            projectile.drawMainGlow(cursor);
+        const { projectile, doDraw, hasFadeTime } = this;
+        if (doDraw) {
+            const alpha = hasFadeTime ? this.#fadeTime / this.#totalFadeTime : 1;
+            projectile.drawTailGlow(cursor, alpha);
+            projectile.drawMainGlow(cursor, alpha);
         }
     }
     drawBody (cursor) {
         if (!this.isInsideDisplay) return;
-        const { isStarted, isFinished, projectile, delay, time } = this;
-        if (isStarted && !isFinished && time > delay) {
-            projectile.drawTail(cursor);
-            projectile.drawShot(cursor);
+        const { projectile, doDraw, hasFadeTime } = this;
+        if (doDraw) {
+            const alpha = hasFadeTime ? this.#fadeTime / this.#totalFadeTime : 1;
+            projectile.drawTail(cursor, alpha);
+            projectile.drawShot(cursor, alpha);
         }
     }
     applyBlast (blast) {
@@ -281,6 +294,8 @@ export class Shot extends Identifiable {
     clone (deep = false, blastsReference = [], collisionsReference = []) {
         const stage = new Shot(this.projectile.clone(deep), this.delay, blastsReference, collisionsReference);
         stage.collisionCallback = this.collisionCallback;
+        stage.fadeTime = this.#totalFadeTime;
+        stage.drawAfter = this.drawAfter;
         return stage;
     }
 
@@ -293,6 +308,10 @@ export class Shot extends Identifiable {
         if (!displayBoundingBox) return true;
         return displayBoundingBox.isIntersecting(projectile.getBoundingBox(true));
     }
+    get isStopped () { return this.isTracing ? this.projectile.isStopped : this.time >= this.#legend?.duration }
+    get isFading () { return this.isStopped && !this.#isFinished && this.#totalFadeTime > 0 }
+    get hasFadeTime () { return this.#totalFadeTime > 0 }
+    get doDraw () { return this.isStarted && (!this.isFinished || this.drawAfter) && this.time > this.delay }
     get delay () { return this.#delayTime }
     get projectile () { return this.#projectile }
     get blasts () { return this.#blasts }
@@ -303,17 +322,24 @@ export class Shot extends Identifiable {
     get blastTimeOffset () { return this.#blastTimeOffset }
     set blastTimeOffset (value) { return (this.#blastTimeOffset = value) }
     get collisionCallback () { return this.#collisionCallback }
-    set collisionCallback (callbackFn) { return (this.#collisionCallback = callbackFn?.bind(this)) }
+    set collisionCallback (callbackFn) { return (this.#collisionCallback = callbackFn?.bind?.(this)) }
+    get preUpdateCallback () { return this.#preUpdateCallback }
+    set preUpdateCallback (callbackFn) { return (this.#preUpdateCallback = callbackFn?.bind?.(this)) }
     get updateCallback () { return this.#updateCallback }
-    set updateCallback (callbackFn) { return (this.#updateCallback = callbackFn?.bind(this)) }
+    set updateCallback (callbackFn) { return (this.#updateCallback = callbackFn?.bind?.(this)) }
     get sfxCallback () { return this.#sfxCallback }
     get launchCallback () { return this.#launchCallback }
-    set launchCallback (callbackFn) { return (this.#launchCallback = callbackFn?.bind(this)) }
+    set launchCallback (callbackFn) { return (this.#launchCallback = callbackFn?.bind?.(this)) }
     get playLaunchCallback () { return this.#playLaunchCallback }
     set playLaunchCallback (bool) { return (this.#playLaunchCallback = bool) }
     get applyDestruction () { return this.#applyDestruction }
     set applyDestruction (value) { return (this.#applyDestruction = value) }
     get displayBoundingBox () { return this.#displayBoundingBox }
     set displayBoundingBox (bbox) { return (this.#displayBoundingBox = bbox) }
+    get fadeTime () { return this.#fadeTime }
+    set fadeTime (seconds) {
+        this.#totalFadeTime = seconds;
+        return (this.#fadeTime = seconds);
+    }
     get tracer () { return this.#tracer }
 }
