@@ -1,4 +1,4 @@
-import Default from "./Default.js";
+import { AmmoType } from "../core/projectile/AmmoType.js";
 import { Vector } from "../core/math/Vector.js";
 import { Color } from "../core/math/Color.js";
 import { Circle } from "../core/geometry/Circle.js";
@@ -7,7 +7,7 @@ import { Projectile } from "../core/projectile/Projectile.js";
 import { createBlasts } from "../core/projectile/collision/Behaviors.js";
 
 // fires a "stem" that bounces straight up upon collision. After reaching Y height, turns into N "needle" shots that umbrella downwards in an enveloping arc.
-export default class Pine extends Default {
+export default class Pine extends AmmoType {
     static NAME = "Pine";
     static IMPORT = "Pine";
     static stemTransition () {

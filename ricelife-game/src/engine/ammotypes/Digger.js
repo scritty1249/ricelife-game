@@ -1,4 +1,4 @@
-import Default from "./Default.js";
+import { AmmoType } from "../core/projectile/AmmoType.js";
 import { Vector } from "../core/math/Vector.js";
 import { Color } from "../core/math/Color.js";
 import { Circle } from "../core/geometry/Circle.js";
@@ -7,7 +7,7 @@ import { Projectile } from "../core/projectile/Projectile.js";
 import { Properties } from "../core/projectile/collision/Properties.js";
 import { computeBounce, createBlasts } from "../core/projectile/collision/Behaviors.js";
 
-export default class Digger extends Default {
+export default class Digger extends AmmoType {
     static NAME = "Digger";
     static IMPORT = "Digger";
     static collisionCallback (point, normal, collisionFlags) {

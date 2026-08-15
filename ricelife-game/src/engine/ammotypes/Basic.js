@@ -1,10 +1,10 @@
-import Default from "./Default.js";
+import { AmmoType } from "../core/projectile/AmmoType.js";
 import { Vector } from "../core/math/Vector.js";
 import { Circle } from "../core/geometry/Circle.js";
 import { Blast } from "../core/projectile/Blast.js";
 import { Projectile } from "../core/projectile/Projectile.js";
 
-export default class Basic extends Default {
+export default class Basic extends AmmoType {
     static NAME = "Basic";
     static IMPORT = "Basic"; // file name (case sensitive)
     constructor (origin, angle, power = 1, resolution = 1) {

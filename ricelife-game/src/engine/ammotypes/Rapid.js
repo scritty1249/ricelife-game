@@ -1,4 +1,4 @@
-import Default from "./Default.js";
+import { AmmoType } from "../core/projectile/AmmoType.js";
 import { Vector } from "../core/math/Vector.js";
 import { Color } from "../core/math/Color.js";
 import { Circle } from "../core/geometry/Circle.js";
@@ -6,7 +6,7 @@ import { Blast } from "../core/projectile/Blast.js";
 import { Projectile } from "../core/projectile/Projectile.js";
 import { Random } from "../core/math/Random.js";
 
-export default class Rapid extends Default {
+export default class Rapid extends AmmoType {
     static NAME = "Rapid";
     static IMPORT = "Rapid";
     static encode (...params) {
