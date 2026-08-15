@@ -18,6 +18,12 @@ export class BlastInterval {
         Object.freeze(this.#bboxes);
     }
 
+    // [!] doesn't clone the frame or blasts
+    clone (deep = false) {
+        const terrain = deep ? this.terrain.clone(true) : this.terrain;
+        return new BlastInterval(this.delay, terrain, this.frame, this.blasts);
+    }
+
     get isBlastInterval () { return true }
     get blasts () { return this.#blasts }
     get delay () { return this.#delay }
