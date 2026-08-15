@@ -45,7 +45,10 @@
                     "GigaBouncer",
                     "Pine",
                     "Sniper",
-                    "Rapid"
+                    "Rapid",
+                    "Scatter",
+                    "MegaScatter",
+                    "GigaScatter"
                 ]
             }
         },
@@ -80,16 +83,7 @@
                     "fontFamily": "serif",
                     "userid": "1000241161"
                 },
-                "ammo": [
-                    "Basic",
-                    "Flower",
-                    "Digger",
-                    "Bouncer",
-                    "MegaBouncer",
-                    "GigaBouncer",
-                    "Pine",
-                    "Sniper"
-                ]
+                "ammo": []
             }
         },
         {
@@ -123,16 +117,7 @@
                     "fontFamily": "serif",
                     "userid": "1000241162"
                 },
-                "ammo": [
-                    "Basic",
-                    "Flower",
-                    "Digger",
-                    "Bouncer",
-                    "MegaBouncer",
-                    "GigaBouncer",
-                    "Pine",
-                    "Sniper"
-                ]
+                "ammo": []
             }
         },
         {
@@ -166,16 +151,7 @@
                     "fontFamily": "serif",
                     "userid": "1000241163"
                 },
-                "ammo": [
-                    "Basic",
-                    "Flower",
-                    "Digger",
-                    "Bouncer",
-                    "MegaBouncer",
-                    "GigaBouncer",
-                    "Pine",
-                    "Sniper"
-                ]
+                "ammo": []
             }
         },
         {
@@ -209,16 +185,7 @@
                     "fontFamily": "serif",
                     "userid": "1000241164"
                 },
-                "ammo": [
-                    "Basic",
-                    "Flower",
-                    "Digger",
-                    "Bouncer",
-                    "MegaBouncer",
-                    "GigaBouncer",
-                    "Pine",
-                    "Sniper"
-                ]
+                "ammo": []
             }
         }
     ]
