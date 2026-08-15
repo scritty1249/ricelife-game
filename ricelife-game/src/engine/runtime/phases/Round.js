@@ -272,7 +272,7 @@ export class Round extends Phase {
         ammo.debug.legend = ammoType.getLegend(false);
         ammo.debug.blasts = Array.from(map.blasts);
         ammo.debug.collisions = [];
-        for (const multishotLegend of ammo.debug.legend)
+        for (const multishotLegend of ammo.debug.legend.stages)
             for (const shotLegend of multishotLegend)
                 for (const collision of shotLegend.collisions)
                     ammo.debug.collisions.push(collision);
@@ -523,7 +523,7 @@ export class Round extends Phase {
         cursor.restore();
 
         // draw collision details
-        if (store.ammo.debug.legend) {
+        if (store.ammo.debug.legend?.stages) {
             if (store.ammo.debug.collisions) {
                 const _lineLength = 35;
                 const red = new Color(255, 0, 0, .5)
@@ -608,6 +608,7 @@ export class Round extends Phase {
                 Animations.blasts?.play?.();
             }
             if (isTimedout) console.info(`[${typeString(this)}]: Shot timed out`);
+            else console.info(`[${typeString(this)}]: Shot forcefully ended early`);
             ammo.current = undefined;
         }
         // [!] boolean logic here could be written better -KT
@@ -737,7 +738,7 @@ export class Round extends Phase {
         const colliders = [];
         for (const player of this.Players.values()) {
             if (player.isDead) continue;
-            colliders.push(player.getCollider());
+            colliders.push(player.getCollider(player.id === this.#ClientPlayerID));
         }
         return colliders;
     }

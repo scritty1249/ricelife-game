@@ -18,6 +18,7 @@ export class Ammo extends Identifiable {
     #stageIdx = 0;
     #blasts = new Array();
     #decodeParams = new Array(); // to pass between threads
+    #transferData = {}; // pass between threads. Primitives/Basic objects only
     #launchCallback;
     #displayBoundingBox;
     constructor (colliders = [], stages = []) {
@@ -94,24 +95,31 @@ export class Ammo extends Identifiable {
         return ammo;
     }
     getLegend (encode = true) {
-        return this.stages.map((stage) => stage.getLegend(encode));
+        return {
+            stages: this.stages.map((stage) => stage.getLegend(encode)),
+            transfer: this.encodeTransferData()
+        };
     }
-    setLegend (legend) { // expects an decoded legend 
+    setLegend (legend) { // expects an encoded legend 
         try {
             const stages = this.stages;
             for (let i = 0; i < stages.length; i++)
-                stages[i].setLegend(legend[i]);
+                stages[i].setLegend(legend.stages[i]);
+            this.decodeTransferData(legend.transfer);
         } catch (error) {
             console.error(`[${this.constructor.name}]: Error parsing legend arrays`);
             throw error;
         }
     }
+    encodeTransferData () { return this.transferData }
+    decodeTransferData (data) {}
     getTracer () { return new AmmoTracer(this.stages) }
     encode () { return this.decodeParams }
 
     get isAmmo () { return true }
     get isInsideDisplay () { return this.stages.some(({isInsideDisplay}) => isInsideDisplay) } // [!] will return shot as in-bounds if a display bbox is not set
     get decodeParams () { return this.#decodeParams }
+    get transferData () { return this.#transferData }
     get colliders () { return this.#colliders }
     get blasts () { return this.#blasts }
     get stages () { return this.#stages }
