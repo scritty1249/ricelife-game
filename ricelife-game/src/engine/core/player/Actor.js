@@ -123,15 +123,37 @@ export class Actor extends Loadable {
         yield Aimer.rotation + (3 * (Math.PI / 2));
         yield Aimer.power;
     }
+    getState () {
+        return {
+            hitpoints: this.HitTotal.toJSON(),
+            position: this.position.toJSON(),
+            rotation: this.rotation,
+            orientation: this.orientation,
+        };
+    }
+    setState (actorState) {
+        const { hitpoints, p, rotation, orientation } = actorState;
+        const position = Vector.fromObject(p);
+        this.HitTotal.set(hitpoints);
+        this.position.apply(position);
+        this.rotation = rotation;
+        this.orientation = orientation;
+    }
 
     get isActor () { return true }
     get onload () { return this.#onloadProxy.promise }
     get ready () { return this.Metadata.ready }
     get source () { return this.Metadata.source }
-    get id () { return this.Metadata.Profile.userid }
     get Metadata () { return this.#Metadata }
     get HitTotal () { return this.#HitTotal }
     get Puppet () { return this.#Puppet }
     get Aimer () { return this.#Aimer }
     get Mover () { return this.#Mover }
+    // easy access
+    get id () { return this.Metadata.Profile.userid }
+    get position () { return this.Mover.position }
+    get rotation () { return this.Aimer.rotation }
+    set rotation (radians) { return (this.Aimer.rotation = radians) }
+    get orientation () { return this.Puppet.rotation.body }
+    set orientation (radians) { return (this.Puppet.rotation.body = radians) }
 }

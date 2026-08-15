@@ -46,6 +46,19 @@ export class HitTotal {
     toJSON () {
         return this.#layers.map((layer) => layer.toJSON());
     }
+    set (layers) {
+        if (layers?.length !== this.#layers.length) throw new Error(`[${typeString(this)}]: Mismatched HitPoint layers`);
+        for (let i = 0; i < this.#layers.length; i++) {
+            const { increase, decrease, amount, regen, max, reserve } = layers[i];
+            const layer = this.#layers[i];
+            layer.max = max;
+            layer.reserve = reserve;
+            layer.amount = amount;
+            layer.regeneration = regen;
+            layer.increaseMultiplier = increase;
+            layer.decreaseMultiplier = decrease;
+        }
+    }
 
     get isHitTotal () { return true }
     get bars () { return this.#layers.map(({bar}) => bar) } // convenience
