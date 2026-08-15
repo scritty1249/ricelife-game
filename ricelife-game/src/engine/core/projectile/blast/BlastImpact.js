@@ -64,7 +64,14 @@ export class BlastImpact {
         this.#triggerPromise.resolve(this.#resolvePayload);
     }
     clone (deep = false) {
-        const 
+        const blastInterval = deep ? this.#blastInterval.clone(true) : this.#blastInterval;
+        return new BlastImpact(
+            this.#audioContext,
+            this.#blastSFXLayer,
+            this.#blastSFXSource,
+            blastInterval,
+            this.#animationFactory
+        );
     }
 
     get isBlastImpact () { return true }
