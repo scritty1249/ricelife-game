@@ -93,7 +93,7 @@ export default class Scatter extends AmmoType {
     static beamCount = 3;
     static beamHeadRadius = 20;
     static beamOriginRadius = 25;
-    static beamLength = 100;
+    static beamLength = 1000;
     static beamRadiusScale = 0.35;
     static beamGlowRadius = 15;
     static beamCenterRadiusScale = 0.5; // radius of a beam that falls straight down
@@ -142,16 +142,17 @@ export default class Scatter extends AmmoType {
             } = this.constructor;
             const beamOrigin = new Vector();
             const beamShape = new Circle(beamHeadRadius, beamOrigin);
+            const blastShape = new Circle(beamHeadRadius * 1.1, beamOrigin);
 
             this.#createBeamOrigin(beamStage, new Circle(beamHeadRadius * 2, beamOrigin), beamOrigin);
 
             if (beamCount === 1) {
-                this.#createBeam(beamStage, beamShape, beamOrigin, beamSpread / 2);
+                this.#createBeam(beamStage, beamShape, blastShape, beamOrigin, beamSpread / 2);
             } else if (beamCount >= 2) {
                 const angleSpan = beamSpread / (beamCount - 1);
                 for (let i = 0; i < beamCount; i++) {
                     const angle = (angleSpan * i);
-                    this.#createBeam(beamStage, beamShape, beamOrigin, angle);
+                    this.#createBeam(beamStage, beamShape, blastShape, beamOrigin, angle);
                 }
             }
             beamStage.launchCallback = undefined;
@@ -175,7 +176,7 @@ export default class Scatter extends AmmoType {
         return shot;
     }
     // angle should be a Number, not Vector
-    #createBeam (stage, shape, origin, angle) {
+    #createBeam (stage, shape, blastShape, origin, angle) {
         const {
             beamLength,
             beamDriftX,
@@ -214,7 +215,7 @@ export default class Scatter extends AmmoType {
         // setup shot
         const shot = stage.newStage(beam, 0);
         shot.userData = {
-            hitbox: [new Blast(shape.clone(true), 0, 10)],
+            hitbox: [new Blast(blastShape.clone(true), 0, 10)],
             driftX: beamDriftX,
             target: this.transferData.target,
             range: 1
