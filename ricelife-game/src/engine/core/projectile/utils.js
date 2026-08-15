@@ -72,18 +72,3 @@ export function traceAmmo (
     });
     return result;
 }
-
-export function sortBlastIntervals (blasts = []) {
-    if (!blasts?.length) return [];
-    // group blasts that occur at the same time
-    const uniq = [];
-    const blastIntervals = Array.from(Map.groupBy(blasts, ({delay}) => {
-        const value = uniq.find((key) => equals(key, delay))
-        if (value !== undefined) return value;
-        uniq.push(delay);
-        return delay;
-    }).entries())
-    .sort((a, b) => a[0] - b[0])
-    .map(([_, blast]) => blast);
-    return blastIntervals;
-}

@@ -1,7 +1,7 @@
-import { Shape } from "../geometry/Shape.js";
-import { Vector } from "../math/Vector.js";
-import { Color } from "../math/Color.js";
-import { typeString } from "../utils/logging.js";
+import { Shape } from "../../geometry/Shape.js";
+import { Vector } from "../../math/Vector.js";
+import { Color } from "../../math/Color.js";
+import { typeString } from "../../utils/logging.js";
 
 // [!] can be passed safely between web workers
 export class Blast { // only intended to record information, properties should be extracted before manipulating data

@@ -2,7 +2,7 @@ import { AmmoType } from "../core/projectile/AmmoType.js";
 import { Vector } from "../core/math/Vector.js";
 import { Color } from "../core/math/Color.js";
 import { Circle } from "../core/geometry/Circle.js";
-import { Blast } from "../core/projectile/Blast.js";
+import { Blast } from "../core/projectile/blast/Blast.js";
 import { Projectile } from "../core/projectile/Projectile.js";
 
 export default class Flower extends AmmoType {

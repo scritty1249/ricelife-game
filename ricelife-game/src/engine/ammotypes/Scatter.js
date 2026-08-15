@@ -5,7 +5,7 @@ import { Circle } from "../core/geometry/Circle.js";
 import { Ray } from "../core/math/Ray.js";
 import { Beam } from "../core/projectile/Beam.js";
 import { Shot } from "../core/projectile/Shot.js";
-import { Blast } from "../core/projectile/Blast.js";
+import { Blast } from "../core/projectile/blast/Blast.js";
 import { Projectile } from "../core/projectile/Projectile.js";
 import { Properties } from "../core/projectile/collision/Properties.js";
 import { createBlasts } from "../core/projectile/collision/Behaviors.js";

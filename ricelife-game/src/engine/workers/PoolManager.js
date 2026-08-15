@@ -1,173 +1,227 @@
-import { Polygon, Vector, Terrain, Blast, generateUUID, equals, sortBlastIntervals } from "../core/Core.js";
+import {
+    Polygon,
+    Vector,
+    Terrain,
+    Blast,
+    generateUUID,
+    equals,
+    sortBlastGroups,
+    BlastInterval,
+} from "../core/Core.js";
 import { Cache, CanvasCache } from "./pool/Core.js";
 export class PoolManager {
     #pool;
-    constructor (workerPool) {
+    constructor(workerPool) {
         this.#pool = workerPool;
     }
 
-    async drawTerrain (canvasID, terrainID) {
+    async drawTerrain(canvasID, terrainID) {
         await this.#pool.post(
-            "DRAWTERRAIN", 
+            "DRAWTERRAIN",
             {
                 canvas: canvasID,
-                terrain: terrainID
+                terrain: terrainID,
             },
             [],
-            [canvasID, terrainID]
+            [canvasID, terrainID],
         );
         return;
     }
     // colliders are expected to all be Polygons or Cache IDs
-    async traceAmmo (ammo, increment, limit, terrain, colliders) {
-        const { origin, velocity, acceleration, angle, resolution, power } = ammo;
-        const encodedTerrain = terrain?.isTerrain
-            ? terrain.Float32()
-            : terrain;
-        const encodedColliders = colliders.map((collider) =>
-            collider?.isPolygon
-                ? collider.Float32(collider.depth)
-                : collider
+    async traceAmmo(ammo, increment, limit, terrain, colliders) {
+        const { origin, velocity, acceleration, angle, resolution, power } =
+            ammo;
+        const encodedTerrain = terrain?.isTerrain ? terrain.Float32() : terrain;
+        const encodedColliders = colliders.map(collider =>
+            collider?.isPolygon ? collider.Float32(collider.depth) : collider,
         );
-        const buffers = encodedColliders
-                .filter((c) => typeof c !== "string")
-                ?.map?.(({buffers}) => buffers)
+        const buffers =
+            encodedColliders
+                .filter(c => typeof c !== "string")
+                ?.map?.(({ buffers }) => buffers)
                 ?.flat?.(1) || [];
-        const caches = encodedColliders.filter((c) => typeof c === "string");
-        if (typeof encodedTerrain === "string")
-            caches.push(encodedTerrain);
-        else
-            buffers.push(...encodedTerrain.buffers);
+        const caches = encodedColliders.filter(c => typeof c === "string");
+        if (typeof encodedTerrain === "string") caches.push(encodedTerrain);
+        else buffers.push(...encodedTerrain.buffers);
         const payload = {
-            increment, limit,
+            increment,
+            limit,
             ammoImport: ammo.constructor.IMPORT,
             params: ammo.encode(),
             terrain: encodedTerrain,
-            collisions: encodedColliders
+            collisions: encodedColliders,
         };
         const landing = await this.#pool.post(
             "TRACEAMMO",
             payload,
             buffers,
-            caches
+            caches,
         );
         // encode data
         if (landing) {
             if (landing.blasts?.length)
-                landing.blasts = landing.blasts.map((blast) =>
-                    Blast.fromObject(blast));
+                landing.blasts = landing.blasts.map(blast =>
+                    Blast.fromObject(blast),
+                );
         }
         return landing;
     }
     // cuts are expected to all be Polygons or Cache IDs
-    async cutTerrain (terrainID, cuts = [], pullCache = true, destID = undefined) {
+    async cutTerrain(
+        terrainID,
+        cuts = [],
+        pullCache = true,
+        destID = undefined,
+    ) {
         const dest = destID || terrainID;
-        const encodedCuts = cuts.map((collider) =>
-            collider?.isPolygon ? collider.Float32(collider.depth) : collider);
-        const buffers = encodedCuts
-                .filter((cut) => typeof cut !== "string")
-                ?.map?.(({buffers}) => buffers)
+        const encodedCuts = cuts.map(collider =>
+            collider?.isPolygon ? collider.Float32(collider.depth) : collider,
+        );
+        const buffers =
+            encodedCuts
+                .filter(cut => typeof cut !== "string")
+                ?.map?.(({ buffers }) => buffers)
                 ?.flat?.(1) || [];
-        const caches = encodedCuts
-            .filter((cut) => typeof cut === "string");
+        const caches = encodedCuts.filter(cut => typeof cut === "string");
         caches.push(terrainID);
         if (dest !== terrainID && this.#pool.cacheAt(dest)) caches.push(dest);
-        const payload = { dest, source: terrainID, cuts: encodedCuts, callback: pullCache }
-        const data = await this.#pool.post("CUTTERRAIN", payload, buffers, caches);
+        const payload = {
+            dest,
+            source: terrainID,
+            cuts: encodedCuts,
+            callback: pullCache,
+        };
+        const data = await this.#pool.post(
+            "CUTTERRAIN",
+            payload,
+            buffers,
+            caches,
+        );
         return !pullCache || Terrain.fromObject(data.terrain);
     }
-    async renderBlastIntervals (terrainID, planeSize, ...blasts) {
+    async renderBlastIntervals(terrainID, planeSize, ...blasts) {
         // cuts blasts, and returns a Promise<Array> of image data, for each state of the terrain after the blasts (in order)
         // blast structure: { shape: Polygon, delay: Number (milliseconds), damage: Number }
         const jobID = generateUUID();
         if (blasts.length === 0) {
-            const terrain = this.#pool.pullCache(terrainID, false, false)
+            const terrain = this.#pool
+                .pullCache(terrainID, false, false)
                 .then(() => this.#pool.cache[terrainID].terrain);
-            return [{
-                delay: 0,
-                frame: undefined,
-                blasts: [],
-                terrain: await terrain
-            }];
+            return [new BlastInterval(0, await terrain)];
         } else if (blasts.length === 1) {
-            const terrain = this.cutTerrain(terrainID, [blasts[0].shape.Polygon(1)]);
+            const terrain = this.cutTerrain(terrainID, [
+                blasts[0].shape.Polygon(1),
+            ]);
             const canvasID = `${terrainID}_c0_${jobID}`;
-            const canvasJob = this.#pool.createCache(new CanvasCache(planeSize.x, planeSize.y, canvasID));
+            const canvasJob = this.#pool.createCache(
+                new CanvasCache(planeSize.x, planeSize.y, canvasID),
+            );
             const frame = terrain
                 .then(() => canvasJob)
                 .then(() => this.drawTerrain(canvasID, terrainID))
                 .then(() => this.#pool.pullCache(canvasID, true, false))
                 .then(() => this.#pool.cache[canvasID]);
             const delay = blasts[0].delay || 0;
-            return [{
+            return [new BlastInterval(
                 delay,
-                frame: await frame,
-                blasts: blasts,
-                terrain: await terrain
-            }];
+                await terrain,
+                await frame,
+                blasts
+            )];
         } else {
             // group blasts that occur at the same time, draw these onto the same canvas
-            const blastIntervals = sortBlastIntervals(blasts);
+            const blastGroups = sortBlastGroups(blasts);
             // promises
             const cutJobs = [];
             const drawJobs = [];
             // temporary cache IDs
             const terrainIDs = [terrainID];
-            blastIntervals.forEach((_, i) => terrainIDs.push(`${terrainID}_p${i}_${jobID}`));
-            const canvasIDs = Array.from(blastIntervals, (_, i) => {
+            blastGroups.forEach((_, i) =>
+                terrainIDs.push(`${terrainID}_p${i}_${jobID}`),
+            );
+            const canvasIDs = Array.from(blastGroups, (_, i) => {
                 const canvasID = `${terrainID}_c${i}_${jobID}`;
-                const cache = new CanvasCache(planeSize.x, planeSize.y, canvasID);
-                return this.#pool.createCache(cache)
-                    .then(() => canvasID);
+                const cache = new CanvasCache(
+                    planeSize.x,
+                    planeSize.y,
+                    canvasID,
+                );
+                return this.#pool.createCache(cache).then(() => canvasID);
             });
             // setup promise chains
             let drawJob = Promise.resolve();
             let cutJob = Promise.resolve();
             // load balanced cut operations
-            for (let i = 0; i < blastIntervals.length; i++) {
-                const interval = blastIntervals[i];
-                const cuts = interval.map(({shape}) => shape.Polygon(1));
+            for (let i = 0; i < blastGroups.length; i++) {
+                const interval = blastGroups[i];
+                const cuts = interval.map(({ shape }) => shape.Polygon(1));
                 const prevTerrainID = terrainIDs[i];
-                const currTerrainID = terrainIDs[i+1];
+                const currTerrainID = terrainIDs[i + 1];
                 const currCanvasID = await canvasIDs[i];
-                const cj = cutJob
-                    .then(() => this.cutTerrain(prevTerrainID, cuts, false, currTerrainID));
+                const cj = cutJob.then(() =>
+                    this.cutTerrain(prevTerrainID, cuts, false, currTerrainID),
+                );
                 const dj = cj
                     // pool should assign the worker we want
                     .then(() => this.drawTerrain(currCanvasID, currTerrainID));
-                drawJobs.push(dj
-                    .then(() => this.#pool.pullCache(currCanvasID, false))
-                    .then(() => this.#pool.cache[currCanvasID]));
-                cutJobs.push(cj
-                    .then(() => this.#pool.pullCache(currTerrainID, true))
-                    .then(() => this.#pool.cache[currTerrainID].terrain));
+                drawJobs.push(
+                    dj
+                        .then(() => this.#pool.pullCache(currCanvasID, false))
+                        .then(() => this.#pool.cache[currCanvasID]),
+                );
+                cutJobs.push(
+                    cj
+                        .then(() => this.#pool.pullCache(currTerrainID, true))
+                        .then(() => this.#pool.cache[currTerrainID].terrain),
+                );
                 cutJob = dj;
                 drawJob = dj;
-                if (i-1 > 0)
-                    cutJobs.at(-1).then(() =>
-                        this.destroyCache(terrainIDs[i-1]));
+                if (i - 1 > 0)
+                    cutJobs
+                        .at(-1)
+                        .then(() => this.destroyCache(terrainIDs[i - 1]));
             }
             // wait for all jobs to finish
             const frames = await Promise.all(drawJobs);
             const terrains = await Promise.all(cutJobs);
             // apply final cut polygon to original cache
-            await this.#pool.copyCache(await terrainIDs.at(-1), terrainID, false);
+            await this.#pool.copyCache(
+                await terrainIDs.at(-1),
+                terrainID,
+                false,
+            );
             // package object into easier to parse structure
-            return Array.from(blastIntervals, (interval, i) => ({
-                blasts: interval,
-                delay: interval[0].delay,
-                frame: frames[i],
-                terrain: terrains[i]
-            }));
+            return Array.from(blastGroups, (group, i) => new BlastInterval(
+                group[0].delay,
+                terrains[i],
+                frames[i],
+                group
+            ));
         }
     }
-    async setCache (cache) { return await this.#pool.setCache(cache) }
-    async fillCache (id, data) { return await this.#pool.fillCache(id, data) }
-    async updateCache (id, clone = true) { await this.#pool.pullCache(id, clone) }
-    async destroyCache (id) { return await this.#pool.dropCache(id) }
-    async hashCache (id) { return await this.#pool.hashCache(id) }
-    terminate () { this.#pool.terminate() }
+    async setCache(cache) {
+        return await this.#pool.setCache(cache);
+    }
+    async fillCache(id, data) {
+        return await this.#pool.fillCache(id, data);
+    }
+    async updateCache(id, clone = true) {
+        await this.#pool.pullCache(id, clone);
+    }
+    async destroyCache(id) {
+        return await this.#pool.dropCache(id);
+    }
+    async hashCache(id) {
+        return await this.#pool.hashCache(id);
+    }
+    terminate() {
+        this.#pool.terminate();
+    }
 
-    get cache () { return this.#pool.cache }
-    get onload () { return this.#pool.onload }
+    get cache() {
+        return this.#pool.cache;
+    }
+    get onload() {
+        return this.#pool.onload;
+    }
 }

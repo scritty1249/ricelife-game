@@ -20,7 +20,8 @@ import {
     Puppet,
     ScreenButton,
     KeyMap,
-    typeString
+    typeString,
+    BlastImpact
 } from "../../core/Core.js"
 
 import { WorkerPool, PoolManager, TerrainCache, CanvasCache } from "../../workers/Core.js";
@@ -52,7 +53,8 @@ const INPUT_MAP = new KeyMap({
     "shot8": ["Digit8"],
     "shot9": ["Digit9"],
     "shot10": ["Digit0"],
-    "debug+": ["ShiftLeft", "ShiftRight"],
+    "debug+": ["ShiftLeft"],
+    "replay": ["ShiftRight"],
 });
 
 const LOADING_PAUSE_THRESHOLD = 4 * 1000; // number of milliseconds before game waits for player input to play shot animation. If loading takes less time, shot animation is played automatically
@@ -109,6 +111,7 @@ export class Round extends Phase {
                 collisions: [],
             }            
         };
+        this.store.turn = {}; // save turn info to be replayed or exported
         this.Audio.Layer.blast = this.Audio.Player.Layer();
         this.Audio.Layer.blast.volume = 0.55;
         this.Audio.Player.volume = 0.35;
@@ -314,7 +317,8 @@ export class Round extends Phase {
             Context,
             Layer.blast,
             AssetPool.get("blast"),
-            blastInterval
+            blastInterval,
+            createBlastAnimation
         );
         impact.ontrigger.then(({
             frame, terrain, bboxes, blasts, animations, combinedbbox
@@ -331,18 +335,18 @@ export class Round extends Phase {
         return impact;
     }
     async #preloadMap (map) {
-        const { Audio, Threaded, Plane, Animations, store } = this;
+        const { Threaded, Plane, store } = this;
         const { blasts } = map; // should be sorted
         store.prerender = Threaded.renderBlastIntervals(this.store.cacheKey.terrain, Plane.size, ...blasts);
-        Animations.blasts = new AnimationList();
-        store.ammo.impacts = [];
         const blastIntervals = await store.prerender;
-        for (const blastInterval of blastIntervals) {
-            const impact = this.#preloadImpact(blastInterval)
-            Animations.blasts.push(...impact.Animations);
-            store.ammo.impacts.push(impact);
-        }
-        Animations.Main.push(...Animations.blasts);
+        // save turn info
+        store.turn = {
+            intervals: blastIntervals,
+            terrain: this.Terrain.Float32()
+        };
+
+        // finish loading
+        this.loadBlastIntervals(blastIntervals);
     }
     #applyBlastDamage (blast, sourcePlayer) {
         for (const player of this.Players.values()) {
@@ -427,6 +431,17 @@ export class Round extends Phase {
         this.sizeOverlay();
         this.setTurn(this.flags.isTurn);
         super.onResize();
+    }
+    loadBlastIntervals (intervals) {
+        const { Animations, store } = this;
+        Animations.blasts = new AnimationList();
+        store.ammo.impacts = [];
+        for (const interval of intervals) {
+            const impact = this.#preloadImpact(interval)
+            Animations.blasts.push(...impact.Animations);
+            store.ammo.impacts.push(impact);
+        }
+        Animations.Main.push(...Animations.blasts);
     }
     sizeOverlay () {
         const { Display } = this.Global;
@@ -799,83 +814,14 @@ export class Round extends Phase {
     get Animations () { return this.#Animations }
 }
 
-class BlastImpact {
-    #Round;
-    #Animations = new AnimationList();
-    #audioContext;
-    #blastSFXLayer;
-    #blastSFXSource;
-    #AudioLayers = new Map();
-    #triggered = false;
-    #frame;
-    #sourceActor;
-    #blastBboxes = new Array();
-    #triggerPromise = Promise.withResolvers();
+class RoundTurn {
     #terrain;
-    #time;
-    #blasts;
-    #resolvePayload;
-    // [!] stores everything by reference
-    constructor (audioContext, blastSFXLayer, blastSFXSource, blastInterval) {
-        this.#audioContext = audioContext;
-        this.#blastSFXLayer = blastSFXLayer;
-        this.#blastSFXSource = blastSFXSource;
-        this.#terrain = blastInterval.terrain;
-        this.#frame = blastInterval.frame;
-        this.#time = blastInterval.delay;
-        this.#blasts = blastInterval.blasts;
-        this.#init();
+    #blastIntervals;
+    #playerStates = {};
+    constructor (intervals, players, terrain) {
+        this.#blastIntervals = [...intervals];
+        this.#terrain = terrain.Float32();
     }
-
-    #init () {
-        for (let i = 0; i < this.#blasts.length; i++) {
-            const blast = this.#blasts.at(i);
-            const bbox = blast.shape.getBoundingBox();
-            const blastSize = bbox.extent;
-            this.#blastBboxes.push(bbox);
-            // vfx
-            const animation = createBlastAnimation(blast);
-            // sfx
-            const blastVolume = (blastSize / 50)**3;
-            const sfxNode = this.#blastSFXSource.Instance();
-            this.#getAudioLayer(blastVolume)
-                .add(sfxNode);
-            animation.onstart.then(() => sfxNode.play());
-            this.Animations.push(animation);
-        }
-        this.#resolvePayload = {
-            frame: this.#frame,
-            terrain: this.#terrain,
-            combinedbbox: this.#blastBboxes.length < 2 ? this.#blastBboxes[0] : BoundingBox.merge(this.#blastBboxes),
-            bboxes: this.#blastBboxes,
-            blasts: this.#blasts,
-            animations: this.Animations
-        };
-    }
-    #getAudioLayer (gain) {
-        if (this.#AudioLayers.has(gain)) {
-            return this.#AudioLayers.get(gain);
-        } else {
-            const bassFilter = this.#audioContext.newBassNode();
-            bassFilter.frequency.value = 200;
-            bassFilter.gain.value = gain;
-            const audioLayer = this.#blastSFXLayer.Layer([bassFilter], true);
-            this.#AudioLayers.set(gain, audioLayer);
-            return audioLayer;
-        }
-    }
-
-    play () {
-        if (this.isTriggered) return;
-        this.#triggered = true;
-        this.#triggerPromise.resolve(this.#resolvePayload);
-    }
-
-    get isBlastImpact () { return true }
-    get isTriggered () { return this.#triggered }
-    get Animations () { return this.#Animations }
-    get ontrigger () { return this.#triggerPromise.promise }
-    get time () { return this.#time }
 }
 
 function createMuzzleFlashAnimation (playerActor, spritesheet, width) {
@@ -895,7 +841,8 @@ function createBlastAnimation (blast) {
         blast.shape.clone(),
         .6,
         25,
-        drawBlastAnimation
+        drawBlastAnimation,
+        [new Color(255, 255, 255, 1), 2]
     );
     animation.speed = 1.25;
     return animation;
