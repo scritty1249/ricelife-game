@@ -130,14 +130,40 @@ export class Path extends Hashable { // points should be ordered clockwise (in p
         if (points.length === 0) return false;
         if (start?.isPath) {
             const pts = start.points;
-            for (let i = 0; i < pts.length; i+=2)
-                if (this.isIntersecting(pts[i], pts[i+1])) return true;
+            for (let i = 0; i < pts.length; i+=2) {
+                const hit = this.isIntersecting(pts[i], pts[i+1]);
+                if (hit) return hit;
+            }
             return false;
         } else if (start?.isVector && end?.isVector) {
             if (points.length === 1) return Vector.isBetween(points[0], start, end);
-            for (let i = 0; i < points.length; i+=2)
-                if (Vector.segmentsIntersect(points[i], points[i+1], start, end)) return true;
-            return this.isClosed && Vector.segmentsIntersect(points.at(-1), points[0], start, end);
+            for (let i = 0; i < points.length; i+=2) {
+                const pStart = points[i];
+                const pEnd = points[i+1];
+                const hit = Vector.segmentsIntersect(pStart, pEnd, start, end);
+                if (hit) {
+                    return {
+                        point: hit,
+                        angle: undefined,
+                        coeff: pStart.distance(hit) / pStart.distance(pEnd),
+                        index: i
+                    };
+                }
+            }
+            if (this.isClosed) {
+                const pStart = points.at(-1);
+                const pEnd = points[0];
+                const hit = Vector.segmentsIntersect(pStart, pEnd, start, end);
+                if (hit) {
+                    return {
+                        point: hit,
+                        angle: undefined,
+                        coeff: pStart.distance(hit) / pStart.distance(pEnd),
+                        index: points.length
+                    };
+                }
+            }
+            return false;
         } else if (start?.isVector) {
             if (points.length === 1) return points[0].eq(start);
             for (let i = 0; i < points.length; i+=2) {
