@@ -15,13 +15,14 @@ export default class Flower extends AmmoType {
     constructor (origin, angle, power = 1, resolution = 1) {
         super(origin, angle, power, resolution);
         // geometry config        
-        const { initalSpeed, drag, radius, petalCount, blastRadius, glowColor, mainColor } = this.constructor;
+        const { initalSpeed, drag, radius, ambient, petalCount, blastRadius, glowColor, mainColor } = this.constructor;
         const acceleration = this.constructor.acceleration.clone();
         // convert params for Projectile(s)
         const velocity = Vector.fromAngle(angle).mul(400 * power);
         // init geometry
         const shape = new Circle(radius, origin);
         const projectile = new Projectile(origin, velocity, acceleration, drag, shape);
+        projectile.ambient.apply(ambient);
         projectile.glowColor.apply(glowColor);
         projectile.mainColor.apply(mainColor);
         projectile.glowRadius = 20;

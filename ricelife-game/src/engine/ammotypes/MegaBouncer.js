@@ -35,7 +35,6 @@ export default class MegaBouncer extends Bouncer {
         this.playSfx("bounce");
     }
     static initalSpeed = 500;
-    static acceleration = new Vector(30, -200);
     static drag = 0.002;
     static maxBounces = 3;
     static radius = 15;

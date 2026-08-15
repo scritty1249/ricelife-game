@@ -47,7 +47,7 @@ export default class Pine extends AmmoType {
     }
     static stageCount = 2;
     static needleCount = 7; // should be an odd number
-    static needleAcceleration = new Vector(0, -250);
+    static needleAmbient = new Vector(0, -250);
     static needleDrag = 0// 0.001;
     static needleLaunchVelocity = new Vector(120, 45);
     static stemTransitionSpeedThreshold = 40; // [!] poorly named, also should be a fraction of stemBounceVelocity
@@ -63,13 +63,14 @@ export default class Pine extends AmmoType {
     constructor (origin, angle, power = 1, resolution = 1) {
         super(origin, angle, power, resolution);
         // geometry config
-        const { initalSpeed, drag, radius, blastRadius, stemGlowColor, stemMainColor, needleGlowColor, needleMainColor } = this.constructor;
+        const { initalSpeed, drag, radius, ambient, blastRadius, stemGlowColor, stemMainColor, needleGlowColor, needleMainColor } = this.constructor;
         const acceleration = this.constructor.acceleration.clone();
         // convert params for Projectile(s)
         const velocity = Vector.fromAngle(angle).mul(400 * power);
         // init stem geometry
         const stemShape = new Circle(radius, origin);
         const stemShot = new Projectile(origin, velocity, acceleration, drag, stemShape);
+        stemShot.ambient.apply(ambient);
         stemShot.glowColor.apply(stemGlowColor);
         stemShot.mainColor.apply(stemMainColor);
         stemShot.tailColor.apply(104.5, 82, 59.5); 
@@ -79,6 +80,7 @@ export default class Pine extends AmmoType {
         const needleDrag = this.constructor.needleDrag;
         const needleShape = new Circle(radius * (2/3));
         const needleShot = new Projectile(_zeroVec, _zeroVec, needleAcceleration, needleDrag, needleShape);
+        needleShot.ambient.apply(this.constructor.needleAmbient);
         needleShot.glowColor.apply(needleGlowColor);
         needleShot.mainColor.apply(needleMainColor);
         needleShot.tailColor.apply(2.5, 91.5, 16.5); 

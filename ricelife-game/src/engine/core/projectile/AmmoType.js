@@ -12,7 +12,7 @@ export class AmmoType extends Ammo {
     }
     // <this> context will be rebound to Shot
     static collisionCallback (point, normal, collisionFlags) { // default
-        this.shot.current.velocity.mul(0, true);
+        this.projectile.current.velocity.mul(0, true);
         createBlasts.call(this);
     }
     static stageCount = 1;
@@ -20,7 +20,8 @@ export class AmmoType extends Ammo {
     static drag = 0.001;
     static radius = 7;
     static blastRadius = 30;
-    static acceleration = new Vector(20, -200);
+    static acceleration = new Vector(0, 0);
+    static ambient = new Vector(0, -200);
     static glowColor = new Color(255, 0, 0);
     static mainColor = new Color(255, 255, 255);
     constructor (origin, angle, power = 1, resolution = 1) {

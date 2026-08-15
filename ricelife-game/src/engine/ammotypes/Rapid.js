@@ -20,7 +20,8 @@ export default class Rapid extends AmmoType {
     static burstCount = 12;
     static burstDelay = .15; // seconds
 
-    static acceleration = new Vector(30, -140);
+    static ambient = new Vector(30, -140);
+    static acceleration = new Vector(30, 0);
     static initalSpeed = 550;
     static drag = 0.0005;
     static radius = 3;
@@ -32,7 +33,7 @@ export default class Rapid extends AmmoType {
         this.decodeParams.push(seed);
         const random = new Random(seed);
         // geometry config
-        const { initalSpeed, drag, radius, blastRadius, burstAccuracy, burstSpread, burstTightSpread, burstCount, burstDelay, collisionCallback, glowColor } = this.constructor;
+        const { initalSpeed, drag, radius, ambient, blastRadius, burstAccuracy, burstSpread, burstTightSpread, burstCount, burstDelay, collisionCallback, glowColor } = this.constructor;
         const acceleration = this.constructor.acceleration.clone();
         // init geometry
         const shape = new Circle(radius, origin);
@@ -45,6 +46,7 @@ export default class Rapid extends AmmoType {
                     : burstSpread);
             const velocity = Vector.fromAngle(angle + angleOffset).mul(initalSpeed * power);
             const projectile = new Projectile(origin, velocity, acceleration, drag, shape);
+            projectile.ambient.apply(ambient);
             projectile.glowRadius = 12;
             projectile.glowColor.apply(glowColor);
             const stage = multi.newStage(projectile.clone(true), i * burstDelay);

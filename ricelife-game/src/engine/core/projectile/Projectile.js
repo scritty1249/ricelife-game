@@ -3,40 +3,27 @@ import { equals } from "../math/utils.js";
 import { PhysicsObject } from "./PhysicsObject.js";
 
 export class Projectile extends PhysicsObject {
-    // configuration
-    static tailLength = 10;
-    static tailColor = new Color(255, 255, 255, .55);
-    static glowRadius = 20;
-    static glowResolution = 10;
-    static glowColor = new Color(255, 0, 0, .4);
-    static mainColor = new Color(255, 255, 255);
-    // instance
-    tailLength;
-    tailColor;
-    glowRadius;
-    glowResolution;
-    glowColor;
-    mainColor;
-    // other instance variables
     #shape;
     #tail = new Array();
+    // configuration
+    tailLength = 10;
+    tailColor = new Color(255, 255, 255, .55);
+    glowRadius = 20;
+    glowResolution = 10;
+    glowColor = new Color(255, 0, 0, .4);
+    mainColor = new Color(255, 255, 255);
     constructor (origin, velocity, acceleration, drag, shape) {
         super(origin, velocity, acceleration, drag);
-        // config overrides
-        this.tailLength = new.target.tailLength || Shot.tailLength;
-        this.tailColor = (new.target.tailColor || Shot.tailColor).clone();
-        this.glowRadius = new.target.glowRadius || Shot.glowRadius;
-        this.glowResolution = new.target.glowResolution || Shot.glowResolution;
-        this.glowColor = (new.target.glowColor || Shot.glowColor).clone();
-        this.mainColor = (new.target.mainColor || Shot.mainColor).clone();
         this.#shape = shape;
     }
 
-    #drawGlow (cursor, shape) {
+    #drawGlow (cursor, shape, alpha = 1) {
         cursor.save();
         cursor.filter = `blur(${this.glowResolution}px)`;
         shape.draw(cursor);
-        cursor.strokeStyle = this.glowColor.toString();
+        const color = this.glowColor.clone();
+        color.a *= alpha;
+        cursor.strokeStyle = color.toString();
         cursor.lineWidth = this.glowRadius;
         cursor.stroke();
         // mask out projectile space itself
@@ -45,10 +32,12 @@ export class Projectile extends PhysicsObject {
         cursor.globalCompositeOperation = "source-over";
         cursor.restore();
     }
+
     // call just before updating position
-    #updateTail () {
+    updateTail () {
+        if (!this.tailLength) return;
         // reset scaling
-        const minScale = 1 / (this.tail.length || this.constructor.tailLength);
+        const minScale = 1 / (this.tail.length || this.tailLength);
         for (let i = 0; i < this.tail.length; i++) {
             const tail = this.tail[i];
             const scale = minScale + (i / this.tail.length);
@@ -71,48 +60,53 @@ export class Projectile extends PhysicsObject {
             tail.transform.restore();
         }
     }
-
     draw (cursor) {
         this.drawTailGlow(cursor);
         this.drawMainGlow(cursor);
         this.drawTail(cursor);
         this.drawShot(cursor);
     }
-    drawShot (cursor) {
+    drawShot (cursor, alpha = 1) {
         cursor.save();
-        cursor.fillStyle = this.mainColor.toString();
+        const color = this.mainColor.clone();
+        color.a *= alpha;
+        cursor.fillStyle = color.toString();
         this.shape.draw(cursor);
         cursor.fill();
         cursor.restore();
     }
-    drawTail (cursor) {
+    drawTail (cursor, alpha = 1) {
         cursor.save();
-        cursor.fillStyle = this.tailColor.toString();
+        const color = this.tailColor.clone();
+        color.a *= alpha;
+        cursor.fillStyle = color.toString();
         for (const tail of this.tail) {
             tail.draw(cursor, true);
             cursor.fill();
         }
         cursor.restore();
     }
-    drawMainGlow (cursor) {
-        this.#drawGlow(cursor, this.shape);
+    drawMainGlow (cursor, alpha = 1) {
+        this.#drawGlow(cursor, this.shape, alpha);
     }
-    drawTailGlow (cursor) {
+    drawTailGlow (cursor, alpha = 1) {
         cursor.save();
-        cursor.fillStyle = this.tailColor.toString();
+        const color = this.tailColor.clone();
+        color.a *= alpha;
+        cursor.fillStyle = color.toString();
         for (const tail of this.tail) {
-            this.#drawGlow(cursor, tail);
+            this.#drawGlow(cursor, tail, alpha);
             cursor.fill();
         }
         cursor.restore();
     }
     applyPosition (vector, updateTail = false) {
-        if (updateTail) this.#updateTail();
+        if (updateTail) this.updateTail();
         this.shape.moveTo(vector);
         this.position.apply(vector);
     }
-    update (seconds = 1) {
-        this.#updateTail();
+    update (seconds = 1, updateTail = true) {
+        if (updateTail) this.updateTail();
         this.shape.moveTo(super.update(seconds));
         return this.position; // for chaining
     }
@@ -123,6 +117,10 @@ export class Projectile extends PhysicsObject {
         projection.shape = shape;
         projection.traversalArea = this.shape.getBoundingBox().add(shape.getBoundingBox());
         return projection;
+    }
+    reset () {
+        super.reset();
+        this.shape.moveTo(this.position);
     }
     collision (polygons = []) {
         const intersecting = [];
@@ -161,8 +159,9 @@ export class Projectile extends PhysicsObject {
         return bbox;
     }
     clone (deep = false) { 
-        const shot = new Projectile(this.origin.position, this.origin.velocity, this.acceleration, this.drag, this.shape.clone(deep));
+        const shot = new this(this.origin.position, this.origin.velocity, this.origin.acceleration, this.drag, this.shape.clone(deep));
         // copy configs
+        shot.ambient.apply(this.ambient);
         shot.tailLength = this.tailLength;
         shot.tailColor = this.tailColor.clone();
         shot.glowRadius = this.glowRadius;

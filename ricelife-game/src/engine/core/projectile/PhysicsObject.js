@@ -6,6 +6,9 @@ import { Identifiable } from "../utils/tracking/Identifiable.js";
 export class PhysicsObject extends Identifiable {
     #tracer = new Path();
     #time = 0; // in seconds
+    acceleration = new Vector();
+    ambient = new Vector(); // applied constantly/unconditionally
+    force = new Vector(); // applied, then cleared after every update
     #origin = {
         position: new Vector(),
         velocity: new Vector()
@@ -17,7 +20,7 @@ export class PhysicsObject extends Identifiable {
     constructor (origin, velocity, acceleration, drag) {
         super();
         this.drag = drag; // coefficient, values >1 will make projectiles move backwards infinitely
-        this.acceleration = new Vector(acceleration);
+        this.acceleration.apply(acceleration);
 
         this.origin.position.apply(origin);
         this.origin.velocity.apply(velocity);
@@ -25,36 +28,40 @@ export class PhysicsObject extends Identifiable {
         this.current.velocity.apply(velocity);
     }
 
-    updatePosition (seconds) {
-        const { position, velocity } = this;
+    // [!] mutating
+    #applyForce (position, velocity, seconds) {
         const acceleration = this.acceleration.clone();
-        const v = velocity.mul(-this.drag * Math.sqrt(velocity.pow(2).sum()));
-        if (velocity.x < 0)
-            acceleration.x *= -1;
-        else if (equals(velocity.x, 0)) 
-            acceleration.x *= 0;
+        const ambient = this.ambient.clone();
+        const speed = velocity.length;
+        const vel = this.drag === 0
+            ? velocity.clone()
+            : velocity.mul(-this.drag * velocity.length);
+        if (speed) {
+            acceleration.x *= Math.sign(velocity.x);
+            acceleration.y *= Math.sign(velocity.y);
+        } else {
+            acceleration.apply(0, 0);
+        }
+        const force = ambient.add(acceleration, true).add(this.force, true);
         position.add(velocity.mul(seconds), true);
-        velocity.add(acceleration.add(v).mul(seconds, true), true);
+        velocity.add(force.add(vel, true).mul(seconds, true), true);
+    }
+
+    updatePosition (seconds) {
+        this.#applyForce(this.position, this.velocity, seconds);
+        this.force.apply(0, 0);
     }
     projectPosition (seconds) {
-        const { position, velocity } = this;
-        if (this.isStopped) return {
-            position: position.clone(),
-            velocity: velocity.clone(),
-            delta: new Vector()
-        };
-        const acceleration = this.acceleration.clone();
-        const vel = velocity.mul(-this.drag * Math.sqrt(velocity.pow(2).sum()));
-        if (velocity.x < 0)
-            acceleration.x *= -1;
-        else if (equals(velocity.x, 0)) 
-            acceleration.x *= 0;
-        const p = position.add(velocity.mul(seconds));
-        const v = velocity.add(acceleration.add(vel).mul(seconds, true));
+        const position = this.position.clone();
+        const velocity = this.velocity.clone();
+        const moving = !this.isStopped;
+        if (moving) this.#applyForce(position, velocity, seconds);
         return {
-            position: p,
-            velocity: v,
-            delta: p.sub(position)
+            position: position,
+            velocity: velocity,
+            delta: moving
+                ? position.sub(this.position)
+                : new Vector()
         };
     }
     update (seconds = 1) {
@@ -69,10 +76,20 @@ export class PhysicsObject extends Identifiable {
         projection.time = this.time + seconds;
         return projection;
     }
+    applyOrigin (position = undefined, velocity = undefined) {
+        if (position?.isVector) this.origin.position.apply(position);
+        if (velocity?.isVector) this.origin.velocity.apply(velocity);
+        if (!this.time) this.reset();
+    }
     reset () {
-        this.current.position.apply(this.origin);
-        this.current.velocity.apply(this.velocity);
+        this.current.position.apply(this.origin.position);
+        this.current.velocity.apply(this.origin.velocity);
         this.#time = 0;
+    }
+    clone () {
+        const physObj = new PhysicsObject(this.origin.position, this.origin.velocity, this.acceleration, this.drag);
+        physObj.ambient.apply(this.ambient);
+        return physObj;
     }
 
     get isPhysicsObject () { return true }
@@ -85,5 +102,4 @@ export class PhysicsObject extends Identifiable {
     get origin () { return this.#origin }
     get current () { return this.#current }
     get isStopped () { return equals(this.speed, 0) }
-    clone () { return new Projectile(this.origin.position, this.origin.velocity, this.acceleration, this.drag) }
 }
