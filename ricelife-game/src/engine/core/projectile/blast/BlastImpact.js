@@ -71,5 +71,5 @@ export class BlastImpact {
     get isTriggered () { return this.#triggered }
     get Animations () { return this.#Animations }
     get ontrigger () { return this.#triggerPromise.promise }
-    get time () { return this.#blastInterval.time }
+    get time () { return this.#blastInterval.delay }
 }
