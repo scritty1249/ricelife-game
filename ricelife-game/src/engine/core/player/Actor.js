@@ -101,10 +101,11 @@ export class Actor extends Loadable {
             payload.position = this.Puppet.position.toJSON();
         return payload;
     }
-    getCollider () {
+    getCollider (isClient = false) {
         const { Puppet, Mover } = this;
         const collider = Puppet.getHitbox().Polygon();
         collider.userData.collision = Properties.PLAYER | Properties.ENTER;
+        if (isClient) collider.userData.collision |= Properties.SELF;
         collider.userData.position = Puppet.position.round(2, true).toJSON();
         collider.userData.rotation = Puppet.rotation.body;
         collider.userData.heightOffset = Puppet.height + Mover.offsetY;

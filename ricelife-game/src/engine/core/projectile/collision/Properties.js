@@ -11,6 +11,7 @@ export class Properties {
     static BOUNDARY = 1 << 5; // [!] map border. may be bouncey idk yet - KT
     static STOP = 1 << 6; // instances that collide should stop and not perform any other TRAJECTORY behaviors (ex: don't bounce)
     static TRIGGER = 1 << 7; // instances that collide with this should immedately count this as a "final" collision
+    static SELF = 1 << 8; // usually means players
     static #compositeFlags = [Properties.ANY];
     static toObject (flags) { // [!] for debugging
         const state = {};
