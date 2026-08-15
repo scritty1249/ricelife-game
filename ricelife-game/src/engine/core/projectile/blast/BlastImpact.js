@@ -7,33 +7,25 @@ export class BlastImpact {
     #blastSFXSource;
     #AudioLayers = new Map();
     #triggered = false;
-    #frame;
-    #blastBboxes = new Array();
     #triggerPromise = Promise.withResolvers();
-    #terrain;
-    #time;
-    #blasts;
     #resolvePayload;
     #animationFactory;
+    #blastInterval;
     // [!] stores everything by reference
     constructor (audioContext, blastSFXLayer, blastSFXSource, blastInterval, blastAnimationFactory) {
         this.#audioContext = audioContext;
         this.#blastSFXLayer = blastSFXLayer;
         this.#blastSFXSource = blastSFXSource;
-        this.#terrain = blastInterval.terrain;
-        this.#frame = blastInterval.frame;
-        this.#time = blastInterval.delay;
-        this.#blasts = blastInterval.blasts;
+        this.#blastInterval = blastInterval;
         this.#animationFactory = blastAnimationFactory;
         this.#init();
     }
 
     #init () {
-        for (let i = 0; i < this.#blasts.length; i++) {
-            const blast = this.#blasts.at(i);
-            const bbox = blast.shape.getBoundingBox();
-            const blastSize = bbox.extent;
-            this.#blastBboxes.push(bbox);
+        const { blasts } = this.#blastInterval;
+        for (let i = 0; i < blasts.length; i++) {
+            const blast = blasts.at(i);
+            const blastSize = blast.shape.getBoundingBox().extent;
             // vfx
             const animation = this.#animationFactory(blast);
             // sfx
@@ -45,11 +37,11 @@ export class BlastImpact {
             this.Animations.push(animation);
         }
         this.#resolvePayload = {
-            frame: this.#frame,
-            terrain: this.#terrain,
-            combinedbbox: this.#blastBboxes.length < 2 ? this.#blastBboxes[0] : BoundingBox.merge(this.#blastBboxes),
-            bboxes: this.#blastBboxes,
-            blasts: this.#blasts,
+            frame: this.#blastInterval.frame,
+            terrain: this.#blastInterval.terrain,
+            combinedbbox: this.#blastInterval.boundingBox,
+            bboxes: this.#blastInterval.boundingBoxes,
+            blasts: blasts,
             animations: this.Animations
         };
     }
@@ -71,10 +63,13 @@ export class BlastImpact {
         this.#triggered = true;
         this.#triggerPromise.resolve(this.#resolvePayload);
     }
+    clone (deep = false) {
+        const 
+    }
 
     get isBlastImpact () { return true }
     get isTriggered () { return this.#triggered }
     get Animations () { return this.#Animations }
     get ontrigger () { return this.#triggerPromise.promise }
-    get time () { return this.#time }
+    get time () { return this.#blastInterval.time }
 }
