@@ -3,6 +3,13 @@ import { equals } from "../math/utils.js";
 import { Mover } from "../player/round/Mover.js";
 import { Properties } from "./collision/Properties.js";
 
+/* returns a trace map object (thread passable)
+ * 
+ * finished: bool
+ * time: Number
+ * legend: Ammo legend
+ * blasts: array of encoded Blast
+ */
 export function traceAmmo (
     ammoType, // constructor
     params, // Array
@@ -11,7 +18,7 @@ export function traceAmmo (
     terrain, // Terrain
     collisions // [...Polygon]
 ) {
-    const ammo = ammoType.encode(...params);
+    const ammo = ammoType.decode(...params);
     // expose and seperate polygons to use in trace loop
     const terrainPoly = terrain.polygon;
     const playerPolys = collisions.filter(({userData}) => userData.collision & Properties.PLAYER);

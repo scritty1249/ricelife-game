@@ -9,7 +9,7 @@ import { Random } from "../core/math/Random.js";
 export default class Rapid extends AmmoType {
     static NAME = "Rapid";
     static IMPORT = "Rapid";
-    static encode (...params) {
+    static decode (...params) {
         const [o, angle, power, resolution, seed, _ = undefined] = params;
         const origin = Vector.fromObject(o);
         return new this(origin, angle, power, resolution, seed);

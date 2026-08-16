@@ -5,7 +5,7 @@ import { createBlasts } from "./collision/Behaviors.js";
 
 // easy Ammo type construction
 export class AmmoType extends Ammo {
-    static encode (...params) {
+    static decode (...params) {
         const [o, angle, power, resolution, _ = undefined] = params;
         const origin = Vector.fromObject(o);
         return new this(origin, angle, power, resolution);
