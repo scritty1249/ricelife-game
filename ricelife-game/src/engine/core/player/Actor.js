@@ -132,7 +132,7 @@ export class Actor extends Loadable {
         };
     }
     setState (actorState) {
-        const { hitpoints, p, rotation, orientation } = actorState;
+        const { hitpoints, position: p, rotation, orientation } = actorState;
         const position = Vector.fromObject(p);
         this.HitTotal.set(hitpoints);
         this.position.apply(position);
