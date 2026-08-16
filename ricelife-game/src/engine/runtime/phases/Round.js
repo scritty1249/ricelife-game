@@ -753,6 +753,7 @@ export class Round extends Phase {
         return colliders;
     }
     animateTurn (turn) {
+        this.setTurn(false);
         if (this.Terrain.hash !== turn.terrain(false).hash)
             this.updateTerrain(turn.terrain(true), false);
         for (const player of this.Players.values())
@@ -761,6 +762,7 @@ export class Round extends Phase {
         this.loadTurn(turn.ammo(true), turn.intervals(true), turn.map());
     }
     loadTurn (ammo, intervals, map) {
+        this.setTurn(false);
         this.#loadBlastIntervals(intervals);
         this.#setAmmo(ammo, map);
         this.Camera.track(ammo.getBoundingBox(), this.ClientPlayer.Puppet.getBoundingBox());
