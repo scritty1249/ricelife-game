@@ -323,10 +323,9 @@ export class Round extends Phase {
         impact.ontrigger.then(({
             frame, terrain, bboxes, blasts, animations, combinedbbox
         }) => {
-            Threaded.cache[background]?.cursor?.close?.();
             Threaded.cache[background] = frame;
             animations.play();
-            this.updateTerrain(terrain, bboxes);
+            this.updateTerrain(terrain, true, bboxes);
             for (const blast of blasts)
                 this.#applyBlastDamage(blast, this.ClientPlayer);
             if (this.Camera.targets)
@@ -334,19 +333,24 @@ export class Round extends Phase {
         });
         return impact;
     }
-    async #preloadMap (map) {
+    async #preloadTurn (ammo, map) {
         const { Threaded, Plane, store } = this;
         const { blasts } = map; // should be sorted
         store.prerender = Threaded.renderBlastIntervals(this.store.cacheKey.terrain, Plane.size, ...blasts);
-        const blastIntervals = await store.prerender;
         // save turn info
-        store.turn = {
-            intervals: blastIntervals,
-            terrain: this.Terrain.Float32()
-        };
-
-        // finish loading
-        this.loadBlastIntervals(blastIntervals);
+        // if (store.turn?.isRoundTurn) store.turn.close(); // [!] TODO: GC these
+        store.turn = new RoundTurn(await store.prerender, this.Players.values(), this.Terrain.clone(true), ammo, Threaded.cache[store.cacheKey.background], map);
+    }
+    #loadBlastIntervals (intervals) {
+        const { Animations, store } = this;
+        Animations.blasts = new AnimationList();
+        store.ammo.impacts = [];
+        for (const interval of intervals) {
+            const impact = this.#preloadImpact(interval)
+            Animations.blasts.push(...impact.Animations);
+            store.ammo.impacts.push(impact);
+        }
+        Animations.Main.push(...Animations.blasts);
     }
     #applyBlastDamage (blast, sourcePlayer) {
         for (const player of this.Players.values()) {
@@ -431,17 +435,6 @@ export class Round extends Phase {
         this.sizeOverlay();
         this.setTurn(this.flags.isTurn);
         super.onResize();
-    }
-    loadBlastIntervals (intervals) {
-        const { Animations, store } = this;
-        Animations.blasts = new AnimationList();
-        store.ammo.impacts = [];
-        for (const interval of intervals) {
-            const impact = this.#preloadImpact(interval)
-            Animations.blasts.push(...impact.Animations);
-            store.ammo.impacts.push(impact);
-        }
-        Animations.Main.push(...Animations.blasts);
     }
     sizeOverlay () {
         const { Display } = this.Global;
@@ -724,20 +717,22 @@ export class Round extends Phase {
             }
         }
     }
-    updateTerrain (terrain, changedBBoxes = []) {
+    updateTerrain (terrain, updatePlayers = true, changedBBoxes = []) {
         if (this.Terrain.hash !== terrain.hash)
             this.Terrain.apply(terrain);
-        // if bboxes of changed areas are provided, only update player positions that lie within them.
-        //  otherwise, update all player positions
-        const players = changedBBoxes?.length
-            ? this.Players.values().filter(({Puppet}) => {
-                const { position } = Puppet;
-                return changedBBoxes.some((bbox) => bbox.isIntersecting(position));
-            }) : this.Players.values();
-        for (const { Puppet, Mover } of players) {
-            // update positioning - account for "falling"
-            Puppet.position.round(2);
-            Mover.apply(Mover.position.x, Mover.position.y);
+        if (updatePlayers) {
+            // if bboxes of changed areas are provided, only update player positions that lie within them.
+            //  otherwise, update all player positions
+            const players = changedBBoxes?.length
+                ? this.Players.values().filter(({Puppet}) => {
+                    const { position } = Puppet;
+                    return changedBBoxes.some((bbox) => bbox.isIntersecting(position));
+                }) : this.Players.values();
+            for (const { Puppet, Mover } of players) {
+                // update positioning - account for "falling"
+                Puppet.position.round(2);
+                Mover.apply(Mover.position.x, Mover.position.y);
+            }
         }
     }
     createAmmo (playerActor, typeKey) {
@@ -756,6 +751,19 @@ export class Round extends Phase {
             colliders.push(player.getCollider(player.id === this.#ClientPlayerID));
         }
         return colliders;
+    }
+    animateTurn (turn) {
+        if (this.Terrain.hash !== turn.terrain(false).hash)
+            this.updateTerrain(turn.terrain(true), false);
+        for (const player of this.Players.values())
+            turn.applyPlayerState(player);
+        this.Threaded.cache[this.store.cacheKey.background] = turn.startFrame();
+        this.loadTurn(turn.ammo(true), turn.intervals(true), turn.map());
+    }
+    loadTurn (ammo, intervals, map) {
+        this.#loadBlastIntervals(intervals);
+        this.#setAmmo(ammo, map);
+        this.Camera.track(ammo.getBoundingBox(), this.ClientPlayer.Puppet.getBoundingBox());
     }
     setTurn (bool) {
         this.Camera.unlock();
@@ -788,10 +796,10 @@ export class Round extends Phase {
         waitStart = performance.now();
         console.info(`[${typeString(this)}]: Rendering shot collisions`);
         if (map.blasts.length)
-            this.#preloadMap(map);
+            this.#preloadTurn(ammo, map);
         await store.prerender;
         if (Global.flags.DEBUG)
-            console.info(`[${typeString(this)}]: Collision map loaded in ${(performance.now() - waitStart) / 1000} seconds`);
+            console.info(`[${typeString(this)}]: Collision map computed in ${(performance.now() - waitStart) / 1000} seconds`);
         console.info(`[${typeString(this)}]: Shot playback ready`);
         if (performance.now() - totalStart > LOADING_PAUSE_THRESHOLD) {
             console.info(`[${typeString(this)}]: Awaiting click event`);
@@ -800,8 +808,7 @@ export class Round extends Phase {
         }
         Global.Events.raiseEvent("LOADING", {hide: true});
         console.info(`[${typeString(this)}]: Playing shot animation`);
-        this.#setAmmo(ammo, map);
-        this.Camera.track(ammo.getBoundingBox(), this.ClientPlayer.Puppet.getBoundingBox());
+        this.loadTurn(store.turn.ammo(true), store.turn.intervals(true), store.turn.map());
     }
 
     get AmmoPool () { return this.#AmmoPool }
@@ -816,12 +823,58 @@ export class Round extends Phase {
 
 class RoundTurn {
     #terrain;
+    #ammo;
     #blastIntervals;
     #playerStates = {};
-    constructor (intervals, players, terrain) {
+    #traceMap;
+    #startFrame;
+    #isClosed = false;
+    constructor (intervals, players, terrain, ammo, backgroundFrame, traceMap) {
+        this.#terrain = terrain;
+        this.#ammo = ammo;
+        this.#traceMap = traceMap;
+        this.#startFrame = backgroundFrame;
         this.#blastIntervals = [...intervals];
-        this.#terrain = terrain.Float32();
+        for (const player of players)
+            this.#playerStates[player.id] = player.getState();
     }
+
+    intervals (clone = true) {
+        return clone
+            ? this.#blastIntervals.map((interval) => interval.clone(true))
+            : this.#blastIntervals;
+    }
+    terrain (clone = true) {
+        return clone
+            ? this.#terrain.clone(true)
+            : this.#terrain;
+    }
+    ammo (clone = true) {
+        return clone
+            ? this.#ammo.clone(true)
+            : this.#ammo;
+    }
+    map () {
+        return this.#traceMap;
+    }
+    startFrame () {
+        return this.#startFrame;
+    }
+    applyPlayerState (player) {
+        if (!(player?.isActor && player.id in this.#playerStates)) return false;
+        player.setState(this.#playerStates[player.id]);
+        return true;
+    }
+
+    // [!] TODO: figure out how to clone these, or verify GC can tidy up runaway/old offscreenCanvases
+    // close () {
+    //     if (this.isClosed) return;
+    //     this.#startFrame?.cursor?.close?.();
+    //     this.#blastIntervals.forEach(({frame}) => frame?.cursor?.close?.());
+    // }
+
+    get isRoundTurn () { return true }
+    get isClosed () { return this.#isClosed }
 }
 
 function createMuzzleFlashAnimation (playerActor, spritesheet, width) {
