@@ -20,6 +20,7 @@ export class AppCanvas extends Hashable {
         this.window.addEventListener("resize", this.#onResize);
         this.#computeLayout();
         this.#cursor = new Canvas2DContextCursor(this.canvas);
+        this.cursor.scale(this.window.devicePixelRatio, this.window.devicePixelRatio);
     }
 
     #onResize = () => {
