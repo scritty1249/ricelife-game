@@ -18,7 +18,7 @@ export class BoundingBox extends Hashable {
     }
     // when accumulate is set to a BoundingBox, all bboxes will be merged into the accumulator
     static merge (bboxes, accumulator = undefined) {
-        const bbox = accumulator?.isBoundingBox ? accumulator : new BoundingBox();
+        const bbox = accumulator?.isBoundingBox ? accumulator : bboxes[0].clone();
         return bbox.merge(bboxes, true);
     }
     // when accumulate is set to a BoundingBox, all bboxes will be overlapped into the accumulator

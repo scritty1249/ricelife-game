@@ -95,8 +95,8 @@ export class Multishot extends Identifiable {
             throw error;
         }
     }
-    getBoundingBox (merge = true, includeStopped = true, includeFx = false) {
-        const bboxes = (includeStopped ? this.shots : this.shots.filter(({projectile}) => !projectile.isStopped))
+    getBoundingBox (merge = true, includeFinished = true, includeFx = false) {
+        const bboxes = (includeFinished ? this.shots : this.shots.filter(({isFinished}) => !isFinished))
             .map(({projectile}) => projectile.getBoundingBox(includeFx));
         if (!merge) return bboxes;
         if (!bboxes.length) return new BoundingBox();
