@@ -155,7 +155,6 @@ export default class Scatter extends AmmoType {
                     this.#createBeam(beamStage, beamShape, blastShape, beamOrigin, angle);
                 }
             }
-            beamStage.launchCallback = undefined;
         }
     }
 
@@ -173,6 +172,7 @@ export default class Scatter extends AmmoType {
         ball.glowColor.apply(glowColor);
         ball.tailColor.apply(ball.mainColor.apply(mainColor));
         shot.drawAfter = true;
+        shot.playLaunchCallback = false;
         return shot;
     }
     // angle should be a Number, not Vector
@@ -224,6 +224,7 @@ export default class Scatter extends AmmoType {
         shot.preUpdateCallback = preUpdateCallback;
         shot.updateCallback = updateCallback;
         shot.collisionCallback = collisionCallback;
+        shot.playLaunchCallback = false;
         return shot;
     }
 
