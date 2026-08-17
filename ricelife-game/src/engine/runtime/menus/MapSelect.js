@@ -78,7 +78,7 @@ export class MapSelect extends Menu {
             const offsetX = (tileWidth / 2) + padX;
             const offsetY = (tileHeight / 2) + size.y;
             mapButton.setPosition(offsetX, offsetY);
-            mapButton.userData = { position: mapButton.getPosition() };
+            mapButton.userData.position = mapButton.getPosition();
             mapButton.save();
             this.InterfaceLayers.buttons.push(mapButton);
             size.y += tileHeight;
