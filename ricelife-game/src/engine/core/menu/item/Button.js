@@ -30,11 +30,12 @@ export class Button extends Identifiable {
         height: 0,
         hasUpdate: true
     };
+    #userData = {};
     #text = "";
     fontSize = 24;
     fontFamily = "Arial";
     keepDragFocus = false; // when set, drag events will continue even after pointer leaves this button's area
-    hide = false; // tells InterfaceLayer to skip drawing this item
+    hide = false; // tells InterfaceLayer to skip drawing this item, and will not return any callbacks
     constructor () {
         super();
     }
@@ -82,17 +83,17 @@ export class Button extends Identifiable {
             this.#textSizing.hasUpdate = true;
         return (this.#text = str);
     }
-    get onclick () { return this.#callback.onclick }
+    get onclick () { return this.hide ? null : this.#callback.onclick }
     set onclick (callbackFn) { return (this.#callback.onclick = callbackFn) }
-    get onhold () { return this.#callback.onhold }
+    get onhold () { return this.hide ? null : this.#callback.onhold }
     set onhold (callbackFn) { return (this.#callback.onhold = callbackFn) }
-    get ondrag () { return this.#callback.ondrag }
+    get ondrag () { return this.hide ? null : this.#callback.ondrag }
     set ondrag (callbackFn) { return (this.#callback.ondrag = callbackFn) }
-    get onpress () { return this.#callback.onpress }
+    get onpress () { return this.hide ? null : this.#callback.onpress }
     set onpress (callbackFn) { return (this.#callback.onpress = callbackFn) }
-    get onrelease () { return this.#callback.onrelease }
+    get onrelease () { return this.hide ? null : this.#callback.onrelease }
     set onrelease (callbackFn) { return (this.#callback.onrelease = callbackFn) }
-    get onscroll () { return this.#callback.onscroll }
+    get onscroll () { return this.hide ? null : this.#callback.onscroll }
     set onscroll (callbackFn) { return (this.#callback.onscroll = callbackFn) }
 
     // [!] should be overridden by children
@@ -105,4 +106,5 @@ export class Button extends Identifiable {
     get height () { return 0 }
     get fontColor () { return this.#fontColor }
     get fontStyle () { return `${this.fontSize}px ${this.fontFamily}` }
+    get userData () { return this.#userData }
 }
