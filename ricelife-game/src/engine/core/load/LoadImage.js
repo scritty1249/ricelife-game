@@ -56,12 +56,12 @@ export class LoadImage extends Loadable {
         const fy = Math.sign(this.#scale.y) || 1;
         cursor.scale(fx, fy);
         const absScale = new Vector(Math.abs(this.#scale.x), Math.abs(this.#scale.y));
-        const og = origin.mul(-1).mul(absScale);
+        const og = origin.mul(-1).mul(absScale, true).mul(cursor.dpr, true);
         cursor.drawImage(
             this.source, 
             sx, sy, sWidth, sHeight, 
             og.x, og.y,
-            Math.abs(dWidth), Math.abs(dHeight)
+            Math.abs(dWidth) * cursor.dpr, Math.abs(dHeight) * cursor.dpr
         );
         cursor.restore();
     }
