@@ -50,6 +50,7 @@ export default class Pine extends AmmoType {
     static needleAmbient = new Vector(0, -250);
     static needleDrag = 0// 0.001;
     static needleLaunchVelocity = new Vector(120, 45);
+    static needleAcceleration = new Vector(0, 0);
     static stemTransitionSpeedThreshold = 40; // [!] poorly named, also should be a fraction of stemBounceVelocity
     static stemBounceVelocity = new Vector(0, 200);
     static stemBounceDrag = 0.0015;
