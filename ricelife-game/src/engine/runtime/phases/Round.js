@@ -640,8 +640,10 @@ export class Round extends Phase {
                 // shouldn't restart already playing animations
                 Animations.blasts?.play?.();
             }
-            if (isTimedout) console.info(`[${typeString(this)}]: Shot timed out`);
-            else console.info(`[${typeString(this)}]: Shot forcefully ended early`);
+            if (this.Global.flags.DEBUG) {
+                if (isTimedout) console.info(`[${typeString(this)}]: Shot timed out`);
+                else console.info(`[${typeString(this)}]: Shot forcefully ended early`);
+            }
             ammo.current = undefined;
         }
         // [!] boolean logic here could be written better -KT
@@ -791,6 +793,7 @@ export class Round extends Phase {
         this.setTurn(false);
         if (intervals.length)
             this.#loadBlastIntervals(intervals);
+        console.info(`[${typeString(this)}]: Playing shot animation`);
         this.#setAmmo(ammo, map);
         this.Camera.track(ammo.getBoundingBox(), this.ClientPlayer.Puppet.getBoundingBox());
     }
@@ -834,7 +837,6 @@ export class Round extends Phase {
             await Global.Input.pointer.onNextClick();
         }
         Global.Events.raiseEvent("LOADING", {hide: true});
-        console.info(`[${typeString(this)}]: Playing shot animation`);
         store.overlayItems.replayButton.hide = true;
         this.loadTurn(store.turn.ammo(true), store.turn.intervals(true), store.turn.map());
     }
