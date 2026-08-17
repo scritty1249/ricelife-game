@@ -353,7 +353,9 @@ export class Round extends Phase {
     async #preloadTurn (ammo, map) {
         const { Threaded, Plane, store } = this;
         const { blasts } = map; // should be sorted
-        store.prerender = Threaded.renderBlastIntervals(this.store.cacheKey.terrain, Plane.size, ...blasts);
+        store.prerender = blasts?.length
+            ? Threaded.renderBlastIntervals(this.store.cacheKey.terrain, Plane.size, ...blasts)
+            : Promise.resolve([]);
         // save turn info
         // if (store.turn?.isRoundTurn) store.turn.close(); // [!] TODO: GC these
         store.turn = new RoundTurn(await store.prerender, this.Players.values(), this.Terrain.clone(true), ammo, Threaded.cache[store.cacheKey.background], map);
@@ -395,12 +397,9 @@ export class Round extends Phase {
             // game update
             if (store.ammo.current) {
                 if (this.updateAmmoTick(delta)) {
-                    await store.prerender;
-                    //this.untrackShot();
                     this.#unsetAmmo();
-                    if (Global.flags.DEBUG)
-                        console.info(`[${typeString(this)}]: Shot playback finished`);
-                    store.prerender = Promise.resolve();
+                    console.info(`[${typeString(this)}]: Shot playback finished`);
+                    store.prerender = Promise.resolve([]);
                     // unlock player
                     this.store.overlayItems.replayButton.hide = false;
                     setTimeout(() => this.setTurn(true), 1000);
@@ -790,7 +789,8 @@ export class Round extends Phase {
     }
     loadTurn (ammo, intervals, map) {
         this.setTurn(false);
-        this.#loadBlastIntervals(intervals);
+        if (intervals.length)
+            this.#loadBlastIntervals(intervals);
         this.#setAmmo(ammo, map);
         this.Camera.track(ammo.getBoundingBox(), this.ClientPlayer.Puppet.getBoundingBox());
     }
@@ -824,9 +824,7 @@ export class Round extends Phase {
             console.info(`[${typeString(this)}]: Shot trace finished in ${(performance.now() - waitStart) / 1000} seconds`);
         waitStart = performance.now();
         console.info(`[${typeString(this)}]: Rendering shot collisions`);
-        if (map.blasts.length)
-            this.#preloadTurn(ammo, map);
-        await store.prerender;
+        await this.#preloadTurn(ammo, map);
         if (Global.flags.DEBUG)
             console.info(`[${typeString(this)}]: Collision map computed in ${(performance.now() - waitStart) / 1000} seconds`);
         console.info(`[${typeString(this)}]: Shot playback ready`);
@@ -854,7 +852,7 @@ export class Round extends Phase {
 class RoundTurn {
     #terrain;
     #ammo;
-    #blastIntervals;
+    #blastIntervals = new Array();
     #playerStates = {};
     #traceMap;
     #startFrame;
