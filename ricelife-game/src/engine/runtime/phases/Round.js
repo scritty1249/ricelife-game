@@ -123,6 +123,7 @@ export class Round extends Phase {
         this.Menus.get("Ammo").Events.addEventListener("CLOSE", ({selection}) => {
             if (!selection?.isAmmoTypeDetails) return;
             this.store.ammo.selected = selection.id;
+            this.store.overlayItems.launchButton.text = selection.name;
             this.store.overlayItems.launchButton.hide = false;
         })
     }
@@ -422,10 +423,6 @@ export class Round extends Phase {
     onanimate () {
         const { ClientPlayer, Camera, Animations, Interface, Threaded, Players, flags, store } = this;
         const { cursor } = this.Global.Display;
-        if (store.ammo.current && Camera.tracking(ClientPlayer.Puppet.position)) {
-            const shotBbox = store.ammo.current.getBoundingBox(true, false, true);
-            Camera.follow(shotBbox.extentSquared ? shotBbox : undefined);
-        }
         Camera.update();
         if (Camera.Viewbox.size.lengthSquared < store.MIN_SIZE.lengthSquared) {
             Camera.Viewbox.applySize(store.MIN_SIZE);
@@ -795,7 +792,7 @@ export class Round extends Phase {
             this.#loadBlastIntervals(intervals);
         console.info(`[${typeString(this)}]: Playing shot animation`);
         this.#setAmmo(ammo, map);
-        this.Camera.track(ammo.getBoundingBox(), this.ClientPlayer.Puppet.getBoundingBox());
+        this.Camera.track(ammo.getBoundingBox(true, false, true), this.ClientPlayer.Puppet.getBoundingBox());
     }
     setTurn (bool) {
         this.Camera.unlock();
@@ -816,6 +813,7 @@ export class Round extends Phase {
         const totalStart = performance.now();
         let waitStart = performance.now();
         console.info(`[${typeString(this)}]: Tracing shot (${store.ammo.selected})`);
+        Global.Events.raiseEvent("LOADING", {hide: false, message: "loading turn (tracing)"});
         const map = await this.Threaded.traceAmmo(
             ammo,
             Global.TickInterval.interval / 1000,
@@ -827,13 +825,14 @@ export class Round extends Phase {
             console.info(`[${typeString(this)}]: Shot trace finished in ${(performance.now() - waitStart) / 1000} seconds`);
         waitStart = performance.now();
         console.info(`[${typeString(this)}]: Rendering shot collisions`);
+        Global.Events.raiseEvent("LOADING", {hide: false, message: "loading turn (rendering)"});
         await this.#preloadTurn(ammo, map);
         if (Global.flags.DEBUG)
             console.info(`[${typeString(this)}]: Collision map computed in ${(performance.now() - waitStart) / 1000} seconds`);
         console.info(`[${typeString(this)}]: Shot playback ready`);
         if (performance.now() - totalStart > LOADING_PAUSE_THRESHOLD) {
             console.info(`[${typeString(this)}]: Awaiting click event`);
-            Global.Events.raiseEvent("LOADING", {hide: false, message: "Waiting for click"});
+            Global.Events.raiseEvent("LOADING", {hide: false, message: "tap or click to continue"});
             await Global.Input.pointer.onNextClick();
         }
         Global.Events.raiseEvent("LOADING", {hide: true});
