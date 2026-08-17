@@ -134,7 +134,7 @@ export class PointerInterfaceLayer extends Identifiable { // pointer events are 
         const notFixed = !fixed;
         if (notFixed) Viewbox.setCursor(cursor, true);
         for (const item of this.#items.values())
-            if (this.#supportsDraw(item))
+            if (this.#supportsDraw(item) && !item?.hide)
                 item.draw(cursor, fixed);
         if (notFixed) cursor.restore();
     }

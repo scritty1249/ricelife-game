@@ -34,6 +34,7 @@ export class Button extends Identifiable {
     fontSize = 24;
     fontFamily = "Arial";
     keepDragFocus = false; // when set, drag events will continue even after pointer leaves this button's area
+    hide = false; // tells InterfaceLayer to skip drawing this item
     constructor () {
         super();
     }

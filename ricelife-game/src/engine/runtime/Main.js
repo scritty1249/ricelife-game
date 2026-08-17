@@ -73,11 +73,9 @@ export class Main extends Loop {
         const { AssetTable } = this;
         // Images
         AssetTable.moveBtn = [AssetType.Image, undefined, "/assets/interface/buttons/move-button.png"];
-        // AssetTable.fireBtn = [AssetType.Image, undefined, "./assets/interface/buttons/fire.png"];
-        // AssetTable.selectBtn = [AssetType.Image, undefined, "./assets/interface/buttons/select.png"];
-        // AssetTable.rightBtn = [AssetType.Image, undefined, "./assets/interface/buttons/right.png"];
-        // AssetTable.leftBtn = [AssetType.Image, undefined, "./assets/interface/buttons/left.png"];
-        // AssetTable.shotType = [AssetType.Image, undefined, "./assets/interface/buttons/shot-type.png"];
+        AssetTable.selectBtn = [AssetType.Image, undefined, "/assets/interface/buttons/select-button.png"];
+        AssetTable.fireBtn = [AssetType.Image, undefined, "/assets/interface/buttons/fire-button.png"];
+        AssetTable.replayBtn = [AssetType.Image, undefined, "/assets/interface/buttons/replay-button.png"];
         // Audio
         AssetTable.fire = [AssetType.Audio, undefined, "fire", "/assets/sfx/fire.mp3"];
         AssetTable.blast = [AssetType.Audio, undefined, "blast", "/assets/sfx/blast.mp3"];

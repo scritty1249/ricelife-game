@@ -123,6 +123,7 @@ export class Round extends Phase {
         this.Menus.get("Ammo").Events.addEventListener("CLOSE", ({selection}) => {
             if (!selection?.isAmmoTypeDetails) return;
             this.store.ammo.selected = selection.id;
+            this.store.overlayItems.launchButton.hide = false;
         })
     }
     async #load (playerID) {
@@ -132,7 +133,10 @@ export class Round extends Phase {
             this.loadGlobalAsset("blast"),
             this.loadGlobalAsset("muzzleFlash"),
             this.loadGlobalAsset("fire"),
-            this.loadGlobalAsset("moveBtn")
+            this.loadGlobalAsset("moveBtn"),
+            this.loadGlobalAsset("selectBtn"),
+            this.loadGlobalAsset("fireBtn"),
+            this.loadGlobalAsset("replayBtn"),
         ];
         await Promise.all(waitPromises);
     }
@@ -201,12 +205,16 @@ export class Round extends Phase {
         }
         // UI
         const moveImg = this.AssetPool.get("moveBtn"); // left-facing
+        const selectImg = this.AssetPool.get("selectBtn");
+        const fireImg = this.AssetPool.get("fireBtn");
+        const replayImg = this.AssetPool.get("replayBtn");
         const moveLeftBtn = new IconButton(moveImg.clone(false));
         const moveRightBtn = new IconButton(moveImg.clone(false));
         moveRightBtn.icon.source.scale.apply(-1, 1);
         moveRightBtn.icon.source.origin.apply(moveImg.rawSize.x, 0);
-        const launchButton = new IconButton(moveImg.clone(false)); // [!] placeholder
-        const selectButton = new IconButton(moveImg.clone(false)); // [!] placeholder
+        const launchButton = new IconButton(fireImg.clone(false));
+        const selectButton = new IconButton(selectImg.clone(false));
+        const replayButton = new IconButton(replayImg.clone(false));
 
         const { Mover, Aimer, Puppet } = this.ClientPlayer;
         const { Camera, store, flags } = this;
@@ -235,12 +243,21 @@ export class Round extends Phase {
             if (flags.isTurn)
                 this.Menus.get("Ammo").open();
         };
+        replayButton.onclick = () => {
+            if (flags.isTurn && store.turn?.isRoundTurn) {
+                replayButton.hide = true;
+                this.animateTurn(store.turn);
+            }
+        };
 
+        launchButton.hide = true;
+        replayButton.hide = true;
         this.store.overlayItems = {
             moveLeftBtn,
             moveRightBtn,
             launchButton,
-            selectButton
+            selectButton,
+            replayButton
         };
         this.Interface.insert()
             .push(underButton)
@@ -253,7 +270,7 @@ export class Round extends Phase {
         this.Interface.insert()
             .push(...Object.values(this.store.overlayItems))
             .fixed = true;
-        this.sizeOverlay();
+        this.resizeOverlay();
     }
     #setupSFX () {
         const { AmmoPool, Audio } = this;
@@ -385,7 +402,8 @@ export class Round extends Phase {
                         console.info(`[${typeString(this)}]: Shot playback finished`);
                     store.prerender = Promise.resolve();
                     // unlock player
-                    setTimeout(() => this.setTurn(true), 1000)
+                    this.store.overlayItems.replayButton.hide = false;
+                    setTimeout(() => this.setTurn(true), 1000);
                     // check if round ended
                     //this.checkRoundEnd();
                 }
@@ -432,25 +450,29 @@ export class Round extends Phase {
     }
     onResize () {
         this.store.MIN_SIZE = this.Global.Display.size.div(5);
-        this.sizeOverlay();
+        this.resizeOverlay();
         this.setTurn(this.flags.isTurn);
         super.onResize();
     }
-    sizeOverlay () {
+    resizeOverlay () {
         const { Display } = this.Global;
         const { size } = Display;
         const {
             moveLeftBtn,
             moveRightBtn,
             launchButton,
-            selectButton
+            selectButton,
+            replayButton
         } = this.store.overlayItems;
         const padding = size.min() / 20;
+        const targetWidth = size.x / 10
         moveRightBtn.icon.source.width
             = moveLeftBtn.icon.source.width
             = launchButton.icon.source.width
             = selectButton.icon.source.width
-            = Math.min(250, size.x / 10);
+            = Math.min(250, targetWidth);
+        replayButton.icon.source.width = Math.min(100, targetWidth);
+
         const baselineY = moveRightBtn.height + padding;
         if (Display.isPortrait) {
             moveLeftBtn.setPosition(
@@ -470,23 +492,27 @@ export class Round extends Phase {
                 baselineY
             );
         } else {
-            moveLeftBtn.setPosition(
+            selectButton.setPosition(
                 padding,
                 baselineY
             );
-            moveRightBtn.setPosition(
+            launchButton.setPosition(
                 moveLeftBtn.width + padding + padding,
                 baselineY
             );
-            selectButton.setPosition(
+            moveRightBtn.setPosition(
                 size.x - (selectButton.width + padding),
                 baselineY
             );
-            launchButton.setPosition(
+            moveLeftBtn.setPosition(
                 size.x - (selectButton.width + launchButton.width + padding + padding),
                 baselineY
             );
         }
+        replayButton.setPosition(
+            size.x - (replayButton.width + padding),
+            size.y - padding
+        );
     }
     drawDebugOverlay () {
         const { ClientPlayer, Terrain, Interface, store, flags } = this;
@@ -810,6 +836,7 @@ export class Round extends Phase {
         }
         Global.Events.raiseEvent("LOADING", {hide: true});
         console.info(`[${typeString(this)}]: Playing shot animation`);
+        store.overlayItems.replayButton.hide = true;
         this.loadTurn(store.turn.ammo(true), store.turn.intervals(true), store.turn.map());
     }
 
