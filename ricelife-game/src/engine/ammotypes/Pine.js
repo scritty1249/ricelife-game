@@ -22,8 +22,7 @@ export default class Pine extends AmmoType {
         const time = this.time;
         needleStage.shots.forEach((stage) => {
             const { projectile } = stage;
-            projectile.origin.position.apply(pos);
-            projectile.applyPosition(pos);
+            projectile.applyOrigin(pos);
             stage.blastTimeOffset += time;
         });
     }
