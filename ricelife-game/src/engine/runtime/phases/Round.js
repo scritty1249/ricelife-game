@@ -21,7 +21,8 @@ import {
     ScreenButton,
     KeyMap,
     typeString,
-    BlastImpact
+    BlastImpact,
+    ToggleIconButton,
 } from "../../core/Core.js"
 
 import { WorkerPool, PoolManager, TerrainCache, CanvasCache } from "../../workers/Core.js";
@@ -211,6 +212,8 @@ export class Round extends Phase {
         const selectImg = this.AssetPool.get("selectBtn");
         const fireImg = this.AssetPool.get("fireBtn");
         const replayImg = this.AssetPool.get("replayBtn");
+        const hideActiveImg = this.AssetPool.get("hideActiveBtn");
+        const hideInactiveImg = this.AssetPool.get("hideInactiveBtn");
         const moveLeftBtn = new IconButton(moveImg.clone(false));
         const moveRightBtn = new IconButton(moveImg.clone(false));
         moveRightBtn.icon.source.scale.apply(-1, 1);
@@ -218,6 +221,8 @@ export class Round extends Phase {
         const launchButton = new IconButton(fireImg.clone(false));
         const selectButton = new IconButton(selectImg.clone(false));
         const replayButton = new IconButton(replayImg.clone(false));
+        const hideButton = new ToggleIconButton(hideActiveImg.clone(false), hideInactiveImg.clone(false));
+        hideButton.userData.isHideButton = true;
 
         const { Mover, Aimer, Puppet } = this.ClientPlayer;
         const { Camera, store, flags } = this;
@@ -252,6 +257,21 @@ export class Round extends Phase {
                 this.animateTurn(store.turn);
             }
         };
+        hideButton.onclick = () => {
+            if (hideButton.active) {
+                for (const item of Object.values(this.store.overlayItems)) {
+                    if (item.userData?.isHideButton) continue;
+                    item.userData.lastHideState = !!item.hide;
+                    item.hide = true;
+                }
+            } else {
+                for (const item of Object.values(this.store.overlayItems)) {
+                    if (item.isHideButton) continue;
+                    item.hide = item.userData.lastHideState;
+                }
+            }
+            hideButton.toggle();
+        }
 
         launchButton.hide = true;
         replayButton.hide = true;
@@ -260,7 +280,8 @@ export class Round extends Phase {
             moveRightBtn,
             launchButton,
             selectButton,
-            replayButton
+            replayButton,
+            hideButton
         };
         this.Interface.insert()
             .push(underButton)
@@ -460,7 +481,8 @@ export class Round extends Phase {
             moveRightBtn,
             launchButton,
             selectButton,
-            replayButton
+            replayButton,
+            hideButton
         } = this.store.overlayItems;
         const padding = size.min() / 20;
         const targetWidth = size.x / 10
@@ -469,7 +491,10 @@ export class Round extends Phase {
             = launchButton.icon.source.width
             = selectButton.icon.source.width
             = Math.min(250, targetWidth);
-        replayButton.icon.source.width = Math.min(100, targetWidth);
+        replayButton.icon.source.width
+            = hideButton.activeIcon.source.width
+            = hideButton.inactiveIcon.source.width
+            = Math.min(100, targetWidth);
 
         const baselineY = moveRightBtn.height + padding;
         if (Display.isPortrait) {
@@ -509,6 +534,10 @@ export class Round extends Phase {
         }
         replayButton.setPosition(
             size.x - (replayButton.width + padding),
+            size.y - padding
+        );
+        hideButton.setPosition(
+            padding,
             size.y - padding
         );
     }
