@@ -20,7 +20,7 @@ export class AppCanvas extends Hashable {
         this.window.addEventListener("resize", this.#onResize);
         this.#computeLayout();
         this.#cursor = new Canvas2DContextCursor(this.canvas);
-        this.cursor.scale(this.window.devicePixelRatio, this.window.devicePixelRatio);
+        this.cursor.scale(this.pixelRatio, this.pixelRatio);
     }
 
     #onResize = () => {
@@ -59,4 +59,5 @@ export class AppCanvas extends Hashable {
     get isPortrait () { return this.#size.x < this.#size.y }
     get isLandscape () { return this.#size.y < this.#size.x }
     get rawHash () { return this.#rawSizeHash }
+    get pixelRatio () { return this.window.devicePixelRatio || 1 }
 }
