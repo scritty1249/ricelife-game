@@ -11,7 +11,9 @@ export class Properties {
     static BOUNDARY = 1 << 5; // [!] map border. may be bouncey idk yet - KT
     static STOP = 1 << 6; // instances that collide should stop and not perform any other TRAJECTORY behaviors (ex: don't bounce)
     static TRIGGER = 1 << 7; // instances that collide with this should immedately count this as a "final" collision
-    static SELF = 1 << 8; // usually means players
+    static SELF = 1 << 8; // usually means player
+    static ALLY = 1 << 9; // usually means player
+    static ENEMY = 1 << 10; // usually means player
     static #compositeFlags = [Properties.ANY];
     static toObject (flags) { // [!] for debugging
         const state = {};
@@ -28,3 +30,25 @@ export class Properties {
     }
 }
 Object.freeze(Properties);
+
+export class Affiliation {
+    static NONE = 0;
+    static SELF = 1 << 0;
+    static ALLY = 1 << 1;
+    static ENEMY = 1 << 2;
+    static #compositeFlags = [];
+    static toObject (flags) { // [!] for debugging
+        const state = {};
+        for (const key of Object.getOwnPropertyNames(Affiliation)) {
+            const flag = Affiliation[key];
+            if (
+                !Number.isInteger(flag) || 
+                flag === Affiliation.NONE || // skip zero flag
+                Affiliation.#compositeFlags.includes(flag) // don't double print flags that require a negative to determine
+            ) continue;
+            state[key] = (flags & flag) === flag;
+        }
+        return state;
+    }
+}
+Object.freeze(Affiliation);

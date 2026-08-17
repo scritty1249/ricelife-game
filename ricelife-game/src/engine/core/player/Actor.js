@@ -1,6 +1,6 @@
 import { Aimer } from "./round/Aimer.js";
 import { Mover } from "./round/Mover.js";
-import { Properties } from "../projectile/collision/Properties.js";
+import { Properties, Affiliation } from "../projectile/collision/Properties.js";
 import { Metadata } from "./Metadata.js";
 import { HitTotal } from "./HitTotal.js";
 import { Loadable } from "../load/Loadable.js";
@@ -101,11 +101,15 @@ export class Actor extends Loadable {
             payload.position = this.Puppet.position.toJSON();
         return payload;
     }
-    getCollider (isClient = false) {
+    getCollider (isClient = false, isAlly = false) {
         const { Puppet, Mover } = this;
         const collider = Puppet.getHitbox().Polygon();
         collider.userData.collision = Properties.PLAYER | Properties.ENTER;
-        if (isClient) collider.userData.collision |= Properties.SELF;
+        collider.userData.affiliation = isClient
+            ? Affiliation.SELF
+            : isAlly
+                ? Affiliation.ALLY
+                : Affiliation.ENEMY;
         collider.userData.position = Puppet.position.round(2, true).toJSON();
         collider.userData.rotation = Puppet.rotation.body;
         collider.userData.heightOffset = Puppet.height + Mover.offsetY;

@@ -772,9 +772,10 @@ export class Round extends Phase {
     }
     createPlayerColliders () {
         const colliders = [];
+        const selfTeam = this.ClientPlayer.Metadata.team;
         for (const player of this.Players.values()) {
             if (player.isDead) continue;
-            colliders.push(player.getCollider(player.id === this.#ClientPlayerID));
+            colliders.push(player.getCollider(player.id === this.#ClientPlayerID, player.Metadata.team === selfTeam));
         }
         return colliders;
     }

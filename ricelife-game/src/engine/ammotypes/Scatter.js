@@ -7,7 +7,7 @@ import { Beam } from "../core/projectile/Beam.js";
 import { Shot } from "../core/projectile/Shot.js";
 import { Blast } from "../core/projectile/blast/Blast.js";
 import { Projectile } from "../core/projectile/Projectile.js";
-import { Properties } from "../core/projectile/collision/Properties.js";
+import { Properties, Affiliation } from "../core/projectile/collision/Properties.js";
 import { createBlasts } from "../core/projectile/collision/Behaviors.js";
 import { wrapAngle } from "../core/math/utils.js";
 
@@ -63,7 +63,7 @@ export default class Scatter extends AmmoType {
         const { position, velocity } = projectile;
         const players = colliders.filter(({userData}) =>
             (userData.collision & Properties.PLAYER)
-            && !(userData.collision & Properties.SELF)
+            && (userData.affiliation & Affiliation.ENEMY)
         );
         if (!players.length) return;
         for (let i = 0; i < players.length; i++) {
