@@ -125,7 +125,10 @@ export class Round extends Phase {
             if (!selection?.isAmmoTypeDetails) return;
             this.store.ammo.selected = selection.id;
             this.store.overlayItems.launchButton.text = selection.name;
-            this.store.overlayItems.launchButton.hide = false;
+            if (this.store.overlayItems.hideButton.active)
+                this.store.overlayItems.launchButton.hide = false;
+            else
+                this.store.overlayItems.launchButton.userData.lastHideState = false;
         })
     }
     async #load (playerID) {
@@ -253,7 +256,10 @@ export class Round extends Phase {
         };
         replayButton.onclick = () => {
             if (flags.isTurn && store.turn?.isRoundTurn) {
-                replayButton.hide = true;
+                if (hideButton.active)
+                    replayButton.hide = true;
+                else
+                    replayButton.userData.lastHideState = true;
                 this.animateTurn(store.turn);
             }
         };
@@ -425,7 +431,10 @@ export class Round extends Phase {
                     console.info(`[${typeString(this)}]: Shot playback finished`);
                     store.prerender = Promise.resolve([]);
                     // unlock player
-                    this.store.overlayItems.replayButton.hide = false;
+                    if (this.store.overlayItems.hideButton.active)
+                        this.store.overlayItems.replayButton.hide = false;
+                    else
+                        this.store.overlayItems.replayButton.userData.lastHideState = false;
                     setTimeout(() => this.setTurn(true), 1000);
                     // check if round ended
                     //this.checkRoundEnd();
@@ -867,7 +876,10 @@ export class Round extends Phase {
             await Global.Input.pointer.onNextClick();
         }
         Global.Events.raiseEvent("LOADING", {hide: true});
-        store.overlayItems.replayButton.hide = true;
+        if (store.overlayItems.hideButton.active)
+            store.overlayItems.replayButton.hide = true;
+        else
+            store.overlayItems.replayButton.userData.lastHideState = true;
         this.loadTurn(store.turn.ammo(true), store.turn.intervals(true), store.turn.map());
     }
 
