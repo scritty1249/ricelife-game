@@ -138,6 +138,8 @@ export class Round extends Phase {
             this.loadGlobalAsset("selectBtn"),
             this.loadGlobalAsset("fireBtn"),
             this.loadGlobalAsset("replayBtn"),
+            this.loadGlobalAsset("hideActiveBtn"),
+            this.loadGlobalAsset("hideInactiveBtn"),
         ];
         await Promise.all(waitPromises);
     }

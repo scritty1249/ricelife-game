@@ -76,6 +76,8 @@ export class Main extends Loop {
         AssetTable.selectBtn = [AssetType.Image, undefined, "/assets/interface/buttons/select-button.png"];
         AssetTable.fireBtn = [AssetType.Image, undefined, "/assets/interface/buttons/fire-button.png"];
         AssetTable.replayBtn = [AssetType.Image, undefined, "/assets/interface/buttons/replay-button.png"];
+        AssetTable.hideActiveBtn = [AssetType.Image, undefined, "/assets/interface/buttons/hide-button-active.png"];
+        AssetTable.hideInctiveBtn = [AssetType.Image, undefined, "/assets/interface/buttons/hide-button-inactive.png"];
         // Audio
         AssetTable.fire = [AssetType.Audio, undefined, "fire", "/assets/sfx/fire.mp3"];
         AssetTable.blast = [AssetType.Audio, undefined, "blast", "/assets/sfx/blast.mp3"];
