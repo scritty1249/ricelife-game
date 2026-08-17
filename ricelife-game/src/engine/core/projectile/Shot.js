@@ -305,8 +305,8 @@ export class Shot extends Identifiable {
     get isTracing () { return this.#legend === undefined }
     get isInsideDisplay () { // [!] will return projectile as in-bounds if a display bbox is not set
         const { displayBoundingBox, projectile } = this;
-        if (!displayBoundingBox) return true;
-        return displayBoundingBox.isIntersecting(projectile.getBoundingBox(true));
+        if (!displayBoundingBox?.isBoundingBox || !(displayBoundingBox.extentSquared > 0)) return true;
+        return projectile.getBoundingBox(true).isIntersecting(displayBoundingBox);
     }
     get isStopped () { return this.isTracing ? this.projectile.isStopped : this.time >= this.#legend?.duration }
     get isFading () { return this.isStopped && !this.#isFinished && this.#totalFadeTime > 0 }

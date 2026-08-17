@@ -760,12 +760,11 @@ export class Round extends Phase {
         }
     }
     createAmmo (playerActor, typeKey) {
-        const { Camera, AmmoPool, Terrain } = this;
+        const { AmmoPool, Terrain } = this;
         const type = AmmoPool.get(typeKey);
         const ammo = new type(...playerActor.getLaunchParameters(Terrain));
         ammo.colliders.push(Terrain.polygon);
         ammo.launchCallback = this.#createLaunchCallback();
-        ammo.displayBoundingBox = Camera.Viewbox;
         return ammo;
     }
     createPlayerColliders () {
@@ -792,6 +791,7 @@ export class Round extends Phase {
             this.#loadBlastIntervals(intervals);
         console.info(`[${typeString(this)}]: Playing shot animation`);
         this.#setAmmo(ammo, map);
+        ammo.displayBoundingBox = Camera.Viewbox;
         this.Camera.track(ammo.getBoundingBox(true, false, true), this.ClientPlayer.Puppet.getBoundingBox());
     }
     setTurn (bool) {
