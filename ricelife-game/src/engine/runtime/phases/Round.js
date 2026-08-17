@@ -710,9 +710,19 @@ export class Round extends Phase {
     }
     drawBackground () {
         const img = this.Threaded.cache[this.store.cacheKey.background].canvas;
-        const { cursor, size } = this.Global.Display;
+        const { cursor, size, pixelRatio } = this.Global.Display;
         const { Viewbox } = this.Camera;
-        cursor.drawImage(img, Viewbox.min.x, cursor.normalizeY(Viewbox.max.y), Viewbox.width, Viewbox.height, 0, 0, size.x, size.y);
+        cursor.drawImage(
+          img,
+          Viewbox.min.x,
+          cursor.normalizeY(Viewbox.max.y),
+          Viewbox.width,
+          Viewbox.height,
+          0,
+          0,
+          size.x * pixelRatio,
+          size.y * pixelRatio,
+        );
     }
     handleInput () {
         const { ClientPlayer, Interface, Global, flags, store } = this;
