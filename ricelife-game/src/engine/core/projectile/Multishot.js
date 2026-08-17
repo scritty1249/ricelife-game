@@ -82,7 +82,7 @@ export class Multishot extends Identifiable {
         return this.shots
             .map((stage) => stage.getLegend(encode))
             .map(encode
-                ? ({duration, collisions}) => [duration, collisions]
+                ? ({duration, origin, collisions}) => [duration, origin, collisions]
                 : (legend) => legend);
     }
     setLegend (legend) {

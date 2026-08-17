@@ -80,6 +80,10 @@ export class Shot extends Identifiable {
     #finishedPromise = Promise.withResolvers();
     #legend; // when set, Shot will skip all collision checks and follow based on this
     #record = { // records data to be exported
+        origin: {
+            position: undefined,
+            velocity: undefined
+        },
         collisions: [],
         duration: 0
     };
@@ -130,6 +134,22 @@ export class Shot extends Identifiable {
         this.#record.duration = this.time;
         this.tracer.push(this.projectile.position.clone());
     }
+    #onLaunch () {
+        this.#hasLaunched = true;
+        if (this.playLaunchCallback)
+            this.launchCallback?.();
+        const { projectile } = this;
+        if (!this.isTracing) {
+            const { origin } = this.#legend;
+            projectile.applyOrigin(origin.position, origin.velocity);
+            if (origin.position?.isVector)
+                projectile.applyPosition(origin.position);
+            if (origin.velocity?.isVector)
+                projectile.current.velocity.apply(origin.velocity);
+        }
+        this.#record.origin.position = projectile.origin.position.clone();
+        this.#record.origin.velocity = projectile.origin.velocity.clone();
+    }
 
     // point is collision/contact point
     applyCollision (point, normal, collisionFlags) {
@@ -156,9 +176,7 @@ export class Shot extends Identifiable {
                 this.time += seconds;
                 return;   
             } else if (!this.#hasLaunched) {
-                if (this.playLaunchCallback)
-                    this.launchCallback?.();
-                this.#hasLaunched = true;
+                this.#onLaunch();
             }
             const { isStopped, projectile } = this;
             this.time += seconds;
@@ -253,16 +271,21 @@ export class Shot extends Identifiable {
         const record = this.#legend || this.#record;
         const legend = {
             duration: record.duration,
+            origin: encode
+                ? [
+                    record.origin.position?.toJSON?.(),
+                    record.origin.velocity?.toJSON?.()
+                ] : record.origin,
             collisions: Array.from(record.collisions,
                 encode
                     ? ({time, collisionFlags, position, point, velocity, normal, resultVelocity}) => [
                         time,
                         collisionFlags,
-                        [position.x, position.y],
-                        [point.x, point.y],
-                        [velocity.x, velocity.y],
-                        [normal.x, normal.y],
-                        [resultVelocity.x, resultVelocity.y]
+                        position.toJSON(),
+                        point.toJSON(),
+                        velocity.toJSON(),
+                        normal.toJSON(),
+                        resultVelocity.toJSON()
                     ]
                     : (collision) => collision
             )
@@ -273,15 +296,19 @@ export class Shot extends Identifiable {
         try {
             this.#legend = {
                 duration: legend[0],
-                collisions: Array.from(legend[1],
+                origin: {
+                    position: legend[1][0] ? Vector.fromObject(legend[1][0]) : undefined,
+                    velocity: legend[1][1] ? Vector.fromObject(legend[1][1]) : undefined
+                },
+                collisions: Array.from(legend[2],
                     ([time, collisionFlags, position, point, velocity, normal, resultVelocity]) => ({
                         time: time,
                         collisionFlags: collisionFlags,
-                        position: new Vector(position[0], position[1]),
-                        point: new Vector(point[0], point[1]),
-                        velocity: new Vector(velocity[0], velocity[1]),
-                        normal: new Vector(normal[0], normal[1]),
-                        resultVelocity: new Vector(resultVelocity[0], resultVelocity[1])
+                        position: Vector.fromObject(position),
+                        point: Vector.fromObject(point),
+                        velocity: Vector.fromObject(velocity),
+                        normal: Vector.fromObject(normal),
+                        resultVelocity: Vector.fromObject(resultVelocity)
                     }))
             };
         } catch (error) {

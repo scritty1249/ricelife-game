@@ -53,7 +53,7 @@ export class AmmoType extends Ammo {
             other.launchCallback = this.launchCallback;
         if (this.displayBoundingBox)
             other.displayBoundingBox = deep ? this.displayBoundingBox.clone(true) : this.displayBoundingBox;
-        if (this.isTracing)
+        if (!this.isTracing)
             other.setLegend(this.getLegend());
         other.applyDestruction = this.applyDestruction;
         return other;
