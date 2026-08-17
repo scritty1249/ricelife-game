@@ -21,7 +21,7 @@ export class Ammo extends Identifiable {
     #transferData = {}; // pass between threads. Primitives/Basic objects only
     #launchCallback;
     #displayBoundingBox;
-    #isLegendSet = false;
+    #isTracing = true;
     constructor (colliders = [], stages = []) {
         super();
         this.#colliders = colliders;
@@ -107,7 +107,7 @@ export class Ammo extends Identifiable {
             for (let i = 0; i < stages.length; i++)
                 stages[i].setLegend(legend.stages[i]);
             this.decodeTransferData(legend.transfer);
-            this.#isLegendSet = true;
+            this.#isTracing = false;
         } catch (error) {
             console.error(`[${this.constructor.name}]: Error parsing legend arrays`);
             throw error;
@@ -120,7 +120,7 @@ export class Ammo extends Identifiable {
 
     get isAmmo () { return true }
     get isInsideDisplay () { return this.stages.some(({isInsideDisplay}) => isInsideDisplay) } // [!] will return shot as in-bounds if a display bbox is not set
-    get isTracing () { return this.#isLegendSet }
+    get isTracing () { return this.#isTracing }
     get decodeParams () { return this.#decodeParams }
     get transferData () { return this.#transferData }
     get colliders () { return this.#colliders }
