@@ -713,15 +713,11 @@ export class Round extends Phase {
         const { cursor, size, pixelRatio } = this.Global.Display;
         const { Viewbox } = this.Camera;
         cursor.drawImage(
-          img,
-          Viewbox.min.x,
-          cursor.normalizeY(Viewbox.max.y),
-          Viewbox.width,
-          Viewbox.height,
-          0,
-          0,
-          size.x * pixelRatio,
-          size.y * pixelRatio,
+            img,
+            Math.floor(Viewbox.min.x), Math.floor(cursor.normalizeY(Viewbox.max.y)),
+            Math.floor(Viewbox.width), Math.floor(Viewbox.height),
+            0, 0,
+            size.x, size.y,
         );
     }
     handleInput () {

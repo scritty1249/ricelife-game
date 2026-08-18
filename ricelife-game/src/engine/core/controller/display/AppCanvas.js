@@ -13,18 +13,13 @@ export class AppCanvas extends Hashable {
     #size = new Vector();
     #resizeCallbacks = new Set();
     #center = new Vector();
-    #sizeLimits = {
-        width: 0,
-        height: 0,
-        totalPixels: 0
-    };
     constructor (canvas, window) {
         super();
         this.canvas = canvas;
         this.#window = window;
         this.window.addEventListener("resize", this.#onResize);
         this.#computeLayout();
-        this.#cursor = new Canvas2DContextCursor(this.canvas, undefined, undefined, this.pixelRatio);
+        this.#cursor = new Canvas2DContextCursor(this.canvas);
     }
 
     #onResize = () => {
@@ -33,25 +28,8 @@ export class AppCanvas extends Hashable {
             callback?.(this);
     }
     #computeLayout () {
-        // compute dimensions, downscale if needed to remain within limits
-        const dpr = this.pixelRatio;
-        const limits = this.#sizeLimits;
-        let width = this.window.innerWidth * dpr;
-        let height = this.window.innerHeight * dpr;
-        if ((limits.totalPixels && width * height > limits.totalPixels)
-            || (limits.width && width > limits.width)
-            || (limits.height && height > limits.height)
-        ) {
-            const scale = Math.min(limits.width / width, limits.height / height);
-            if (scale) {
-                width = Math.floor(width * scale);
-                height = Math.floor(height * scale);
-            }
-        }
-        // apply dimensions
-        this.canvas.width = width;
-        this.canvas.height = height;
-        this.size.apply(width, height);
+        this.size.apply(this.window.innerWidth, this.window.innerHeight).floor(true);
+        ({x: this.canvas.width, y: this.canvas.height} = this.size);
         this.center.apply(this.size.div(2));
         this.#bbox.apply(undefined, this.size);
         this.#rawSizeHash = this.#bbox.rawHash;

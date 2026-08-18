@@ -43,7 +43,7 @@ export class Menu extends Loop {
         cursor.fixed = false;
         if (cover) {
             const { size } = this.Parent.Global.Display;
-            cursor.drawImage(this.Display.canvas, 0, 0, size.x * cursor.dpr, size.y * cursor.dpr);
+            cursor.drawImage(this.Display.canvas, 0, 0, size.x, size.y);
         } else
             cursor.drawImage(this.Display.canvas, this.Area.min, this.Area.size);
         cursor.restore();

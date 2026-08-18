@@ -25,44 +25,57 @@ export class Viewbox extends BoundingBox {
         if (size) this.applySize(size);
     }
 
+    #boundYAxis (size, min, maxSize) {
+        const { bounding, planeSize } = this;
+        let lock = false;
+        if (bounding.top && bounding.bottom) {
+            if (size.y > planeSize.y) {
+                size.y = maxSize.y;
+                lock = true;
+            }
+            if (min.y < 0) {
+                min.y = 0;
+            } else if (min.y + size.y > planeSize.y) {
+                min.y = planeSize.y - size.y;
+            }
+        } else if (bounding.top) {
+            min.y = Math.min(0, min.y);
+        } else if (bounding.bottom) {
+            min.y = Math.max(0, min.y);
+        }
+        return lock;
+    }
+    #boundXAxis (size, min, maxSize) {
+        const { bounding, planeSize } = this;
+        let lock = false;
+        if (bounding.left && bounding.right) {
+            if (size.x > planeSize.x) {
+                size.x = maxSize.x;
+                lock = true;
+            }
+            if (min.x < 0) {
+                min.x = 0;
+            } else if (min.x + size.x > planeSize.x) {
+                min.x = planeSize.x - size.x;
+            }
+        } else if (bounding.right) {
+            min.x = Math.min(0, min.x);
+        } else if (bounding.left) {
+            min.x = Math.max(0, min.x);
+        }
+        return lock;
+    }
     #applyClampedSize (size, min) {
         if (this.planeSize.lengthSquared) {
-            const maxSize = this.#applyAspectRatio(this.planeSize.clone());
-            if (this.bounding.left && this.bounding.right) {
-                if (size.x >= this.planeSize.x) {
-                    size.x = maxSize.x;
-                    min.x = 0;
-                } else if (min.x < 0) {
-                    min.x = 0;
-                } else if (min.x + size.x > this.planeSize.x) {
-                    min.x = this.planeSize.x - size.x;
-                    if (min.x < 0) {
-                        size.x += min.x;
-                        min.x = 0;
-                    }
-                }
-            } else if (this.bounding.right) {
-                min.x = Math.min(0, min.x);
-            } else if (this.bounding.left) {
-                min.x = Math.max(0, min.x);
-            }
-            if (this.bounding.top && this.bounding.bottom) {
-                if (size.y >= this.planeSize.y) {
-                    size.y = maxSize.y;
-                    min.y = 0;
-                } else if (min.y < 0) {
-                    min.y = 0;
-                } else if (min.y + size.y > this.planeSize.y) {
-                    min.y = this.planeSize.y - size.y;
-                    if (min.y < 0) {
-                        size.y += min.y;
-                        min.y = 0;
-                    }
-                }
-            } else if (this.bounding.top) {
-                min.y = Math.min(0, min.y);
-            } else if (this.bounding.bottom) {
-                min.y = Math.max(0, min.y);
+            const maxSize = this.#applyAspectRatio(this.planeSize.clone()).floor(true);
+            const { bounding, planeSize } = this;
+            const { isPortrait, aspectRatio } = this.#canvas;
+            if (isPortrait) {
+                this.#boundYAxis(size, min, maxSize);
+                this.#boundXAxis(size, min, maxSize);
+            } else {
+                this.#boundXAxis(size, min, maxSize);
+                this.#boundYAxis(size, min, maxSize);
             }
         }
         this.max.apply(this.min.apply(min)).add(size, true);
@@ -70,11 +83,7 @@ export class Viewbox extends BoundingBox {
     #applyAspectRatio (size) {
         const { aspectRatio, isPortrait } = this.#canvas;
         if (!equals(size.quot(), aspectRatio)) {
-            if (isPortrait) {
-                size.apply(size.y * aspectRatio, size.y);
-            } else {
-                size.apply(size.x, size.x / aspectRatio);
-            }
+            size.apply(size.x, size.x / aspectRatio);
         }
         return size;
     }
@@ -164,7 +173,10 @@ export class Viewbox extends BoundingBox {
     get aspectRatio () { return this.size.quot() }
     // preserves axis depending on canvas orientation
     set aspectRatio (ratio) {
-        this.applySize(new Vector(this.height * ratio, this.height));
+        const newSize = this.#canvas.isPortrait
+            ? new Vector(this.width, this.width / ratio)
+            : new Vector(this.height * ratio, this.height);
+        this.applyScale(newSize.div(this.size));
         return ratio;
     }
 }

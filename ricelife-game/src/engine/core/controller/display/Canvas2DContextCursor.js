@@ -24,11 +24,9 @@ class Canvas2DContextCursorProto {
     // when true, coordinates drawing will be interpreted relative to the canvas, instead of plane size
     // if plane size is not defined or set to (0, 0), fixed is always true.
     #isFixed = false;
-    #dpr = 1;
-    constructor(canvasContext, planeSize = undefined, pixelRatio = 1) {
+    constructor(canvasContext, planeSize = undefined) {
         this.#ctx = canvasContext;
         if (planeSize) this.#size.apply(planeSize); // should only be positive values anyways
-        if (Number.isInteger(pixelRatio) && pixelRatio > 0) this.#dpr = pixelRatio;
     }
 
     normalizeY (y) {
@@ -119,20 +117,19 @@ class Canvas2DContextCursorProto {
             : this.#ctx.fillText(text, x, this.normalizeY(y), ...args);
     }
     drawImage (image, ...args) { // only override / normalize Y when given vector parameters
-        const { dpr } = this;
         if (args.length === 1 && args[0]?.isVector) { // drawImage(image, dVector)
             const [dXY] = args;
-            this.#ctx.drawImage(image, dXY.x * dpr, this.normalizeY(dXY.y) * dpr);
+            this.#ctx.drawImage(image, dXY.x, this.normalizeY(dXY.y));
         } else if (args.length === 2 && args[0]?.isVector && args[1]?.isVector) { // drawImage(image, Vector<dx, dy>, Vector<dWidth, dHeight>)
             const [dXY, dWH] = args;
-            this.#ctx.drawImage(image, dXY.x * dpr, this.normalizeY(dXY.y) * dpr, dWH.x * dpr, dWH.y * dpr);
+            this.#ctx.drawImage(image, dXY.x, this.normalizeY(dXY.y), dWH.x, dWH.y);
         } else if (args.length === 4 && args[0]?.isVector && args[1]?.isVector && args[2]?.isVector && args[3]?.isVector) { // drawImage(image, Vector<sx, sy>, Vector<sWidth, sHeight>, Vector<dx, dy>, Vector<dWidth, dHeight>)
             const [sXY, sWH, dXY, dWH] = args;
-            this.#ctx.drawImage(image, sXY.x, sXY.y, sWH.x, sWH.y, dXY.x * dpr, this.normalizeY(dXY.y) * dpr, dWH.x * dpr, dWH.y * dpr);
+            this.#ctx.drawImage(image, sXY.x, sXY.y, sWH.x, sWH.y, dXY.x, this.normalizeY(dXY.y), dWH.x, dWH.y);
         } else {
             this.#ctx.drawImage(image, ...args);
             //const [sx, sy, sw, sh, dx, dy, dw, dh] = args;
-            //this.#ctx.drawImage(image, sx, sy, sw, sh, dx * dpr, this.normalizeY(dy) * dpr, dw * dpr, dh * dpr);
+            //this.#ctx.drawImage(image, sx, sy, sw, sh, dx, this.normalizeY(dy), dw, dh);
         }
     }
     close () {
@@ -168,13 +165,12 @@ class Canvas2DContextCursorProto {
     get fixed () { return this.#isFixed || !this.#hasPlaneSize }
     set fixed (bool) { return (this.#isFixed = bool) || !this.#hasPlaneSize }
     get #hasPlaneSize () { return this.#size.lengthSquared > 0 }
-    get dpr () { return this.#dpr }
 }
 
 // DefaultDict implementation
 export class Canvas2DContextCursor {
-    constructor (canvas, size = undefined, viewboxFn = undefined, pixelRatio = 1) {
-        const cursor = new Canvas2DContextCursorProto(canvas.getContext("2d"), size, viewboxFn, pixelRatio);
+    constructor (canvas, size = undefined, viewboxFn = undefined) {
+        const cursor = new Canvas2DContextCursorProto(canvas.getContext("2d"), size, viewboxFn);
         return new Proxy(cursor, Canvas2DContextCursorHandler);
     }
 }

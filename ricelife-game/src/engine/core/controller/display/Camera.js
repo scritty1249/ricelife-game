@@ -238,7 +238,7 @@ export class Camera extends Identifiable {
         this.lerpFactor = lerpFactor;
     }
     update () {
-        if (!this.enabled) return;
+        if (!this.enabled || !(this.isSizeSet || this.isTracking)) return;
         this.#computeBounds();
         const { SNAP_THRESHOLD, SCALING_BEHAVIOR } = this.constructor;
         const vSize = this.#Viewbox.size;
