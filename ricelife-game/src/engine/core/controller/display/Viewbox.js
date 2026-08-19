@@ -65,7 +65,7 @@ export class Viewbox extends BoundingBox {
         }
         return lock;
     }
-    #applyClampedSize (size, min) {
+    #setClampedSize (size, min) {
         if (this.planeSize.lengthSquared) {
             const maxSize = this.#applyAspectRatio(this.planeSize.clone()).floor(true);
             const { bounding, planeSize } = this;
@@ -111,7 +111,7 @@ export class Viewbox extends BoundingBox {
         const { planeSize } = this;
         const size = this.#applyAspectRatio(this.size);
         const min = point.sub(size.div(2));
-        this.#applyClampedSize(size, min);
+        this.#setClampedSize(size, min);
         return this; // for chaining
     }
     applySize (size) {
@@ -120,14 +120,14 @@ export class Viewbox extends BoundingBox {
     }
     applyScale (scale) {
         const { planeSize } = this;
-        const offset = this.center.clone(); // Capture the stable core anchor
+        const offset = this.center.clone();
         const min = this.min.sub(offset).mul(scale, true).add(offset, true);
         const max = this.max.sub(offset).mul(scale, true).add(offset, true);
         const size = this.#applyAspectRatio(max.sub(min).abs(true));
         if (this.size.eq(size)) return this;
 
         const correctedMin = this.size.sub(size, true).div(2, true).add(this.min, true);
-        this.#applyClampedSize(size, correctedMin);
+        this.#setClampedSize(size, correctedMin);
         return this; // for chaining
     }
     // sets cursor origin and scale to match viewbox
