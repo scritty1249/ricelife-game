@@ -81,9 +81,9 @@ export class Viewbox extends BoundingBox {
         this.max.apply(this.min.apply(min)).add(size, true);
     }
     #applyAspectRatio (size) {
-        const { aspectRatio, isPortrait } = this.#canvas;
+        const { aspectRatio } = this.#canvas;
         if (!equals(size.quot(), aspectRatio)) {
-            size.apply(size.x, size.x / aspectRatio);
+            size.y = size.x / aspectRatio;
         }
         return size;
     }
