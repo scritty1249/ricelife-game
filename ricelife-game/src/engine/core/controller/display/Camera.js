@@ -2,7 +2,7 @@ import { Identifiable } from "../../utils/tracking/Identifiable.js";
 import { BoundingBox } from "../../geometry/BoundingBox.js";
 import { Vector } from "../../math/Vector.js";
 import { Viewbox } from "./Viewbox.js";
-import { clamp } from "../../math/utils.js";
+import { clamp, equals } from "../../math/utils.js";
 
 // viewbox controller
 export class Camera extends Identifiable {
@@ -263,7 +263,7 @@ export class Camera extends Identifiable {
         if (!this.isCentering && this.#follows.size > 0)
             this.unfollowAll();
         if (this.isSizeSet && !this.isSizing && !this.#keepSize)
-            this.setTargetSize();
+            this.clearTargetSize();
     }
     track (...targets) {
         for (let i = 0; i < targets.length; i++) {
