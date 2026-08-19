@@ -308,7 +308,7 @@ export class PointerListener  {
     get isHolding () { return this.#holding.started && this.enabled }
     get isActive () { return this.pointerCount > 0 && this.#tracking.down.stamp !== undefined && this.#tracking.up.stamp === undefined && this.enabled }
     get isTouch () { return this.#tracking.touch && this.isActive }
-    get isDragging () { return this.isActive && this.#dragging.delta.lengthSquared > this.constructor.ONDRAG_TOLERANCE && this.enabled }
+    get isDragging () { return this.isActive && this.pointerCount === 1 && this.#dragging.delta.lengthSquared > this.constructor.ONDRAG_TOLERANCE && this.enabled }
     get origin () { return this.isActive ? this.#tracking.down.position.clone() : undefined }
     get dragOrigin () { return this.isDragging ? this.#dragging.origin.clone() : undefined }
     get holdOrigin () { return this.isHolding ? this.#holding.origin.clone() : undefined }
