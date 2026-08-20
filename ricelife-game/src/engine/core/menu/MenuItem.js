@@ -1,6 +1,6 @@
-import { BoundingBox } from "../../geometry/BoundingBox.js";
-import { Vector } from "../../math/Vector.js";
-import { Identifiable } from "../../utils/tracking/Identifiable.js";
+import { BoundingBox } from "../geometry/BoundingBox.js";
+import { Vector } from "../math/Vector.js";
+import { Identifiable } from "../utils/tracking/Identifiable.js";
 
 export class MenuItem extends Identifiable {
     // these need to be set as non-functions by default for isSupported checks to work
