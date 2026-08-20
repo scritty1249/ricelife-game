@@ -5,6 +5,7 @@ import { equals } from "../../math/utils.js";
 
 // virtual coordinate space viewport window
 export class Viewbox extends BoundingBox {
+    static ASPECT_RATIO_TOLERANCE = 0.0001;
     #canvas;
     #planeSize = new Vector();
     #states = new Array();
@@ -88,7 +89,7 @@ export class Viewbox extends BoundingBox {
     }
     #applyAspectRatio (size) {
         const { aspectRatio } = this.#canvas;
-        if (!equals(size.quot(), aspectRatio)) {
+        if (!equals(size.quot(), aspectRatio, Viewbox.ASPECT_RATIO_TOLERANCE)) {
             size.y = size.x / aspectRatio;
         }
         return size;

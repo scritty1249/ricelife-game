@@ -2,7 +2,7 @@ export const TWO_PI = 2 * Math.PI;
 
 export function clamp (num, min, max) { return Math.min(max, Math.max(min, num)) }
 
-export function equals (a, b) { return Math.abs(a - b) < Number.EPSILON }
+export function equals (a, b, thresh = Number.EPSILON) { return Math.abs(a - b) < thresh }
 
 export function round (num, precision = 1) {
     const multiplier = Math.pow(10, precision);
