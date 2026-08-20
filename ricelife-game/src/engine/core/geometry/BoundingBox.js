@@ -158,6 +158,18 @@ export class BoundingBox extends Hashable {
         cursor.lineTo(this.max.x, this.min.y);
         if (close) cursor.closePath();
     }
+    drawRounded (cursor, radius, close = true) {
+        const { min, max } = this;
+        const minY = cursor.normalizeY(min.y);
+        const maxY = cursor.normalizeY(max.y);
+        if (close) cursor.beginPath();
+        cursor.moveTo(min.x, cursor.normalizeY(min.y - radius));
+        cursor.arcTo(min.x, maxY, max.x, maxY, radius);
+        cursor.arcTo(max.x, maxY, max.x, minY, radius);
+        cursor.arcTo(max.x, minY, min.x, minY, radius);
+        cursor.arcTo(min.x, minY, min.x, maxY, radius);
+        if (close) cursor.closePath();
+    }
 
     get isBoundingBox () { return true }
     get isFlat () { return equals(this.#min.x, this.#max.x) || equals(this.#min.y, this.#max.y) }
