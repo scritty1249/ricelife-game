@@ -1,5 +1,4 @@
 import { Color } from "../../math/Color.js";
-import { equals } from "../../math/utils.js";
 import { MenuItem } from "../MenuItem.js";
 
 export class Button extends MenuItem {
