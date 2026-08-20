@@ -10,7 +10,8 @@ export class MenuItem extends Identifiable {
         onclick: undefined,
         // (position, isTouch)
         onhold: undefined,
-        // (position, origin, delta, isTouch)
+        // (position, origin, delta, isTouch) => ?null
+        // returning null relays that dragging was interrupted on this item
         ondrag: undefined,
         // (position, isTouch)
         onpress: undefined,
