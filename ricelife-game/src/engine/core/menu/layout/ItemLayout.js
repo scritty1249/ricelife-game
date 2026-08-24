@@ -20,16 +20,16 @@ export class ItemLayout extends MenuItem {
         const maxWidth = this.#getItemMaxWidth();
         const { x: originX, y: originY } = this.#position;
         const midX = padding.left + (maxWidth / 2);
-        let y = padding.top;
-        for (let i = this.#items.length - 1; i >= 0; i--) {
+        let y = originY - padding.top;
+        for (let i = 0; i < this.#items.length; i++) {
             const item = this.#items[i];
             const x = midX - (item.width / 2);
-            item.setPosition(x + originX, y + originY);
-            y += item.height;
-            if (i) y += gap;
+            item.setPosition(x + originX, y);
+            y -= item.height;
+            if (i + 1 < this.#items.length) y -= gap;
         }
         this.#size.x = padding.left + maxWidth + padding.right;
-        this.#size.y = y + padding.bottom;
+        this.#size.y = padding.bottom + (originY - y);
     }
     #updateRowPositions () {
         const { padding, gap } = this;
