@@ -20,7 +20,7 @@ export class Phase extends Loop {
         this.#Camera = new Camera(this.Global.Display);
         this.Interface.Viewbox = this.Camera.Viewbox;
         this.onload.then(() => {
-            this.Camera.Viewbox.setPlane(this.Plane);
+            this.Camera.Viewbox.setPlane(this.Plane, true);
             this.#attachMenuListeners();
         });
     }

@@ -157,13 +157,10 @@ export class Viewbox extends BoundingBox {
             .add(this.min, true);
     }
     // expects bounding box
-    setPlane (plane) {
+    setPlane (plane, applySize = false) {
         const { size } = plane;
         this.planeSize.apply(size);
-        if (!this.extent) {
-            this.min.apply(0, 0);
-            this.max.apply(size);
-        }
+        if (applySize) this.applySize(size);
     }
 
     get isViewbox () { return true }
