@@ -8,6 +8,7 @@ import {
     Label
 } from "../../core/Core.js";
 import { MapSelect } from "../menus/MapSelect.js";
+import { drawMenuItemRulers } from "../debug/draw.js";
 
 // export class Create extends Phase {
 //     static #selectedCallbackOptions = {
@@ -61,8 +62,7 @@ export class Create extends Phase {
     #init (maps) {
         const buttons = new ItemLayout();
         {
-            const label = new Label("Teams", 50);
-            label.computeSizing(this.Global.Display.cursor);
+            const label = new Label("Teams", 50, undefined, "serif", this.Global.Display.cursor);
             const slider = new Slider(new ShapeButton(new Circle(20), new Color(0, 0, 0, 1)), 10);
             slider.dotOffset.apply(slider.dot.width / 2, slider.dot.height / 2);
             slider.barWidth = 100;
@@ -88,12 +88,12 @@ export class Create extends Phase {
             buttons.push(slider);
         }
 
-        buttons.isColumn = false;
-        buttons.setPosition(500, 750);
+        buttons.isColumn = true;
+        buttons.setPosition(500, 250);
         this.Interface.insert()
             .push(buttons)
             .fixed = true;
-
+        this.store.buttons = buttons;
         this.Plane.max.apply(1000, 1000);
         this.Camera.Viewbox.bounding.left = this.Camera.Viewbox.bounding.right = false;
     }
@@ -103,5 +103,9 @@ export class Create extends Phase {
     onanimate () {
         const { cursor } = this.Global.Display;
         this.Interface.draw(cursor);
+        // [!] debug
+        for (const item of this.store.buttons)
+            drawMenuItemRulers(cursor, item, true);
+        drawMenuItemRulers(cursor, this.store.buttons, true);
     }
 }
