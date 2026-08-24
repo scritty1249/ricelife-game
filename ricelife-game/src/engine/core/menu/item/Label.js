@@ -41,8 +41,16 @@ export class Label extends Identifiable {
         if (this.text) {
             cursor.save();
             this.#applyFont(cursor);
-            const { width, actualBoundingBoxAscent, actualBoundingBoxDescent, actualBoundingBox, actualBoundingBoxLeft } = cursor.measureText(this.text);
+            const {
+                width: wdh,
+                actualBoundingBoxAscent,
+                actualBoundingBoxDescent,
+                actualBoundingBox,
+                actualBoundingBoxLeft,
+                actualBoundingBoxRight
+            } = cursor.measureText(this.text);
             const { a: horizontalScale, d: verticalScale } = cursor.getTransform();
+            const width = (Math.abs(actualBoundingBoxLeft) + Math.abs(actualBoundingBoxRight)) || wdh;
             const height = (actualBoundingBoxAscent + actualBoundingBoxDescent) || this.fontSize;
             this.#properties.offset.apply(
                 actualBoundingBoxLeft || 0,
@@ -63,6 +71,7 @@ export class Label extends Identifiable {
         cursor.fixed = fixed;
         this.#applyFont(cursor);
         cursor.fillStyle = this.fontColor.toString();
+        console.log(cursor.getTransform());
         cursor.fillText(this.text, this.position.add(this.#properties.offset));
         cursor.restore();
     }
