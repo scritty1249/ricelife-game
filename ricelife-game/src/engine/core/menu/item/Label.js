@@ -71,7 +71,6 @@ export class Label extends Identifiable {
         cursor.fixed = fixed;
         this.#applyFont(cursor);
         cursor.fillStyle = this.fontColor.toString();
-        console.log(cursor.getTransform());
         cursor.fillText(this.text, this.position.add(this.#properties.offset));
         cursor.restore();
     }
