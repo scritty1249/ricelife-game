@@ -31,6 +31,8 @@ export class Icon extends Identifiable {
         }
         return this.#bbox;
     }
+    getPosition () { return this.position.clone() }
+    setPosition (x, y = null) { this.position.apply(x, y) }
 
     get isIcon () { return true }
     get source () { return this.#img }
