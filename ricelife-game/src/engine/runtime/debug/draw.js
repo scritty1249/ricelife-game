@@ -39,6 +39,40 @@ export function outlineImage (cursor, loadedImage, position, thickness = 2, colo
     drawLine(cursor, bl, tl, thickness, color);
 }
 
+export function drawMenuItemRulers (cursor, item, fixed = false) {
+    const rulerThickness = 2;
+    const borderColor = "red";
+    const bbox = item.getBoundingBox();
+    const { center } = bbox;
+    cursor.save();
+    cursor.fixed = fixed;
+    // draw borders
+    cursor.save();
+    bbox.draw(cursor);
+    cursor.strokeStyle = borderColor;
+    cursor.lineWidth = rulerThickness;
+    cursor.stroke();
+    drawCircle(cursor, item.getPosition(), 4, borderColor);
+    cursor.restore();
+    // draw x midline
+    cursor.save();
+    const xStart = center.clone();
+    const xEnd = center.clone();
+    xStart.y = bbox.min.y;
+    xEnd.y = bbox.max.y;
+    drawLine(cursor, xStart, xEnd, rulerThickness, "blue");
+    cursor.restore();
+    // draw y midline
+    cursor.save();
+    const yStart = center.clone();
+    const yEnd = center.clone();
+    yStart.x = bbox.min.x;
+    yEnd.x = bbox.max.x;
+    drawLine(cursor, yStart, yEnd, rulerThickness, "green");
+    cursor.restore();
+    cursor.restore();
+}
+
 export async function generateBitmapDownloadURL (bitmap, filename = "test.png") {
     const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
     const ctx = canvas.getContext("2d");
