@@ -49,7 +49,7 @@ export class Slider extends MenuItem {
         const { width, height } = bbox;
         const centerX = position.x + ((this.#hasBackgroundBbox ? this.#background.bbox.width : width) / 2);
         const centerY = position.y - (this.#background.bbox.height / 2);
-        bbox.min.apply(centerX - (width / 2), centerY - (height / 2));
+        bbox.min.apply(centerX - (width / 2), centerY - height);
         bbox.max.apply(bbox.min.x + width, bbox.min.y + height);
     }
     #updateDotPosition () {
