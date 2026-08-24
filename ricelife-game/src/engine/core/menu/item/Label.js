@@ -43,13 +43,14 @@ export class Label extends Identifiable {
         if (this.text) {
             cursor.save();
             this.#applyFont(cursor);
-            const { width, actualBoundingBoxAscent, actualBoundingBoxDescent, actualBoundingBoxLeft } = cursor.measureText(this.text);
+            const { width, actualBoundingBoxAscent, actualBoundingBoxDescent, actualBoundingBox, actualBoundingBoxLeft } = cursor.measureText(this.text);
+            const { a: horizontalScale, d: verticalScale } = cursor.getTransform();
             const height = (actualBoundingBoxAscent + actualBoundingBoxDescent) || this.fontSize;
             this.#properties.offset.apply(
                 actualBoundingBoxLeft || 0,
                 -actualBoundingBoxAscent || 0
             );
-            this.#properties.size.apply(width, height).add(this.#properties.offset, true);
+            this.#properties.size.apply(width * horizontalScale, height * verticalScale);
             cursor.restore();
         } else {
             this.#properties.offset.apply(0, 0);
