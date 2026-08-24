@@ -15,14 +15,6 @@ export class ItemLayout extends MenuItem {
         this.padding.onupdate = () => this.updateLayout();
     }
 
-    #getCallback (key) {
-        const items = this.#items;
-        for (let i = 0; i < items.length; i++) {
-            const item = items[i]?.[key];
-            if (item) return item;
-        }
-        return null;
-    }
     #updateColumnPositions () {
         const { padding, gap } = this;
         const maxWidth = this.#getItemMaxWidth();
