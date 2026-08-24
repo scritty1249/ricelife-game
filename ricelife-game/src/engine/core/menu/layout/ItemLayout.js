@@ -18,15 +18,15 @@ export class ItemLayout extends MenuItem {
     #updateColumnPositions () {
         const { padding, gap } = this;
         const maxWidth = this.#getItemMaxWidth();
-        const position = this.#position;
+        const { x: originX, y: originY } = this.#position;
         const midX = padding.left + (maxWidth / 2);
         let y = padding.top;
-        for (let i = 0; i < this.#items.length; i++) {
+        for (let i = this.#items.length - 1; i >= 0; i--) {
             const item = this.#items[i];
             const x = midX - (item.width / 2);
-            item.setPosition(x + position.x, y + position.y);
+            item.setPosition(x + originX, y + originY);
             y += item.height;
-            if (i + 1 < this.#items.length) y += gap;
+            if (i) y += gap;
         }
         this.#size.x = padding.left + maxWidth + padding.right;
         this.#size.y = y + padding.bottom;
@@ -68,7 +68,13 @@ export class ItemLayout extends MenuItem {
     draw (cursor, fixed) {
         const items = this.#items;
         for (let i = 0; i < items.length; i++)
-            items[i]?.draw?.(cursor, fixed);
+            if (!items[i]?.hide) items[i]?.draw?.(cursor, fixed);
+        cursor.save();
+        cursor.fixed = fixed;
+        cursor.strokeStyle = "red";
+        this.getBoundingBox().draw(cursor);
+        cursor.stroke();
+        cursor.restore();
     }
     isOver (point) {
         const items = this.#items;
