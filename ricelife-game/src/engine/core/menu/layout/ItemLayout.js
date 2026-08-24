@@ -6,13 +6,13 @@ import { LayoutSpacing } from "./LayoutSpacing.js";
 export class ItemLayout extends MenuItem {
     #items = new Array();
     #padding = new LayoutSpacing();
-    #margin = new LayoutSpacing();
     #position = new Vector();
-    isColumn = false;
+    #size = new Vector(); // [!] do not return as reference
+    #gap = 0;
+    #isColumn = false;
     constructor () {
         super();
         this.padding.onupdate = () => this.updateLayout();
-        this.margin.onupdate = () => this.updateLayout();
     }
 
     #getCallback (key) {
@@ -24,10 +24,52 @@ export class ItemLayout extends MenuItem {
         return null;
     }
     #updateColumnPositions () {
-
+        const { padding, gap } = this;
+        const maxWidth = this.#getItemMaxWidth();
+        const position = this.#position;
+        const midX = padding.left + (maxWidth / 2);
+        let y = padding.top;
+        for (let i = 0; i < this.#items.length; i++) {
+            const item = this.#items[i];
+            const x = midX - (item.width / 2);
+            item.setPosition(x + position.x, y + position.y);
+            y += item.height;
+            if (i + 1 < this.#items.length) y += gap;
+        }
+        this.#size.x = padding.left + maxWidth + padding.right;
+        this.#size.y = y + padding.bottom;
     }
     #updateRowPositions () {
-
+        const { padding, gap } = this;
+        const maxHeight = this.#getItemMaxHeight();
+        const position = this.#position;
+        const midY = padding.top + (maxHeight / 2);
+        let x = padding.left;
+        for (let i = 0; i < this.#items.length; i++) {
+            const item = this.#items[i];
+            const y = midY - (item.height / 2);
+            item.setPosition(x + position.x, y + position.y);
+            x += item.width;
+            if (i + 1 < this.#items.length) x += gap;
+        }
+        this.#size.x = x + padding.right;
+        this.#size.y = padding.top + maxHeight + padding.bottom;
+    }
+    #getItemMaxWidth () {
+        let maxWidth = 0;
+        for (let i = 0; i < this.#items.length; i++) {
+            const { width } = this.#items[i];
+            if (width > maxWidth) maxWidth = width;
+        }
+        return maxWidth;
+    }
+    #getItemMaxHeight () {
+        let maxHeight = 0;
+        for (let i = 0; i < this.#items.length; i++) {
+            const { height } = this.#items[i];
+            if (height > maxHeight) maxHeight = height;
+        }
+        return maxHeight;
     }
 
     // menuitem methods
@@ -49,7 +91,6 @@ export class ItemLayout extends MenuItem {
         else
             this.#updateRowPositions();
     }
-
     setPosition (x, y = null) {
         this.#position.apply(x, y);
         this.updateLayout();
@@ -95,17 +136,25 @@ export class ItemLayout extends MenuItem {
     filter (...args) { return this.#items.filter(...args) }
     map (...args) { return this.#items.map(...args) }
     *[Symbol.iterator] () {
-        yield this.#items;
+        yield *this.#items;
     }
 
-    get isItemContainer () { return true }
+    get isItemLayout () { return true }
     get length () { return this.#items.length }
     get padding () { return this.#padding }
-    get margin () { return this.#margin }
-    get onclick () { return this.hide ? null : this.#getCallback("onclick") }
-    get onhold () { return this.hide ? null : this.#getCallback("onhold") }
-    get ondrag () { return this.hide ? null : this.#getCallback("ondrag") }
-    get onpress () { return this.hide ? null : this.#getCallback("onpress") }
-    get onrelease () { return this.hide ? null : this.#getCallback("onrelease") }
-    get onscroll () { return this.hide ? null : this.#getCallback("onscroll") }
+    get width () { return this.#size.x }
+    get height () { return this.#size.y }
+    get isColumn () { return this.#isColumn }
+    set isColumn (bool) {
+        const prev = this.isColumn;
+        this.#isColumn = bool;
+        if (bool != prev) this.updateLayout();
+        return bool;
+    }
+    get gap () { return this.#gap }
+    set gap (num) {
+        const result = (this.#gap = num);
+        this.updateLayout();
+        return result;
+    }
 }
