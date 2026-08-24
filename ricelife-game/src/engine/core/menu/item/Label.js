@@ -3,8 +3,6 @@ import { Vector } from "../../math/Vector.js";
 import { Identifiable } from "../../utils/tracking/Identifiable.js";
 import { Color } from "../../math/Color.js";
 
-import { drawCircle } from "../../../runtime/debug/draw.js";
-
 export class Label extends Identifiable {
     #text;
     #font = {
@@ -67,16 +65,6 @@ export class Label extends Identifiable {
         cursor.fillStyle = this.fontColor.toString();
         cursor.fillText(this.text, this.position.add(this.#properties.offset));
         cursor.restore();
-
-
-        cursor.save();
-        cursor.fixed = fixed;
-        this.getBoundingBox().draw(cursor);
-        cursor.strokeStyle = "red";
-        cursor.stroke();
-        drawCircle(cursor, this.position, 5);
-        cursor.restore();
-
     }
     getBoundingBox () { return this.#bbox }
     getPosition () { return this.position.clone() }
