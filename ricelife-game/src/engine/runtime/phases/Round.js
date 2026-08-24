@@ -3,21 +3,12 @@ import {
     AnimationList,
     Animation,
     ShapeAnimation,
-    Vector,
     Color,
-    Ray,
     equals,
-    BoundingBox,
     Camera,
     drawBlastAnimation,
     IconButton,
-    Lobby,
     Phase,
-    Actor,
-    Model,
-    Metadata,
-    Profile,
-    Puppet,
     ScreenButton,
     KeyMap,
     typeString,
@@ -217,14 +208,14 @@ export class Round extends Phase {
         const replayImg = this.AssetPool.get("replayBtn");
         const hideActiveImg = this.AssetPool.get("hideActiveBtn");
         const hideInactiveImg = this.AssetPool.get("hideInactiveBtn");
-        const moveLeftBtn = new IconButton(moveImg.clone(false));
-        const moveRightBtn = new IconButton(moveImg.clone(false));
+        const moveLeftBtn = new IconButton(new Icon(moveImg.clone(false)));
+        const moveRightBtn = new IconButton(new Icon(moveImg.clone(false)));
         moveRightBtn.icon.source.scale.apply(-1, 1);
         moveRightBtn.icon.source.origin.apply(moveImg.rawSize.x, 0);
-        const launchButton = new IconButton(fireImg.clone(false));
-        const selectButton = new IconButton(selectImg.clone(false));
-        const replayButton = new IconButton(replayImg.clone(false));
-        const hideButton = new ToggleIconButton(hideActiveImg.clone(false), hideInactiveImg.clone(false));
+        const launchButton = new IconButton(new Icon(fireImg.clone(false)));
+        const selectButton = new IconButton(new Icon(selectImg.clone(false)));
+        const replayButton = new IconButton(new Icon(replayImg.clone(false)));
+        const hideButton = new ToggleIconButton(new Icon(hideActiveImg.clone(false)), new Icon(hideInactiveImg.clone(false)));
         hideButton.userData.isHideButton = true;
 
         const { Mover, Aimer, Puppet } = this.ClientPlayer;
