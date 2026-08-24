@@ -143,6 +143,23 @@ export class BoundingBox extends Hashable {
         }
         return this; // for chaining
     }
+    offset (x, y = null) {
+        if (x?.isVector) {
+            this.min.add(x, true);
+            this.max.add(x, true);
+        } else if (Number.isFinite(y)) {
+            this.min.x += x;
+            this.min.y += y;
+            this.max.x += x;
+            this.max.y += y;
+        } else {
+            this.min.x += x;
+            this.min.y += x;
+            this.max.x += x;
+            this.max.y += x;
+        }
+        return this; // for chaining
+    }
     // deep clones by default, copies on init
     clone () { return new BoundingBox(this.min, this.max) }
     toString() {
