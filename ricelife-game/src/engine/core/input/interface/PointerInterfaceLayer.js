@@ -14,6 +14,7 @@ export class PointerInterfaceLayer extends Identifiable { // pointer events are 
         this.#Viewbox = viewbox;
     }
 
+    #isIterable (item) { return typeof item?.[Symbol.iterator] === "function" }
     #supportsDraw (item) { return typeof item?.draw === "function" }
     #supportsCursorEvents (item) { return typeof item?.isOver === "function" }
     #supportsClickEvents (item) { return typeof item?.onclick === "function" }
@@ -22,6 +23,49 @@ export class PointerInterfaceLayer extends Identifiable { // pointer events are 
     #supportsPressEvents (item) { return typeof item?.onpress === "function" }
     #supportsReleaseEvents (item) { return typeof item?.onrelease === "function" }
     #supportsScrollEvents (item) { return typeof item?.onscroll === "function" }
+    #clicked (item, point, pressed) {
+        return (this.#supportsCursorEvents(item)
+            && this.#supportsClickEvents(item)
+            && item.isOver(point)
+            && item.isOver(pressed))
+            ? item : undefined;
+    }
+    #dragged (item, point, origin) {
+        return (this.#supportsCursorEvents(item)
+            && this.#supportsDragEvents(item)
+            && item.isOver(point)
+            && item.isOver(origin))
+            ? item : undefined;
+    }
+    #held (item, point) {
+        return (this.#supportsCursorEvents(item)
+            && this.#supportsHoldEvents(item)
+            && item.isOver(point))
+            ? item : undefined;
+    }
+    #pressed (item, point) {
+        return (this.#supportsCursorEvents(item)
+            && this.#supportsPressEvents(item)
+            && item.isOver(point))
+            ? item : undefined;
+    }
+    #released (item, point) {
+        return (this.#supportsCursorEvents(item)
+            && this.#supportsReleaseEvents(item)
+            && item.isOver(point))
+            ? item : undefined;
+    }
+    #scrolled (item, point) {
+        return (this.#supportsCursorEvents(item)
+            && this.#supportsScrollEvents(item)
+            && item.isOver(point))
+            ? item : undefined;
+    }
+    #over (item, point) {
+        return (this.#supportsCursorEvents(item)
+            && item.isOver(point))
+            ? item : undefined;
+    }
 
     // set to relative coordinate if Viewbox cursor is set, otherwise return the same point
     parseCoordinate (point) {
@@ -53,12 +97,15 @@ export class PointerInterfaceLayer extends Identifiable { // pointer events are 
         const pt = this.parseCoordinate(point);
         const pressed = this.parseCoordinate(point.sub(delta));
         for (const item of this.items) {
-            if (
-                this.#supportsCursorEvents(item)
-                && this.#supportsClickEvents(item)
-                && item.isOver(pt)
-                && item.isOver(pressed)
-            ) return item;
+            if (this.#isIterable(item)) {
+                for (const itm of item) {
+                    const result = this.#clicked(itm, pt, pressed);
+                    if (result !== undefined) return result;
+                }
+            } else {
+                const result = this.#clicked(item, pt, pressed);
+                if (result !== undefined) return result;
+            }
         }
         return undefined;
     }
@@ -66,66 +113,90 @@ export class PointerInterfaceLayer extends Identifiable { // pointer events are 
         const pt = this.parseCoordinate(point);
         const og = this.parseCoordinate(origin);
         for (const item of this.items) {
-            if (
-                this.#supportsCursorEvents(item)
-                && this.#supportsDragEvents(item)
-                && item.isOver(pt)
-                && item.isOver(og)
-            ) return item;
+            if (this.#isIterable(item)) {
+                for (const itm of item) {
+                    const result = this.#dragged(itm, pt, og);
+                    if (result !== undefined) return result;
+                }
+            } else {
+                const result = this.#dragged(item, pt, og);
+                if (result !== undefined) return result;
+            }
         }
         return undefined;
     }
     isHeld (point) {
         const pt = this.parseCoordinate(point);
         for (const item of this.items) {
-            if (
-                this.#supportsCursorEvents(item)
-                && this.#supportsHoldEvents(item)
-                && item.isOver(pt)
-            ) return item;
+            if (this.#isIterable(item)) {
+                for (const itm of item) {
+                    const result = this.#held(itm, pt);
+                    if (result !== undefined) return result;
+                }
+            } else {
+                const result = this.#held(item, pt);
+                if (result !== undefined) return result;
+            }
         }
         return undefined;
     }
     isPressed (point) {
         const pt = this.parseCoordinate(point);
         for (const item of this.items) {
-            if (
-                this.#supportsCursorEvents(item)
-                && this.#supportsPressEvents(item)
-                && item.isOver(pt)
-            ) return item;
+            if (this.#isIterable(item)) {
+                for (const itm of item) {
+                    const result = this.#pressed(itm, pt);
+                    if (result !== undefined) return result;
+                }
+            } else {
+                const result = this.#pressed(item, pt);
+                if (result !== undefined) return result;
+            }
         }
         return undefined;
     }
     isReleased (point) {
         const pt = this.parseCoordinate(point);
         for (const item of this.items) {
-            if (
-                this.#supportsCursorEvents(item)
-                && this.#supportsReleaseEvents(item)
-                && item.isOver(pt)
-            ) return item;
+            if (this.#isIterable(item)) {
+                for (const itm of item) {
+                    const result = this.#released(itm, pt);
+                    if (result !== undefined) return result;
+                }
+            } else {
+                const result = this.#released(item, pt);
+                if (result !== undefined) return result;
+            }
         }
         return undefined;
     }
     isScrolled (point) {
         const pt = this.parseCoordinate(point);
         for (const item of this.items) {
-            if (
-                this.#supportsCursorEvents(item)
-                && this.#supportsScrollEvents(item)
-                && item.isOver(pt)
-            ) return item;
+            if (this.#isIterable(item)) {
+                for (const itm of item) {
+                    const result = this.#scrolled(itm, pt);
+                    if (result !== undefined) return result;
+                }
+            } else {
+                const result = this.#scrolled(item, pt);
+                if (result !== undefined) return result;
+            }
         }
         return undefined;
     }
     isOver (point) {
         const pt = this.parseCoordinate(point);
         for (const item of this.items) {
-            if (
-                this.#supportsCursorEvents(item)
-                && item.isOver(pt)
-            ) return item;
+            if (this.#isIterable(item)) {
+                for (const itm of item) {
+                    const result = this.#over(itm, pt);
+                    if (result !== undefined) return result;
+                }
+            } else {
+                const result = this.#over(item, pt);
+                if (result !== undefined) return result;
+            }
         }
         return undefined;
     }
