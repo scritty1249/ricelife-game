@@ -38,25 +38,38 @@ export class Slider extends MenuItem {
         this.dot.ondrag = (...args) => this.#onhold(...args);
     }
 
-    #setBackgroundPosition (position) {
+    #setBackgroundPosition (position, margin = 0) {
         const { bbox } = this.#background;
         const { width, height } = bbox;
         bbox.min.apply(position.x, position.y - height);
         bbox.max.apply(position.x + width, position.y);
+        if (bbox.extent) {
+            bbox.min.x += margin;
+            bbox.min.y -= margin;
+            bbox.max.x += margin;
+            bbox.max.y -= margin;
+        }
     }
-    #setBarPosition (position) {
+    #setBarPosition (position, margin = 0) {
         const { bbox } = this.#bar;
         const { width, height } = bbox;
         const centerX = position.x + ((this.#hasBackgroundBbox ? this.#background.bbox.width : width) / 2);
         const centerY = position.y - (this.#background.bbox.height / 2);
         bbox.min.apply(centerX - (width / 2), centerY - height);
         bbox.max.apply(bbox.min.x + width, bbox.min.y + height);
+        bbox.min.x += margin;
+        bbox.min.y -= margin;
+        bbox.max.x += margin;
+        bbox.max.y -= margin;
     }
     #updateDotPosition () {
         const { bbox } = this.#bar;
         const offset = this.#dotOffset;
-        const x = ((this.progress * this.#bar.bbox.width) + this.#bar.bbox.min.x) - (this.dot.width / 2);
-        const y = (this.#bar.bbox.max.y - (bbox.height / 2)) + (this.dot.height / 2);
+        const fullPadding = bbox.height;
+        const padding = fullPadding / 2;
+        const lengthX = this.#bar.bbox.width - fullPadding;
+        const x = ((this.progress * lengthX) + (this.#bar.bbox.min.x + padding)) - (this.dot.width / 2);
+        const y = (this.#bar.bbox.max.y - padding) + (this.dot.height / 2);
         this.dot.setPosition(x + offset.x, y - offset.y);
     }
     #setValueToPoint (point) {
@@ -109,8 +122,9 @@ export class Slider extends MenuItem {
     getPosition () { return this.#position.clone() }
     setPosition (x, y = null) {
         this.#position.apply(x, y);
-        this.#setBackgroundPosition(this.#position);
-        this.#setBarPosition(this.#position);
+        const margin = this.#dotMargin;
+        this.#setBackgroundPosition(this.#position, margin);
+        this.#setBarPosition(this.#position, margin);
         this.#updateDotPosition();
     }
     isOver (point) {
@@ -118,13 +132,21 @@ export class Slider extends MenuItem {
             || this.#bar.bbox.isIntersecting(point)
             || (this.#hasBackgroundBbox && this.#background.bbox.isIntersecting(point));
     }
-    getBoundingBox (includeDot = false) {
-        const bboxes = [this.#background.bbox, this.#bar.bbox];
-        if (includeDot) bboxes.push(this.dot.getBoundingBox());
-        return BoundingBox.merge(bboxes);
+    getBoundingBox (includeDot = true) {
+        const bbox = BoundingBox.merge([this.#background.bbox, this.#bar.bbox]);
+        if (includeDot) {
+            const margin = this.#dotMargin;
+            bbox.min.y -= margin;
+            bbox.max.x += margin;
+        }
+        return bbox;
     }
 
     get isSlider () { return true }
+    get #dotMargin () {
+        const bbox = this.dot.getBoundingBox();
+        return Math.max((bbox.width / 2) - (this.#bar.bbox.height / 2), 0);
+    }
     get value () { return clamp(Math.round(this.#state.value / this.step) * this.step, this.min, this.max) }
     set value (num) {
         this.#state.value = num;
@@ -153,12 +175,12 @@ export class Slider extends MenuItem {
     get width () {
         const dotWidth = this.dot.width - this.dotOffset.x;
         const barWidth = Math.max(this.backgroundWidth, this.barWidth);
-        return barWidth + (2 * dotWidth);
+        return barWidth + (2 * dotWidth) + (2 * this.#dotMargin);
     }
     get height () {
         const dotHeight = this.dot.height - this.dotOffset.y;
         const barHeight = Math.max(this.backgroundHeight, this.barHeight);
-        return barHeight + (2 * dotHeight);
+        return barHeight + (2 * dotHeight) + (2 * this.#dotMargin);
     }
     get dot () { return this.#dot }
     get dotOffset () { return this.#dotOffset }
