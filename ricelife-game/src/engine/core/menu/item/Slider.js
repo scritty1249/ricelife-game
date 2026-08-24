@@ -145,7 +145,7 @@ export class Slider extends MenuItem {
     get isSlider () { return true }
     get #dotMargin () {
         const bbox = this.dot.getBoundingBox();
-        return Math.max((bbox.width / 2) - (this.#bar.bbox.height / 2), 0);
+        return Math.max((bbox.width / 2) - (this.barHeight / 2), 0);
     }
     get value () { return clamp(Math.round(this.#state.value / this.step) * this.step, this.min, this.max) }
     set value (num) {
@@ -173,14 +173,10 @@ export class Slider extends MenuItem {
     set step (num) { return (this.#state.step = num) }
     get progress () { return (this.value - this.min) / this.max }
     get width () {
-        const dotWidth = this.dot.width - this.dotOffset.x;
-        const barWidth = Math.max(this.backgroundWidth, this.barWidth);
-        return barWidth + (2 * dotWidth) + (2 * this.#dotMargin);
+        return Math.max(this.backgroundWidth, this.barWidth + (2 * this.#dotMargin));
     }
     get height () {
-        const dotHeight = this.dot.height - this.dotOffset.y;
-        const barHeight = Math.max(this.backgroundHeight, this.barHeight);
-        return barHeight + (2 * dotHeight) + (2 * this.#dotMargin);
+        return Math.max(this.backgroundHeight, this.barHeight + (2 * this.#dotMargin));
     }
     get dot () { return this.#dot }
     get dotOffset () { return this.#dotOffset }
