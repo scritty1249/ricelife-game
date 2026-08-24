@@ -89,7 +89,9 @@ export class Create extends Phase {
         }
 
         buttons.isColumn = true;
-        buttons.setPosition(500, 250);
+        buttons.gap = 15;
+        const { center } = this.Global.Display;
+        buttons.setPosition(center.x - (buttons.width / 2), center.y + (buttons.height / 2));
         this.Interface.insert()
             .push(buttons)
             .fixed = true;
