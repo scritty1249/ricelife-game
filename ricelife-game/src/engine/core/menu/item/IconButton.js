@@ -1,11 +1,12 @@
 import { Button } from "./Button.js";
-import { Icon } from "./Icon.js";
+import { typeString } from "../../utils/logging.js";
 
 export class IconButton extends Button {
     #icon;
-    constructor (image) {
+    constructor (icon) {
         super();
-        this.#icon = new Icon(image);
+        if (!icon?.isIcon) throw new Error(`[${typeString(this)}]: Expected Icon, got ${typeString(icon)}`);
+        this.#icon = icon;
     }
 
     drawButton (cursor, fixed = false) {
@@ -17,7 +18,7 @@ export class IconButton extends Button {
     drawText (cursor, offset = undefined, fixed = false) {
         cursor.save();
         cursor.fixed = fixed;
-        const centerOffset = this.icon.source.size.div(2);
+        const centerOffset = this.icon.size.div(2);
         if (offset?.isVector) super.drawText(cursor, offset.add(centerOffset), fixed);
         else super.drawText(cursor, centerOffset, fixed);
         cursor.restore();
@@ -31,4 +32,5 @@ export class IconButton extends Button {
     get icon () { return this.#icon }
     get width () { return this.icon.width }
     get height () { return this.icon.height }
+    get size () { return this.icon.size }
 }

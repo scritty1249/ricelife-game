@@ -4,7 +4,6 @@ import { Vector } from "../../math/Vector.js";
 import { clamp } from "../../math/utils.js";
 import { MenuItem } from "../MenuItem.js";
 import { typeString } from "../../utils/logging.js";
-import { IconButton } from "./IconButton.js";
 
 export class Slider extends MenuItem {
     #position = new Vector();
@@ -21,16 +20,22 @@ export class Slider extends MenuItem {
     };
     #bar = {
         bbox: new BoundingBox(),
-        color: new Color(),
+        color: new Color(0, 0, 0, 1),
         cornerRadius: 0
     };
     #dot;
+    #dotOffset = new Vector();
     keepDragFocus = true;
-    constructor (dotImage, max, min = 0, step = 1) {
+    constructor (dotButton, max, min = 0, step = 1) {
         super();
-        this.#dot = new IconButton(dotImage);
+        this.#dot = dotButton;
+        this.max = max;
+        this.min = min;
+        this.step = step;
         this.onclick = (...args) => this.#onclick(...args);
         this.ondrag = (...args) => this.#ondrag(...args);
+        this.onhold = (...args) => this.#onhold(...args);
+        this.dot.ondrag = (...args) => this.#onhold(...args);
     }
 
     #setBackgroundPosition (position) {
@@ -49,20 +54,27 @@ export class Slider extends MenuItem {
     }
     #updateDotPosition () {
         const { bbox } = this.#bar;
+        const offset = this.#dotOffset;
         const x = ((this.progress * this.#bar.bbox.width) + this.#bar.bbox.min.x) - (this.dot.width / 2);
         const y = (this.#bar.bbox.max.y - (bbox.height / 2)) + (this.dot.height / 2);
-        this.dot.setPosition(x, y);
+        this.dot.setPosition(x + offset.x, y - offset.y);
     }
     #setValueToPoint (point) {
-        this.value = point.x - this.#bar.bbox.min.x;
+        const range = this.#bar.bbox.max.x - this.#bar.bbox.min.x;
+        const x = point.x - this.#bar.bbox.min.x;
+        const amount = (this.max - this.min) * (x / range);
+        this.value = this.min + amount;
+        this.#updateDotPosition();
+    }
+    #onhold (position, isTouch) {
+        this.#setValueToPoint(position);
     }
     #onclick (position, delta, isTouch) {
-        if (!this.#bar.bbox.isIntersecting(position)) return;
         this.#setValueToPoint(position);
     }
     #ondrag (position, origin, delta, isTouch) {
-        if (!(this.#bar.bbox.isIntersecting(origin) || this.dot.isOver(origin))) return;
         this.#setValueToPoint(position);
+        return true;
     }
 
     draw (cursor, fixed = false) {
@@ -114,7 +126,11 @@ export class Slider extends MenuItem {
 
     get isSlider () { return true }
     get value () { return clamp(Math.round(this.#state.value / this.step) * this.step, this.min, this.max) }
-    set value (num) { this.#state.value = num; return this.value }
+    set value (num) {
+        this.#state.value = num;
+        this.#updateDotPosition();
+        return this.value;
+    }
     get min () { return this.#state.min }
     set min (num) {
         if (num >= this.max)
@@ -134,11 +150,42 @@ export class Slider extends MenuItem {
     get step () { return this.#state.step }
     set step (num) { return (this.#state.step = num) }
     get progress () { return (this.value - this.min) / this.max }
+    get width () {
+        const dotWidth = this.dot.width - this.dotOffset.x;
+        const barWidth = Math.max(this.backgroundWidth, this.barWidth);
+        return barWidth + (2 * dotWidth);
+    }
+    get height () {
+        const dotHeight = this.dot.height - this.dotOffset.y;
+        const barHeight = Math.max(this.backgroundHeight, this.barHeight);
+        return barHeight + (2 * dotHeight);
+    }
     get dot () { return this.#dot }
+    get dotOffset () { return this.#dotOffset }
     get backgroundColor () { return this.#background.color }
+    get backgroundWidth () { return this.#background.bbox.width }
+    set backgroundWidth (num) {
+        this.#background.bbox.max.x = this.#background.bbox.min.x + num;
+        return num;
+    }
+    get backgroundHeight () { return this.#background.bbox.height }
+    set backgroundHeight (num) {
+        this.#background.bbox.max.y = this.#background.bbox.min.y + num;
+        return num;
+    }
     get backgroundCornerRadius () { return this.#background.cornerRadius }
     set backgroundCornerRadius (radians) { return (this.#background.cornerRadius = radians) }
     get barColor () { return this.#bar.color }
+    get barWidth () { return this.#bar.bbox.width }
+    set barWidth (num) {
+        this.#bar.bbox.max.x = this.#bar.bbox.min.x + num;
+        return num;
+    }
+    get barHeight () { return this.#bar.bbox.height }
+    set barHeight (num) {
+        this.#bar.bbox.max.y = this.#bar.bbox.min.y + num;
+        return num;
+    }
     get barCornerRadius () { return this.#bar.cornerRadius }
     set barCornerRadius (radians) { return (this.#bar.cornerRadius = radians) }
     get #hasBackgroundBbox () { return this.#background.bbox.extentSquared > 0 }

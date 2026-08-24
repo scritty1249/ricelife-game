@@ -7,10 +7,8 @@ export class ToggleIconButton extends IconButton {
         inactive: undefined
     };
     #state = true;
-    constructor (activeImage, inactiveImage) {
-        const activeIcon = new Icon(activeImage);
-        const inactiveIcon = new Icon(inactiveImage);
-        super(activeImage);
+    constructor (activeIcon, inactiveIcon) {
+        super(activeIcon);
         this.#icons.active = activeIcon;
         this.#icons.inactive = inactiveIcon;
     }
