@@ -41,7 +41,9 @@ export function outlineImage (cursor, loadedImage, position, thickness = 2, colo
 
 export function drawMenuItemRulers (cursor, item, fixed = false) {
     const rulerThickness = 2;
-    const borderColor = "red";
+    const borderColor = "rgba(255, 0, 0, 0.5)";
+    const horizontalColor = "rgba(0, 0, 255, 0.5)";
+    const verticalColor = "rgba(0, 255, 0, 0.5)";
     const bbox = item.getBoundingBox();
     const { center } = bbox;
     cursor.save();
@@ -60,7 +62,7 @@ export function drawMenuItemRulers (cursor, item, fixed = false) {
     const xEnd = center.clone();
     xStart.y = bbox.min.y;
     xEnd.y = bbox.max.y;
-    drawLine(cursor, xStart, xEnd, rulerThickness, "blue");
+    drawLine(cursor, xStart, xEnd, rulerThickness, horizontalColor);
     cursor.restore();
     // draw y midline
     cursor.save();
@@ -68,7 +70,7 @@ export function drawMenuItemRulers (cursor, item, fixed = false) {
     const yEnd = center.clone();
     yStart.x = bbox.min.x;
     yEnd.x = bbox.max.x;
-    drawLine(cursor, yStart, yEnd, rulerThickness, "green");
+    drawLine(cursor, yStart, yEnd, rulerThickness, verticalColor);
     cursor.restore();
     cursor.restore();
 }
