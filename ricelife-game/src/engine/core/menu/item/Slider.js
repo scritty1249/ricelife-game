@@ -6,6 +6,11 @@ import { MenuItem } from "../MenuItem.js";
 import { typeString } from "../../utils/logging.js";
 
 export class Slider extends MenuItem {
+    #callback = {
+        onclick: undefined,
+        ondrag: undefined,
+        onhold: undefined
+    };
     #position = new Vector();
     #state = {
         value: 0,
@@ -32,10 +37,6 @@ export class Slider extends MenuItem {
         this.max = max;
         this.min = min;
         this.step = step;
-        this.onclick = (...args) => this.#onclick(...args);
-        this.ondrag = (...args) => this.#ondrag(...args);
-        this.onhold = (...args) => this.#onhold(...args);
-        this.dot.ondrag = (...args) => this.#onhold(...args);
     }
 
     #setBackgroundPosition (position, margin = 0) {
@@ -81,13 +82,16 @@ export class Slider extends MenuItem {
     }
     #onhold (position, isTouch) {
         this.#setValueToPoint(position);
+        this.#callback?.onhold?.(position, isTouch);
     }
     #onclick (position, delta, isTouch) {
         this.#setValueToPoint(position);
+        this.#callback?.onclick?.(position, delta, isTouch);
     }
     #ondrag (position, origin, delta, isTouch) {
         this.#setValueToPoint(position);
-        return true;
+        const result = this.#callback?.ondrag?.(position, origin, delta, isTouch);
+        return result === null ? null : true;
     }
 
     draw (cursor, fixed = false) {
@@ -147,6 +151,8 @@ export class Slider extends MenuItem {
         const bbox = this.dot.getBoundingBox();
         return Math.max((bbox.width / 2) - (this.barHeight / 2), 0);
     }
+    get #hasBackgroundBbox () { return this.#background.bbox.extentSquared > 0 }
+    get #hasBarBbox () { return this.#bar.bbox.extentSquared > 0 }
     get value () { return clamp(Math.round(this.#state.value / this.step) * this.step, this.min, this.max) }
     set value (num) {
         this.#state.value = num;
@@ -171,7 +177,7 @@ export class Slider extends MenuItem {
     }
     get step () { return this.#state.step }
     set step (num) { return (this.#state.step = num) }
-    get progress () { return (this.value - this.min) / this.max }
+    get progress () { return (this.value - this.min) / (this.max - this.min) }
     get width () {
         return Math.max(this.backgroundWidth, this.barWidth + (2 * this.#dotMargin));
     }
@@ -206,6 +212,10 @@ export class Slider extends MenuItem {
     }
     get barCornerRadius () { return this.#bar.cornerRadius }
     set barCornerRadius (radians) { return (this.#bar.cornerRadius = radians) }
-    get #hasBackgroundBbox () { return this.#background.bbox.extentSquared > 0 }
-    get #hasBarBbox () { return this.#bar.bbox.extentSquared > 0 }
+    get onclick () { return this.#onclick }
+    set onclick (callbackFn) { return (this.#callback.onclick = callbackFn) }
+    get onhold () { return this.#onhold }
+    set onhold (callbackFn) { return (this.#callback.onhold = callbackFn) }
+    get ondrag () { return this.#ondrag }
+    set ondrag (callbackFn) { return (this.#callback.ondrag = callbackFn) }
 }
