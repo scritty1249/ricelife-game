@@ -40,6 +40,7 @@ export class MenuItem extends Identifiable {
     get children () { return false } // subclasses should return an iterator of contained items
     get width () { return 0 }
     get height () { return 0 }
+    get size () { return this.getBoundingBox().size }
     get userData () { return this.#userData }
     get onclick () { return this.hide ? null : this.#callback.onclick }
     set onclick (callbackFn) { return (this.#callback.onclick = callbackFn) }
