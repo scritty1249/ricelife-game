@@ -118,7 +118,7 @@ export class Phase extends Loop {
     }
     async ontick (delta) {}
     async tick (delta) {
-        super.tick(delta);
+        await super.tick(delta);
         let noOpenMenus = true;
         const openMenus = this.Menus
             .values()
