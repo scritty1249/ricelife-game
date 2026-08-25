@@ -39,7 +39,7 @@ export function outlineImage (cursor, loadedImage, position, thickness = 2, colo
     drawLine(cursor, bl, tl, thickness, color);
 }
 
-export function drawMenuItemRulers (cursor, item, fixed = false) {
+export function drawMenuItemRulers (cursor, item, fixed = false, recurse = true) {
     const rulerThickness = 2;
     const borderColor = "rgba(255, 0, 0, 0.5)";
     const horizontalColor = "rgba(0, 0, 255, 0.5)";
@@ -73,6 +73,9 @@ export function drawMenuItemRulers (cursor, item, fixed = false) {
     drawLine(cursor, yStart, yEnd, rulerThickness, verticalColor);
     cursor.restore();
     cursor.restore();
+    if (recurse && typeof item[Symbol.iterator] === "function")
+        for (const itm of item)
+            drawMenuItemRulers(cursor, itm, fixed, recurse);
 }
 
 export async function generateBitmapDownloadURL (bitmap, filename = "test.png") {
