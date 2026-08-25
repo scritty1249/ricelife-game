@@ -83,10 +83,10 @@ export class ItemLayout extends MenuItem {
         this.#updateBoundingBox();
     }
     setPosition (x, y = null) {
-        this.#position.apply(x, y);
+        this.#position.apply(x, y).sub(this.originOffset, true);
         this.updateLayout();
     }
-    getPosition () { return this.#position.clone() }
+    getPosition () { return this.#position.add(this.originOffset) }
     getBoundingBox () { return this.#bbox }
     // array-like methods
     get (id) {

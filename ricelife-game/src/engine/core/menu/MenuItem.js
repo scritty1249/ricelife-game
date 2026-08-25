@@ -24,6 +24,7 @@ export class MenuItem extends Identifiable {
         onscroll: undefined
     };
     #userData = {};
+    #originOffset = new Vector(0, 0);
     keepDragFocus = false; // when set, drag events will continue even after pointer leaves this button's area
     hide = false; // tells InterfaceLayer to skip drawing this item, and will not return any callbacks
     constructor () { super() }
@@ -32,9 +33,10 @@ export class MenuItem extends Identifiable {
     isOver (point) { return false }
     getBoundingBox () { return new BoundingBox() }
     setPosition (x, y = null) {}
-    getPosition () { return new Vector() }
+    getPosition () { return new Vector().add(this.originOffset) }
 
     get isMenuItem () { return true }
+    get originOffset () { return this.#originOffset }
     get children () { return false } // subclasses should return an iterator of contained items
     get width () { return 0 }
     get height () { return 0 }

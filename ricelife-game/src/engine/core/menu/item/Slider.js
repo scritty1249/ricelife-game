@@ -125,9 +125,9 @@ export class Slider extends MenuItem {
         cursor.fill();
         cursor.restore();
     }
-    getPosition () { return this.#position.clone() }
+    getPosition () { return this.#position.add(this.originOffset) }
     setPosition (x, y = null) {
-        this.#position.apply(x, y);
+        this.#position.apply(x, y).sub(this.originOffset, true);
         const margin = this.#dotMargin;
         this.#setBackgroundPosition(this.#position, margin);
         this.#setBarPosition(this.#position, margin);

@@ -1,9 +1,9 @@
 import { BoundingBox } from "../../geometry/BoundingBox.js";
 import { Vector } from "../../math/Vector.js";
-import { Identifiable } from "../../utils/tracking/Identifiable.js";
 import { typeString } from "../../utils/logging.js";
+import { MenuItem } from "../MenuItem.js";
 
-export class Icon extends Identifiable {
+export class Icon extends MenuItem {
     #img;
     #hash;
     #bbox = new BoundingBox();
@@ -31,8 +31,8 @@ export class Icon extends Identifiable {
         }
         return this.#bbox;
     }
-    getPosition () { return this.position.clone() }
-    setPosition (x, y = null) { this.position.apply(x, y) }
+    getPosition () { return this.position.sub(this.originOffset) }
+    setPosition (x, y = null) { this.position.apply(x, y).add(this.originOffset, true) }
 
     get isIcon () { return true }
     get source () { return this.#img }

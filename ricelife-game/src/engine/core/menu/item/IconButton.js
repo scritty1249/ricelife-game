@@ -24,8 +24,8 @@ export class IconButton extends Button {
         cursor.restore();
     }
     getBoundingBox () { return this.icon.getBoundingBox() }
-    setPosition (x, y = null) { this.icon.position.apply(x, y) }
-    getPosition () { return this.icon.position.clone() }
+    setPosition (x, y = null) { this.icon.position.apply(x, y).sub(this.originOffset, true) }
+    getPosition () { return this.icon.position.add(this.originOffset) }
     isOver (point) { return this.getBoundingBox().isIntersecting(point) }
 
     get isIconButton () { return true }

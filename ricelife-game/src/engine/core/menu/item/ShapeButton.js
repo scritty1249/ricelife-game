@@ -31,14 +31,14 @@ export class ShapeButton extends Button {
     setPosition (x, y = null) {
         const { shape } = this;
         const { transform } = shape;
-        const point = new Vector(x, y).sub(shape.origin, true);
+        const point = new Vector(x, y).sub(shape.origin, true).sub(this.originOffset, true);
         transform.save();
         transform.reset();
         transform.offset.apply(point);
         shape.applyTransform();
         transform.restore();
     }
-    getPosition () { return this.shape.origin.clone() }
+    getPosition () { return this.shape.origin.add(this.originOffset) }
     isOver (point) { return this.shape.isIntersecting(point) }
 
     get isShapeButton () { return true }

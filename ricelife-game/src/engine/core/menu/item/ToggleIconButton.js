@@ -14,8 +14,8 @@ export class ToggleIconButton extends IconButton {
     }
 
     setPosition (x, y = null) {
-        this.activeIcon.position.apply(x, y);
-        this.inactiveIcon.position.apply(x, y);
+        this.activeIcon.position.apply(x, y).sub(this.originOffset, true);
+        this.inactiveIcon.position.apply(x, y).sub(this.originOffset, true);
     }
     toggle () { this.active = !this.active }
 

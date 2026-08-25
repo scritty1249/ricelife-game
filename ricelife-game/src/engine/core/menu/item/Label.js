@@ -1,9 +1,9 @@
 import { BoundingBox } from "../../geometry/BoundingBox.js";
 import { Vector } from "../../math/Vector.js";
-import { Identifiable } from "../../utils/tracking/Identifiable.js";
+import { MenuItem } from "../MenuItem.js";
 import { Color } from "../../math/Color.js";
 
-export class Label extends Identifiable {
+export class Label extends MenuItem {
     #text;
     #font = {
         size: 0,
@@ -75,9 +75,9 @@ export class Label extends Identifiable {
         cursor.restore();
     }
     getBoundingBox () { return this.#bbox }
-    getPosition () { return this.position.clone() }
+    getPosition () { return this.position.add(this.originOffset) }
     setPosition (x, y = null) {
-        this.position.apply(x, y);
+        this.position.apply(x, y).sub(this.originOffset, true);
         this.#updateBoundingBox();
     }
 
