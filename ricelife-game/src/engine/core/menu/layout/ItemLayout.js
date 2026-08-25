@@ -4,6 +4,7 @@ import { MenuItem } from "../MenuItem.js";
 import { LayoutSpacing } from "./LayoutSpacing.js";
 
 export class ItemLayout extends MenuItem {
+    #bbox = new BoundingBox();
     #items = new Array();
     #padding = new LayoutSpacing();
     #position = new Vector();
@@ -47,6 +48,11 @@ export class ItemLayout extends MenuItem {
         this.#size.x = x + padding.right;
         this.#size.y = padding.top + maxHeight + padding.bottom;
     }
+    #updateBoundingBox () {
+        const { min, max } = this.#bbox;
+        min.apply(this.#position.x, this.#position.y - this.#size.y);
+        max.apply(this.#position.x + this.#size.x, this.#position.y);
+    }
     #getItemMaxWidth () {
         let maxWidth = 0;
         for (let i = 0; i < this.#items.length; i++) {
@@ -78,17 +84,16 @@ export class ItemLayout extends MenuItem {
         return false;
     }
     updateLayout () {
-        if (this.isColumn)
-            this.#updateColumnPositions();
-        else
-            this.#updateRowPositions();
+        if (this.isColumn) this.#updateColumnPositions();
+        else this.#updateRowPositions();
+        this.#updateBoundingBox();
     }
     setPosition (x, y = null) {
         this.#position.apply(x, y);
         this.updateLayout();
     }
     getPosition () { return this.#position.clone() }
-    getBoundingBox () { return BoundingBox.merge(this.#items.map((item) => item.getBoundingBox())) }
+    getBoundingBox () { return this.#bbox }
     // array-like methods
     get (id) {
         const items = this.#items;
