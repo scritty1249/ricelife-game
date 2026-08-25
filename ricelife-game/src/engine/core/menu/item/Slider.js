@@ -7,6 +7,7 @@ import { typeString } from "../../utils/logging.js";
 
 export class Slider extends MenuItem {
     #callback = {
+        onchange: undefined,
         onclick: undefined,
         ondrag: undefined,
         onhold: undefined
@@ -72,6 +73,7 @@ export class Slider extends MenuItem {
         const x = ((this.progress * lengthX) + (this.#bar.bbox.min.x + padding)) - (this.dot.width / 2);
         const y = (this.#bar.bbox.max.y - padding) + (this.dot.height / 2);
         this.dot.setPosition(x + offset.x, y - offset.y);
+        this.onchange?.();
     }
     #setValueToPoint (point) {
         const range = this.#bar.bbox.max.x - this.#bar.bbox.min.x;
@@ -155,8 +157,10 @@ export class Slider extends MenuItem {
     get #hasBarBbox () { return this.#bar.bbox.extentSquared > 0 }
     get value () { return clamp(Math.round(this.#state.value / this.step) * this.step, this.min, this.max) }
     set value (num) {
+        const prev = this.value;
         this.#state.value = num;
-        this.#updateDotPosition();
+        if (prev !== this.value)
+            this.#updateDotPosition();
         return this.value;
     }
     get min () { return this.#state.min }
@@ -212,6 +216,8 @@ export class Slider extends MenuItem {
     }
     get barCornerRadius () { return this.#bar.cornerRadius }
     set barCornerRadius (radians) { return (this.#bar.cornerRadius = radians) }
+    get onchange () { return this.#callback.onchange }
+    set onchange (callbackFn) { return (this.#callback.onchange = callbackFn) }
     get onclick () { return this.#onclick }
     set onclick (callbackFn) { return (this.#callback.onclick = callbackFn) }
     get onhold () { return this.#onhold }
