@@ -35,6 +35,7 @@ export class MenuItem extends Identifiable {
     getPosition () { return new Vector() }
 
     get isMenuItem () { return true }
+    get children () { return false } // subclasses should return an iterator of contained items
     get width () { return 0 }
     get height () { return 0 }
     get userData () { return this.#userData }

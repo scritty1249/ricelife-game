@@ -76,13 +76,7 @@ export class ItemLayout extends MenuItem {
         for (let i = 0; i < items.length; i++)
             if (!items[i]?.hide) items[i]?.draw?.(cursor, fixed);
     }
-    isOver (point) {
-        const items = this.#items;
-        for (let i = 0; i < items.length; i++)
-            if (items[i]?.isOver?.(point))
-                return true;
-        return false;
-    }
+    isOver (point) { return false }
     updateLayout () {
         if (this.isColumn) this.#updateColumnPositions();
         else this.#updateRowPositions();
@@ -132,11 +126,9 @@ export class ItemLayout extends MenuItem {
     }
     filter (...args) { return this.#items.filter(...args) }
     map (...args) { return this.#items.map(...args) }
-    *[Symbol.iterator] () {
-        yield *this.#items;
-    }
 
     get isItemLayout () { return true }
+    get children () { return this.#items.values() }
     get length () { return this.#items.length }
     get padding () { return this.#padding }
     get width () { return this.#size.x }

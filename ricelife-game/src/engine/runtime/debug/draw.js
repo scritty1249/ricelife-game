@@ -73,8 +73,8 @@ export function drawMenuItemRulers (cursor, item, fixed = false, recurse = true)
     drawLine(cursor, yStart, yEnd, rulerThickness, verticalColor);
     cursor.restore();
     cursor.restore();
-    if (recurse && typeof item[Symbol.iterator] === "function")
-        for (const itm of item)
+    if (recurse && item.children)
+        for (const itm of item.children)
             drawMenuItemRulers(cursor, itm, fixed, recurse);
 }
 
