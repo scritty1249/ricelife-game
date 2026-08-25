@@ -35,13 +35,13 @@ export class ItemLayout extends MenuItem {
     #updateRowPositions () {
         const { padding, gap } = this;
         const maxHeight = this.#getItemMaxHeight();
-        const position = this.#position;
-        const midY = padding.top + (maxHeight / 2);
+        const { x: originX, y: originY } = this.#position;
+        const midY = (originY - padding.top) - (maxHeight / 2);
         let x = padding.left;
         for (let i = 0; i < this.#items.length; i++) {
             const item = this.#items[i];
-            const y = midY - (item.height / 2);
-            item.setPosition(x + position.x, y + position.y);
+            const y = midY + (item.height / 2);
+            item.setPosition(x + originX, y);
             x += item.width;
             if (i + 1 < this.#items.length) x += gap;
         }
