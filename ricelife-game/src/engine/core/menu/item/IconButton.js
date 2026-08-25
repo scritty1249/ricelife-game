@@ -15,14 +15,6 @@ export class IconButton extends Button {
         this.icon.draw(cursor)
         cursor.restore();
     }
-    drawText (cursor, offset = undefined, fixed = false) {
-        cursor.save();
-        cursor.fixed = fixed;
-        const centerOffset = this.icon.size.div(2);
-        if (offset?.isVector) super.drawText(cursor, offset.add(centerOffset), fixed);
-        else super.drawText(cursor, centerOffset, fixed);
-        cursor.restore();
-    }
     getBoundingBox () { return this.icon.getBoundingBox() }
     setPosition (x, y = null) { this.icon.position.apply(x, y).sub(this.originOffset, true) }
     getPosition () { return this.icon.position.add(this.originOffset) }

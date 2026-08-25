@@ -13,9 +13,6 @@ export class MapButton extends ShapeButton {
     static EXPAND_LENGTH_FACTOR = 1.2;
     static TILE_LEG_LENGTH = 150;
     #thumb;
-    #currentState = {
-        textOffset: new Vector(),
-    }
     #points = {
         anchor: new Path(),
         expand: new Path()
@@ -93,8 +90,8 @@ export class MapButton extends ShapeButton {
             isDone = isDone && this.strokeColor.distance(target.stroke) <= LERP_CLAMP_THRESHOLD;
         }
         if (target.offset?.isVector) {
-            this.#currentState.textOffset.lerp(target.offset, LERP_FACTOR, true);
-            isDone = isDone && this.#currentState.textOffset.distance(target.offset) <= LERP_CLAMP_THRESHOLD;
+            this.textOffset.lerp(target.offset, LERP_FACTOR, true);
+            isDone = isDone && this.textOffset.distance(target.offset) <= LERP_CLAMP_THRESHOLD;
         }
         if (target.anchor?.length)
             for (const [ start, end ] of zip([this.#points.anchor, target.anchor])) {
@@ -181,24 +178,13 @@ export class MapButton extends ShapeButton {
         this.#lerpState.active = true;
         this.#lerpState.isLerping = true;
     }
-    draw (cursor, fixed = false) {
-        this.#lerpValues();
-        super.draw(cursor, fixed);
-    }
-    drawText (cursor, offset = undefined, fixed = false) {
-        const currentOffset = this.#currentState.textOffset;
-        super.drawText(
-            cursor,
-            offset?.isVector
-                ? offset.add(currentOffset)
-                : currentOffset,
-            fixed
-        );
-    }
     drawButton (cursor, fixed = false) {
         this.#drawGlow(cursor);
         this.#drawThumbnail(cursor);
         super.drawButton(cursor, fixed);
+    }
+    tick () {
+        this.#lerpValues();
     }
 
     get isMapButton () { return true }

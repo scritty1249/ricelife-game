@@ -6,6 +6,10 @@ export class ScreenButton extends Button {
     draw = undefined; // override parent method to hide this button
     #bbox = new BoundingBox();
     #appCavnas;
+    #size = {
+        width: 0,
+        height: 0
+    };
     constructor (appCanvas) {
         super();
         if (!appCanvas?.isAppCanvas) throw new Error(`[${typeString(this)}]: Expected AppCanvas, got ${typeString(appCanvas)}`);
@@ -16,9 +20,14 @@ export class ScreenButton extends Button {
 
     #resizeHandler = () => { this.onResize() }
 
-    onResize () { this.#bbox.max.apply(this.#appCavnas.size) }
+    onResize () {
+        this.#bbox.max.apply(this.#appCavnas.size);
+        ({width: this.#size.width, height: this.#size.height} = this.#bbox);
+    }
     isOver (point) { return this.#bbox.isIntersecting(point) }
     close () { this.#appCavnas.removeResizeListener(this.#resizeHandler) }
 
     get isScreenButton () { return true }
+    get width () { return this.#size.width }
+    get height () { return this.#size.height }
 }

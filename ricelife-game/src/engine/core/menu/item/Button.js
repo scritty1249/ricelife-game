@@ -1,5 +1,6 @@
 import { Color } from "../../math/Color.js";
 import { MenuItem } from "../MenuItem.js";
+import { Vector } from "../../math/Vector.js";
 
 export class Button extends MenuItem {
     #fontColor = new Color(0, 0, 0, 1);
@@ -9,6 +10,7 @@ export class Button extends MenuItem {
         hasUpdate: true
     };
     #text = "";
+    #textOffset = new Vector(0, 0);
     fontSize = 24;
     fontFamily = "Arial";
 
@@ -28,10 +30,10 @@ export class Button extends MenuItem {
     }
     draw (cursor, fixed) {
         this.drawButton(cursor, fixed);
-        this.drawText(cursor, undefined, fixed);
+        this.drawText(cursor, fixed);
     }
     drawButton (cursor, fixed = false) {}
-    drawText (cursor, offset = undefined, fixed = false) {
+    drawText (cursor, fixed = false) {
         if (this.#textSizing.hasUpdate) this.computeTextSizing(cursor);
         if (!this.fontColor.visible || !this.text) return;
         cursor.save();
@@ -40,9 +42,7 @@ export class Button extends MenuItem {
         cursor.fillStyle = this.fontColor.toString();
         cursor.textAlign = "center";
         cursor.textBaseline = "middle";
-        const position = this.getPosition(); // clone
-        if (offset?.isVector)
-            position.add(offset, true);
+        const position = this.getBoundingBox().center.add(this.textOffset, true);
         cursor.fillText(this.text, position);
         cursor.restore();
     }
@@ -56,6 +56,7 @@ export class Button extends MenuItem {
             this.#textSizing.hasUpdate = true;
         return (this.#text = str);
     }
+    get textOffset () { return this.#textOffset }
     get fontColor () { return this.#fontColor }
     get fontStyle () { return `${this.fontSize}px ${this.fontFamily}` }
 }

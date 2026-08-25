@@ -92,9 +92,9 @@ export class AmmoTypeButton extends ShapeButton {
         }
         cursor.restore();
     }
-    drawText (cursor, offset = undefined, fixed = false) {
+    drawText (cursor, fixed = false) {
         if (!this.hidden && !this.isTextOverflowing)
-            super.drawText(cursor, offset, fixed);
+            super.drawText(cursor, fixed);
     }
     // Vector, Vector, Number, Number
     // halfLayoutSpace should be totalLayoutSpace.div(2)
