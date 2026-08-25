@@ -69,12 +69,6 @@ export class ItemLayout extends MenuItem {
         const items = this.#items;
         for (let i = 0; i < items.length; i++)
             if (!items[i]?.hide) items[i]?.draw?.(cursor, fixed);
-        cursor.save();
-        cursor.fixed = fixed;
-        cursor.strokeStyle = "red";
-        this.getBoundingBox().draw(cursor);
-        cursor.stroke();
-        cursor.restore();
     }
     isOver (point) {
         const items = this.#items;
