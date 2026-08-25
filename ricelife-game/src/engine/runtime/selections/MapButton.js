@@ -1,123 +1,67 @@
 import {
-    ShapeButton,
+    HexaButton,
     Color,
     Vector,
     Path,
     Equigon,
-    zip
+    lerp
 } from "../../core/Core.js";
 
-export class MapButton extends ShapeButton {
+export class MapButton extends HexaButton {
     static LERP_FACTOR = 0.175;
     static LERP_CLAMP_THRESHOLD = 0.1;
-    static EXPAND_LENGTH_FACTOR = 1.2;
-    static TILE_LEG_LENGTH = 150;
     #thumb;
-    #points = {
-        anchor: new Path(),
-        expand: new Path()
+    #state = {
+        open: new MapButtonState(),
+        closed: new MapButtonState(),
+        active: new MapButtonState()
     };
-    #lerpState = {
+    #property = {
         isLerping: false,
-        amount: 0, // flag for when all lerps are done
-        open: false,
-        active: false
+        state: 0, // 0 - open | -1 - closed, 1 - active
+        targetState: undefined,
+        lastState: undefined
     };
-    #openState = {
-        font: new Color(),
-        fill: new Color(),
-        stroke: new Color(),
-        offset: new Vector(),
-        anchor: new Path(),
-        expand: new Path(),
-    }
-    #closeState = {
-        font: new Color(),
-        fill: new Color(),
-        stroke: new Color(),
-        offset: new Vector(),
-        anchor: new Path(),
-        expand: new Path(),
-    }
-    #activeState = {
-        font: new Color(),
-        fill: new Color(),
-        stroke: new Color(),
-        offset: new Vector(),
-        anchor: new Path(),
-        expand: new Path(),
-    };
-    #expandLength;
     constructor (name, thumbnail, legLength) {
-        super(new Equigon(6, legLength || MapButton.TILE_LEG_LENGTH));
-        this.text = name;
-        this.#thumb = thumbnail;
-        this.#init();
-        this.save(); // make sure save is called at least once, even if wasteful
+        super(legLength, 0);
+        Object.freeze(this.#state);
     }
 
-    #init () {
-        this.#expandLength = this.shape.length * this.constructor.EXPAND_LENGTH_FACTOR;
-
-        // setting up stretchable equigon
-        const { path } = this.shape.polygon;
-        path.splice(0, 0, path.at(0).clone());
-        path.splice(3 + 1, 0, path.at(3+1).clone());
-
-        // pushes in by reference
-        this.#points.expand.push(path.at(-3), path.at(-2), path.at(-1), path.at(0));
-        this.#points.anchor.push(path.at(1), path.at(2), path.at(3), path.at(4));
-
-        // setup thumbnail scaling and origin
-        this.thumb.origin.apply(this.thumb.rawSize.div(2));
-    }
-    #lerpValues () {
-        const lerpState = this.#lerpState;
-        if (!lerpState.isLerping) return;
-        const target = lerpState.active ? this.#activeState : (lerpState.open ? this.#openState : this.#closeState);
+    #lerp () {
+        const property = this.#property;
+        const target = property.targetState;
+        const origin = property.lastState;
         const { LERP_FACTOR, LERP_CLAMP_THRESHOLD } = this.constructor;
         let isDone = true;
-        if (target.font?.isColor) {
-            this.fontColor.lerp(target.font, LERP_FACTOR, true, true);
-            isDone = isDone && this.fontColor.distance(target.font) <= LERP_CLAMP_THRESHOLD;
-        }
-        if (target.fill?.isColor) {
-            this.fillColor.lerp(target.fill, LERP_FACTOR, true, true);
-            isDone = isDone && this.fillColor.distance(target.fill) <= LERP_CLAMP_THRESHOLD;
-        }
-        if (target.stroke?.isColor) {
-            this.strokeColor.lerp(target.stroke, LERP_FACTOR, true, true);
-            isDone = isDone && this.strokeColor.distance(target.stroke) <= LERP_CLAMP_THRESHOLD;
-        }
-        if (target.offset?.isVector) {
-            this.textOffset.lerp(target.offset, LERP_FACTOR, true);
-            isDone = isDone && this.textOffset.distance(target.offset) <= LERP_CLAMP_THRESHOLD;
-        }
-        if (target.anchor?.length)
-            for (const [ start, end ] of zip([this.#points.anchor, target.anchor])) {
-                start.lerp(end, LERP_FACTOR, true);
-                isDone = isDone && start.distance(end) <= LERP_CLAMP_THRESHOLD;
-            }
-        if (target.expand?.length)
-            for (const [ start, end ] of zip([this.#points.expand, target.expand])) {
-                start.lerp(end, LERP_FACTOR, true);
-                isDone = isDone && start.distance(end) <= LERP_CLAMP_THRESHOLD;
-            }
-        if (isDone) {
-            lerpState.isLerping = false;
-            lerpState.amount = 0;
-        }
+        this.fontColor.lerp(target.font, LERP_FACTOR, true, true);
+        isDone = isDone && this.fontColor.distance(target.font) <= LERP_CLAMP_THRESHOLD;
+        this.fillColor.lerp(target.fill, LERP_FACTOR, true, true);
+        isDone = isDone && this.fillColor.distance(target.fill) <= LERP_CLAMP_THRESHOLD;
+        this.strokeColor.lerp(target.stroke, LERP_FACTOR, true, true);
+        isDone = isDone && this.strokeColor.distance(target.stroke) <= LERP_CLAMP_THRESHOLD;
+        this.textOffset.lerp(target.offset, LERP_FACTOR, true);
+        isDone = isDone && this.textOffset.distance(target.offset) <= LERP_CLAMP_THRESHOLD;
+        this.bodyWidth = lerp(origin.width, target.width, LERP_FACTOR);
+        isDone = isDone && Math.abs(this.bodyWidth - target.width) <= LERP_CLAMP_THRESHOLD;
+        if (isDone) property.isLerping = false;
     }
-    #drawThumbnail (cursor) {
+    #saveLastState () {
+        const property = this.#property;
+        property.lastState = property.state === 1 ? this.state.active : (property.state === 0 ? this.state.open : this.state.closed);
+    }
+
+    drawThumbnail (cursor, fixed) {
         cursor.save();
+        cursor.fixed = fixed;
         this.shape.draw(cursor, true);
         cursor.clip();
         const { x, y } = this.getPosition();
         this.thumb.draw(cursor, x, y, true);
         cursor.restore();
     }
-    #drawGlow (cursor) {
+    drawGlow (cursor, fixed) {
         cursor.save();
+        cursor.fixed = fixed;
         if (this.isActive) cursor.lineWidth = 8;
         else if (this.isOpen) cursor.lineWidth = 1;
         else cursor.lineWidth = 4;
@@ -129,82 +73,52 @@ export class MapButton extends ShapeButton {
         cursor.fill();
         cursor.restore();
     }
-
-    // call after applying transforms- before opening and closing.
-    save () {
-        if (this.#lerpState.isLerping) {
-            console.warn(`[${this.constructor.name}]: Passing call, unable to save state during animation`);
-            return;
-        }
-        if (this.thumb.width < this.thumb.height) {
-            this.thumb.width = this.getBoundingBox().width;
-        } else if (this.thumb.width > this.thumb.height) {
-            this.thumb.height = this.getBoundingBox().height;
-        }
-        const open = this.#openState;
-        const close = this.#closeState;
-        const active = this.#activeState;
-        const length = this.#expandLength / 2;
-        open.anchor.apply(...this.anchor.map((pt) => pt.clone()));
-        open.expand.apply(...this.expand.map((pt) => pt.clone()));
-        close.anchor.apply(...this.anchor.map((pt) => pt.clone()));
-        close.expand.apply(...this.expand.map((pt) => pt.clone()));
-        active.anchor.apply(...this.anchor.map((pt) => pt.clone()));
-        active.expand.apply(...this.expand.map((pt) => pt.clone()));
-        if (this.isOpen) {
-            close.anchor.forEach((pt) => pt.x += length);
-            close.expand.forEach((pt) => pt.x -= length);
-        } else {
-            open.anchor.forEach((pt) => pt.x -= length);
-            open.expand.forEach((pt) => pt.x += length);
-            active.anchor.forEach((pt) => pt.x -= length);
-            active.expand.forEach((pt) => pt.x += length);
-        }
-    }
-    open () {
-        this.#lerpState.active = false;
-        if (this.isOpen) return;
-        this.#lerpState.open = true;
-        this.#lerpState.isLerping = true;
-    }
-    close () {
-        this.#lerpState.active = false;
-        if (!this.isOpen) return;
-        this.#lerpState.open = false;
-        this.#lerpState.isLerping = true;
-    }
-    active () {
-        if (this.isActive) return;
-        this.#lerpState.active = true;
-        this.#lerpState.isLerping = true;
-    }
     drawButton (cursor, fixed = false) {
-        this.#drawGlow(cursor);
-        this.#drawThumbnail(cursor);
+        this.drawGlow(cursor, fixed);
+        this.drawThumbnail(cursor, fixed);
         super.drawButton(cursor, fixed);
     }
+    open () {
+        if (this.isOpen) return;
+        this.#saveLastState();
+        this.#property.targetState = this.state.open;
+        this.#property.isLerping = true;
+    }
+    close () {
+        if (this.isClosed) return;
+        this.#saveLastState();
+        this.#property.targetState = this.state.closed;
+        this.#property.isLerping = true;
+    }
+    activate () {
+        if (this.isActive) return;
+        this.#saveLastState();
+        this.#property.targetState = this.state.active;
+        this.#property.isLerping = true;
+    }
     tick () {
-        this.#lerpValues();
+        if (this.isAnimating) this.#lerp();
     }
 
     get isMapButton () { return true }
-    get isAnimating () { return this.#lerpState.isLerping }
-    get isOpen () { return this.#lerpState.open }
-    get isActive () { return this.#lerpState.active }
-    get anchor () { return this.#points.anchor }
-    get expand () { return this.#points.expand }
+    get isOpen () { return this.#property.state === 0 }
+    get isActive () { return this.#property.state === 1 }
+    get isClosed () { return this.#property.state === -1 }
+    get isAnimating () { return this.#property.isLerping }
+    get state () { return this.#state }
     get thumb () { return this.#thumb }
-    get maxWidth () { return this.#expandLength + this.shape.getBoundingBox().width }
-    get openFontColor () { return this.#openState.font }
-    get openFillColor () { return this.#openState.fill }
-    get openStrokeColor () { return this.#openState.stroke }
-    get openTextOffset () { return this.#openState.offset }
-    get closeFontColor () { return this.#closeState.font }
-    get closeFillColor () { return this.#closeState.fill }
-    get closeStrokeColor () { return this.#closeState.stroke }
-    get closeTextOffset () { return this.#closeState.offset }
-    get activeFontColor () { return this.#activeState.font }
-    get activeFillColor () { return this.#activeState.fill }
-    get activeStrokeColor () { return this.#activeState.stroke }
-    get activeTextOffset () { return this.#activeState.offset }
+    get maxWidth () { return this.state.closed.width + (this.shape.length * 2) }
+}
+
+class MapButtonState {
+    #stroke = new Color();
+    #fill = new Color();
+    #font = new Color();
+    #offset = new Vector(); // text offset
+    width = 0;
+    
+    get stroke () { return this.#stroke }
+    get fill () { return this.#fill }
+    get font () { return this.#font }
+    get offset () { return this.#offset }
 }
