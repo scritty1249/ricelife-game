@@ -78,10 +78,14 @@ export class Create extends Phase {
         buttons.isColumn = true;
         buttons.gap = 15;
         buttons.padding.apply(10);
+        const mapButtons = new ItemLayout();
+        mapButtons.gap = 10;
+        mapButtons.isColumn = false;
         this.Interface.insert()
             .push(buttons)
             .fixed = true;
         this.store.buttons = buttons;
+        this.store.mapButtons = mapButtons;
         this.store.styling = {
             dotColor: new Color(0, 0, 0, 1),
             dotRadius: 12,
@@ -108,13 +112,12 @@ export class Create extends Phase {
             this.AssetPool.add(name, [AssetType.Image, undefined, thumb])));
     }
     #setupMapOptions () {
-        const mapButtons = new ItemLayout();
-        for (const map of this.store.maps) {
+        const { mapButtons, maps } = this.store;
+        for (const map of maps) {
             const button = this.#createMapOption(map);
             mapButtons.push(button);
         }
-        mapButtons.gap = 5;
-        mapButtons.isColumn = false;
+        
         this.store.buttons.push(mapButtons);
     }
     #createMapOption (map) {
@@ -140,6 +143,7 @@ export class Create extends Phase {
         state.active.font.apply(state.active.stroke.apply(255, 0, 0, 1));
         state.active.fill.apply(state.open.fill);
         state.active.fill.a = 0.4;
+        state.open.width = state.active.width = 100;
 
         // adding listeners
         button.onclick = () => {
@@ -220,5 +224,11 @@ export class Create extends Phase {
         buttons.setPosition(center.x - (buttons.width / 2), center.y + (buttons.height / 2));
     }
     async ontick (delta) {
+        let isAnimating = false;
+        for (const button of this.store.mapButtons.children) {
+            button.tick();
+            isAnimating = isAnimating || button.isAnimating;
+        }
+        if (isAnimating) this.store.buttons.updateLayout();
     }
 }
