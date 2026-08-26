@@ -2,8 +2,6 @@ import {
     HexaButton,
     Color,
     Vector,
-    Path,
-    Equigon,
     lerp
 } from "../../core/Core.js";
 
@@ -11,6 +9,7 @@ export class MapButton extends HexaButton {
     static LERP_FACTOR = 0.175;
     static LERP_CLAMP_THRESHOLD = 0.1;
     #thumb;
+    #name = "";
     #state = {
         open: new MapButtonState(),
         closed: new MapButtonState(),
@@ -25,6 +24,8 @@ export class MapButton extends HexaButton {
     constructor (name, thumbnail, legLength) {
         super(legLength, 0);
         Object.freeze(this.#state);
+        this.#name = name;
+        this.#thumb = thumbnail;
     }
 
     #lerp () {
@@ -43,7 +44,12 @@ export class MapButton extends HexaButton {
         isDone = isDone && this.textOffset.distance(target.offset) <= LERP_CLAMP_THRESHOLD;
         this.bodyWidth = lerp(origin.width, target.width, LERP_FACTOR);
         isDone = isDone && Math.abs(this.bodyWidth - target.width) <= LERP_CLAMP_THRESHOLD;
+        this.#updateOriginOffset();
         if (isDone) property.isLerping = false;
+    }
+    #updateOriginOffset () {
+        const { min, max } = this.getBoundingBox();
+        this.originOffset.apply(min.x, max.y);
     }
     #saveLastState () {
         const property = this.#property;
@@ -90,7 +96,7 @@ export class MapButton extends HexaButton {
         this.#property.targetState = this.state.closed;
         this.#property.isLerping = true;
     }
-    activate () {
+    active () {
         if (this.isActive) return;
         this.#saveLastState();
         this.#property.targetState = this.state.active;
@@ -106,8 +112,9 @@ export class MapButton extends HexaButton {
     get isClosed () { return this.#property.state === -1 }
     get isAnimating () { return this.#property.isLerping }
     get state () { return this.#state }
+    get name () { return this.#name }
     get thumb () { return this.#thumb }
-    get maxWidth () { return this.state.closed.width + (this.shape.length * 2) }
+    get width () { return this.state.open.width + (this.shape.length * 2) }
 }
 
 class MapButtonState {
