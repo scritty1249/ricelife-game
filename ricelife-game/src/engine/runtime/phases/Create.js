@@ -10,6 +10,7 @@ import {
 } from "../../core/Core.js";
 import { MapSelect } from "../menus/MapSelect.js";
 import { drawMenuItemRulers } from "../debug/draw.js";
+import { MapButton } from "../selections/MapButton.js";
 
 // export class Create extends Phase {
 //     static #selectedCallbackOptions = {
@@ -64,12 +65,13 @@ export class Create extends Phase {
     }
 
     #init (maps) {
-        this.#setupInterface();
+        this.store.maps = maps; // [!] currently stores raw object from internet. Need to parse into a dedicated class! -KT
         this.Plane.max.apply(1000, 1000);
         this.Camera.Viewbox.bounding.left = this.Camera.Viewbox.bounding.right = false;
     }
     async #load () {
-        
+        await this.#loadMapThumbnails();
+        this.#setupInterface();
     }
     #setupInterface () {
         const buttons = new ItemLayout();
@@ -99,8 +101,56 @@ export class Create extends Phase {
         this.#setupTeamSizeSlider();
         this.#setupSubmitButton();
     }
+    async #loadMapThumbnails () {
+        const { AssetType } = this.Global.constructor;
+        const { maps } = this.store;
+        await Promise.all(maps.map(({name, thumb}) =>
+            this.AssetPool.add(name, [AssetType.Image, undefined, thumb])));
+    }
     #setupMapOptions () {
+        const mapButtons = new ItemLayout();
+        for (const map of this.store.maps) {
+            const button = this.#createMapOption(map);
+            mapButtons.push(button);
+        }
+        mapButtons.gap = 5;
+        mapButtons.isColumn = false;
+        this.store.buttons.push(mapButtons);
+    }
+    #createMapOption (map) {
+        const { name } = map;
+        const thumbnail = this.AssetPool.get(name).clone(false);
+        const button = new MapButton(name, thumbnail, 60);
+        const bbox = button.shape.getBoundingBox();
+        const { FONT_SIZE } = this.Global.store;
+        const { fontColor, strokeColor, fillColor, state } = button;
 
+        button.thumb.width = button.maxWidth;
+
+        button.fontSize = FONT_SIZE;
+        state.closed.font.apply(fontColor.apply(255, 255, 255, 1));
+        state.closed.fill.apply(fillColor.apply(0, 0, 0, 0.7));
+        state.closed.stroke.apply(strokeColor.apply(255, 255, 255, 1));
+        state.open.font.apply(state.closed.font);
+        state.open.font.a = 0.25;
+        state.open.fill.apply(state.closed.fill);
+        state.open.fill.a = 0.2;
+        state.open.stroke.apply(state.closed.stroke);
+        state.open.offset.apply(0, -(1.2/3) * bbox.height);
+        state.active.font.apply(state.active.stroke.apply(255, 0, 0, 1));
+        state.active.fill.apply(state.open.fill);
+        state.active.fill.a = 0.4;
+
+        // adding listeners
+        button.onclick = () => {
+            if (button.isOpen) {
+                button.active();
+                this.Events.raiseEvent("SELECTED", map);
+            } else if (!button.isActive) {
+                button.open();
+            }
+        }
+        return button;
     }
     #setupTeamCountSlider () {
         const { DEFAULT_FONT, FONT_SIZE } = this.Global.store;
