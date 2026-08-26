@@ -14,6 +14,7 @@ import {
     typeString,
     BlastImpact,
     ToggleIconButton,
+    Icon,
 } from "../../core/Core.js"
 
 import { WorkerPool, PoolManager, TerrainCache, CanvasCache } from "../../workers/Core.js";
