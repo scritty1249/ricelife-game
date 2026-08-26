@@ -26,6 +26,7 @@ export class MapButton extends HexaButton {
         Object.freeze(this.#state);
         this.#name = name;
         this.#thumb = thumbnail;
+        this.#updateOriginOffset();
     }
 
     #lerp () {
