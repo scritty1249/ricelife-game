@@ -17,7 +17,7 @@ export class MapButton extends HexaButton {
     };
     #property = {
         isLerping: false,
-        state: 0, // 0 - open | -1 - closed, 1 - active
+        state: -1, // 0 - open | -1 - closed, 1 - active
         targetState: undefined,
         lastState: undefined
     };
@@ -88,18 +88,21 @@ export class MapButton extends HexaButton {
     open () {
         if (this.isOpen) return;
         this.#saveLastState();
+        this.#property.state = 0;
         this.#property.targetState = this.state.open;
         this.#property.isLerping = true;
     }
     close () {
         if (this.isClosed) return;
         this.#saveLastState();
+        this.#property.state = -1;
         this.#property.targetState = this.state.closed;
         this.#property.isLerping = true;
     }
     active () {
         if (this.isActive) return;
         this.#saveLastState();
+        this.#property.state = 1;
         this.#property.targetState = this.state.active;
         this.#property.isLerping = true;
     }
@@ -115,7 +118,7 @@ export class MapButton extends HexaButton {
     get state () { return this.#state }
     get name () { return this.#name }
     get thumb () { return this.#thumb }
-    get width () { return this.state.open.width + (this.shape.length * 2) }
+    //get width () { return this.state.open.width + (this.shape.length * 2) }
 }
 
 class MapButtonState {
