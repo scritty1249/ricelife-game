@@ -78,6 +78,10 @@ export class ItemLayout extends MenuItem {
     }
     isOver (point) { return false }
     updateLayout () {
+        for (let i = 0; i < this.#items; i++) {
+            const item = this.#items[i];
+            if (item?.isItemLayout) item.updateLayout();
+        }
         if (this.isColumn) this.#updateColumnPositions();
         else this.#updateRowPositions();
         this.#updateBoundingBox();
