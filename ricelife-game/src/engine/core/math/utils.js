@@ -12,4 +12,4 @@ export function round (num, precision = 1) {
 // [!] modulo operators corrupt values (floating point errors) that can interfere with equality checks
 export function wrapAngle (radians) { return (radians % TWO_PI + TWO_PI) % TWO_PI }
 
-export function lerp (start, end, factor) { return (1 - factor) * start + factor * end }
+export function lerp (start, end, factor) { return start + factor * (end - start) }
