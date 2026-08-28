@@ -115,6 +115,7 @@ export class MapButton extends HexaButton {
     get isAnimating () { return this.#property.isLerping }
     get state () { return this.#state }
     get name () { return this.#name }
+    get text () { return this.name }
     get thumb () { return this.#thumb }
     get width () { return (this.state.open.width + (this.shape.length * 2)) * this.shape.globalTransform.scale.x }
 }
