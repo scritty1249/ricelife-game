@@ -2,7 +2,7 @@ import {
     HexaButton,
     Color,
     Vector,
-    lerp
+    lerp,
 } from "../../core/Core.js";
 
 export class MapButton extends HexaButton {
@@ -11,28 +11,33 @@ export class MapButton extends HexaButton {
     #thumb;
     #name = "";
     #state = {
-        open: new MapButtonState(),
+        open: undefined,
         closed: new MapButtonState(),
-        active: new MapButtonState()
+        active: undefined
     };
     #property = {
         isLerping: false,
         state: -1, // 0 - open | -1 - closed, 1 - active
         targetState: undefined,
-        lastState: undefined
     };
     constructor (name, thumbnail, legLength) {
         super(legLength, 0);
+        this.#state.open = new MapButtonState(() => this.#maxWidthUpdate());
+        this.#state.active = new MapButtonState(() => this.#maxWidthUpdate());
         Object.freeze(this.#state);
         this.#name = name;
         this.#thumb = thumbnail;
-        this.#updateOriginOffset();
+        this.#maxWidthUpdate();
     }
 
+    #maxWidthUpdate () {
+        const { width, height } = this;
+        this.thumb.width = width;
+        this.originOffset.apply(-width / 2, height / 2);
+    }
     #lerp () {
         const property = this.#property;
         const target = property.targetState;
-        const origin = property.lastState;
         const { LERP_FACTOR, LERP_CLAMP_THRESHOLD } = this.constructor;
         let isDone = true;
         this.fontColor.lerp(target.font, LERP_FACTOR, true, true);
@@ -43,18 +48,9 @@ export class MapButton extends HexaButton {
         isDone = isDone && this.strokeColor.distance(target.stroke) <= LERP_CLAMP_THRESHOLD;
         this.textOffset.lerp(target.offset, LERP_FACTOR, true);
         isDone = isDone && this.textOffset.distance(target.offset) <= LERP_CLAMP_THRESHOLD;
-        this.bodyWidth = lerp(origin.width, target.width, LERP_FACTOR);
+        this.bodyWidth = lerp(this.bodyWidth, target.width, LERP_FACTOR);
         isDone = isDone && Math.abs(this.bodyWidth - target.width) <= LERP_CLAMP_THRESHOLD;
-        this.#updateOriginOffset();
         if (isDone) property.isLerping = false;
-    }
-    #updateOriginOffset () {
-        const { min, max } = this.getBoundingBox();
-        this.originOffset.apply(min.x, max.y);
-    }
-    #saveLastState () {
-        const property = this.#property;
-        property.lastState = property.state === 1 ? this.state.active : (property.state === 0 ? this.state.open : this.state.closed);
     }
 
     drawThumbnail (cursor, fixed) {
@@ -87,27 +83,29 @@ export class MapButton extends HexaButton {
     }
     open () {
         if (this.isOpen) return;
-        this.#saveLastState();
         this.#property.state = 0;
         this.#property.targetState = this.state.open;
         this.#property.isLerping = true;
     }
     close () {
         if (this.isClosed) return;
-        this.#saveLastState();
         this.#property.state = -1;
         this.#property.targetState = this.state.closed;
         this.#property.isLerping = true;
     }
     active () {
         if (this.isActive) return;
-        this.#saveLastState();
         this.#property.state = 1;
         this.#property.targetState = this.state.active;
         this.#property.isLerping = true;
     }
     tick () {
         if (this.isAnimating) this.#lerp();
+    }
+    getBoundingBox () {
+        const bbox = super.getBoundingBox();
+        bbox.width = this.width;
+        return bbox;
     }
 
     get isMapButton () { return true }
@@ -118,7 +116,7 @@ export class MapButton extends HexaButton {
     get state () { return this.#state }
     get name () { return this.#name }
     get thumb () { return this.#thumb }
-    //get width () { return this.state.open.width + (this.shape.length * 2) }
+    get width () { return (this.state.open.width + (this.shape.length * 2)) * this.shape.globalTransform.scale.x }
 }
 
 class MapButtonState {
@@ -126,10 +124,20 @@ class MapButtonState {
     #fill = new Color();
     #font = new Color();
     #offset = new Vector(); // text offset
-    width = 0;
+    #width = 0;
+    #callback;
+    constructor (onwidthchange = undefined) {
+        this.#callback = onwidthchange;
+    }
     
     get stroke () { return this.#stroke }
     get fill () { return this.#fill }
     get font () { return this.#font }
     get offset () { return this.#offset }
+    get width () { return this.#width }
+    set width (num) {
+        this.#width = num;
+        this.#callback?.();
+        return num;
+    }
 }
