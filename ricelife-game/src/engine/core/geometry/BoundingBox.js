@@ -199,8 +199,20 @@ export class BoundingBox extends Hashable {
     get min () { return this.#min }
     get max () { return this.#max }
     get size () { return this.max.sub(this.min).abs(true) }
-    get width () { return this.size.x }
-    get height () { return this.size.y }
+    get width () { return Math.abs(this.max.x - this.min.x) }
+    set width (num) {
+        const diff = (num - this.width) / 2;
+        this.min.x -= diff;
+        this.max.x += diff;
+        return num;
+    }
+    get height () { return Math.abs(this.max.y - this.min.y) }
+    set height (num) {
+        const diff = (num - this.height) / 2;
+        this.min.y -= diff;
+        this.max.y += diff;
+        return num;
+    }
     get rawHash () { return FNV1a.Extend32Bit(this.min.rawHash, this.max.rawHash) }
     get center () { return this.#min.lerp(this.#max, .5) }
 }
