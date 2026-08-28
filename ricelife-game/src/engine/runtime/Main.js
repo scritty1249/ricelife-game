@@ -161,14 +161,10 @@ export class Main extends Loop {
         if (this.state === this.constructor.STATES.Ready) {
             const drawFrame = this.FrameInterval.ready;
             if (this.ActivePhase?.state === this.constructor.STATES.Ready) {
-                if (this.TickInterval.ready) {
-                    const { interval } = this.TickInterval;
-                    for (let delta = this.TickInterval.lastDelta; delta > 0; delta -= interval) {
-                        const d = (delta % interval) || interval;
-                        await this.ActivePhase?.tick?.(d);
-                    }
-                }
-                if (drawFrame) this.ActivePhase?.animate?.(true);
+                if (this.TickInterval.ready)
+                    await this.ActivePhase?.tick?.(this.TickInterval.lastDelta);
+                if (drawFrame)
+                    this.ActivePhase?.animate?.(true);
             } else if (drawFrame) {
                 this.Display.cursor.clear();
             }
