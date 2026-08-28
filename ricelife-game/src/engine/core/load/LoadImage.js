@@ -18,6 +18,7 @@ export class LoadImage extends Loadable {
             this.#ready = src.ready;
             if (this.#ready) {
                 this.#img = src.source;
+                this.#src = this.#img.src;
                 this.#size.apply(this.#img.width, this.#img.height);
             } else {
                 this.#loadPromise = src.onload.then(() => {
