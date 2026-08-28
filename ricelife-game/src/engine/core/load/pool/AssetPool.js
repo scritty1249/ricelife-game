@@ -4,7 +4,7 @@ export class AssetPool extends LoadPool {
     // expects:
     // key: String, args: [constructorFn, callbackFn | undefined, ...constructorArgs], ...
     add (...kwargs) {
-        if (!kwargs?.length) return;
+        if (!kwargs?.length) return Promise.resolve();
         const keys = new Set();
         const entries = [];
         for (let i = 0; i < kwargs.length; i+=2) {
