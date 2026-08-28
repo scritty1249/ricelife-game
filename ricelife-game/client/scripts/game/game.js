@@ -27,7 +27,7 @@ export async function load () {
     const phase = await main.loadCreatePhase(maps);
     phase.Events.addEventListener("SELECTED", async (selected) => {
         try {
-            const { name, src } = selected;
+            const { name, src } = selected.map;
             main.Events.raiseEvent("LOADING", {hide: false, message: `Fetching map: ${name}`});
             const terrainBuffer = await stream(src);
             main.Events.raiseEvent("LOADING", {hide: false, message: "Loading map"});

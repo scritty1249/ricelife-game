@@ -8,51 +8,8 @@ import {
     Label,
     HexaButton
 } from "../../core/Core.js";
-import { MapSelect } from "../menus/MapSelect.js";
 import { drawMenuItemRulers } from "../debug/draw.js";
 import { MapButton } from "../selections/MapButton.js";
-
-// export class Create extends Phase {
-//     static #selectedCallbackOptions = {
-//         once: true
-//     };
-//     constructor (mainController, maps) {
-//         super(mainController);
-//         this.#init(maps)
-//         this.#load()
-//             .then(() => this.resolveLoad())
-//             .catch((err) => this.rejectLoad(err));
-//         this.onload.then(() => this.onResize());
-//     }
-
-//     #init (maps) {
-//         this.Camera.Viewbox.bounding.left = this.Camera.Viewbox.bounding.right = false;
-//         this.Menus.set("Maps", new MapSelect(this, maps));
-//     }
-//     async #load () {
-//         this.store.menu = await this.Menus.get("Maps").onload;
-//     }
-//     #onMapSelected (selected) {
-//         this.Events.raiseEvent("SELECTED", selected);
-//     }
-
-//     onanimate () {
-//         const { menu } = this.store;
-//         if (!menu?.isOpen) this.Camera.update();
-//     }
-//     async ontick (delta) {
-//     }
-//     start () {
-//         // attach per start, consume on trigger. Prevent multiple map loads from being queued up at the same time
-//         this.store.menu.Events.addEventListener("SELECTED", (data) => this.#onMapSelected(data), Create.#selectedCallbackOptions);
-//         super.start();
-//         this.store.menu.open();
-//     }
-//     reset () {
-//         super.reset();
-//         this.store.menu.close();
-//     }
-// }
 
 export class Create extends Phase {
     constructor (mainController, maps) {
@@ -99,6 +56,7 @@ export class Create extends Phase {
         this.store.values = {
             teamCount: 2,
             teamSize: 1,
+            map: undefined
         };
         this.#setupMapOptions();
         this.#setupTeamCountSlider();
@@ -127,9 +85,6 @@ export class Create extends Phase {
         const bbox = button.shape.getBoundingBox();
         const { FONT_SIZE } = this.Global.store;
         const { fontColor, strokeColor, fillColor, state } = button;
-
-        button.thumb.width = button.maxWidth;
-
         button.fontSize = FONT_SIZE;
         state.closed.font.apply(fontColor.apply(255, 255, 255, 1));
         state.closed.fill.apply(fillColor.apply(0, 0, 0, 0.7));
@@ -148,8 +103,9 @@ export class Create extends Phase {
         // adding listeners
         button.onclick = () => {
             if (button.isOpen) {
+                this.#closeMapButtons();
                 button.active();
-                this.Events.raiseEvent("SELECTED", map);
+                this.store.values.map = map;
             } else if (!button.isActive) {
                 button.open();
             }
@@ -203,14 +159,21 @@ export class Create extends Phase {
         button.fillColor.apply(255, 255, 255, 1);
         button.fontColor.apply(0, 0, 0, 1);
         button.text = "Submit";
-        button.onclick = () => {
-            console.log(this.store.values.teamCount, this.store.values.teamSize);
-        }
+        button.onclick = () => this.#onsubmit();
         this.store.buttons.push(button);
     }
     #drawDebugOverlay () {
         const { cursor } = this.Global.Display;
         drawMenuItemRulers(cursor, this.store.buttons, true, true);
+    }
+    #closeMapButtons () {
+        for (const button of this.store.mapButtons.children)
+            button.close();
+    }
+    #onsubmit () {
+        const { teamCount, teamSize, map } = this.store.values;
+        if (teamCount >= 2 && teamSize >= 1 && map)
+            this.Events.raiseEvent("SELECTED", { teamCount, teamSize, map });
     }
 
     onanimate () {
