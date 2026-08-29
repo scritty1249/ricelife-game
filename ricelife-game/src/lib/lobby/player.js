@@ -1,5 +1,5 @@
 export function createPlayer (userid, username, avatar, team) {
-    instance = {
+    const instance = {
         data: {
             profile: {
                 name: username,
@@ -30,6 +30,6 @@ export function createPlayer (userid, username, avatar, team) {
                 "reserve": 0
             }
         ]
-    }
+    };
     return instance.toJSON();
 }
