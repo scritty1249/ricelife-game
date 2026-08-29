@@ -23,11 +23,14 @@ async function getLobbyData (lobbyid) {
     }
 }
 
-async function getTerrainData (lobbyid, userid) {
+async function getTerrainData (lobbyid, userid, Discord) {
     const src = await getTerrainUrl(lobbyid, userid);
     if (!src) return;
     try {
-        const terrainBuffer = await stream(src);
+        const prefix = "/DOWNLOAD_TERRAIN";
+        const url = new URL(src);
+        Discord.registerExternalEndpoints([prefix, url.hostname]);
+        const terrainBuffer = await stream(prefix + url.pathname + url.search);
         const terrainData = await unpackPolygon(terrainBuffer);
         return terrainData;
     } catch (err) {

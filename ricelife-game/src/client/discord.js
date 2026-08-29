@@ -1,4 +1,4 @@
-import { DiscordSDK, RPCCloseCodes } from "@discord/embedded-app-sdk";
+import { DiscordSDK, RPCCloseCodes, patchUrlMappings } from "@discord/embedded-app-sdk";
 
 export class DiscordApp {
     static #getAvatarUrl (userid, avatar) {
@@ -111,6 +111,16 @@ export class DiscordApp {
     // closes the Discord Application (not just the SDK)
     closeApp (message) {
         this.sdk.close(RPCCloseCodes.CLOSE_NORMAL, message || "");
+    }
+    // [!] pretty sure this only works once - KT
+    // ref: https://github.com/discord/embedded-app-sdk/blob/main/src/utils/patchUrlMappings.ts
+    // doc: https://github.com/discord/embedded-app-sdk/blob/main/patch-url-mappings.md
+    registerExternalEndpoints (...mappings) {
+        const maps = [];
+        for (const [prefix, target] of mappings) {
+            maps.push({prefix, target});
+        }
+        patchUrlMappings(maps);
     }
     async shareLink (customID, message) {
         const payload = { custom_id: customID };
