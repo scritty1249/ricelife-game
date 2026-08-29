@@ -12,3 +12,7 @@ export function printError (error) {
             : []
     }));
 }
+
+export async function promiseTimeout (timeoutMs) {
+    return await new Promise((resolve) => setTimeout(resolve, timeoutMs));
+}

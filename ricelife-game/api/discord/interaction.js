@@ -2,6 +2,7 @@ import { verify } from "@server/lib/discord/verify.js";
 import { INTERACTION } from "@server/lib/discord/interaction.js";
 import * as commands from "@server/lib/discord/commands.js";
 import { closeLobby } from "@server/lib/lobby/manage.js";
+import { promiseTimeout } from "@server/lib/main.js";
 
 const ADMINS = [
     "644947703821762560",
@@ -44,7 +45,7 @@ async function parseCommandInteraction (interaction) {
         case INTERACTION.COMMAND.CHAT_INPUT:
             return await parseSlashCommand(interaction);
         case INTERACTION.COMMAND.PRIMARY_ENTRY_POINT:
-            return commands.launch();;
+            return commands.launch();
         default:
             console.warn("Unknown Application Command Interaction");
             console.dir(interaction, { depth: null });
@@ -82,6 +83,7 @@ async function parseSlashCommand (interaction) {
         default:
             console.warn("Invalid Slash Command Interaction");
             console.dir(interaction, { depth: null });
+            return commands.message("Unknown command");
     };
 }
 
