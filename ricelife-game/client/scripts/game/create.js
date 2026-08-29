@@ -35,7 +35,7 @@ export default async function init (mainController, Discord) {
 const MAP_PATH = "/assets/map-thumbnails/";
 
 async function fetchMaps () {
-    const { default: maps = []} = await import("/data/map-manifest.json", { assert: { type: "json" } });
+    const { default: maps = []} = await import("/data/map-manifest.json", { with: { type: "json" } });
     if (maps?.length) {
         for (const map of maps) {
             map.thumb = MAP_PATH + `${map.id}.png`;
