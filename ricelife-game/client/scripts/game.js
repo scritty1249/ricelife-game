@@ -18,7 +18,11 @@ const maps = [
     },
 ];
 
-const Discord = new DiscordApp(window.origin + "/api/discord/auth");
+const Discord = new DiscordApp(window.origin + "/api/discord/auth", [
+    "identify",
+    "guilds",
+    "applications.commands"
+]);
 
 export async function load () {
     const URL_PARAMS = new URLSearchParams(window.location.search);
