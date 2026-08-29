@@ -1,6 +1,17 @@
 import { verify } from "@server/lib/discord/verify.js";
 import { INTERACTION } from "@server/lib/discord/interaction.js";
 import * as commands from "@server/lib/discord/commands.js";
+import { closeLobby } from "@server/lib/lobby/manage.js";
+
+const ADMINS = [
+    "644947703821762560",
+    "1056031947257815140"
+];
+
+function isUserAdmin (id) {
+    return ADMINS.includes(id);
+}
+
 export async function POST (request) {
     try {
         // verify interaction
@@ -57,9 +68,63 @@ async function parseSlashCommand (interaction) {
             break;
         case INTERACTION.CONTEXT.GUILD:
         case INTERACTION.CONTEXT.PRIVATE_CHANNEL:
-            break;
+            switch (commandName) {
+                case "api":
+                    await parseApiCommand(interaction);
+                    return commands.defer(false);
+                case "amiadmin":
+                    return commands.message(
+                        isUserAdmin(interaction.user?.id ?? interaction.member?.user?.id)
+                            ? "Yes"
+                            : "No"
+                        );
+            };
         default:
             console.warn("Invalid Slash Command Interaction");
             console.dir(interaction, { depth: null });
+    };
+}
+
+async function parseApiCommand (interaction) {
+    const { token } = interaction;
+    const user = interaction.user ?? interaction.member?.user;
+    console.info("API command invoked from discord");
+    waitUntil(
+        promiseTimeout(3000) // [!] unga bunga solution to ensuring waitUntil fires after the response...
+        .then(() => {
+            if (isUserAdmin(user?.id))
+                return executeApiCommand(interaction);
+            else
+                return commands.response("Invalid context to use this command.", token);
+        }).then(() => console.debug("Queue execution finished.")
+        ).catch(async (error) => {
+            console.error(error);
+            await commands.response("Something went wrong on our side.", token);
+        })
+    );
+}
+
+async function executeApiCommand (interaction) {
+    // api subcommand interactions should include an option field
+    const command = interaction.data?.options?.[0];
+    const commandName = command?.name?.toLowerCase();
+    const { token } = interaction;
+    switch (commandName) {
+        case "close-lobby":
+            const lobbyid = command?.options?.[0]?.value;
+            if (lobbyid) {
+                const success = await closeLobby(lobbyid);
+                if (success) {
+                    commands.response(`Closed lobby ${lobbyid}`, token);
+                } else {
+                    commands.response(`Failed to close lobby ${lobbyid}`, token);
+                }
+            } else {
+                commands.response(`Missing lobbyid parameter`, token);
+            }
+            console.info("Invoked: close-lobby")
+        break;
+        default:
+            await commands.response(`Command '${commandName}' not recognized!`, token);
     };
 }

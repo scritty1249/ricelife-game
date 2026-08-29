@@ -1,3 +1,5 @@
+import { DISCORD_WEBHOOK_BASE } from "../endpoints.js";
+
 export const INTERACTION = {
     TYPE: { // https://docs.discord.com/developers/interactions/receiving-and-responding#interaction-object-interaction-type
         PING: 1,
@@ -18,3 +20,7 @@ export const INTERACTION = {
         PRIMARY_ENTRY_POINT: 4 // launch command
     }
 };
+
+export function generateMessageEndpoint (interactionToken) {
+    return `${DISCORD_WEBHOOK_BASE}/${interactionToken}/messages/@original`;
+}
