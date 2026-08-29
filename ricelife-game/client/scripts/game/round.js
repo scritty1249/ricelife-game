@@ -1,4 +1,4 @@
-import { getLobby, getTerrainUrl } from "/scripts/api/api.js";
+import { getTerrainUrl } from "/scripts/api/api.js";
 import { stream, unpackPolygon } from "/scripts/api/unpack.js";
 
 export default async function init (mainController, Discord, lobby, lobbyid) {
