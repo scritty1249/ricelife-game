@@ -25,6 +25,8 @@ Content-Type: application/json
 {
     "name": "api",
     "description": "API function invocations for testing",
+    "integration_types": [0, 1],
+    "contexts": [0, 1, 2],
     "options": [
         {
             "name": "close-lobby",
@@ -50,5 +52,7 @@ Content-Type: application/json
 {
     "name": "amiadmin",
     "description": "Checks if you are registered as an admin for this application",
-    "type": 1
+    "type": 1,
+    "integration_types": [0, 1],
+    "contexts": [0, 1, 2]
 }

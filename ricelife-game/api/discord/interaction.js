@@ -4,6 +4,7 @@ import * as commands from "@server/lib/discord/commands.js";
 import { closeLobby } from "@server/lib/lobby/manage.js";
 import { promiseTimeout } from "@server/lib/main.js";
 import { waitUntil } from "@vercel/functions";
+import { printError } from "@server/lib/main.js";
 
 const ADMINS = [
     "644947703821762560",
@@ -22,7 +23,11 @@ export async function POST (request) {
         if (!verify(headers, body))
             return commands.invalid();
         const interaction = JSON.parse(body); // body should be JSON, so this should never fail...
-        return await parseInteraction(interaction);
+        return await parseInteraction(interaction)
+            .catch((err) => {
+                printError(err);
+                return commands.acknowledge();
+            })
     } catch (err) {
         console.error("Execution error:", err);
         return Response.json({error: err.message}, {status: 500, statusText: "Internal server error"});
@@ -67,13 +72,23 @@ async function parseSlashCommand (interaction) {
     const commandName = interaction.data?.name?.toLowerCase();
     switch (interaction.context) {
         case INTERACTION.CONTEXT.BOT_DM:
-            break;
+            switch (commandName) {
+                case "api":
+                    await parseApiCommand(interaction);
+                    return commands.defer(false);
+                case "amiadmin":
+                    return commands.message(
+                        isUserAdmin(interaction.user?.id ?? interaction.member?.user?.id)
+                            ? "Yes"
+                            : "No"
+                        );
+            };
         case INTERACTION.CONTEXT.GUILD:
         case INTERACTION.CONTEXT.PRIVATE_CHANNEL:
             switch (commandName) {
                 case "api":
                     await parseApiCommand(interaction);
-                    return commands.defer(false);
+                    return commands.defer(true);
                 case "amiadmin":
                     return commands.message(
                         isUserAdmin(interaction.user?.id ?? interaction.member?.user?.id)
@@ -94,11 +109,11 @@ async function parseApiCommand (interaction) {
     console.info("API command invoked from discord");
     waitUntil(
         promiseTimeout(3000) // [!] unga bunga solution to ensuring waitUntil fires after the response...
-        .then(() => {
+        .then(async () => {
             if (isUserAdmin(user?.id))
-                return executeApiCommand(interaction);
+                await executeApiCommand(interaction);
             else
-                return commands.response("Invalid context to use this command.", token);
+                await commands.response("Invalid context to use this command.", token);
         }).then(() => console.debug("Queue execution finished.")
         ).catch(async (error) => {
             console.error(error);
@@ -118,12 +133,12 @@ async function executeApiCommand (interaction) {
             if (lobbyid) {
                 const success = await closeLobby(lobbyid);
                 if (success) {
-                    commands.response(`Closed lobby ${lobbyid}`, token);
+                    await commands.response(`Closed lobby ${lobbyid}`, token);
                 } else {
-                    commands.response(`Failed to close lobby ${lobbyid}`, token);
+                    await commands.response(`Failed to close lobby ${lobbyid}`, token);
                 }
             } else {
-                commands.response(`Missing lobbyid parameter`, token);
+                await commands.response(`Missing lobbyid parameter`, token);
             }
             console.info("Invoked: close-lobby")
         break;
