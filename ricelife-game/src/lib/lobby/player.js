@@ -31,5 +31,5 @@ export function createPlayer (userid, username, avatar, team) {
             }
         ]
     };
-    return instance.toJSON();
+    return instance;
 }
