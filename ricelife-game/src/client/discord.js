@@ -110,7 +110,7 @@ export class DiscordApp {
 
     // closes the Discord Application (not just the SDK)
     closeApp (message) {
-        this.sdk.close(RPCCloseCodes.CLOSE_NORMAL, message || "");
+        this.sdk.close(RPCCloseCodes.CLOSE_NORMAL, message || "Application closed");
     }
     // [!] pretty sure this only works once - KT
     // ref: https://github.com/discord/embedded-app-sdk/blob/main/src/utils/patchUrlMappings.ts
