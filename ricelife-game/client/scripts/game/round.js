@@ -27,9 +27,9 @@ async function getTerrainData (lobbyid, Discord) {
     const src = await getTerrainUrl(lobbyid, Discord.user.id);
     if (!src) return;
     try {
-        const prefix = "/DOWNLOAD_TERRAIN";
+        const prefix = "/terrain-bucket";
         const url = new URL(src);
-        Discord.registerExternalEndpoints([prefix, url.hostname]);
+        //Discord.registerExternalEndpoints([prefix, url.hostname]);
         const terrainBuffer = await stream(prefix + url.pathname + url.search);
         const terrainData = await unpackPolygon(terrainBuffer);
         return terrainData;
