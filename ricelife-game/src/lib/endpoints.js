@@ -1,0 +1,1 @@
+export const DISCORD_AUTH = "https://discord.com/api/oauth2/token";

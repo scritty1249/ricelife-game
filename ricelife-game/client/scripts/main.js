@@ -1,4 +1,4 @@
-import { load } from "./game/game.js";
+import { load } from "./game.js";
 import { init, loading } from "./events/loading.js";
 
 if (document.readyState === "loading") {
