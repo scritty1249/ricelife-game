@@ -9,6 +9,8 @@ const Discord = new DiscordApp(ENDPOINT + "/discord/auth", [
     "applications.commands"
 ]);
 
+const LOBBY_ID_PREFIX = "LOBBY_";
+
 export async function load () {
     await Discord.onload;
     const main = new Main(Discord.user.id, loading);
@@ -16,16 +18,15 @@ export async function load () {
     window._MAIN = main; // [!] for debug
 
     const URL_PARAMS = new URLSearchParams(window.location.search);
-    const phaseArg = URL_PARAMS.get("phase");
+    const customID = URL_PARAMS.get("custom_id") || "";
     let phase;
-    if (!phaseArg || phaseArg === "new") {
+    if (customID && customID.startsWith(LOBBY_ID_PREFIX)) {
+        const lobbyid = customID.slice(LOBBY_ID_PREFIX.length);
+        const { default: init } = await import("/scripts/game/round.js");
+        phase = await init(main, Discord, lobbyid);
+    } else {
         const { default: init } = await import("/scripts/game/create.js");
         phase = await init(main, Discord);
-    } else if (phaseArg === "join") {
-        const { default: init } = await import("/scripts/game/round.js");
-        phase = await init(main, Discord, URL_PARAMS.get(lobbyid));
-    } else {
-        console.error("Invalid phase");
     }
     if (phase) main.ActivePhase = phase;
     main.Display.canvas.focus();
