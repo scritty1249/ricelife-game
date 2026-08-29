@@ -47,7 +47,7 @@ export class DiscordApp {
     }
     async #loadSdk (serverEndpoint, scopes) {
         const { code } = await this.sdk.commands.authorize({
-            client_id: client_id,
+            client_id: this.sdk.clientId,
             response_type: "code",
             state: "",
             prompt: "none",
