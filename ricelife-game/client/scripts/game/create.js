@@ -21,7 +21,8 @@ export default async function init (mainController, Discord) {
             if (lobbyid) {
                 const success = await Discord.shareLink(`LOBBY_${lobbyid}`, `Join ${userprofile.name}'s lobby`);
                 console.info(`Lobby ${lobbyid} created`);
-                if (!success) console.warn(`Failed to generate invite link for lobby ${lobbyid}`);
+                if (success) Discord.closeApp();
+                else console.warn(`Failed to generate invite link for lobby ${lobbyid}`);
             } else {
                 console.error("Server failed to create lobby");
             }
