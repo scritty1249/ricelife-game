@@ -1,4 +1,5 @@
-import { ENDPOINT, stream, unpackPolygon } from "/scripts/api/api.js";
+import { ENDPOINT } from "/scripts/api/api.js";
+import { stream, unpackPolygon } from "/scripts/api/unpack.js";
 
 export default async function init (mainController, Discord, lobbyid) {
     mainController.Events.raiseEvent("LOADING", {hide: false, message: `Fetching lobby`});
