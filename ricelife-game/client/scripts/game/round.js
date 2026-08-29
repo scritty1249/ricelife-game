@@ -5,7 +5,7 @@ export default async function init (mainController, Discord, lobbyid) {
     mainController.Events.raiseEvent("LOADING", {hide: false, message: `Fetching lobby`});
     const [ lobby, terrain ] = await Promise.all([
         getLobbyData(lobbyid),
-        getTerrainData(lobbyid, Discord.user.id)
+        getTerrainData(lobbyid, Discord)
     ]);
     if (!lobby || !terrain) return;
     mainController.Events.raiseEvent("LOADING", {hide: false, message: `Loading`});
@@ -23,8 +23,8 @@ async function getLobbyData (lobbyid) {
     }
 }
 
-async function getTerrainData (lobbyid, userid, Discord) {
-    const src = await getTerrainUrl(lobbyid, userid);
+async function getTerrainData (lobbyid, Discord) {
+    const src = await getTerrainUrl(lobbyid, Discord.user.id);
     if (!src) return;
     try {
         const prefix = "/DOWNLOAD_TERRAIN";
