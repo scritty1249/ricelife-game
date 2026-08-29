@@ -49,6 +49,19 @@ await build({
     outdir: outDir,
     plugins: [resolveAbsolutePathsPlugin],
 });
-
 console.log(`\nSuccessfully built to: ${outDir}`);
+
+const discordSource = path.normalize("./src/client/discord.js");
+const discordOutput = path.normalize("./client/dependencies/discord.js");
+console.log(`Bundling Discord SDK at: ${discordSource}`);
+await build({
+    entryPoints: [discordSource],
+    bundle: true,
+    write: true,
+    minify: !isDev,
+    format: "esm",
+    outfile: discordOutput,
+});
+console.log(`\nSuccessfully built to: ${discordOutput}`);
+
 process.exit(0);

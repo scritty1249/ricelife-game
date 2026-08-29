@@ -1,6 +1,6 @@
 import { DiscordSDK, RPCCloseCodes } from "@discord/embedded-app-sdk";
 
-export class Discord {
+export class DiscordApp {
     static async #getClientID (serverEndpoint) {
         return await fetch(serverEndpoint, {
             method: "GET",
@@ -39,7 +39,7 @@ export class Discord {
     }
 
     async #init (serverEndpoint) {
-        const clientID = await Discord.#getClientID(serverEndpoint);
+        const clientID = await DiscordApp.#getClientID(serverEndpoint);
         if (!clientID) throw new Error("Failed to retrieve Discord client ID from server");
         this.#sdk = new DiscordSDK(clientID);
         await this.sdk.ready();
@@ -54,7 +54,7 @@ export class Discord {
             scope: [...scopes],
         }); 
 
-        const token = await Discord.#getAuthorizationToken(serverEndpoint, code);
+        const token = await DiscordApp.#getAuthorizationToken(serverEndpoint, code);
         if (token === null) throw new Error("Failed to get authorization token for Discord SDK");
 
         const auth = await this.#authenticateSdk(token);

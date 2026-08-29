@@ -9,18 +9,18 @@
         "dev": "node ./build/client.js --dev && node ./build/server.js"
     },
     "dependencies": {
-        "@aws-sdk/client-s3": "^3.1095.0",
-        "@aws-sdk/s3-request-presigner": "^3.1095.0",
         "@aws-sdk/client-dynamodb": "^3.1095.0",
+        "@aws-sdk/client-s3": "^3.1095.0",
         "@aws-sdk/lib-dynamodb": "^3.1095.0",
-        "@vercel/oidc-aws-credentials-provider": "^3.1.4",
+        "@aws-sdk/s3-request-presigner": "^3.1095.0",
         "@discord/embedded-app-sdk": "^2.5.0",
-        "tweetnacl": "^1.0.3",
-        "@server/lib": "file:./dist/lib"
+        "@server/lib": "file:./dist/lib",
+        "@vercel/oidc-aws-credentials-provider": "^3.1.4",
+        "tweetnacl": "^1.0.3"
     },
     "devDependencies": {
-        "node": "22.11.0",
-        "esbuild": "latest"
+        "esbuild": "latest",
+        "node": "22.11.0"
     },
     "allowScripts": {
         "esbuild": true,

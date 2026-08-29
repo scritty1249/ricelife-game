@@ -1,6 +1,7 @@
 import { Main } from "/engine/runtime/Core.js";
 import { loading } from "/scripts/events/loading.js";
 import { stream, unpackPolygon } from "/scripts/api/unpack.js";
+import { DiscordApp } from "/dependencies/discord.js";
 
 import lobby from "/test-lobby.json" with { type: "json" };
 
@@ -17,10 +18,14 @@ const maps = [
     },
 ];
 
+const Discord = new DiscordApp(window.origin + "/api/discord/auth");
+
 export async function load () {
     const URL_PARAMS = new URLSearchParams(window.location.search);
     const main = new Main(lobby.activeplayer, loading);
     await main.onload;
+    await Discord.onload;
+    console.debug(Discord);
     window._MAIN = main; // [!] for debug
     main.flags.DEBUG = URL_PARAMS.has("debug");
 
