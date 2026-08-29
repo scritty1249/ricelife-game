@@ -3,6 +3,7 @@ import { INTERACTION } from "@server/lib/discord/interaction.js";
 import * as commands from "@server/lib/discord/commands.js";
 import { closeLobby } from "@server/lib/lobby/manage.js";
 import { promiseTimeout } from "@server/lib/main.js";
+import { waitUntil } from "@vercel/functions";
 
 const ADMINS = [
     "644947703821762560",

@@ -16,6 +16,7 @@
         "@discord/embedded-app-sdk": "^2.5.0",
         "@server/lib": "file:./dist/lib",
         "@vercel/oidc-aws-credentials-provider": "^3.1.4",
+        "@vercel/functions": "^3.9.5",
         "tweetnacl": "^1.0.3"
     },
     "devDependencies": {
