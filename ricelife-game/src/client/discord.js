@@ -112,16 +112,6 @@ export class DiscordApp {
     closeApp (message) {
         this.sdk.close(RPCCloseCodes.CLOSE_NORMAL, message || "Application closed");
     }
-    // [!] pretty sure this only works once - KT
-    // ref: https://github.com/discord/embedded-app-sdk/blob/main/src/utils/patchUrlMappings.ts
-    // doc: https://github.com/discord/embedded-app-sdk/blob/main/patch-url-mappings.md
-    registerExternalEndpoints (...mappings) {
-        const maps = [];
-        for (const [prefix, target] of mappings) {
-            maps.push({prefix, target});
-        }
-        patchUrlMappings(maps);
-    }
     async shareLink (customID, message) {
         const payload = { custom_id: customID };
         if (message) payload.message = message;
@@ -129,6 +119,7 @@ export class DiscordApp {
         return success;
     }
 
+    get isDiscordApp () { return true }
     get onload () { return this.#load.promise }
     get ready () { return this.#load.ready }
     get sdk () { return this.#sdk }

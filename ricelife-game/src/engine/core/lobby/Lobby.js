@@ -88,14 +88,48 @@ export class Lobby {
 
     async loadAssets (clientUserID, assetPool, ammoPool, assetTypes) {
         if (!this.Players.has(clientUserID)) throw new Error(`[${typeString(this)}]: Client UserID ${clientUserID} does not exist`);
-        if (!assetPool?.isAssetPool) throw new Error(`[${typeString(this)}]: ${typeString(assetPool)} is not an AssetPool`);
-        if (!ammoPool?.isAmmoPool) throw new Error(`[${typeString(this)}]: ${typeString(ammoPool)} is not an AmmoPool`);
-        const modelPromises = [];
-        const ammoPromises = [];
-        const avatarPromises = [];
-        const modelAccentColor = new Color(255, 0, 0).toString();
-        const modelAccentFeatherTolerance = 50;
-        // player models
+        if (assetPool && !assetPool?.isAssetPool) console.warn(`[${typeString(this)}]: ${typeString(assetPool)} is not an AssetPool`);
+        if (ammoPool && !ammoPool?.isAmmoPool) console.warn(`[${typeString(this)}]: ${typeString(ammoPool)} is not an AmmoPool`);
+        const loadAssets = assetPool?.isAssetPool;
+        const loadAmmo = ammoPool?.isAmmoPool;
+        let modelPromises = Promise.resolve();
+        let ammoPromises = Promise.resolve();
+        let avatarPromises = Promise.resolve();
+        if (loadAssets) {
+            // player models
+            const modelAccentColor = new Color(255, 0, 0).toString();
+            const modelAccentTolerance = 254;
+            modelPromises = this.loadModelAssets(assetPool, modelAccentColor, modelAccentTolerance);
+            // player avatars
+            avatarPromises = this.loadAvatarAssets(assetPool, assetTypes.Image);
+        }
+        if (loadAmmo) {
+            // ammo imports
+            ammoPromises = this.loadAmmoModules(ammoPool);
+        }
+        await ammoPromises;
+        await modelPromises;
+        await avatarPromises;
+    }
+    async loadAmmoModules (ammoPool) {
+        const promises = [];
+        for (const ammoType of this.AmmoTypes) {
+            ammoPool.add(ammoType);
+            promises.push(ammoPool.onready(ammoType));
+        }
+        return await Promise.all(promises);
+    }
+    async loadAvatarAssets (assetPool, imageAssetType) {
+        const promises = [];
+        for (const avatar of this.Avatars) {
+            assetPool.add(avatar, [imageAssetType, undefined, avatar]);
+            promises.push(assetPool.onready(avatar));
+        }
+        return await Promise.all(promises);
+    }
+    async loadModelAssets (assetPool, accentColor, accentTolerance = 254) {
+        const color = accentColor.toString();
+        const promises = [];
         for (const [ id, player ] of this.Players) {
             const affiliation = this.#getAffiliation(clientUserID, id);
             const modelKey = this.#getModelKey(player, affiliation);
@@ -105,27 +139,12 @@ export class Lobby {
             if (!assetPool.has(modelKey)) {
                 assetPool.add(
                     modelKey,
-                    [(...args) => new Model(...args), undefined, model, modelSource, { [modelAccentColor]: modelColor }, 254]
+                    [(...args) => new Model(...args), undefined, model, modelSource, { [color]: modelColor }, accentTolerance]
                 );
-                modelPromises.push(assetPool.onready(modelKey));
+                promises.push(assetPool.onready(modelKey));
             }
         }
-        // ammo imports
-        for (const ammoType of this.AmmoTypes) {
-            ammoPool.add(ammoType);
-            ammoPromises.push(ammoPool.onready(ammoType));
-        }
-        // player avatars
-        for (const avatar of this.Avatars) {
-            assetPool.add(
-                avatar,
-                [assetTypes.Image, undefined, avatar]
-            );
-            avatarPromises.push(assetPool.onready(avatar));
-        }
-        await Promise.all(ammoPromises);
-        await Promise.all(modelPromises);
-        await Promise.all(avatarPromises);
+        return await Promise.all(promises);
     }
     generatePlayerActors (clientUserID, assetPool, actorMap, hitpointMap, terrain = undefined) {
         if (!this.Players.has(clientUserID)) throw new Error(`[${typeString(this)}]: Client UserID ${clientUserID} does not exist`);
