@@ -1,6 +1,9 @@
 import { DiscordSDK, RPCCloseCodes } from "@discord/embedded-app-sdk";
 
 export class DiscordApp {
+    static #getAvatarUrl (userid, avatar) {
+        return `https://cdn.discordapp.com/avatars/${userid}/${avatar}.png`;
+    }
     static async #getClientID (serverEndpoint) {
         return await fetch(serverEndpoint, {
             method: "GET",
@@ -23,6 +26,12 @@ export class DiscordApp {
         const { token } = await response.json();
         return token || null;
     }
+    static buildProfile (userdata) {
+        const name = userdata.nickname || userdata.global_name || userdata.username;
+        const userid = userdata.id;
+        const avatar = DiscordApp.#getAvatarUrl(userid, userdata.avatar);
+        return { name, avatar, userid };
+    }
     #load = {
         ...Promise.withResolvers(),
         ready: false
@@ -30,6 +39,7 @@ export class DiscordApp {
     #sdk;
     #user;
     #participants = new Array();
+    #profiles = new Map();
     constructor (endpoint, scopes) {
         this.#init(endpoint)
             .then(() => this.#loadSdk(endpoint, scopes || []))
@@ -62,6 +72,7 @@ export class DiscordApp {
         console.info("Discord SDK authenticated");
 
         await this.#getUserdata(auth?.user);
+        await this.#buildUserProfiles();
         console.info("Discord SDK loaded");
     }
     async #authenticateSdk (token) {
@@ -85,6 +96,17 @@ export class DiscordApp {
         }
         Object.freeze(this.#participants);
     }
+    #buildUserProfiles () {
+        this.#createProfile(this.user);
+        for (const participant of this.participants)
+            this.#createProfile(participant);
+        Object.freeze(this.#profiles);
+    }
+    #createProfile (userdata) {
+        const profile = DiscordApp.buildProfile(userdata);
+        Object.freeze(profile);
+        this.profiles.set(profile.userid, profile);
+    }
 
     // closes the Discord Application (not just the SDK)
     closeApp (message) {
@@ -104,4 +126,5 @@ export class DiscordApp {
     get sdk () { return this.#sdk }
     get user () { return this.#user }
     get participants () { return this.#participants }
+    get profiles () { return this.#profiles }
 }
