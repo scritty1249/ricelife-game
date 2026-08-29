@@ -66,8 +66,8 @@ export class Create extends Phase {
     async #loadMapThumbnails () {
         const { AssetType } = this.Global.constructor;
         const { maps } = this.store;
-        await Promise.all(maps.map(({name, thumb}) =>
-            this.AssetPool.add(name, [AssetType.Image, undefined, thumb])));
+        await Promise.all(maps.map(({id, thumb}) =>
+            this.AssetPool.add(id, [AssetType.Image, undefined, thumb])));
     }
     #setupMapOptions () {
         const { mapButtons, maps } = this.store;
@@ -79,8 +79,8 @@ export class Create extends Phase {
         this.store.buttons.push(mapButtons);
     }
     #createMapOption (map) {
-        const { name } = map;
-        const thumbnail = this.AssetPool.get(name).clone(false);
+        const { name, id } = map;
+        const thumbnail = this.AssetPool.get(id).clone(false);
         const button = new MapButton(name, thumbnail, 60);
         const bbox = button.shape.getBoundingBox();
         const { FONT_SIZE } = this.Global.store;
