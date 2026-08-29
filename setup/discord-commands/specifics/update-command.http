@@ -5,7 +5,10 @@
 ### command id goes here
 @command_id = 
 
-###
-DELETE {{base}}/{{app_id}}/commands/{{command_id}}
+PATCH {{base}}/{{app_id}}/commands/{{command_id}}
 Authorization: Bot {{bot_token}}
 Content-Type: application/json
+
+{
+    
+}
