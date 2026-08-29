@@ -8,7 +8,21 @@ export function createPlayer (userid, username, avatar, team) {
                 userid: userid
             },
             model: "basic", // [!] placeholder
-            team: team
+            team: team,
+            ammo: [ // [!] placeholder
+                "Basic",
+                "Flower",
+                "Digger",
+                "Bouncer",
+                "MegaBouncer",
+                "GigaBouncer",
+                "Pine",
+                "Sniper",
+                "Rapid",
+                "Scatter",
+                "MegaScatter",
+                "GigaScatter"
+            ]
         },
         hitpoints: [  // [!] placeholder
              {
