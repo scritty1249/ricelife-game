@@ -28,7 +28,7 @@ export async function load () {
         const { default: init } = await import("/scripts/game/create.js");
         phase = await init(main, Discord);
     }
-    mainController.Events.raiseEvent("LOADING", {hide: true});
+    main.Events.raiseEvent("LOADING", {hide: true});
     if (phase) main.ActivePhase = phase;
     main.Display.canvas.focus();
     main.loop();
