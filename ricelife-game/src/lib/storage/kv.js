@@ -31,6 +31,7 @@ export async function get (id, ...keys) {
     const command = {
         TableName: process.env.AWS_DB,
         Key: { [PK]: id },
+        ConsistentRead: false,
     };
     if (keys?.length) {
         let i = 0;
