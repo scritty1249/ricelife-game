@@ -50,7 +50,6 @@ async function parseComponentInteraction (interaction) {
     }
 }
 
-
 async function parseSlashCommand (interaction) {
     const commandName = interaction.data?.name?.toLowerCase();
     switch (interaction.context) {
