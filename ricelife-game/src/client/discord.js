@@ -70,7 +70,7 @@ export class DiscordApp {
     async #getUserdata (user) {
         this.#user = user;
         const participants = await this.sdk.commands.getInstanceConnectedParticipants();
-        if (participants)
+        if (participants?.length)
             for (const participant of participants)
                 this.participants.push(participant);
         Object.freeze(this.#participants);
