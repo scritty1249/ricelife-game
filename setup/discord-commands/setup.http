@@ -16,3 +16,39 @@ Content-Type: application/json
 {
     "handler": 1
 }
+
+### registering commands
+POST {{base}}/{{app_id}}/commands
+Authorization: Bot {{bot_token}}
+Content-Type: application/json
+
+{
+    "name": "api",
+    "description": "API function invocations for testing",
+    "options": [
+        {
+            "name": "close-lobby",
+            "description": "Closes a lobby",
+            "type": 1,
+            "options": [
+                {
+                    "name": "lobbyid",
+                    "description": "The lobby to close",
+                    "type": 3,
+                    "required": true
+                }
+            ]
+        }
+    ]
+}
+
+###
+POST {{base}}/{{app_id}}/commands
+Authorization: Bot {{bot_token}}
+Content-Type: application/json
+
+{
+    "name": "amiadmin",
+    "description": "Checks if you are registered as an admin for this application",
+    "type": 1
+}

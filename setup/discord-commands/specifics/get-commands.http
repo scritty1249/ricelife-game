@@ -1,0 +1,8 @@
+@bot_token = {{$dotenv bot_token}}
+@app_id = {{$dotenv app_id}}
+@base = https://discord.com/api/v10/applications
+
+### Get all global commands
+GET {{base}}/{{app_id}}/commands
+Authorization: Bot {{bot_token}}
+Content-Type: application/json
