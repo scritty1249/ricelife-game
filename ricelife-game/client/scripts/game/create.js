@@ -19,7 +19,7 @@ export default async function init (mainController, Discord) {
             });
             mainController.Events.raiseEvent("LOADING", {hide: true});
             if (lobbyid) {
-                const sucess = await Discord.shareLink({ phase: "join", lobbyid }, `Join ${userprofile.name}'s lobby`);
+                const success = await Discord.shareLink({ phase: "join", lobbyid }, `Join ${userprofile.name}'s lobby`);
                 console.info(`Lobby ${lobbyid} created`);
                 if (!success) console.warn(`Failed to generate invite link for lobby ${lobbyid}`);
             } else {

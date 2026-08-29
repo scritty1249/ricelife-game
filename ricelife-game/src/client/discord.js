@@ -113,7 +113,7 @@ export class DiscordApp {
         this.sdk.close(RPCCloseCodes.CLOSE_NORMAL, message || "");
     }
     async shareLink (params, message, customID) {
-        const payload = { customParams: params || {} };
+        const payload = { custom_params: params || {} };
         if (message) payload.message = message;
         if (customID) payload.custom_id = customID;
         const { success } = await this.sdk.commands.shareLink(payload);
