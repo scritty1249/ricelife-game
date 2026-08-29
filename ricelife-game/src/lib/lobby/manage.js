@@ -37,7 +37,8 @@ export async function exportLobby (lobbyid) {
         state: lobby.state,
         teamsize: lobby.team_size,
         teamcount: lobby.team_count,
-        channelid: lobby.channelid
+        channelid: lobby.channelid,
+        activeplayer: lobby.activeplayer
     };
 }
 
@@ -72,6 +73,7 @@ export async function createLobby (playerProfile, channelid, mapid, teamsize, te
         team_size: teamsize || 1,
         team_count: teamcount > 1 ? teamcount : 2,
         channelid: channelid,
+        activeplayer: playerProfile.userid,
         // internal use
         update_token: "",
         update_expires: -1, // seconds
