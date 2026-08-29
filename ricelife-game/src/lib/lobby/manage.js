@@ -43,7 +43,6 @@ export async function exportLobby (lobbyid) {
 }
 
 export async function getTerrainUrl (lobbyid) {
-    const now = Math.ceil(Date.now() / 1000);
     const key = generateTerrainPath(lobbyid);
     const expires = Math.floor(Date.now() / 1000) + DOWNLOAD_TTL;
     const url = await BLOB.downloadUrl(key, DOWNLOAD_TTL);
@@ -147,7 +146,7 @@ export async function commitUpdate (lobbyid, token, players) {
         "update_token", "",
         "update_expires", -1
     ));
-    await jobs;
+    await Promise.all(jobs);
 }
 
 // now expected in seconds
