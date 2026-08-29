@@ -73,6 +73,7 @@ export class DiscordApp {
         if (participants?.length) {
             let searchForUser = true;
             for (const participant of participants) {
+                if (participant.bot) continue;
                 if (searchForUser && this.user.id === participant.id) {
                     this.#user = participant;
                     searchForUser = false;
@@ -88,6 +89,14 @@ export class DiscordApp {
     // closes the Discord Application (not just the SDK)
     closeApp (message) {
         this.sdk.close(RPCCloseCodes.CLOSE_NORMAL, message || "");
+    }
+    async shareLink (params, message, customID) {
+        const { success } = await this.sdk.commands.shareLink({
+            customParams: params || {},
+            message: message || "",
+            custom_id: customID || ""
+        });
+        return success;
     }
 
     get onload () { return this.#load.promise }
