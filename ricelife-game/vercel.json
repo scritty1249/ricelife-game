@@ -12,6 +12,12 @@
                 "Cross-Origin-Embedder-Policy": "require-corp"
             }
         },
+        {
+            "src": "/(.*)\\.js",
+            "headers": {
+                "cache-control": "public, max-age=0, must-revalidate"
+            }
+        },
         { "handle": "filesystem" },
         { "src": "/(.*)", "dest": "/index.html" }
     ]
