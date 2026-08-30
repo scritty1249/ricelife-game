@@ -3,7 +3,7 @@
     "outputDirectory": "client",
     "headers": [
         {
-            "source": "/engine/**/Core.js",
+            "source": "/engine/:path*/Core.js",
             "headers": [
                 { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" },
                 { "key": "X-Frame-Options", "value": "DENY" },
@@ -13,7 +13,7 @@
             ]
         },
         {
-            "source": "/engine/**",
+            "source": "/engine/:path*",
             "headers": [
                 { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" },
                 { "key": "X-Frame-Options", "value": "DENY" },
@@ -23,7 +23,7 @@
             ]
         },
         {
-            "source": "/scripts/**/*.js",
+            "source": "/scripts/:path*.js",
             "headers": [
                 { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
             ]
@@ -35,9 +35,9 @@
             ]
         },
         {
-            "source": "/assets/**",
+            "source": "/assets/:path*",
             "headers": [
-                { "key": "Cache-Control", "value": "public, max-age=86400" }
+                { "key": "Cache-Control", "value": "public, max-age=86400, must-revalidate" }
             ]
         }
     ],
