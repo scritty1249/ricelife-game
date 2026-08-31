@@ -4,6 +4,7 @@ import path from "path";
 import { resolveAbsolutePathsPluginFactory } from "./utils.js";
 
 const isDev = process.argv.includes("--dev");
+const GIT_COMMIT_SHA = process.env.VERCEL_GIT_COMMIT_SHA || "?".repeat(40);
 
 const outputPath = path.normalize("./client");
 const ammoPath = path.normalize("./src/engine/ammotypes");
@@ -68,7 +69,9 @@ const indexFileOutput = path.normalize("./client/index.html");
 console.log(`Copying index file with bundle ${bundleUrl} from ${indexFileSource} to ${indexFileOutput}`);
 const bundleScriptTag = `<script type="module" src="${bundleUrl}" defer></script>`;
 let htmlContent = readFileSync(indexFileSource, "utf8");
-htmlContent = htmlContent.replace("<!-- SCRIPT_BUNDLE_TAG -->", bundleScriptTag);
+htmlContent = htmlContent
+    .replace("<!-- SCRIPT_BUNDLE_TAG -->", bundleScriptTag)
+    .replace("<!-- GIT_COMMIT_SHA -->", GIT_COMMIT_SHA);
 writeFileSync(indexFileOutput, htmlContent, "utf8");
 
 console.log(`Successfully wrote index file to ${indexFileOutput}`);

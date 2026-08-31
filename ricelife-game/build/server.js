@@ -5,6 +5,8 @@ import path from "path";
 import { resolveAbsolutePathsPluginFactory } from "./utils.js";
 
 const isDev = process.argv.includes("--dev");
+const GIT_COMMIT_SHA = process.env.VERCEL_GIT_COMMIT_SHA || "?".repeat(40);
+
 const libPath = path.normalize("./src/lib");
 const outDir = path.normalize("./dist/lib");
 
