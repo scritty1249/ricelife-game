@@ -6,15 +6,13 @@ export class AmmoPool extends LoadPool {
         if (ammoTypes?.length) this.add(...ammoTypes);
     }
 
-    #path (ammoType) { return `../ammotypes/${ammoType}.js` }
-
     add (...ammoTypes) {
         if (!ammoTypes?.length) return;
         const entries = [];
         for (const ammoType of ammoTypes)
             entries.push(
                 ammoType,
-                import(this.#path(ammoType))
+                import(`../ammotypes/${ammoType}.js`)
                     .then(({default: value}) => value)
             )
         super.add(...entries);
