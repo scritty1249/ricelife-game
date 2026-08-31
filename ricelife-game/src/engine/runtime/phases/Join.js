@@ -32,7 +32,7 @@ export class Join extends Phase {
         await this.Lobby.loadAvatarAssets(this.AssetPool, this.Global.constructor.AssetType.Image);
     }
     #setupInterface () {
-        this.store.lobbyElements = this.Interface.insert();
+        this.store.lobbyElements = new ItemLayout();
         this.store.lobbyElements.isColumn = true;
         this.store.teamLayouts = new ItemLayout();
         this.store.teamLayouts.gap = 15;
@@ -52,6 +52,7 @@ export class Join extends Phase {
             .push(layout)
             .fixed = true;
         if (this.isClientInLobby) this.store.lobbyElements.push(this.#createJoinButton());
+        this.Interface.insert().push(this.store.lobbyElements);
     }
     #createJoinButton () {
         const { DEFAULT_FONT, FONT_SIZE } = this.Global.store;
