@@ -9,13 +9,15 @@ const GIT_COMMIT_SHA = process.env.VERCEL_GIT_COMMIT_SHA || "?".repeat(40);
 const outputPath = path.normalize("./client");
 const ammoPath = path.normalize("./src/engine/ammotypes");
 const webWorkerSource = path.normalize("./src/engine/workers/Worker.js");
+const webWorkerOutput = "engine/workers/Worker";
+const clientScriptOutput = "scripts/main";
 const runtimeCoreSource = path.normalize("./src/engine/runtime/Core.js");
 const clientScriptSource = path.normalize("./src/client/scripts/main.js");
 
 const entryPoints = {
     "engine/runtime/Core": runtimeCoreSource,
-    "engine/workers/Worker": webWorkerSource,
-    "scripts/main": clientScriptSource
+    [webWorkerOutput]: webWorkerSource,
+    [clientScriptOutput]: clientScriptSource
 };
 const externalPrefixes = [
     "/data/*",
@@ -59,19 +61,21 @@ const result = await build({
 console.log(`\nSuccessfully build to: ${outputPath}`);
 
 const outputFiles = Object.keys(result.metafile.outputs);
-const mainBundleName = outputFiles.find(file => file.endsWith(".js") && file.startsWith("client/scripts/main-"));
-if (!mainBundleName) {
-    throw new Error("Could not find generated entry point bundle file.");
-}
+const mainBundleName = outputFiles.find(file => file.endsWith(".js") && file.startsWith(`client/${clientScriptOutput}-`));
+const webWorkerName = outputFiles.find(file => file.endsWith(".js") && file.startsWith(`client/${webWorkerOutput}-`));
+if (!mainBundleName) throw new Error("Could not find generated entry point bundle file.");
+if (!webWorkerName) throw new Error("Could not find generated web worker file.");
 const bundleUrl = "/" + path.relative(outputPath, mainBundleName).replace(/\\/g, "/");
+const workerUrl = "/" + path.relative(outputPath, webWorkerName).replace(/\\/g, "/");
 const indexFileSource = path.normalize("./src/client/index.html");
 const indexFileOutput = path.normalize("./client/index.html");
-console.log(`Copying index file with bundle ${bundleUrl} from ${indexFileSource} to ${indexFileOutput}`);
+console.log(`Copying index file from ${indexFileSource}`);
 const bundleScriptTag = `<script type="module" src="${bundleUrl}" defer></script>`;
 let htmlContent = readFileSync(indexFileSource, "utf8");
 htmlContent = htmlContent
     .replace("<!-- SCRIPT_BUNDLE_TAG -->", bundleScriptTag)
-    .replace("<!-- GIT_COMMIT_SHA -->", GIT_COMMIT_SHA);
+    .replace("<!-- GIT_COMMIT_SHA -->", GIT_COMMIT_SHA)
+    .replace("<!-- GENERATED_WORKER_URL -->", workerUrl);
 writeFileSync(indexFileOutput, htmlContent, "utf8");
 
 console.log(`Successfully wrote index file to ${indexFileOutput}`);
