@@ -1,5 +1,4 @@
 import { Identifiable } from "../../core/utils/tracking/Identifiable.js";
-import { generateUUID } from "../../core/utils/tracking/UUID.js";
 import { Cache } from "./Cache.js";
 import { Job } from "./Job.js";
 import { Transaction } from "./Transaction.js";

@@ -1,8 +1,5 @@
 import { Polygon } from "/engine/core/geometry/Polygon.js";
 import { Terrain } from "/engine/core/geometry/Terrain.js";
-import { Color } from "/engine/core/math/Color.js";
-import { Vector } from "/engine/core/math/Vector.js";
-import { Properties } from "/engine/core/projectile/collision/Properties.js";
 import { traceAmmo } from "/engine/core/projectile/utils.js";
 import { Cache, TerrainCache } from "/engine/workers/pool/Cache.js";
 import { AmmoPool } from "/engine/core/load/pool/AmmoPool.js";

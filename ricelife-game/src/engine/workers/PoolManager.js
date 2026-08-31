@@ -1,14 +1,11 @@
 import {
-    Polygon,
-    Vector,
     Terrain,
     Blast,
     generateUUID,
-    equals,
     sortBlastGroups,
     BlastInterval,
 } from "../core/Core.js";
-import { Cache, CanvasCache } from "./pool/Core.js";
+import { CanvasCache } from "./pool/Core.js";
 export class PoolManager {
     #pool;
     constructor(workerPool) {
