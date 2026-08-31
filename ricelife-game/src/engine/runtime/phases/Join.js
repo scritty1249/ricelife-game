@@ -50,7 +50,7 @@ export class Join extends Phase {
         this.Interface.insert()
             .push(layout)
             .fixed = true;
-        if (this.isClientInLobby) layout.push(this.#createJoinButton());
+        if (!this.isClientInLobby) layout.push(this.#createJoinButton());
         this.store.lobbyElements = layout;
     }
     #createJoinButton () {
