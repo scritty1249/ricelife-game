@@ -9,13 +9,13 @@
             ]
         },
         {
-            "source": "/assets/:path*",
+            "source": "/assets/(.*)",
             "headers": [
                 { "key": "Cache-Control", "value": "public, max-age=86400, must-revalidate" }
             ]
         },
         {
-            "source": "/:path*\\.(js)",
+            "source": "/(.*\\.js)",
             "headers": [
                 { "key": "X-Frame-Options", "value": "DENY" },
                 { "key": "X-Content-Type-Options", "value": "nosniff" },
@@ -24,19 +24,19 @@
             ]
         },
         {
-            "source": "/engine/:path*/Core.js",
-            "headers": [ { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" } ]
-        },
-        {
-            "source": "/engine/:path*",
+            "source": "/engine/(.*\\.js)",
             "headers": [ { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" } ]
         },
         {
-            "source": "/dependencies/:path*\\.(js)",
+            "source": "/engine/(.*Core\\.js)",
             "headers": [ { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" } ]
         },
         {
-            "source": "/scripts/:path*\\.(js)",
+            "source": "/dependencies/(.*\\.js)",
+            "headers": [ { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" } ]
+        },
+        {
+            "source": "/scripts/(.*\\.js)",
             "headers": [ { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" } ]
         }
     ],
