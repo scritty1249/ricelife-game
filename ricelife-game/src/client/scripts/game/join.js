@@ -29,7 +29,7 @@ export default async function init (mainController, Discord, lobby, lobbyid) {
 }
 
 async function joinLobby (payload) {
-    const response = await fetch(ENDPOINT + "/lobby/new", {
+    const response = await fetch(ENDPOINT + "/lobby/add", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
