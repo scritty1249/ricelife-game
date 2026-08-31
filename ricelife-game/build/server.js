@@ -2,7 +2,7 @@ import { build } from "esbuild";
 import { readdir, writeFile } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
-import { resolveAbsolutePathsPlugin } from "./utils.js";
+import { resolveAbsolutePathsPluginFactory } from "./utils.js";
 
 const isDev = process.argv.includes("--dev");
 const libPath = path.normalize("./src/lib");
@@ -41,7 +41,7 @@ if (existsSync(libPath)) {
                 platform: "node", // target env
                 packages: "external", // don't bundle in node/npm stuff
                 outfile: dest,
-                plugins: [resolveAbsolutePathsPlugin],
+                plugins: [resolveAbsolutePathsPluginFactory()],
             });
             console.log(`Bundled: ${filePath} > ${dest}`);
         }),
