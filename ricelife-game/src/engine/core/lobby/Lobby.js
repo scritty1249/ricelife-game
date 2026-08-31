@@ -127,7 +127,7 @@ export class Lobby {
         }
         return await Promise.all(promises);
     }
-    async loadModelAssets (assetPool, accentColor, clientUserID, accentTolerance = 254) {
+    async loadModelAssets (assetPool, clientUserID, accentColor, accentTolerance = 254) {
         const color = accentColor.toString();
         const promises = [];
         for (const [ id, player ] of this.Players) {
