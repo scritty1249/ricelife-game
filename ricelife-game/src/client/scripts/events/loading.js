@@ -6,7 +6,7 @@ export function loading (data) {
         loadingElement.classList.add("error-state");
     } else if (data?.error === false) {
         loadingElement.classList.remove("error-state");
-    } else if (loadingElement.classList.has("error-state")) {
+    } else if (loadingElement.classList.contains("error-state")) {
         return; // don't overwrite errors
     }
     if (data?.hide) {
