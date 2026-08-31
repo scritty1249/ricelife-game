@@ -48,11 +48,9 @@ export class Join extends Phase {
             this.store.teamLayouts.push(teamLayout);
         }
         layout.push(this.store.teamLayouts);
-        this.store.lobbyElements
-            .push(layout)
-            .fixed = true;
+        this.store.lobbyElements.push(layout)
         if (this.isClientInLobby) this.store.lobbyElements.push(this.#createJoinButton());
-        this.Interface.insert().push(this.store.lobbyElements);
+        this.Interface.insert().push(this.store.lobbyElements).fixed = true;
     }
     #createJoinButton () {
         const { DEFAULT_FONT, FONT_SIZE } = this.Global.store;
