@@ -1,7 +1,7 @@
 import { Main } from "/engine/runtime/Core.js";
-import { loading } from "/scripts/events/loading.js";
-import { DiscordApp } from "/dependencies/discord.js";
-import { ENDPOINT, getLobby } from "/scripts/api/api.js";
+import { loading } from "./events/loading.js";
+import { DiscordApp } from "./discord.js";
+import { ENDPOINT, getLobby } from "./api/api.js";
 
 const LOBBY_ID_PREFIX = "LOBBY_";
 
@@ -27,7 +27,7 @@ export async function load () {
         const lobbyid = customID.slice(LOBBY_ID_PREFIX.length);
         phase = await loadLobby(lobbyid, main, Discord);
     } else {
-        const { default: init } = await import("/scripts/game/create.js");
+        const { default: init } = await import("./game/create.js");
         phase = await init(main, Discord);
     }
     main.Events.raiseEvent("LOADING", {hide: true});
@@ -52,10 +52,10 @@ async function loadLobby (lobbyid, mainController, Discord) {
             const lobbyData = await getLobby(lobbyid);
             mainController.Events.raiseEvent("LOADING", {hide: false, message: `Loading menus`});
             if (lobbyData?.players && Discord.user.id in lobbyData.players) {
-                const { default: init } = await import("/scripts/game/round.js");
+                const { default: init } = await import("./game/round.js");
                 return await init(mainController, Discord, lobbyData, lobbyid);
             } else {
-                const { default: init } = await import("/scripts/game/join.js");
+                const { default: init } = await import("./game/join.js");
                 return await init(mainController, Discord, lobbyData, lobbyid);
             }
         } else {

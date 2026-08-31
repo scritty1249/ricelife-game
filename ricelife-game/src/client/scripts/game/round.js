@@ -1,5 +1,5 @@
-import { getTerrainUrl } from "/scripts/api/api.js";
-import { stream, unpackPolygon } from "/scripts/api/unpack.js";
+import { getTerrainUrl } from "../api/api.js";
+import { stream, unpackPolygon } from "../api/unpack.js";
 
 export default async function init (mainController, Discord, lobby, lobbyid) {
     mainController.Events.raiseEvent("LOADING", {hide: false, message: `Fetching data`});

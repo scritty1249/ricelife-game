@@ -1,4 +1,4 @@
-import { DiscordSDK, RPCCloseCodes, patchUrlMappings } from "@discord/embedded-app-sdk";
+import { DiscordSDK, RPCCloseCodes } from "@discord/embedded-app-sdk";
 
 export class DiscordApp {
     static #getAvatarUrl (userid, avatar) {

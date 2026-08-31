@@ -1,5 +1,5 @@
 import { build } from "esbuild";
-import { existsSync, statSync, readdirSync } from "fs";
+import { existsSync, statSync, readdirSync, writeFileSync, readFileSync } from "fs";
 import path from "path";
 import { resolveAbsolutePathsPlugin } from "./utils.js";
 
@@ -51,17 +51,40 @@ await build({
 });
 console.log(`\nSuccessfully built to: ${outDir}`);
 
-const discordSource = path.normalize("./src/client/discord.js");
-const discordOutput = path.normalize("./client/dependencies/discord.js");
-console.log(`Bundling Discord SDK at: ${discordSource}`);
-await build({
-    entryPoints: [discordSource],
+const clientScriptSource = path.normalize("./src/client/scripts/main.js");
+const clientScriptOutput = path.normalize("./client/scripts/");
+console.log(`Bundling client scripts at: ${clientScriptSource}`);
+const result = await build({
+    entryPoints: [clientScriptSource],
+    outdir: clientScriptOutput,
     bundle: true,
     write: true,
     minify: !isDev,
     format: "esm",
-    outfile: discordOutput,
-});
-console.log(`\nSuccessfully built to: ${discordOutput}`);
+    splitting: true, // split shared code bits into chunks
+    entryNames: "[name]-[hash]",
+    metafile: true,
+    external: [
+        "/engine/*",
+        "/data/*",
+        "/assets/*"
+    ],
+})
+console.log(`\nSuccessfully built to: ${clientScriptOutput}`);
+
+const indexFileSource = path.normalize("./src/client/index.html");
+const indexFileOutput = path.normalize("./client/index.html");
+const outputFiles = Object.keys(result.metafile.outputs);
+const bundleName = outputFiles.find(file => file.endsWith(".js") && file.startsWith("client/scripts/main-"));
+if (!bundleName) {
+    throw new Error("Could not find generated entry point bundle file.");
+}
+const bundleUrl = "/" + path.relative("./client", bundleName).replace(/\\/g, "/");
+console.log(`Writing index file with bundle ${bundleUrl} from ${indexFileSource} to ${indexFileOutput}`);
+const bundleScriptTag = `<script type="module" src="${bundleUrl}" defer></script>`;
+let htmlContent = readFileSync(indexFileSource, "utf8");
+htmlContent = htmlContent.replace("<!-- SCRIPT_BUNDLE_TAG -->", bundleScriptTag);
+writeFileSync(indexFileOutput, htmlContent, "utf8");
+console.log(`Sucessfully wrote to ${indexFileOutput}`);
 
 process.exit(0);

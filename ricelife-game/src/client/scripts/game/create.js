@@ -1,4 +1,4 @@
-import { ENDPOINT } from "/scripts/api/api.js";
+import { ENDPOINT } from "../api/api.js";
 
 export default async function init (mainController, Discord) {
     mainController.Events.raiseEvent("LOADING", {hide: false, message: "Fetching maps"});
