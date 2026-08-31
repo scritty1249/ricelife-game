@@ -99,7 +99,7 @@ export class Lobby {
             // player models
             const modelAccentColor = new Color(255, 0, 0).toString();
             const modelAccentTolerance = 254;
-            modelPromises = this.loadModelAssets(assetPool, modelAccentColor, modelAccentTolerance);
+            modelPromises = this.loadModelAssets(assetPool, clientUserID, modelAccentColor, modelAccentTolerance);
             // player avatars
             avatarPromises = this.loadAvatarAssets(assetPool, assetTypes.Image);
         }
@@ -127,11 +127,11 @@ export class Lobby {
         }
         return await Promise.all(promises);
     }
-    async loadModelAssets (assetPool, accentColor, accentTolerance = 254) {
+    async loadModelAssets (assetPool, accentColor, clientUserID, accentTolerance = 254) {
         const color = accentColor.toString();
         const promises = [];
         for (const [ id, player ] of this.Players) {
-            const affiliation = this.#getAffiliation(clientUserID, id);
+            const affiliation = clientUserID ? this.#getAffiliation(clientUserID, id) : "self";
             const modelKey = this.#getModelKey(player, affiliation);
             const modelColor = this.#getModelColor(affiliation);
             const modelSource = this.#getModelSource(player);
