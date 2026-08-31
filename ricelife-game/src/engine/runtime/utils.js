@@ -8,5 +8,4 @@ export function initLobby (lobbyJson) {
     return Lobby.fromObject(lobbyJson);
 }
 
-export const WEB_WORKER_PATH = window.__WEB_WORKER_PATH
-;
+export const WEB_WORKER_PATH = window.__WEB_WORKER_PATH;

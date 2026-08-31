@@ -2,7 +2,7 @@ import Basic from "./Basic.js";
 
 export default class Sniper extends Basic {
     static NAME = "Sniper";
-    static IMPORT = process.env.SELF_OUTPUT_NAME;
+    static IMPORT = "Sniper";
     constructor (origin, angle, power = 1, resolution = 1) {
         super(origin, angle, power, resolution);
         const shot = this.stages[0].shots[0];

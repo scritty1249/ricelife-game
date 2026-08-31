@@ -1,8 +1,8 @@
 import { Polygon } from "../core/geometry/Polygon.js";
 import { Terrain } from "../core/geometry/Terrain.js";
 import { traceAmmo } from "../core/projectile/utils.js";
-import { Cache, TerrainCache } from "../workers/pool/Cache.js";
-import { AmmoPool } from "../core/load/pool/AmmoPool.js";
+import { Cache, TerrainCache } from "./pool/Cache.js";
+import { AmmoPool } from "../shared/AmmoPool.js";
 
 const _queryString = self.location.search;
 const _urlParams = new URLSearchParams(_queryString);
@@ -12,7 +12,7 @@ const CACHE = {};
 const CHANNELS = {};
 const TRANSACTIONS = {};
 const CONSOLE_PREFIX = `[WebWorker] (${ID})`;
-const AMMO_TYPES = new AmmoPool("/engine/ammotypes");
+const AMMO_TYPES = new AmmoPool();
 
 function postSuccess (id) { postResponse(id) }
 

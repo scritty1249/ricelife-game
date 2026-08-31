@@ -9,7 +9,7 @@ import { createBlasts } from "../core/projectile/collision/Behaviors.js";
 // fires a "stem" that bounces straight up upon collision. After reaching Y height, turns into N "needle" shots that umbrella downwards in an enveloping arc.
 export default class Pine extends AmmoType {
     static NAME = "Pine";
-    static IMPORT = process.env.SELF_OUTPUT_NAME;
+    static IMPORT = "Pine";
     static stemTransition () {
         const { projectile } = this;
         if (projectile.current.velocity.y <= this.userData.speedThreshold) {

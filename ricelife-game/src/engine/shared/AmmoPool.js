@@ -1,14 +1,12 @@
-import { LoadPool } from "./LoadPool.js";
+import { LoadPool } from "../core/load/pool/LoadPool.js";
 
 export class AmmoPool extends LoadPool { 
-    #importPath;
-    constructor (importPath, ...ammoTypes) {
+    constructor (...ammoTypes) {
         super();
-        this.#importPath = importPath;
         if (ammoTypes?.length) this.add(...ammoTypes);
     }
 
-    #path (ammoType) { return `${this.importPath}/${ammoType}.js` }
+    #path (ammoType) { return `../ammotypes/${ammoType}.js` }
 
     add (...ammoTypes) {
         if (!ammoTypes?.length) return;
@@ -24,5 +22,4 @@ export class AmmoPool extends LoadPool {
     }
 
     get isAmmoPool () { return true }
-    get importPath () { return this.#importPath }
 }

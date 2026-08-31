@@ -9,7 +9,7 @@ import { computeBounce, createBlasts } from "../core/projectile/collision/Behavi
 
 export default class Bouncer extends AmmoType {
     static NAME = "Bouncer";
-    static IMPORT = process.env.SELF_OUTPUT_NAME;
+    static IMPORT = "Bouncer";
     static collisionCallback (point, normal, collisionFlags) {
         const { projectile } = this;
         const { position, velocity } = projectile.current;

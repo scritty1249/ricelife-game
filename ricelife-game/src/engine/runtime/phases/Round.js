@@ -1,5 +1,4 @@
 import {
-    AmmoPool,
     AnimationList,
     Animation,
     ShapeAnimation,
@@ -22,6 +21,7 @@ import { AmmoSelect } from "../menus/AmmoSelect.js";
 import { AmmoTypeDetails } from "../selections/AmmoTypeDetails.js";
 import { HitpointMap } from "../../hitpoints/Core.js";
 import { initTerrain, initLobby, WEB_WORKER_PATH } from "../utils.js";
+import { AmmoPool } from "../../shared/AmmoPool.js";
 
 import { drawCircle, drawLine, drawMarker, drawText, generateBitmapDownloadURL } from "../debug/draw.js"; // [!] all for debug overlay
 
@@ -60,7 +60,7 @@ const MOVE_SPEED = 1;
 export class Round extends Phase {
     static MENU_BACKGROUND_TINT = new Color(0, 0, 0, .7);
     static WEB_WORKER_PATH = WEB_WORKER_PATH;
-    #AmmoPool = new AmmoPool("/engine/ammotypes");
+    #AmmoPool = new AmmoPool();
     #Players = new Map();
     #Lobby;
     #ClientPlayerID; // id of client player

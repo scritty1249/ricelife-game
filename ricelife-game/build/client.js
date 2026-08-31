@@ -1,14 +1,12 @@
 import { build } from "esbuild";
-import { existsSync, statSync, readdirSync, writeFileSync, readFileSync } from "fs";
+import { existsSync, writeFileSync, readFileSync } from "fs";
 import path from "path";
-import { resolveAbsolutePathsPluginFactory, injectOutputFilenamePluginFactory } from "./utils.js";
+import { resolveAbsolutePathsPluginFactory } from "./utils.js";
 
 const isDev = process.argv.includes("--dev");
 const GIT_COMMIT_SHA = process.env.VERCEL_GIT_COMMIT_SHA || "?".repeat(40);
 
 const outputPath = path.normalize("./client");
-const ammoPath = path.normalize("./src/engine/ammotypes");
-const ammoOutputPrefix = "engine/ammotypes/"
 const webWorkerSource = path.normalize("./src/engine/workers/Worker.js");
 const webWorkerOutput = "engine/workers/Worker";
 const clientScriptOutput = "scripts/main";
@@ -32,18 +30,6 @@ for (const [ dest, src ] of Object.entries(entryPoints)) {
     }
 }
 
-if (existsSync(ammoPath)) {
-    const ammoFiles = readdirSync(ammoPath)
-        .map(file => path.join(ammoPath, file))
-        .filter(filePath => statSync(filePath).isFile());
-    ammoFiles.forEach(filePath => {
-        const filename = path.parse(filePath).name;
-        entryPoints[ammoOutputPrefix + filename] = filePath;
-    });
-} else {
-    console.error(`Error: ammo types directory not found at: ${ammoPath}`);
-}
-
 console.log(`Clustering ${Object.values(entryPoints).length} sources:\n`);
 const result = await build({
     entryPoints,
@@ -56,14 +42,8 @@ const result = await build({
     entryNames: "[dir]/[name]-[hash]",
     chunkNames: "scripts/chunks/[name]-[hash]", 
     metafile: true,
-    plugins: [
-        resolveAbsolutePathsPluginFactory(...externalPrefixes),
-        injectOutputFilenamePluginFactory("__FILE_NAME_OUTPUT__", (filename) => filename.startsWith(`client/${ammoOutputPrefix}`))
-    ],
+    plugins: [resolveAbsolutePathsPluginFactory(...externalPrefixes)],
     external: externalPrefixes,
-    define: {
-        "process.env.SELF_OUTPUT_NAME": "\"__FILE_NAME_OUTPUT__\""
-    },
 });
 console.log(`\nSuccessfully build to: ${outputPath}`);
 
