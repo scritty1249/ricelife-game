@@ -6,7 +6,7 @@ import { Projectile } from "../core/projectile/Projectile.js";
 
 export default class Basic extends AmmoType {
     static NAME = "Basic";
-    static IMPORT = "Basic"; // file name (case sensitive)
+    static IMPORT = process.env.SELF_OUTPUT_NAME; // file name (case sensitive)
     constructor (origin, angle, power = 1, resolution = 1) {
         super(origin, angle, power, resolution);
         // geometry config

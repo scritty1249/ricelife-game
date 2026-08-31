@@ -3,7 +3,7 @@ import { createBlasts } from "../core/projectile/collision/Behaviors.js";
 
 export default class GigaBouncer extends MegaBouncer {
     static NAME = "GigaBouncer";
-    static IMPORT = "GigaBouncer";
+    static IMPORT = process.env.SELF_OUTPUT_NAME;
     static onBounce () {
         createBlasts.call(this);
     }

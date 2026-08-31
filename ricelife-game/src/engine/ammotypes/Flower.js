@@ -7,7 +7,7 @@ import { Projectile } from "../core/projectile/Projectile.js";
 
 export default class Flower extends AmmoType {
     static NAME = "Flower";
-    static IMPORT = "Flower";
+    static IMPORT = process.env.SELF_OUTPUT_NAME;
     static petalCount = 7;
     static radius = 7.5;
     static blastRadius = 35;

@@ -3,7 +3,7 @@ import { Vector } from "../core/math/Vector.js";
 
 export default class MegaBouncer extends Bouncer {
     static NAME = "MegaBouncer";
-    static IMPORT = "MegaBouncer";
+    static IMPORT = process.env.SELF_OUTPUT_NAME;
     static onBounce () {
         const { projectile } = this;
         const { maxBounces } = this.userData;

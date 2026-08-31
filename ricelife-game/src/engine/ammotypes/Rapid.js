@@ -8,7 +8,7 @@ import { Random } from "../core/math/Random.js";
 
 export default class Rapid extends AmmoType {
     static NAME = "Rapid";
-    static IMPORT = "Rapid";
+    static IMPORT = process.env.SELF_OUTPUT_NAME;
     static decode (...params) {
         const [o, angle, power, resolution, seed, _ = undefined] = params;
         const origin = Vector.fromObject(o);

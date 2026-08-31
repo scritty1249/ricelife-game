@@ -9,7 +9,7 @@ import { computeBounce, createBlasts } from "../core/projectile/collision/Behavi
 
 export default class Digger extends AmmoType {
     static NAME = "Digger";
-    static IMPORT = "Digger";
+    static IMPORT = process.env.SELF_OUTPUT_NAME;
     static collisionCallback (point, normal, collisionFlags) {
         const { projectile } = this;
         const direction = projectile.current.velocity.normalize();

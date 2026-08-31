@@ -79,7 +79,7 @@ export default class Scatter extends AmmoType {
         }
     }
     static NAME = "Scatter"; // display name
-    static IMPORT = "Scatter"; // file name (case sensitive)
+    static IMPORT = process.env.SELF_OUTPUT_NAME;
     static stageCount = 2;
     static radius = 15;
     static initalSpeed = 400;
