@@ -1,8 +1,8 @@
-import { Polygon } from "/engine/core/geometry/Polygon.js";
-import { Terrain } from "/engine/core/geometry/Terrain.js";
-import { traceAmmo } from "/engine/core/projectile/utils.js";
-import { Cache, TerrainCache } from "/engine/workers/pool/Cache.js";
-import { AmmoPool } from "/engine/core/load/pool/AmmoPool.js";
+import { Polygon } from "../core/geometry/Polygon.js";
+import { Terrain } from "../core/geometry/Terrain.js";
+import { traceAmmo } from "../core/projectile/utils.js";
+import { Cache, TerrainCache } from "../workers/pool/Cache.js";
+import { AmmoPool } from "../core/load/pool/AmmoPool.js";
 
 const _queryString = self.location.search;
 const _urlParams = new URLSearchParams(_queryString);
