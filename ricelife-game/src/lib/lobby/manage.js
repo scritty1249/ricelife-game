@@ -104,7 +104,7 @@ export async function exportLobby (lobbyid) {
         players: lobby.players,
         state: lobby.state,
         teams: teams,
-        teamcount: lobby.team_count,
+        teamsize: lobby.team_size,
         channelid: lobby.channelid,
         activeplayer: activePlayer
     };
