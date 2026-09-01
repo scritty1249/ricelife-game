@@ -18,26 +18,5 @@ After enough development, automated Discord-based responses (emotes, memes, mess
 - Player can revive teammates instead of firing on their turn
 - ...
 
-## Browser Demo
-This demo is only available during inital testing. Support for running this application in a browser outside of a Discord Embedded Activity (the target client) is not guarenteed and will be discontinued at developer discretion.
-
-#### Running the demo
-
-The demo is available on Github Pages at: https://scritty1249.github.io/ricelife-game/ricelife-game/client
-
-> Running the demo yourself:\
-> Use any server hosting method of choice, and serve `index.html` from the `/ricelife-game/client` directory scope. This demo does not require any extra third-party binaries or modules to function beyond serving the game content.
->
-> *Discord App SDK will be used in later stages of development to interact with the Discord application outside of gameplay.*\
-> *AWS modules will be used in the backend to handle S3 Bucket and DynamoDB interactions securely.*
-
-#### Controls
-- **W,A,S,D:** Forward, Left, Backward, Right
-- **Space:** Shoot currently selected ammo type
-- **Arrow Up:** Increase shot power
-- **Arrow Down:** Decrease shot power
-- **Arrow Left:** Aim Left
-- **Arrow Right:** Aim Right
-
-> Mouse and Touch support:\
-> *Dragging from anywhere inside of the aiming circle around the player's character will also set the aim and shot power*
+## Accessing the game
+The game is currently accessible on Discord for closed testing. A link to add the application through Discord will be included in this document after testing is complete.
