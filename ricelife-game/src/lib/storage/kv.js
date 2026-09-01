@@ -254,20 +254,95 @@ export async function isLobbyFull (id) {
     }
 }
 
-export async function startLobby (id) {
+export async function startLobby (id, turnOrder) {
     const command = {
         TableName: process.env.AWS_DB,
         Key: { [PK]: id },
         ConditionExpression: "attribute_exists(#pk) AND #state = :waitingState",
-        UpdateExpression: "SET #state = :activeState",
+        UpdateExpression: `
+            SET #state = :activeState,
+                player_order = :turnOrder,
+                activeplayer = :firstPlayer
+        `,
         ExpressionAttributeNames: {
             "#state": "state",
             ...PK_EXPRESSION_NAME
         },
         ExpressionAttributeValues: {
+            ":waitingState": STATUS.WAITING,
             ":activeState": STATUS.ACTIVE,
-            ":waitingState": STATUS.WAITING
+            ":firstPlayer": turnOrder[0] || "",
+            ":turnOrder": [...turnOrder]
         },
+    };
+    try {
+        return await docClient.send(new UpdateCommand(command));
+    } catch (error) {
+        if (error.name === ERROR_NAME) return null;
+        else throw error;
+    }
+}
+
+export async function startFullLobby (id, turnOrder) {
+    const command = {
+        TableName: process.env.AWS_DB,
+        Key: { [PK]: id },
+        ConditionExpression: "attribute_exists(#pk) AND #state = :waitingState AND size(players) = player_limit",
+        UpdateExpression: `
+            SET #state = :activeState,
+                player_order = :turnOrder,
+                activeplayer = :firstPlayer
+        `,
+        ExpressionAttributeNames: {
+            "#state": "state",
+            ...PK_EXPRESSION_NAME
+        },
+        ExpressionAttributeValues: {
+            ":waitingState": STATUS.WAITING,
+            ":activeState": STATUS.ACTIVE,
+            ":firstPlayer": turnOrder[0] || "",
+            ":turnOrder": [...turnOrder]
+        }
+    };
+    try {
+        return await docClient.send(new UpdateCommand(command));
+    } catch (error) {
+        if (error.name === ERROR_NAME) return null;
+        else throw error;
+    }
+}
+
+export async function commitLobbyTurn (id, players) {
+    const playerAttributeValues = {};
+    let updatePlayerExpressions = "";
+    let i = 0;
+    for (const [ id, player ] of Object.entries(players)) {
+        const val = `:val${i}`;
+        updatePlayerExpressions += `, players.${id} = ${val}`;
+        playerAttributeValues[val] = player;
+        i++;
+    }
+    const command = {
+        TableName: process.env.AWS_DB,
+        Key: { [PK]: id },
+        ConditionExpression: "attribute_exists(#pk) AND #state = :activeState",
+        UpdateExpression: `
+            SET update_token = :emptyStr,
+                update_expires = :emptyTimestamp,
+                activeplayer = player_order[turn_count % size(player_order)],
+                turn_count = turn_count + :inc
+        ` + updatePlayerExpressions,
+        ExpressionAttributeNames: {
+            "#state": "state",
+            ...PK_EXPRESSION_NAME
+        },
+        ExpressionAttributeValues: {
+            ":emptyTimestamp": -1,
+            ":inc": 1,
+            ":emptyStr": "",
+            ":activeState": STATUS.ACTIVE,
+            ...playerAttributeValues
+        }
     };
     try {
         return await docClient.send(new UpdateCommand(command));
@@ -290,29 +365,6 @@ export async function closeLobby (id) {
         ExpressionAttributeValues: {
             ":closeState": STATUS.CLOSED
         },
-    };
-    try {
-        return await docClient.send(new UpdateCommand(command));
-    } catch (error) {
-        if (error.name === ERROR_NAME) return null;
-        else throw error;
-    }
-}
-
-export async function startFullLobby (id) {
-    const command = {
-        TableName: process.env.AWS_DB,
-        Key: { [PK]: id },
-        ConditionExpression: "attribute_exists(#pk) AND #state = :waitingState AND size(players) = player_limit",
-        UpdateExpression: "SET #state = :activeState",
-        ExpressionAttributeNames: {
-            "#state": "state",
-            ...PK_EXPRESSION_NAME
-        },
-        ExpressionAttributeValues: {
-            ":waitingState": STATUS.WAITING,
-            ":activeState": STATUS.ACTIVE
-        }
     };
     try {
         return await docClient.send(new UpdateCommand(command));

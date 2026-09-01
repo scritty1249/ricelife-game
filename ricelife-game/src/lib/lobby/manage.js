@@ -21,6 +21,41 @@ function generateMapPath (mapid) {
     return `terrain/MASTER/${mapid}.bin`;
 }
 
+function sortTurnOrder (players) {
+    const teams = Object.entries(players).reduce((groups, [id, player]) => {
+        const team = player.data?.team || "0";
+        if (!groups[team]) {
+            groups[team] = [];
+        }
+        groups[team].push(id);
+        return groups;
+    }, {});
+    const teamNames = Object.keys(teams).sort();
+    teamNames.forEach((team) => teams[team].sort());
+    const turnOrder = [];
+    let doSort = true;
+    let round = 0;
+    while (doSort) {
+        doSort = false;
+        for (const teamName of teamNames) {
+            const roster = teams[teamName];
+            if (roster.length > 0) {
+                const player = roster.shift(); 
+                turnOrder.push(player);
+                doSort = true; 
+            }
+        }
+        round++;
+    }
+    return turnOrder;
+}
+
+async function generateTurnOrder (lobbyid) {
+    const players = (await KV.get(lobbyid, "players"))?.players ?? {};
+    const turnOrder = sortTurnOrder(players);
+
+}
+
 export async function lobbyHasPlayer (lobbyid, playerid) {
     if (!lobbyid || !playerid) return null;
     return await KV.exists(lobbyid, `players.${playerid}`)
@@ -111,6 +146,7 @@ export async function createLobby (playerProfile, channelid, mapid, teamsize, te
         player_limit: teamSize * teamCount,
         update_token: "",
         update_expires: -1, // seconds
+        turn_count: 0
     });
     if (await result === null) throw new Error("Failed to create lobby");
     await res;
@@ -166,21 +202,14 @@ export async function stageUpdate (lobbyid, terrainchanged) {
 // part 2 of atomic update
 // commit changes in S3 Bucket, then upload player details to DynamoDB
 export async function commitUpdate (lobbyid, token, players) {
+    if (!lobbyid || !token || !players) return [false, false];
     const jobs = [];
     // commit staged terrain in s3 bucket ASAP, before it expires
     const stagedPath = generateStagedTerrainPath(lobbyid, token);
     const terrainPath = generateTerrainPath(lobbyid);
     if (await BLOB.exists(stagedPath))
         jobs.push(BLOB.copy(stagedPath, terrainPath));
-    // apply updates to players
-    // [!] send commands individually so condition only fails per player
-    for (const [ id, player ] of Object.entries(players))
-        jobs.push(KV.update(lobbyid, `players.${id}`, player));
-    // clear staging state data
-    jobs.push(KV.update(lobbyid,
-        "update_token", "",
-        "update_expires", -1
-    ));
+    jobs.push(KV.commitLobbyTurn(lobbyid, players));
     await Promise.all(jobs);
 }
 
