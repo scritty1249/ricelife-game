@@ -63,8 +63,6 @@ export class Join extends Phase {
             .fixed = true;
         if (isClientInLobby) {
             // [!] TODO: add leave button
-        } else {
-            layout.push(this.#createJoinButton());
         }
         this.store.lobbyElements = layout;
     }
