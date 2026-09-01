@@ -8,13 +8,14 @@ const GIT_COMMIT_SHA = process.env.VERCEL_GIT_COMMIT_SHA || "?".repeat(40);
 
 const outputPath = path.normalize("./client");
 const webWorkerSource = path.normalize("./src/engine/workers/Worker.js");
-const webWorkerOutput = "engine/workers/Worker";
+const webWorkerOutput = "scripts/engine/Worker";
 const clientScriptOutput = "scripts/main";
 const runtimeCoreSource = path.normalize("./src/engine/runtime/Core.js");
+const runtimeCoreOutput = "scripts/engine/Core"
 const clientScriptSource = path.normalize("./src/client/scripts/main.js");
 
 const entryPoints = {
-    "engine/runtime/Core": runtimeCoreSource,
+    [runtimeCoreOutput]: runtimeCoreSource,
     [webWorkerOutput]: webWorkerSource,
     [clientScriptOutput]: clientScriptSource
 };
@@ -40,7 +41,7 @@ const result = await build({
     splitting: true,
     outdir: outputPath,
     entryNames: "[dir]/[name]-[hash]",
-    chunkNames: "scripts/chunks/[name]-[hash]", 
+    chunkNames: "scripts/shared/[name]-[hash]", 
     metafile: true,
     plugins: [resolveAbsolutePathsPluginFactory(...externalPrefixes)],
     external: externalPrefixes,
