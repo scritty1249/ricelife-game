@@ -1,5 +1,5 @@
 import { exportLobby } from "@server/lib/lobby/manage.js";
-import { printError } from "@server/lib/main.js";
+import * as Responses from "@server/lib/responses.js";
 
 const DEV_PROD = process.env.NODE_ENV === "development";
 
@@ -10,7 +10,6 @@ export async function GET (request) {
         const lobby = await exportLobby(lobbyid);
         return Response.json({ lobby });
     } catch (error) {
-        printError(error);
-        return Response.json({error: error.message}, {status: 500, statusText: "Internal server error"});
+        return Responses.error(error);
     }
 }

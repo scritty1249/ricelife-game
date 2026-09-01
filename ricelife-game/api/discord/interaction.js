@@ -5,6 +5,7 @@ import { deleteLobby } from "@server/lib/lobby/manage.js";
 import { promiseTimeout } from "@server/lib/main.js";
 import { waitUntil } from "@vercel/functions";
 import { printError } from "@server/lib/main.js";
+import * as Responses from "@server/lib/responses.js";
 
 const ADMINS = [
     "644947703821762560",
@@ -30,7 +31,7 @@ export async function POST (request) {
             })
     } catch (err) {
         console.error("Execution error:", err);
-        return Response.json({error: err.message}, {status: 500, statusText: "Internal server error"});
+        return Responses.error(err);
     }
 }
 

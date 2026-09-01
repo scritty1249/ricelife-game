@@ -1,5 +1,5 @@
 import { lobbyHasPlayer, lobbyIsWaiting, getTerrainUrl, stageUpdate } from "@server/lib/lobby/manage.js";
-import { printError } from "@server/lib/main.js";
+import * as Responses from "@server/lib/responses.js";
 
 const DEV_PROD = process.env.NODE_ENV === "development";
 
@@ -16,8 +16,7 @@ export async function GET (request) {
             return new Response("Players must be in lobby to get terrain data", {status: 403});
         }
     } catch (error) {
-        printError(error);
-        return Response.json({error: error.message}, {status: 500, statusText: "Internal server error"});
+        return Responses.error(error);
     }
 }
 
@@ -35,7 +34,6 @@ export async function POST (request) {
             return new Response("Players must be in lobby to participate", {status: 403});
         }
     } catch (error) {
-        printError(error);
-        return Response.json({error: error.message}, {status: 500, statusText: "Internal server error"});
+        return Responses.error(error);
     }
 }

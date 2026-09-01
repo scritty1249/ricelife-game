@@ -1,4 +1,5 @@
 import { CLIENT_ID, authenticate } from "@server/lib/discord/auth.js";
+import * as Responses from "@server/lib/responses.js";
 
 export async function POST (request) {
     const { code }  = await request.json();
@@ -19,7 +20,7 @@ export async function GET (request) {
     try {
         return Response.json({id: CLIENT_ID});
     } catch (err) {
-        console.error("Environment variable error:", err);
-        return Response.json({error: err.message}, {status: 500, statusText: "Internal server error"});
+        console.error("Environment variable error");
+        return Responses.error(err);
     }
 }

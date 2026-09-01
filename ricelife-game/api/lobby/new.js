@@ -1,5 +1,5 @@
 import { createLobby } from "@server/lib/lobby/manage.js";
-import { printError } from "@server/lib/main.js";
+import * as Responses from "@server/lib/responses.js";
 
 const DEV_PROD = process.env.NODE_ENV === "development";
 
@@ -9,7 +9,6 @@ export async function POST (request) {
         const lobbyid = await createLobby(player, channelid, mapid, teamsize, teamcount);
         return Response.json({ lobbyid });
     } catch (error) {
-        printError(error);
-        return Response.json({error: error.message}, {status: 500, statusText: "Internal server error"});
+        return Responses.error(error);
     }
 }
