@@ -10,10 +10,7 @@ export class IconButton extends Button {
     }
 
     drawButton (cursor, fixed = false) {
-        cursor.save();
-        cursor.fixed = fixed;
-        this.icon.draw(cursor)
-        cursor.restore();
+        this.icon.draw(cursor, fixed);
     }
     getBoundingBox () { return this.icon.getBoundingBox() }
     setPosition (x, y = null) { this.icon.position.apply(x, y).sub(this.originOffset, true) }
