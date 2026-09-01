@@ -262,7 +262,6 @@ export async function startLobby (id, turnOrder) {
         UpdateExpression: `
             SET #state = :activeState,
                 player_order = :turnOrder,
-                activeplayer = :firstPlayer
         `,
         ExpressionAttributeNames: {
             "#state": "state",
@@ -271,7 +270,6 @@ export async function startLobby (id, turnOrder) {
         ExpressionAttributeValues: {
             ":waitingState": STATUS.WAITING,
             ":activeState": STATUS.ACTIVE,
-            ":firstPlayer": turnOrder[0] || "",
             ":turnOrder": [...turnOrder]
         },
     };
@@ -291,7 +289,6 @@ export async function startFullLobby (id, turnOrder) {
         UpdateExpression: `
             SET #state = :activeState,
                 player_order = :turnOrder,
-                activeplayer = :firstPlayer
         `,
         ExpressionAttributeNames: {
             "#state": "state",
@@ -300,7 +297,6 @@ export async function startFullLobby (id, turnOrder) {
         ExpressionAttributeValues: {
             ":waitingState": STATUS.WAITING,
             ":activeState": STATUS.ACTIVE,
-            ":firstPlayer": turnOrder[0] || "",
             ":turnOrder": [...turnOrder]
         }
     };
@@ -329,7 +325,6 @@ export async function commitLobbyTurn (id, players) {
         UpdateExpression: `
             SET update_token = :emptyStr,
                 update_expires = :emptyTimestamp,
-                activeplayer = player_order[turn_count % size(player_order)],
                 turn_count = turn_count + :inc
         ` + updatePlayerExpressions,
         ExpressionAttributeNames: {

@@ -102,7 +102,7 @@ export async function exportLobby (lobbyid) {
         teamsize: lobby.team_size,
         teamcount: lobby.team_count,
         channelid: lobby.channelid,
-        activeplayer: lobby.activeplayer
+        activeplayer: lobby.player_order[lobby.turn_count % (lobby.player_order.length || 1)]
     };
 }
 
@@ -142,7 +142,6 @@ export async function createLobby (playerProfile, channelid, mapid, teamsize, te
         team_size: teamSize,
         team_count: teamCount,
         channelid: channelid,
-        activeplayer: playerProfile.userid,
         // internal use
         team_inc: teamsMap,
         player_limit: teamSize * teamCount,
