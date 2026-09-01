@@ -1,22 +1,22 @@
-import { readTerrain, drawTerrain, createTerrain } from "../../client/scripts/game/terrain/terrain.js";
-import { Canvas2DContextCursorFactory } from "../../client/scripts/game/controller/controller.js";
-import { Phases } from "../../client/scripts/game/loop/loop.js";
+import { unpackPolygon } from "/scripts/api/unpack.js";
+import { Terrain, Polygon } from "/src/engine/core/Core.js";
+import { Canvas2DContextCursor } from "/src/engine/core/controller/display/Canvas2DContextCursor.js";
 
 const canvas = document.getElementById("render");
-const cursor = Canvas2DContextCursorFactory(canvas);
+const cursor = new Canvas2DContextCursor(canvas);
 const exportBtn = document.getElementById("export");
 
 document.getElementById("upload").addEventListener("change", async function (event) {
     const file = event.target.files[0];
     if (!file) return;
     const filename = file.name.substring(0, file.name.lastIndexOf("."));
-    const url = URL.createObjectURL(file);
-    const stream = await readTerrain(url);
-    URL.revokeObjectURL(url);
-    const { plane, terrain } = await createTerrain(stream);
+    const buffer = await file.arrayBuffer();
+    const decoded = unpackPolygon(buffer);
+    const terrain = new Terrain(Polygon.fromObject(decoded));
+    const plane = terrain.polygon.getBoundingBox();
     cursor.planeSize.x = canvas.width = plane.size.x;
     cursor.planeSize.y = canvas.height = plane.size.y;
-    drawTerrain(cursor, terrain, Phases.RoundPhase.SETTINGS.TERRAIN_FILL, Phases.RoundPhase.SETTINGS.TERRAIN_EDGE, 75, 15);
+    terrain.draw(cursor);
     canvas.dataset.name = filename;
     exportBtn.classList.remove("disabled");
 });

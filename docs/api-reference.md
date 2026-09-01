@@ -18,14 +18,14 @@ A list of all available maps
 ### `POST /lobby/new`
 **Request Body Parameters (JSON):**
 
-Game wil not start until `teamcount` is met.
+Game will start when `teamcount` is met or host initiates manually.
 | Key | Type | Detail |
 | :-- | :-- | :-- |
 | mapid | [Snowflake](#string-snowflake) ||
 | channelid | [Snowflake](#string-snowflake) | Discord channel the invite was sent to |
 | teamsize | integer | greater than `0` |
 | teamcount | integer | greater than `1` |
-| player | [PlayerProfile](#object-playerprofile) | from the initiating player |
+| player | [PlayerProfile](#object-playerprofile) | from the hosting player |
 
 **Returns (JSON):**
 
@@ -33,6 +33,24 @@ An ID of the created lobby, or null if one could not be made.
 | Key | Type |
 | :-- | :-- |
 | lobbyid | ?[Snowflake](#string-snowflake) |
+
+### `POST /lobby/start`
+Add a player to a waiting lobby.
+
+**Request Body Parameters (JSON):**
+| Key | Type | Detail |
+| :-- | :-- | :-- |
+| lobbyid | [Snowflake](#string-snowflake) |
+| hostid | [Snowflake](#string-snowflake) | Discord user ID of the player that created the lobby |
+
+> - If the records indicated by `hostid` and `lobbyid` do not match, this endpoint will return `403 Forbidden`. A side effect is that calling this endpoint on an invalid, already active, or closed lobby, will also return `403 Forbidden` 
+
+**Returns (JSON):**
+
+true if the lobby was started, and false otherwise.
+| Key | Type |
+| :-- | :-- |
+| success | boolean |
 
 ### `POST /lobby/add`
 Add a player to a waiting lobby.
@@ -56,13 +74,15 @@ Get details of an ongoing lobby.
 
 **Request Query Parameters:**
 - `lobbyid` is the [Snowflake](#string-snowflake) ID of a waiting or active lobby
+- `userid` is the [Snowflake](#string-snowflake) Discord ID of the requesting player. This parameter is optional
 
 **Returns (JSON):**
 
 The specified lobby's data, or null it does not exist.
-| Key | Type |
-| :-- | :-- |
-| lobby | ?[Lobby](#object-lobby) |
+| Key | Type | Detail |
+| :-- | :-- | :-- |
+| lobby | ?[Lobby](#object-lobby) ||
+| ishost | boolean | true if provided `userid` parameter matches id of lobby host. false otherwise |
 
 ### `GET /lobby/terrain/auth`
 Retrieve an presigned link to download the lobby's terrain data.
@@ -104,6 +124,7 @@ Stages a round update, and generates an presigned link to upload the lobby's ter
 > - If `keep` was set to true, the response will not include a `url` field
 > - If `userid` does not corrospond to a play in the lobby, this endpoint will return `403 Forbidden`
 > - If a call to [`POST /lobby/round/update`](#post-lobbyroundupdate) is not made within `ttl`, any terrain data uploaded to `url` will be discarded
+> - If an update is made for a lobby that is still in the `Waiting` state, this endpoint will return `403 Forbidden`
 
 ### `POST /lobby/round/update`
 Commits a staged round update. Updated players corrospond to players that are already in the lobby. Updates to players that do not already in the lobby are discarded.
@@ -120,7 +141,7 @@ Commits a staged round update. Updated players corrospond to players that are al
 ### *object* `PlayerInstance`
 | Key | Type | Detail |
 | :-- | :-- | :-- |
-| position | [Vector](#array-vector) | player's current position |
+| ?position | [Vector](#array-vector) | player's current position |
 | hitpoints | array of [HitAmount](#object-hitamount) | damage applied in descending order |
 | data | [PlayerData](#object-playerdata) ||
 
@@ -136,7 +157,8 @@ Commits a staged round update. Updated players corrospond to players that are al
 | players | [PlayerMap](#object-playermap) ||
 | state | integer ||
 | teamsize | number ||
-| teamcount | number ||
+| teams | array of [Snowflake](#string-snowflake) | List of team ids |
+| activeplayer | [Snowflake](#string-snowflake) | Current turn holder |
 | channelid | [Snowflake](#string-snowflake) | Discord channel the invite was created in |
 
 ### *object* `PlayerData`

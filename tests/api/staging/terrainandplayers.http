@@ -1,0 +1,3 @@
+@base = {{$dotenv url}}/api
+@secret = {{$dotenv secret}}
+@lobbyid = {{$dotenv lobbyid}}

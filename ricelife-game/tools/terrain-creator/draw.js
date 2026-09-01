@@ -42,7 +42,7 @@ export class DrawingCanvas {
     snapDistance = 50;
     smoothingPasses = 2;
     smoothingFactor = .5;
-    constructor(canvasElement, stablizerSlider, cooridnatePrecision = 2, pathStrokeOptions = {}, stablizerStrokeOptions = {}) {
+    constructor (canvasElement, stablizerSlider, cooridnatePrecision = 2, pathStrokeOptions = {}, stablizerStrokeOptions = {}) {
         this.#canvas = canvasElement;
         this.#slider = stablizerSlider;
         this.#ctx = this.canvas.getContext("2d");
@@ -377,9 +377,7 @@ export class DrawingCanvas {
             maxX *= 2;
         }
 
-        return [ points.length + 2, maxX, maxY, ]
-            .concat(points)
-            .join("\n");
+        return points.concat(this.canvas.width * scaleX * (mirror ? 2 : 1), 0, 0, 0);
     }
 
     get canvas () { return this.#canvas }

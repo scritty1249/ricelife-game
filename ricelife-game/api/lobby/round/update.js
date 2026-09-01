@@ -1,4 +1,5 @@
-import { verifyToken, commitUpdate } from "../../../lib/lobby/manage";
+import { verifyToken, commitUpdate } from "@server/lib/lobby/manage.js";
+import * as Responses from "@server/lib/responses.js";
 
 const DEV_PROD = process.env.NODE_ENV === "development";
 
@@ -10,10 +11,9 @@ export async function POST (request) {
             await commitUpdate(lobbyid, token, players);
             return new Response();
         } else {
-            return Response.json({}, {status: 403, statusText: "Invalid token"});
+            return new Response("Invalid token", {status: 403});
         }
     } catch (error) {
-        console.error(error);
-        return Response.json({error: error.message}, {status: 500, statusText: "Internal server error"});
+        return Responses.error(error);
     }
 }

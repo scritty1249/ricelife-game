@@ -1,0 +1,56 @@
+import { SpriteFrame } from "./SpriteFrame.js";
+import { Vector } from "../math/Vector.js";
+import { LoadImage } from "../load/LoadImage.js";
+
+export class Spritesheet extends LoadImage {
+    #frameSize = new Vector();
+    #dimensions = new Vector();
+    #length;
+    #frames = [];
+    #offset = new Vector(); // offset is applied using canvas coordinates (0,0) is top left, offset is applied before scaling
+    #framerate; // completely optional. Only used to associate a consistet value with this specific source, it should not be used or interacted with at all within this class.
+    constructor (src, frameWidth, frameHeight, framerate = undefined, offset = new Vector()) {
+        super(src);
+        this.#offset.apply(offset);
+        this.#framerate = framerate;
+        this.#frameSize.x = frameWidth;
+        this.#frameSize.y = frameHeight;
+        {
+            // idiot proofing
+            const mod = this.size.mod(this.#frameSize);
+            if (!(mod.x === 0 && mod.y === 0)) throw new Error(`[${this.constructor.name}] Error: Image dimensions incompatible with frame size`);
+        }
+        this.onload.then(() => {
+            this.#dimensions.apply(
+                this.source.width / this.#frameSize.x,
+                this.source.height / this.#frameSize.y
+            ).floor(true);
+            this.#length = this.#dimensions.prod();
+            // populate frames
+            for (let idx = 0; idx < this.length; idx++)
+                this.#frames.push(
+                    new SpriteFrame(
+                        (idx % this.#dimensions.x) * this.frameSize.x,
+                        (Math.floor(idx / this.#dimensions.x)) * this.#frameSize.y,
+                        this
+                    ));
+        });
+    }
+
+    at (index) { return this.#frames.at(index) }
+    clone () { // clones by reference
+        const ss = new Spritesheet(this, this.#frameSize.x, this.#frameSize.y, this.#offset);
+        ss.origin.apply(this.origin);
+        ss.scale.apply(this.scale);
+        ss.rotation = this.rotation;
+        ss.framerate = this.framerate;
+        return ss;
+    }
+
+    get offset () { return this.#offset } // raw offset. Scaled offset can be found in the individual frames. [!] is this too convoluted?
+    get frameSize () { return this.#frameSize } // raw size. Scaled size can be found in the individual frames. [!] is this too convoluted?
+    get length () { return this.#length }
+    get isSpritesheet () { return true }
+    get framerate () { return this.#framerate }
+    set framerate (frames) { return (this.#framerate = frames) }
+}
