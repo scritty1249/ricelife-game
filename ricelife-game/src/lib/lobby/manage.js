@@ -118,17 +118,17 @@ export async function createLobby (playerProfile, channelid, mapid, teamsize, te
     return lobbyid;
 }
 
-export async function closeLobby (lobbyid) {
+export async function deleteLobby (lobbyid) {
     try {
         const terrainPath = generateTerrainPath(lobbyid);
         await Promise.all([
             KV.remove(lobbyid),
             BLOB.remove(terrainPath)
         ]);
-        console.info("Closed lobby " + lobbyid);
+        console.info("Deleted lobby " + lobbyid);
         return true;
     } catch (error) {
-        console.error("Failed to close lobby " + lobbyid)
+        console.error("Failed to delete lobby " + lobbyid)
         return false;
     }
 }

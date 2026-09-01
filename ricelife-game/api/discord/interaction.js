@@ -1,7 +1,7 @@
 import { verify } from "@server/lib/discord/verify.js";
 import { INTERACTION } from "@server/lib/discord/interaction.js";
 import * as commands from "@server/lib/discord/commands.js";
-import { closeLobby } from "@server/lib/lobby/manage.js";
+import { deleteLobby } from "@server/lib/lobby/manage.js";
 import { promiseTimeout } from "@server/lib/main.js";
 import { waitUntil } from "@vercel/functions";
 import { printError } from "@server/lib/main.js";
@@ -131,7 +131,7 @@ async function executeApiCommand (interaction) {
         case "close-lobby":
             const lobbyid = command?.options?.[0]?.value;
             if (lobbyid) {
-                const success = await closeLobby(lobbyid);
+                const success = await deleteLobby(lobbyid);
                 if (success) {
                     await commands.response(`Closed lobby ${lobbyid}`, token);
                 } else {
