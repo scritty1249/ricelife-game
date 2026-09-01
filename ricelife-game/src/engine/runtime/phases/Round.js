@@ -66,7 +66,6 @@ const ALL_AMMO = [ // [!] placeholder
     "GigaScatter"
 ];
 
-const LOADING_PAUSE_THRESHOLD = 4 * 1000; // number of milliseconds before game waits for player input to play shot animation. If loading takes less time, shot animation is played automatically
 const SHOT_TRACE_LIMIT = 30; // (seconds) will trigger a landing early if timeout is exceeded- however a landing will only be traced within this time frame so early landings shouldn't be happening... -KT
 const AIM_SENSITIVITY = Math.PI / 180;
 const POWER_SENSITIVITY = .005;
@@ -922,11 +921,6 @@ export class Round extends Phase {
         if (Global.flags.DEBUG)
             console.info(`[${typeString(this)}]: Collision map computed in ${(performance.now() - waitStart) / 1000} seconds`);
         console.info(`[${typeString(this)}]: Shot playback ready`);
-        if (performance.now() - totalStart > LOADING_PAUSE_THRESHOLD) {
-            console.info(`[${typeString(this)}]: Awaiting click event`);
-            Global.Events.raiseEvent("LOADING", {hide: false, message: "tap or click to continue"});
-            await Global.Input.pointer.onNextClick();
-        }
         Global.Events.raiseEvent("LOADING", {hide: true});
         if (store.overlayItems.hideButton.active)
             store.overlayItems.replayButton.hide = true;
