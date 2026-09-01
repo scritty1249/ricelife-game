@@ -39,7 +39,7 @@ export class Join extends Phase {
         layout.isColumn = true;
         this.store.teamLayouts = new ItemLayout();
         this.store.teamLayouts.gap = 20;
-        for (const team of Object.values(this.Lobby.Teams)) {
+        for (const [ teamid, team ] of Object.entries(this.Lobby.Teams)) {
             const teamLayout = new ItemLayout();
             const iconLayout = new ItemLayout();
             teamLayout.gap = 5;
@@ -51,7 +51,7 @@ export class Join extends Phase {
             }
             teamLayout.push(iconLayout);
             if (team.length < this.Lobby.teamsize) {
-                const joinButton = this.#createJoinButton(team);
+                const joinButton = this.#createJoinButton(teamid);
                 joinButton.hide = isClientInLobby;
                 teamLayout.push(joinButton);
                 this.store.joinButtons.push(joinButton);
