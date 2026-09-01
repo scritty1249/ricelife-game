@@ -51,6 +51,21 @@ const INPUT_MAP = new KeyMap({
     "replay": ["ShiftRight"],
 });
 
+const ALL_AMMO = [ // [!] placeholder
+    "Basic",
+    "Flower",
+    "Digger",
+    "Bouncer",
+    "MegaBouncer",
+    "GigaBouncer",
+    "Pine",
+    "Sniper",
+    "Rapid",
+    "Scatter",
+    "MegaScatter",
+    "GigaScatter"
+];
+
 const LOADING_PAUSE_THRESHOLD = 4 * 1000; // number of milliseconds before game waits for player input to play shot animation. If loading takes less time, shot animation is played automatically
 const SHOT_TRACE_LIMIT = 30; // (seconds) will trigger a landing early if timeout is exceeded- however a landing will only be traced within this time frame so early landings shouldn't be happening... -KT
 const AIM_SENSITIVITY = Math.PI / 180;
@@ -963,7 +978,7 @@ class RoundTurn {
         const changes = {};
         for (const player of players) {
             if (!("players" in changes)) changes.players = {};
-            changes.players[player.id] = player.toJSON();
+            changes.players[player.id] = player.toJSON(...ALL_AMMO);
         }
         const lastTerrain = this.#blastIntervals.at(-1).terrain;
         if (lastTerrain.hash !== this.#terrain.hash) {

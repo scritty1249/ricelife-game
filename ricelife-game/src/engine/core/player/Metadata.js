@@ -19,11 +19,12 @@ export class Metadata extends Loadable {
             .then(() => this);
     }
 
-    toJSON () {
+    toJSON (...ammoTypes) {
         return {
             profile: this.Profile.toJSON(),
             model: this.Model.type,
-            team: this.team
+            team: this.team,
+            ammo: [...ammoTypes]
         };
     }
 
