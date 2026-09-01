@@ -137,7 +137,7 @@ Commits a staged round update. Updated players corrospond to players that are al
 | players | [PlayerMap](#object-playermap) ||
 | state | integer ||
 | teamsize | number ||
-| teamcount | number ||
+| teams | array of [Snowflake](#string-snowflake) | List of team ids |
 | activeplayer | [Snowflake](#string-snowflake) | Current turn holder |
 | channelid | [Snowflake](#string-snowflake) | Discord channel the invite was created in |
 

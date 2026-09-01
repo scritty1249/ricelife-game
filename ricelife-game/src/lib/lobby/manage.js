@@ -99,10 +99,11 @@ export async function exportLobby (lobbyid) {
     const activePlayer = lobby.state === STATUS.ACTIVE
         ? lobby.player_order[lobby.turn_count % (lobby.player_order.length || 1)]
         : Object.keys(lobby.players).sort()[0];
+    const teams = Array.from(Object.keys(lobby.team_inc));
     return {
         players: lobby.players,
         state: lobby.state,
-        teamsize: lobby.team_size,
+        teams: teams,
         teamcount: lobby.team_count,
         channelid: lobby.channelid,
         activeplayer: activePlayer
