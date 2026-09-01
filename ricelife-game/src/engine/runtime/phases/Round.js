@@ -64,6 +64,7 @@ export class Round extends Phase {
     #AmmoPool = new AmmoPool();
     #Players = new Map();
     #Lobby;
+    #LobbyID;
     #ClientPlayerID; // id of client player
     #Threaded;
     #Terrain;
@@ -73,6 +74,7 @@ export class Round extends Phase {
     };
     constructor (mainController, playerID, lobbyData, terrainData, lobbyid) {
         super(mainController);
+        this.#LobbyID = lobbyid;
         this.#Random = new Random(Random.seedString(lobbyid));
         this.#Lobby = initLobby(lobbyData);
         this.#Terrain = initTerrain(terrainData);
@@ -106,12 +108,13 @@ export class Round extends Phase {
             }            
         };
         this.store.turn = {}; // save turn info to be replayed or exported
+        this.flags.turnEnded = false;
         this.Audio.Layer.blast = this.Audio.Player.Layer();
         this.Audio.Layer.blast.volume = 0.55;
         this.Audio.Player.volume = 0.35;
 
         this.Camera.Viewbox.bounding.top = false;
-
+        this.#setupSFX();
         this.#setupInterface();
         this.Menus.set("Ammo", new AmmoSelect(this, this.#createAmmoSelections()));
         this.Menus.get("Ammo").Events.addEventListener("CLOSE", ({selection}) => {
@@ -431,9 +434,12 @@ export class Round extends Phase {
                         this.store.overlayItems.replayButton.hide = false;
                     else
                         this.store.overlayItems.replayButton.userData.lastHideState = false;
+                    if (!this.flags.turnEnded) {
+                        this.flags.turnEnded = true;
+                        const changes = this.exportChanges();
+                        this.Events.raiseEvent("TURNENDED", changes);
+                    }
                     setTimeout(() => this.setTurn(true), 1000);
-                    // check if round ended
-                    //this.checkRoundEnd();
                 }
             }
         }
@@ -884,6 +890,11 @@ export class Round extends Phase {
             store.overlayItems.replayButton.userData.lastHideState = true;
         this.loadTurn(store.turn.ammo(true), store.turn.intervals(true), store.turn.map());
     }
+    exportChanges () {
+        if (!this.store.turn?.isRoundTurn) return {};
+        const { turn } = this.store;
+        return turn.getChanges(this.Players.values());
+    }
 
     get AmmoPool () { return this.#AmmoPool }
     get Lobby () { return this.#Lobby }
@@ -947,6 +958,19 @@ class RoundTurn {
     //     this.#startFrame?.cursor?.close?.();
     //     this.#blastIntervals.forEach(({frame}) => frame?.cursor?.close?.());
     // }
+    
+    getChanges (players) {
+        const changes = {};
+        for (const player of players) {
+            if (!("players" in changes)) changes.players = {};
+            changes.players[player.id] = player.toJSON();
+        }
+        const lastTerrain = this.#blastIntervals.at(-1).terrain;
+        if (lastTerrain.hash !== this.#terrain.hash) {
+            changes.terrain = lastTerrain.clone(true);
+        }
+        return changes;
+    }
 
     get isRoundTurn () { return true }
     get isClosed () { return this.#isClosed }
