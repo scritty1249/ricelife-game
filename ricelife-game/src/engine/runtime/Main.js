@@ -138,9 +138,9 @@ export class Main extends Loop {
         this.Phases.Round = phase;
         return phase;
     }
-    async loadJoinPhase (lobbyData) {
+    async loadJoinPhase (lobbyData, isHost = false) {
         const { Join } = await import("./phases/Join.js");
-        const phase = new Join(this, this.clientID, lobbyData);
+        const phase = new Join(this, this.clientID, lobbyData, isHost);
         await phase.onload;
         this.Phases.Join = phase;
         return phase;

@@ -55,18 +55,18 @@ async function loadLobby (lobbyid, mainController, Discord) {
     try {
         if (lobbyid) {
             mainController.Events.raiseEvent("LOADING", {hide: false, message: `Fetching lobby`});
-            const lobbyData = await getLobby(lobbyid);
+            const { lobby, host } = await getLobby(lobbyid);
             mainController.Events.raiseEvent("LOADING", {hide: false, message: `Loading lobby menu`});
-            if (lobbyData && "state" in lobbyData) {
-                if (lobbyData.state === 1) {
+            if (lobby && "state" in lobby) {
+                if (lobby.state === 1) {
                     console.debug(`Opening round for lobby ${lobbyid}`);
                     const { default: init } = await import("./game/round.js");
-                    return await init(mainController, Discord, lobbyData, lobbyid);
-                } else if (lobbyData.state === 0) {
+                    return await init(mainController, Discord, lobby, lobbyid);
+                } else if (lobby.state === 0) {
                     console.debug(`Opening join screen for lobby ${lobbyid}`);
                     const { default: init } = await import("./game/join.js");
-                    return await init(mainController, Discord, lobbyData, lobbyid);
-                } else if (lobbyData.state === -1) {
+                    return await init(mainController, Discord, lobby, lobbyid, host);
+                } else if (lobby.state === -1) {
                     console.log(`Lobby ${lobbyid} is already closed`);
                     mainController.Events.raiseEvent("LOADING", {hide: false, message: `Lobby is closed`, error: true});
                 }

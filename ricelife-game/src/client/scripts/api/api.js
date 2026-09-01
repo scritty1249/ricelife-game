@@ -2,12 +2,12 @@ export const ENDPOINT = window.origin + "/api";
 
 export const TERRAIN_BUCKET_ROUTING_PREFIX = "/terrain-bucket";
 
-export async function getLobby (lobbyid) {
+export async function getLobby (lobbyid, userid) {
     if (!lobbyid) return;
-    const response = await fetch(ENDPOINT + `/lobby/info?lobbyid=${lobbyid}`);
+    const response = await fetch(ENDPOINT + `/lobby/info?lobbyid=${lobbyid}&userid=${userid}`);
     if (response.ok) {
-        const { lobby = undefined } = await response.json();
-        return lobby;
+        const { lobby = undefined, ishost: host = false } = await response.json();
+        return { lobby, host };
     }
 }
 
