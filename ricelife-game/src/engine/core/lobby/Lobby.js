@@ -58,9 +58,19 @@ export class Lobby {
         return `/assets/tank/${player.data.model}`;
     }
     #init (lobbyJson) {
+        this.#populateTeams(lobbyJson.teams);
         this.#populatePlayers(Object.values(lobbyJson.players));
         this.#ActivePlayerID = lobbyJson.activeplayer;
         this.#teamsize = lobbyJson.teamsize;
+    }
+    #populateTeams (teams) {
+        try {
+            for (const teamid of teams)
+                this.Teams[teamid] = [];
+        } catch (error) {
+            console.error(`[${typeString(this)}]: Failed to populate teams. Are all objects valid?`);
+            throw error;
+        }
     }
     #populatePlayers (players) {
         try {
@@ -72,7 +82,7 @@ export class Lobby {
                 this.NameRegistry[userid] = name;
                 this.Players.set(userid, player);
                 if (team in this.Teams) this.Teams[team].push(player);
-                else this.Teams[team] = [player];
+                else console.warn(`[${typeString(this)}]: Player ${userid} does not belong to a recognized team (${team})`);
                 for (const a of ammo) this.AmmoTypes.add(a);
             }
         } catch (error) {
