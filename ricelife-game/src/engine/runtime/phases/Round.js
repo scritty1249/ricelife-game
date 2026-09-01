@@ -450,19 +450,19 @@ export class Round extends Phase {
                     else
                         this.store.overlayItems.replayButton.userData.lastHideState = false;
                     if (!this.flags.turnEnded) {
-                        this.flags.turnEnded = true;
-                        const changes = this.exportChanges();
-                        this.Events.raiseEvent("TURNENDED", changes);
+                        this.endTurn();
                     }
                     setTimeout(() => this.setTurn(true), 1000);
                 }
             }
         }
-        // disable Aimer if it covers enough of the screen
-        const AimerIsLarge = this.Camera.Viewbox.size.max() / 2 <= this.ClientPlayer.Aimer.radius * 2;
-        let AimerIsCenter = this.ClientPlayer.Aimer.isOver(this.Camera.Viewbox.toGlobal(this.Global.Display.getBoundingBox().center));
-        if (!this.ClientPlayer.Aimer.enabled) AimerIsCenter = !AimerIsCenter;
-        this.ClientPlayer.Aimer.enabled = this.flags.isTurn && !(AimerIsLarge && AimerIsCenter);
+        if (this.flags.isTurn && !this.flags.turnEnded) {
+            // disable Aimer if it covers enough of the screen
+            const AimerIsLarge = this.Camera.Viewbox.size.max() / 2 <= this.ClientPlayer.Aimer.radius * 2;
+            let AimerIsCenter = this.ClientPlayer.Aimer.isOver(this.Camera.Viewbox.toGlobal(this.Global.Display.getBoundingBox().center));
+            if (this.ClientPlayer.Aimer.hide) AimerIsCenter = !AimerIsCenter;
+            this.ClientPlayer.Aimer.hide = AimerIsLarge && AimerIsCenter;
+        }
         this.handleInput();
     }
     start () {
@@ -757,7 +757,7 @@ export class Round extends Phase {
         if (INPUT_MAP.isActive(keyboard, "debug+")) {
             this.Menus.get("Ammo").open();
         }
-        if (flags.isTurn) {
+        if (flags.isTurn && !flags.turnEnded) {
             // [!] most pointer logic handled by callbacks
 
             // keyboard
@@ -865,7 +865,25 @@ export class Round extends Phase {
         } else {
             this.Camera.lerpFactor = 0.12;
         }
-        this.flags.isTurn = this.ClientPlayer.Aimer.enabled = bool;
+        this.ClientPlayer.Aimer.hide = !bool && !this.flags.turnEnded;
+        this.flags.isTurn = bool;
+    }
+    // [!] irreversible
+    endTurn () {
+        if (this.flags.turnEnded) return;
+        this.flags.turnEnded = true;
+        
+        const { overlayItems } = this.store;
+        this.ClientPlayer.Aimer.hide
+            = overlayItems.hideButton.hide
+            = overlayItems.moveLeftBtn.hide
+            = overlayItems.moveRightBtn.hide
+            = overlayItems.launchButton.hide
+            = overlayItems.selectButton.hide
+            = true;
+
+        const changes = this.exportChanges();
+        this.Events.raiseEvent("TURNENDED", changes);
     }
     async launchAmmo () {
         const { ClientPlayer, AmmoPool, Global, store, flags } = this;

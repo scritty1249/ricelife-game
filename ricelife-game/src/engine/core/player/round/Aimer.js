@@ -19,7 +19,7 @@ export class Aimer extends Identifiable { // takes control of rotation for a Tan
     #pointerPosition = new Vector(); // player last recorded click location
     #pointerRecorded = false; // sentinal value
     #display;
-    enabled = true; // disables pointer events if unset
+    hide = false; // mimics MenuItem.hide behavior
     constructor (puppet, radius, circleColor, beamColor, coneColor) {
         super();
         if (!puppet?.isPuppet) throw new Error(`[${typeString(this)}]: Expected Puppet, got ${typeString(puppet)}`);
@@ -107,6 +107,7 @@ export class Aimer extends Identifiable { // takes control of rotation for a Tan
     #angleFromPointer () { return ((this.pointer.angle(this.#puppet.relativePosition) - (Math.PI / 2)) + (Math.PI * 2)) % (Math.PI * 2) } // normalized
 
     draw (cursor) {
+        if (this.hide) return;
         const { circle, triangle, cone } = this.#display;
         const position = this.#puppet.position.add(this.#puppet.offset.barrel);
         // only need to update positions
@@ -135,13 +136,13 @@ export class Aimer extends Identifiable { // takes control of rotation for a Tan
 
     // support for clickable object type
     isOver (point) {
-        if (!this.enabled) return false;
+        if (this.hide) return false;
         const { shape } = this.#display.circle;
         return shape.isIntersecting(point);
     }
-    ondrag (point) { if (this.enabled) this.update(point) }
-    onclick (point) { if (this.enabled) this.update(point) }
-    onhold (point) { if (this.enabled) this.update(point) }
+    ondrag (point) { if (!this.hide) this.update(point) }
+    onclick (point) { if (!this.hide) this.update(point) }
+    onhold (point) { if (!this.hide) this.update(point) }
 
     get isAimer () { return true }
     get keepDragFocus () { return true } // button property
