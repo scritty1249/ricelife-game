@@ -1,5 +1,4 @@
 import path from "path";
-import { writeFileSync, readFileSync } from "fs";
 
 export function resolveAbsolutePathsPluginFactory (...externalPrefixes) {
     const root = path.resolve(process.cwd(), "./src/");
