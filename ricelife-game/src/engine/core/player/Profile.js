@@ -59,7 +59,7 @@ export class Profile extends Loadable {
     toJSON () {
         return {
             name: this.name,
-            avatar: this.avatar?.isLoadImage ? this.avatar.source : this.avatar,
+            avatar: this.avatar?.isLoadImage ? this.avatar.source.src : this.avatar,
             fontFamily: this.fontFamily,
             userid: this.userid
         }

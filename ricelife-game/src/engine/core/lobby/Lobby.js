@@ -22,7 +22,7 @@ export class Lobby {
         try {
             return new Lobby(lobbyJson);
         } catch (error) {
-            console.error(`[${typeString(this)}]: Failed to deocde and parse data\n\t`, lobbyJson);
+            console.error(`[${typeString(this)}]: Failed to deocde and parse data\n\t`, tryStringify(lobbyJson) ?? lobbyJson);
             throw error;
         }
     }
@@ -188,4 +188,12 @@ export class Lobby {
     get NameRegistry () { return this.#NameRegistry }
     get ActivePlayerID () { return this.#ActivePlayerID }
     get allPlayersSpawned () { return this.Players.values().every((player) => player && "position" in player) }
+}
+
+function tryStringify (obj) {
+    try {
+        return JSON.stringify(obj);
+    } catch {
+        return undefined;
+    }
 }
