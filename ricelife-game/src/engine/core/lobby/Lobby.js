@@ -33,6 +33,7 @@ export class Lobby {
     #ModelTypes = new Set(); // immutable
     #AmmoTypes = new Set(); // mutable
     #ActivePlayerID; // current turn holder
+    #teamsize = 1;
     constructor (lobbyJson) {
         this.#init(lobbyJson);
         this.#lock();
@@ -59,6 +60,7 @@ export class Lobby {
     #init (lobbyJson) {
         this.#populatePlayers(Object.values(lobbyJson.players));
         this.#ActivePlayerID = lobbyJson.activeplayer;
+        this.#teamsize = lobbyJson.teamsize;
     }
     #populatePlayers (players) {
         try {
@@ -188,6 +190,7 @@ export class Lobby {
     get NameRegistry () { return this.#NameRegistry }
     get ActivePlayerID () { return this.#ActivePlayerID }
     get allPlayersSpawned () { return this.Players.values().every((player) => player && "position" in player) }
+    get teamsize () { return this.#teamsize } 
 }
 
 function tryStringify (obj) {

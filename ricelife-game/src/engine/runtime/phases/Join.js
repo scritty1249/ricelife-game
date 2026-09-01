@@ -49,11 +49,13 @@ export class Join extends Phase {
                 const avatar = new Icon(this.AssetPool.get(key).clone(false));
                 iconLayout.push(avatar);
             }
-            const joinButton = this.#createJoinButton(team);
-            joinButton.hide = isClientInLobby;
             teamLayout.push(iconLayout);
-            teamLayout.push(joinButton);
-            this.store.joinButtons.push(joinButton);
+            if (team.length < this.Lobby.teamsize) {
+                const joinButton = this.#createJoinButton(team);
+                joinButton.hide = isClientInLobby;
+                teamLayout.push(joinButton);
+                this.store.joinButtons.push(joinButton);
+            }
             this.store.iconLayouts.push(iconLayout);
             this.store.teamLayouts.push(teamLayout);
         }
