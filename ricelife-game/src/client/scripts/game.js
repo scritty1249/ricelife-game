@@ -55,7 +55,7 @@ async function loadLobby (lobbyid, mainController, Discord) {
     try {
         if (lobbyid) {
             mainController.Events.raiseEvent("LOADING", {hide: false, message: `Fetching lobby`});
-            const { lobby, host } = await getLobby(lobbyid);
+            const { lobby, host } = await getLobby(lobbyid, Discord.user.id);
             mainController.Events.raiseEvent("LOADING", {hide: false, message: `Loading lobby menu`});
             if (lobby && "state" in lobby) {
                 if (lobby.state === 1) {
