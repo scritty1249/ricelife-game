@@ -1,0 +1,28 @@
+@base = {{$dotenv url}}/api
+@secret = {{$dotenv secret}}
+@lobbyid = {{$dotenv lobbyid}}
+
+### request upload (stage)
+# @name stageRequest
+POST {{base}}/lobby/terrain/auth
+x-vercel-protection-bypass: {{secret}}
+
+{
+    "lobbyid": "{{lobbyid}}",
+    "userid": "0",
+}
+
+### upload blob
+PUT {{stageRequest.response.body.url}}
+Content-Type: application/octet-stream
+
+< ./test-terrain.bin
+
+### update lobby (commit)
+POST {{base}}/lobby/round/update
+x-vercel-protection-bypass: {{secret}}
+
+{
+    "lobbyid": "{{lobbyid}}",
+    "token": "{{stageRequest.response.body.token}}"
+}

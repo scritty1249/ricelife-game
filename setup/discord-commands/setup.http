@@ -1,0 +1,58 @@
+@bot_token = {{$dotenv bot_token}}
+@app_id = {{$dotenv app_id}}
+@base = https://discord.com/api/v10/applications
+
+### Overriding default entry point
+# @name application
+GET {{base}}/{{app_id}}/commands
+Authorization: Bot {{bot_token}}
+Content-Type: application/json
+
+### setting handler to 1 instead of 2 (default) gives the application control of the activity launch flow, instead of the default discord flow
+PATCH {{base}}/{{app_id}}/commands/{{application.response.body.$[0].id}}
+Authorization: Bot {{bot_token}}
+Content-Type: application/json
+
+{
+    "handler": 1
+}
+
+### registering commands
+POST {{base}}/{{app_id}}/commands
+Authorization: Bot {{bot_token}}
+Content-Type: application/json
+
+{
+    "name": "api",
+    "description": "API function invocations for testing",
+    "integration_types": [0, 1],
+    "contexts": [0, 1, 2],
+    "options": [
+        {
+            "name": "close-lobby",
+            "description": "Closes a lobby",
+            "type": 1,
+            "options": [
+                {
+                    "name": "lobbyid",
+                    "description": "The lobby to close",
+                    "type": 3,
+                    "required": true
+                }
+            ]
+        }
+    ]
+}
+
+###
+POST {{base}}/{{app_id}}/commands
+Authorization: Bot {{bot_token}}
+Content-Type: application/json
+
+{
+    "name": "amiadmin",
+    "description": "Checks if you are registered as an admin for this application",
+    "type": 1,
+    "integration_types": [0, 1],
+    "contexts": [0, 1, 2]
+}

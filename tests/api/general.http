@@ -1,0 +1,61 @@
+@base = {{$dotenv url}}/api
+@secret = {{$dotenv secret}}
+@lobbyid = {{$dotenv lobbyid}}
+
+POST {{base}}/lobby/new
+content-type: application/json
+x-vercel-protection-bypass: {{secret}}
+
+{
+    "mapid": "0",
+    "channelid": "0",
+    "teamsize": 1,
+    "teamcount": 2,
+    "player": {
+        "userid": "0",
+        "name": "Blurple",
+        "avatar": "https://cdn.discordapp.com/embed/avatars/0.png"
+    }
+}
+
+###
+
+GET {{base}}/lobby/info
+    ?lobbyid={{lobbyid}}
+x-vercel-protection-bypass: {{secret}}
+
+###
+
+POST {{base}}/lobby/add
+x-vercel-protection-bypass: {{secret}}
+
+{
+    "lobbyid": "{{lobbyid}}",
+    "teamid": "1",
+    "player": {
+        "userid": "1",
+        "name": "Greyple",
+        "avatar": "https://cdn.discordapp.com/embed/avatars/1.png"
+    }
+}
+
+###
+
+GET {{base}}/lobby/terrain/auth
+    ?lobbyid={{lobbyid}}
+    &userid=0
+x-vercel-protection-bypass: {{secret}}
+
+###
+
+PUT https://ricelife-game-bucket.72b5d439fbdd35f0368b4e112fd8846f.r2.cloudflarestorage.com/terrain/staged/3290965807328133120/terrain-TwkMAEDdTZmdiI1CLFj7C0nQhxnFQkftPonw8OTt6hU.bin?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=eb6a4857afc2a232495328de256d7215%2F20260723%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20260723T213114Z&X-Amz-Expires=60&X-Amz-Signature=da4ac6b4921ff2f88149e0f31f59d85469da2123188cfcdb6fa1f40b4b44e698&X-Amz-SignedHeaders=host&x-amz-checksum-crc32=AAAAAA%3D%3D&x-amz-sdk-checksum-algorithm=CRC32&x-id=PutObject
+
+###
+
+POST {{base}}/admin/close-lobby
+x-vercel-protection-bypass: {{secret}}
+
+{
+    "lobbyid": "{{lobbyid}}",
+    "authorization": ""
+}

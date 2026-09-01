@@ -39,6 +39,7 @@
         <div id="modal-overlay"></div>
             <div id="export-modal">
                 <h3>Terrain Data Export</h3>
+                <canvas id="render-canvas"></canvas>
                 <div class="modal-sliders">
                     <div class="modal-slider">
                         <label>Scale X:</label>
@@ -60,12 +61,10 @@
                         Mirrored
                     </label>
                 </div>
-
-                <textarea id="output-box" readonly></textarea>
-
                 <div class="modal-buttons">
-                    <button id="copy-btn">Copy</button>
-                    <button id="save-btn">Download</button>
+                    <button id="render-btn">Redraw</button>
+                    <button id="thumb-btn">Save Thumbnail</button>
+                    <button id="blob-btn">Save File</button>
                     <button id="close-btn">Close</button>
                 </div>
             </div>
