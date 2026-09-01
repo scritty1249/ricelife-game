@@ -261,7 +261,7 @@ export async function startLobby (id, turnOrder) {
         ConditionExpression: "attribute_exists(#pk) AND #state = :waitingState",
         UpdateExpression: `
             SET #state = :activeState,
-                player_order = :turnOrder,
+                player_order = :turnOrder
         `,
         ExpressionAttributeNames: {
             "#state": "state",
@@ -288,7 +288,7 @@ export async function startFullLobby (id, turnOrder) {
         ConditionExpression: "attribute_exists(#pk) AND #state = :waitingState AND size(players) = player_limit",
         UpdateExpression: `
             SET #state = :activeState,
-                player_order = :turnOrder,
+                player_order = :turnOrder
         `,
         ExpressionAttributeNames: {
             "#state": "state",
