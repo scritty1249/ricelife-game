@@ -53,7 +53,7 @@ function sortTurnOrder (players) {
 async function generateTurnOrder (lobbyid) {
     const players = (await KV.get(lobbyid, "players"))?.players ?? {};
     const turnOrder = sortTurnOrder(players);
-
+    return turnOrder || [];
 }
 
 export async function lobbyHasPlayer (lobbyid, playerid) {
@@ -68,13 +68,15 @@ export async function lobbyIsWaiting (lobbyid) {
 
 export async function startLobby (lobbyid) {
     if (!lobbyid) return null;
-    const result = await KV.startLobby(lobbyid);
+    const order = await generateTurnOrder(lobbyid);
+    const result = await KV.startLobby(lobbyid, order);
     return Boolean(result);
 }
 
 export async function startFullLobby (lobbyid) {
     if (!lobbyid) return null;
-    const result = await KV.startFullLobby(lobbyid);
+    const order = await generateTurnOrder(lobbyid);
+    const result = await KV.startFullLobby(lobbyid, order);
     return Boolean(result);
 }
 
