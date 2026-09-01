@@ -1,4 +1,4 @@
-import { Main } from "/engine/runtime/Core.js";
+import { Main } from "$engine/runtime/Core.js";
 import { loading } from "./events/loading.js";
 import { DiscordApp } from "./discord.js";
 import { ENDPOINT, getLobby } from "./api/api.js";

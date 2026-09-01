@@ -1,7 +1,7 @@
 import { build } from "esbuild";
 import { existsSync, writeFileSync, readFileSync } from "fs";
 import path from "path";
-import { resolveAbsolutePathsPluginFactory } from "./utils.js";
+import { resolveAbsolutePathsPluginFactory, resolveSourcePathsPluginFactory } from "./utils.js";
 
 const isDev = process.argv.includes("--dev");
 const GIT_COMMIT_SHA = process.env.VERCEL_GIT_COMMIT_SHA || "?".repeat(40);
@@ -11,7 +11,7 @@ const webWorkerSource = path.normalize("./src/engine/workers/Worker.js");
 const webWorkerOutput = "scripts/engine/Worker";
 const clientScriptOutput = "scripts/main";
 const runtimeCoreSource = path.normalize("./src/engine/runtime/Core.js");
-const runtimeCoreOutput = "scripts/engine/Core"
+const runtimeCoreOutput = "scripts/engine/Core";
 const clientScriptSource = path.normalize("./src/client/scripts/main.js");
 
 const entryPoints = {
@@ -43,7 +43,10 @@ const result = await build({
     entryNames: "[dir]/[name]-[hash]",
     chunkNames: "scripts/shared/[name]-[hash]", 
     metafile: true,
-    plugins: [resolveAbsolutePathsPluginFactory(...externalPrefixes)],
+    plugins: [
+        resolveAbsolutePathsPluginFactory(...externalPrefixes),
+        resolveSourcePathsPluginFactory("$")
+    ],
     external: externalPrefixes,
 });
 console.log(`\nSuccessfully build to: ${outputPath}`);

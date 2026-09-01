@@ -25,3 +25,20 @@ export function resolveAbsolutePathsPluginFactory (...externalPrefixes) {
         },
     };
 }
+
+export function resolveSourcePathsPluginFactory (prefix) {
+    const root = path.resolve(process.cwd(), "./src/");
+    const sanitizedPrefix = prefix.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");    
+    const prefixFilter = new RegExp(`^${sanitizedPrefix}`);
+    return {
+        name: "resolve-source-paths",
+        setup (build) {
+            build.onResolve({ filter: prefixFilter }, args => {
+                const cleanedPath = args.path.replace(prefixFilter, "");
+                return {
+                    path: path.join(root, cleanedPath),
+                };
+            });
+        },
+    };
+}
