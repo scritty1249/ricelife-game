@@ -101,7 +101,7 @@ export class Join extends Phase {
         button.text = "Start";
         button.onclick = () => {
             this.setStartButtonVisibility(false);
-            this.#onstart(teamid);
+            this.#onstart();
         }
         button.hide = !this.isClientHost;
         return button;
