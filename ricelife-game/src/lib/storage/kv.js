@@ -1,6 +1,7 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, PutCommand, GetCommand, UpdateCommand, DeleteCommand } from "@aws-sdk/lib-dynamodb";
 import { awsCredentialsProvider } from "@vercel/oidc-aws-credentials-provider";
+import { STATUS } from "../lobby/properties.js";
 
 const docClient = DynamoDBDocumentClient.from(new DynamoDBClient({
     region: process.env.AWS_REGION,
@@ -125,10 +126,10 @@ export async function push (id, key, value) {
             TableName: process.env.AWS_DB,
             Key: { [PK]: id },
             UpdateExpression: "SET #attr = list_append(if_not_exists(#attr, :empty), :value)",
-            ConditionExpression: "attribute_exists(#pk)",
+            ConditionExpression: PK_EXISTS_CONDITION,
             ExpressionAttributeNames: { 
                 "#attr": key,
-                "#pk": PK
+                ...PK_EXPRESSION_NAME
             },
             ExpressionAttributeValues: {
                 ":value": [value],
@@ -174,6 +175,151 @@ export async function exists (id, key = ".") {
             response.Item)
         : response.Item;
     return compare !== undefined;
+}
+
+export async function limitPush (id, limitColumn, key, value) {
+    const command = {
+        TableName: process.env.AWS_DB,
+        Key: { [PK]: id },
+        ConditionExpression: "attribute_exists(#pk) AND size(#list) < #maxLimit",
+        UpdateExpression: "SET #list = list_append(#list, :item), #count = #count + :inc",
+        ExpressionAttributeNames: {
+            "#list": key,
+            "#maxLimit": limitColumn,
+            "#count": "itemCount",
+            ...PK_EXPRESSION_NAME
+        },
+        ExpressionAttributeValues: {
+            ":item": [value],
+            ":inc": 1
+        }
+    };    
+    try {
+        return await docClient.send(new UpdateCommand(command));
+    } catch (error) {
+        if (error.name === ERROR_NAME) return false;
+        else throw error;
+    }
+}
+
+export async function addPlayer (id, teamid, playerInstance) {
+    const { userid } = playerInstance.data.profile;
+    const command = {
+        TableName: process.env.AWS_DB,
+        Key: { [PK]: id },
+        ConditionExpression: "attribute_exists(#pk) AND attribute_not_exists(players.#playerId) AND team_inc.#teamId < team_size AND #state = :waitingState",
+        UpdateExpression: "SET players.#playerId = :player, team_inc.#teamId = team_inc.#teamId + :inc",
+        ExpressionAttributeNames: { 
+            "#playerId": userid,
+            "#teamId": teamid,
+            "#state": "state",
+            ...PK_EXPRESSION_NAME
+        },
+        ExpressionAttributeValues: { 
+            ":player": playerInstance,
+            ":inc": 1,
+            ":waitingState": STATUS.WAITING
+        }
+    };
+    try {
+        return await docClient.send(new UpdateCommand(command));
+    } catch (error) {
+        if (error.name === ERROR_NAME) return false;
+        else throw error;
+    }
+}
+
+export async function isLobbyFull (id) {
+    const command = {
+        TableName: process.env.AWS_DB,
+        Key: { [PK]: id },
+        ConditionExpression: PK_EXISTS_CONDITION,
+        ProjectionExpression: "team_size, team_inc",
+        ConsistentRead: false, // [!] we might want to make this true, if enough players complain about lobbies not starting. - KT
+        ExpressionAttributeNames: PK_EXPRESSION_NAME,
+    };
+    try {
+        const response = await docClient.send(new GetCommand(command));
+        if (!response.Item || !response.Item.teams) {
+            console.error(`Database entry for lobby ${id} is malformed.`);
+            return null;
+        }
+        const teamSize = response.Item.team_size;
+        const teamsMap = response.Item.team_inc;
+        const sizes = Object.values(teamsMap);
+        return sizes.every((size) => size >= teamSize);
+    } catch (error) {
+        if (error.name === ERROR_NAME) return null;
+        else throw error;
+    }
+}
+
+export async function startLobby (id) {
+    const command = {
+        TableName: process.env.AWS_DB,
+        Key: { [PK]: id },
+        ConditionExpression: "attribute_exists(#pk) AND #state = :waitingState",
+        UpdateExpression: "SET #state = :activeState",
+        ExpressionAttributeNames: {
+            "#state": "state",
+            ...PK_EXPRESSION_NAME
+        },
+        ExpressionAttributeValues: {
+            ":activeState": STATUS.ACTIVE,
+            ":waitingState": STATUS.WAITING
+        },
+    };
+    try {
+        return await docClient.send(new UpdateCommand(command));
+    } catch (error) {
+        if (error.name === ERROR_NAME) return null;
+        else throw error;
+    }
+}
+
+export async function closeLobby (id) {
+    const command = {
+        TableName: process.env.AWS_DB,
+        Key: { [PK]: id },
+        ConditionExpression: "attribute_exists(#pk) AND #state <> :closeState",
+        UpdateExpression: "SET #state = :closeState",
+        ExpressionAttributeNames: {
+            "#state": "state",
+            ...PK_EXPRESSION_NAME
+        },
+        ExpressionAttributeValues: {
+            ":closeState": STATUS.CLOSED
+        },
+    };
+    try {
+        return await docClient.send(new UpdateCommand(command));
+    } catch (error) {
+        if (error.name === ERROR_NAME) return null;
+        else throw error;
+    }
+}
+
+export async function startFullLobby (id) {
+    const command = {
+        TableName: process.env.AWS_DB,
+        Key: { [PK]: id },
+        ConditionExpression: "attribute_exists(#pk) AND #state = :waitingState AND size(players) = player_limit",
+        UpdateExpression: "SET #state = :activeState",
+        ExpressionAttributeNames: {
+            "#state": "state",
+            ...PK_EXPRESSION_NAME
+        },
+        ExpressionAttributeValues: {
+            ":waitingState": STATUS.WAITING,
+            ":activeState": STATUS.ACTIVE
+        }
+    };
+    try {
+        return await docClient.send(new UpdateCommand(command));
+    } catch (error) {
+        if (error.name === ERROR_NAME) return null;
+        else throw error;
+    }
 }
 
 function parseNestedKey (key, indexOffset = 0, attributeName = "attr") {

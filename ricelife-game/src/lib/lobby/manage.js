@@ -22,14 +22,41 @@ function generateMapPath (mapid) {
 }
 
 export async function lobbyHasPlayer (lobbyid, playerid) {
+    if (!lobbyid || !playerid) return null;
     return await KV.exists(lobbyid, `players.${playerid}`)
 }
 
 export async function lobbyIsWaiting (lobbyid) {
+    if (!lobbyid) return null;
     return (await KV.get(lobbyid, "state"))?.state === STATUS.WAITING;
 }
 
+export async function startLobby (lobbyid) {
+    if (!lobbyid) return null;
+    const result = await KV.startLobby(lobbyid);
+    return Boolean(result);
+}
+
+export async function startFullLobby (lobbyid) {
+    if (!lobbyid) return null;
+    const result = await KV.startFullLobby(lobbyid);
+    return Boolean(result);
+}
+
+export async function isLobbyFull (lobbyid) {
+    if (!lobbyid) return null;
+    const result = await KV.isLobbyFull(lobbyid);
+    return Boolean(result);
+}
+
+export async function closeLobby (lobbyid) {
+    if (!lobbyid) return null;
+    const result = await KV.closeLobby(lobbyid);
+    return Boolean(result);
+}
+
 export async function exportLobby (lobbyid) {
+    if (!lobbyid) return null;
     const lobby = await KV.get(lobbyid);
     if (!lobby) return null;
     return {
@@ -53,14 +80,20 @@ export async function getTerrainUrl (lobbyid) {
 }
 
 export async function addPlayer (lobbyid, playerProfile, team) {
-    if (!playerProfile?.userid) return false;
+    if (!lobbyid || !team || !playerProfile?.userid) return false;
     const playerInstance = createPlayer(playerProfile.userid, playerProfile.name, playerProfile.avatar, team);
-    const result = await KV.set(lobbyid, `players.${playerProfile.userid}`, playerInstance);
-    return result ? true : false;
+    const result = await KV.addPlayer(lobbyid, team, playerInstance);
+    return Boolean(result);
 }
 
 export async function createLobby (playerProfile, channelid, mapid, teamsize, teamcount) {
+    const teamCount = teamcount > 1 ? teamcount : 2;
+    const teamSize = teamsize || 1;
     const lobbyid = SNOWFLAKE.generate();
+    const teamsMap = {};
+    for (let i = 0; i < teamCount; i++) {
+        teamsMap[i.toString()] = i ? 0 : 1;
+    }
     const playerInstance = createPlayer(playerProfile.userid, playerProfile.name, playerProfile.avatar, "0");
     const terrainPath = generateTerrainPath(lobbyid);
     const mapPath = generateMapPath(mapid);
@@ -69,11 +102,13 @@ export async function createLobby (playerProfile, channelid, mapid, teamsize, te
         state: STATUS.WAITING,
         players: { [playerProfile.userid]: playerInstance },
         terrain: terrainPath,
-        team_size: teamsize || 1,
-        team_count: teamcount > 1 ? teamcount : 2,
+        team_size: teamSize,
+        team_count: teamCount,
         channelid: channelid,
         activeplayer: playerProfile.userid,
         // internal use
+        team_inc: teamsMap,
+        player_limit: teamSize * teamCount,
         update_token: "",
         update_expires: -1, // seconds
     });

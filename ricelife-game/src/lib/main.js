@@ -1,6 +1,3 @@
-import * as BLOB from "./storage/blob.js";
-import * as KV from "./storage/kv.js";
-
 export function printError (error) {
     console.error(JSON.stringify({
         message: error.message,
