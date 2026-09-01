@@ -1,5 +1,7 @@
 export const ENDPOINT = window.origin + "/api";
 
+export const TERRAIN_BUCKET_ROUTING_PREFIX = "/terrain-bucket";
+
 export async function getLobby (lobbyid) {
     if (!lobbyid) return;
     const response = await fetch(ENDPOINT + `/lobby/info?lobbyid=${lobbyid}`);

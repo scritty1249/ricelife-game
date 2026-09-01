@@ -1,4 +1,4 @@
-import { ENDPOINT, getTerrainUrl } from "../api/api.js";
+import { ENDPOINT, TERRAIN_BUCKET_ROUTING_PREFIX, getTerrainUrl } from "../api/api.js";
 import { stream, unpackPolygon } from "../api/unpack.js";
 import { packPolygon } from "../api/pack.js";
 
@@ -23,9 +23,8 @@ async function getTerrainData (lobbyid, Discord) {
     const src = await getTerrainUrl(lobbyid, Discord.user.id);
     if (!src) return;
     try {
-        const prefix = "/terrain-bucket";
         const url = new URL(src);
-        const terrainBuffer = await stream(prefix + url.pathname + url.search);
+        const terrainBuffer = await stream(TERRAIN_BUCKET_ROUTING_PREFIX + url.pathname + url.search);
         const terrainData = unpackPolygon(terrainBuffer);
         return terrainData;
     } catch (err) {
@@ -49,11 +48,12 @@ async function updateLobby (changes, lobbyid, userid) {
         console.error("Failed to authenticate with staging endpoint");
         return false;
     }
-    const { url, token } = await staging.json();
+    const { url: dest, token } = await staging.json();
     if (!keep) {
+        const url = new URL(dest);
         const buffer = packPolygon(changes.terrain.polygon);
         const blob = new Blob([buffer], { type: "application/octet-stream" });
-        const response = await fetch(url, {
+        const response = await fetch(TERRAIN_BUCKET_ROUTING_PREFIX + url.pathname + url.search, {
             method: "PUT",
             headers: { "Content-Type": "application/octet-stream" },
             body: blob
