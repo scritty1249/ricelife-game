@@ -57,7 +57,7 @@ async function loadLobby (lobbyid, mainController, Discord) {
             mainController.Events.raiseEvent("LOADING", {hide: false, message: `Fetching lobby`});
             const lobbyData = await getLobby(lobbyid);
             mainController.Events.raiseEvent("LOADING", {hide: false, message: `Loading lobby menu`});
-            if ("state" in lobbyData) {
+            if (lobbyData && "state" in lobbyData) {
                 if (lobbyData.state === 1) {
                     console.debug(`Opening round for lobby ${lobbyid}`);
                     const { default: init } = await import("./game/round.js");
