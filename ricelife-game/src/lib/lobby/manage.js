@@ -92,7 +92,7 @@ export async function closeLobby (lobbyid) {
     return Boolean(result);
 }
 
-export async function exportLobby (lobbyid) {
+export async function exportLobby (lobbyid, hostid = undefined) {
     if (!lobbyid) return null;
     const lobby = await KV.get(lobbyid);
     if (!lobby) return null;
@@ -101,13 +101,16 @@ export async function exportLobby (lobbyid) {
         : Object.keys(lobby.players).sort()[0];
     const teams = Array.from(Object.keys(lobby.team_inc));
     return {
-        players: lobby.players,
-        state: lobby.state,
-        teams: teams,
-        teamsize: lobby.team_size,
-        channelid: lobby.channelid,
-        activeplayer: activePlayer
-    };
+        ishost: hostid && hostid === lobby.host_player,
+        lobby: {
+            players: lobby.players,
+            state: lobby.state,
+            teams: teams,
+            teamsize: lobby.team_size,
+            channelid: lobby.channelid,
+            activeplayer: activePlayer
+        }
+    }
 }
 
 export async function getTerrainUrl (lobbyid) {

@@ -74,13 +74,15 @@ Get details of an ongoing lobby.
 
 **Request Query Parameters:**
 - `lobbyid` is the [Snowflake](#string-snowflake) ID of a waiting or active lobby
+- `userid` is the [Snowflake](#string-snowflake) Discord ID of the requesting player. This parameter is optional
 
 **Returns (JSON):**
 
 The specified lobby's data, or null it does not exist.
-| Key | Type |
-| :-- | :-- |
-| lobby | ?[Lobby](#object-lobby) |
+| Key | Type | Detail |
+| :-- | :-- | :-- |
+| lobby | ?[Lobby](#object-lobby) ||
+| ishost | boolean | true if provided `userid` parameter matches id of lobby host. false otherwise |
 
 ### `GET /lobby/terrain/auth`
 Retrieve an presigned link to download the lobby's terrain data.

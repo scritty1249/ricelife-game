@@ -7,8 +7,9 @@ export async function GET (request) {
     try {
         const { searchParams } = new URL(request.url);
         const lobbyid = searchParams.get("lobbyid");
-        const lobby = await exportLobby(lobbyid);
-        return Response.json({ lobby });
+        const hostid = searchParams.get("hostid") ?? undefined;
+        const exportedData = await exportLobby(lobbyid, hostid);
+        return Response.json(exportedData);
     } catch (error) {
         return Responses.error(error);
     }
