@@ -14,6 +14,7 @@ import {
     BlastImpact,
     ToggleIconButton,
     Icon,
+    Random,
 } from "../../core/Core.js"
 
 import { WorkerPool, PoolManager, TerrainCache, CanvasCache } from "../../workers/Core.js";
@@ -66,12 +67,13 @@ export class Round extends Phase {
     #ClientPlayerID; // id of client player
     #Threaded;
     #Terrain;
+    #Random;
     #Animations = {
         Main: new AnimationList()
     };
-    constructor (mainController, playerID, lobbyData, terrainData, distribute = false) {
+    constructor (mainController, playerID, lobbyData, terrainData, lobbyid) {
         super(mainController);
-
+        this.#Random = new Random(Random.seedString(lobbyid));
         this.#Lobby = initLobby(lobbyData);
         this.#Terrain = initTerrain(terrainData);
         // [!] testing
@@ -83,7 +85,6 @@ export class Round extends Phase {
 
         this.#load(playerID)
             .then(() => this.#init())
-            .then(() => !distribute || distributePlayers(this.Plane, Array.from(this.Players.values()), 100))
             .then(() => this.resolveLoad())
             .catch((error) => this.rejectLoad(error));
     }
@@ -122,6 +123,9 @@ export class Round extends Phase {
             else
                 this.store.overlayItems.launchButton.userData.lastHideState = false;
         })
+
+        if (!this.Lobby.allPlayersSpawned)
+            distributePlayers(this.Plane, Array.from(this.Players.values()), this.Random, 100);
     }
     async #load (playerID) {
         const waitPromises = [
@@ -889,6 +893,7 @@ export class Round extends Phase {
     get Threaded () { return this.#Threaded }
     get Terrain () { return this.#Terrain }
     get Animations () { return this.#Animations }
+    get Random () { return this.#Random }
 }
 
 class RoundTurn {
@@ -982,7 +987,7 @@ function createPlayerDeathAnimation (playerActor, spritesheet) {
 }
 
 // [!] recursion limit applies per-player
-function distributePlayers (bbox, players, recursionLimit = 10000) {
+function distributePlayers (bbox, players, random, recursionLimit = 1000) {
     const min = bbox.min.x + (bbox.width / 10);
     const max = bbox.max.x - min;
     const spacing = (bbox.width / players.length);
@@ -993,7 +998,7 @@ function distributePlayers (bbox, players, recursionLimit = 10000) {
         let added = false;
         let i = 0;
         while (i < recursionLimit) {
-            x = (Math.floor(Math.random() * (range + 1)) * spacing) + min;
+            x = (Math.floor(random.random() * (range + 1)) * spacing) + min;
             if (!spots.has(x) && Mover.apply(x, bbox.max.y + 1)) {
                 spots.add(x);
                 added = true;
@@ -1002,6 +1007,6 @@ function distributePlayers (bbox, players, recursionLimit = 10000) {
             i++;
         }
         if (!added && i >= recursionLimit) throw new Error("Recusion limit reached while distributing players. Is terrain invalid?");
-        Aimer.update(players[0].Puppet.position.add({x: 0, y: bbox.max.y})); // aim straight up and set power to 100% (1)
+        if (added) Aimer.update(players[0].Puppet.position.add({x: 0, y: bbox.max.y})); // aim straight up and set power to 100% (1)
     }
 }

@@ -6,7 +6,7 @@ export default async function init (mainController, Discord, lobby, lobbyid) {
     const terrain = await getTerrainData(lobbyid, Discord);
     if (!terrain) return;
     mainController.Events.raiseEvent("LOADING", {hide: false, message: `Loading`});
-    const phase = await mainController.loadRoundPhase(lobby, terrain, false);
+    const phase = await mainController.loadRoundPhase(lobby, terrain, lobbyid);
     mainController.Events.raiseEvent("LOADING", {hide: true});
     return phase;
 }
@@ -18,7 +18,7 @@ async function getTerrainData (lobbyid, Discord) {
         const prefix = "/terrain-bucket";
         const url = new URL(src);
         const terrainBuffer = await stream(prefix + url.pathname + url.search);
-        const terrainData = await unpackPolygon(terrainBuffer);
+        const terrainData = unpackPolygon(terrainBuffer);
         return terrainData;
     } catch (err) {
         console.error(err);

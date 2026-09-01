@@ -187,4 +187,5 @@ export class Lobby {
     get ModelTypes () { return this.#ModelTypes }
     get NameRegistry () { return this.#NameRegistry }
     get ActivePlayerID () { return this.#ActivePlayerID }
+    get allPlayersSpawned () { return this.Players.values().every((player) => player && "position" in player) }
 }

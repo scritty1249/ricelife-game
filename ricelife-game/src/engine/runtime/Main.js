@@ -131,9 +131,9 @@ export class Main extends Loop {
         this.Phases.Create = phase;
         return phase;
     }
-    async loadRoundPhase (lobbyData, terrainData, distributePlayers = false) {
+    async loadRoundPhase (lobbyData, terrainData, lobbyid) {
         const { Round } = await import("./phases/Round.js");
-        const phase = new Round(this, this.clientID, lobbyData, terrainData, distributePlayers);
+        const phase = new Round(this, this.clientID, lobbyData, terrainData, lobbyid);
         await phase.onload;
         this.Phases.Round = phase;
         return phase;
