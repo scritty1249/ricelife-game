@@ -15,11 +15,14 @@ export class Icon extends MenuItem {
         this.#bbox.apply(undefined, this.#img.size);
     }
 
-    draw (cursor) {
+    draw (cursor, fixed = false) {
+        cursor.save();
+        cursor.fixed = fixed;
         this.#img.draw(cursor, this.position.x, this.position.y);
+        cursor.restore();
     }
     getBoundingBox () {
-        const hash = Vector.hash([this.position, this.#img.size, this.#img.scale]);
+        const hash = Vector.hash([this.position, this.#img.size, this.#img.scale, this.#img.origin]);
         if (hash !== this.#hash) {
             this.#hash = hash;
             const { size } = this.#img;
