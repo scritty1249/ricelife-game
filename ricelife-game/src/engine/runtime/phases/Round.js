@@ -124,9 +124,6 @@ export class Round extends Phase {
         };
         this.store.turn = {}; // save turn info to be replayed or exported
         this.flags.turnEnded = false;
-        this.Audio.Layer.blast = this.Audio.Player.Layer();
-        this.Audio.Layer.blast.volume = 0.55;
-        this.Audio.Player.volume = 0.35;
 
         this.Camera.Viewbox.bounding.top = false;
         this.#setupSFX();
@@ -149,9 +146,8 @@ export class Round extends Phase {
         const waitPromises = [
             this.#setupThreads(),
             this.#loadLobby(playerID),
-            this.loadGlobalAsset("blast"),
+            this.#loadSFX(),
             this.loadGlobalAsset("muzzleFlash"),
-            this.loadGlobalAsset("fire"),
             this.loadGlobalAsset("moveBtn"),
             this.loadGlobalAsset("selectBtn"),
             this.loadGlobalAsset("fireBtn"),
@@ -171,6 +167,13 @@ export class Round extends Phase {
         );
         this.Lobby.generatePlayerActors(this.#ClientPlayerID, this.AssetPool, this.Players, HitpointMap, this.Terrain);
         await Promise.all(this.Players.values().map(({onload}) => onload));
+    }
+    async #loadSFX () {
+        await Promise.all([
+            this.loadGlobalAsset("blast"),
+            this.loadGlobalAsset("fire"),
+            this.loadGlobalAsset("bouncer"),
+        ]);
     }
     #createAmmoSelections () {
         return Array.from(this.Lobby.AmmoTypes, (ammoType) => {
@@ -317,10 +320,18 @@ export class Round extends Phase {
         this.resizeOverlay();
     }
     #setupSFX () {
-        const { AmmoPool, Audio } = this;
+        const { AmmoPool, Audio, AssetPool } = this;
+
+        Audio.Layer.ammo = Audio.Player.Layer();
+        Audio.Layer.ammo.volume = 0.6;
+        Audio.Layer.blast = Audio.Player.Layer();
+        Audio.Layer.blast.volume = 0.55;
+        Audio.Player.volume = 0.35;
+
         const bounceSFXAmmoTypes = ["Bouncer", "MegaBouncer"];
+        const bounceSFXSource = AssetPool.get("bouncer");
         const bounceSFXCallback = function () {
-            Player.add(AssetPool.get("bouncer").Instance().play(), true);
+            Audio.Layer.ammo.add(bounceSFXSource.Instance().play(), true);
         }
         for (const ammoType of bounceSFXAmmoTypes) {
             if (AmmoPool.has(ammoType))
