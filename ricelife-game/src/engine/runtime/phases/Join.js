@@ -32,28 +32,43 @@ export class Join extends Phase {
         await this.Lobby.loadAvatarAssets(this.AssetPool, this.Global.constructor.AssetType.Image);
     }
     #setupInterface () {
+        const { isClientInLobby } = this;
+        this.store.iconLayouts = [];
+        this.store.joinButtons = [];
         const layout = new ItemLayout();
         layout.isColumn = true;
         this.store.teamLayouts = new ItemLayout();
-        this.store.teamLayouts.gap = 15;
+        this.store.teamLayouts.gap = 20;
         for (const team of Object.values(this.Lobby.Teams)) {
             const teamLayout = new ItemLayout();
+            const iconLayout = new ItemLayout();
             teamLayout.gap = 5;
+            iconLayout.gap = 10;
             for (const player of team) {
                 const { avatar: key } = player.data.profile;
                 const avatar = new Icon(this.AssetPool.get(key).clone(false));
-                teamLayout.push(avatar);
+                iconLayout.push(avatar);
             }
+            const joinButton = this.#createJoinButton(team);
+            joinButton.hide = isClientInLobby;
+            teamLayout.push(iconLayout);
+            teamLayout.push(joinButton);
+            this.store.joinButtons.push(joinButton);
+            this.store.iconLayouts.push(iconLayout);
             this.store.teamLayouts.push(teamLayout);
         }
         layout.push(this.store.teamLayouts);
         this.Interface.insert()
             .push(layout)
             .fixed = true;
-        if (!this.isClientInLobby) layout.push(this.#createJoinButton());
+        if (isClientInLobby) {
+            // [!] TODO: add leave button
+        } else {
+            layout.push(this.#createJoinButton());
+        }
         this.store.lobbyElements = layout;
     }
-    #createJoinButton () {
+    #createJoinButton (teamid) {
         const { DEFAULT_FONT, FONT_SIZE } = this.Global.store;
         const button = new HexaButton(20, 60);
         const { width, height } = button.getBoundingBox();
@@ -63,12 +78,17 @@ export class Join extends Phase {
         button.fillColor.apply(255, 255, 255, 1);
         button.fontColor.apply(0, 0, 0, 1);
         button.text = "Join";
-        button.onclick = () => this.#onsubmit();
+        button.onclick = () => this.#onjoin(teamid);
         return button;
     }
-    #onsubmit () {
-        if (!this.isClientInLobby) this.Events.raiseEvent("JOIN");
-        else console.info("Cannot join lobby. Already a participant");
+    #onjoin (teamid) {
+        if (!this.isClientInLobby) {
+            for (const button of this.store.joinButtons)
+                button.hide = true;
+            this.Events.raiseEvent("JOIN", { team: teamid });
+        } else {
+            console.info("Cannot join lobby. Already a participant");
+        }
     }
     #drawDebugOverlay () {
         const { cursor } = this.Global.Display;
@@ -82,11 +102,11 @@ export class Join extends Phase {
     }
     onResize () {
         const { isPortrait, center } = this.Global.Display;
-        const { lobbyElements, teamLayouts } = this.store;
+        const { lobbyElements, iconLayouts, teamLayouts } = this.store;
         const { bounding } = this.Camera.Viewbox;
         teamLayouts.isColumn = isPortrait;
-        for (const teamLayout of teamLayouts.children) {
-            teamLayout.isColumn = !isPortrait;
+        for (const iconLayout of iconLayouts) {
+            iconLayout.isColumn = !isPortrait;
         }
         lobbyElements.setPosition(center.x - (lobbyElements.width / 2), center.y + (lobbyElements.height / 2));
         bounding.left = bounding.right = !isPortrait;

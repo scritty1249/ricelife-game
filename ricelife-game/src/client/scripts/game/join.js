@@ -3,13 +3,13 @@ import { ENDPOINT } from "../api/api.js";
 export default async function init (mainController, Discord, lobby, lobbyid) {
     mainController.Events.raiseEvent("LOADING", {hide: false, message: `Loading participants`});
     const phase = await mainController.loadJoinPhase(lobby);
-    phase.Events.addEventListener("JOIN", async () => {
+    phase.Events.addEventListener("JOIN", async ({team}) => {
         try {
             mainController.Events.raiseEvent("LOADING", {hide: false, message: "Joining lobby"});
             const userprofile = Discord.profiles.get(Discord.user.id);
             const success = await joinLobby({
                 player: userprofile,
-                teamid: "1", // [!] placeholder
+                teamid: team,
                 lobbyid: lobbyid
             });
             mainController.Events.raiseEvent("LOADING", {hide: true});
