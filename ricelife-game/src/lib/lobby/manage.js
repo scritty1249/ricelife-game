@@ -96,13 +96,16 @@ export async function exportLobby (lobbyid) {
     if (!lobbyid) return null;
     const lobby = await KV.get(lobbyid);
     if (!lobby) return null;
+    const activePlayer = lobby.state === STATUS.ACTIVE
+        ? lobby.player_order[lobby.turn_count % (lobby.player_order.length || 1)]
+        : Object.keys(lobby.players).sort()[0];
     return {
         players: lobby.players,
         state: lobby.state,
         teamsize: lobby.team_size,
         teamcount: lobby.team_count,
         channelid: lobby.channelid,
-        activeplayer: lobby.player_order[lobby.turn_count % (lobby.player_order.length || 1)]
+        activeplayer: activePlayer
     };
 }
 
