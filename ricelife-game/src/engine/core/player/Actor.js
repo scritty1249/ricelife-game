@@ -1,10 +1,7 @@
 import { Aimer } from "./round/Aimer.js";
 import { Mover } from "./round/Mover.js";
 import { Properties, Affiliation } from "../projectile/collision/Properties.js";
-import { Metadata } from "./Metadata.js";
-import { HitTotal } from "./HitTotal.js";
 import { Loadable } from "../load/Loadable.js";
-import { typeString } from "../utils/logging.js";
 import { Vector } from "../math/Vector.js";
 import { Ray } from "../math/Ray.js";
 
