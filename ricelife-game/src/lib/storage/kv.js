@@ -310,11 +310,14 @@ export async function startFullLobby (id, turnOrder) {
 
 export async function commitLobbyTurn (id, players) {
     const playerAttributeValues = {};
+    const playerAttributeNames = {};
     let updatePlayerExpressions = "";
     let i = 0;
     for (const [ id, player ] of Object.entries(players)) {
+        const key = `#playerKey${i}`;
         const val = `:val${i}`;
-        updatePlayerExpressions += `, players.${id} = ${val}`;
+        updatePlayerExpressions += `, players.${key} = ${val}`;
+        playerAttributeNames[key] = id;
         playerAttributeValues[val] = player;
         i++;
     }
@@ -329,6 +332,7 @@ export async function commitLobbyTurn (id, players) {
         ` + updatePlayerExpressions,
         ExpressionAttributeNames: {
             "#state": "state",
+            ...playerAttributeNames,
             ...PK_EXPRESSION_NAME
         },
         ExpressionAttributeValues: {
