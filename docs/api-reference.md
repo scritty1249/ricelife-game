@@ -18,14 +18,14 @@ A list of all available maps
 ### `POST /lobby/new`
 **Request Body Parameters (JSON):**
 
-Game wil not start until `teamcount` is met.
+Game will start when `teamcount` is met or host initiates manually.
 | Key | Type | Detail |
 | :-- | :-- | :-- |
 | mapid | [Snowflake](#string-snowflake) ||
 | channelid | [Snowflake](#string-snowflake) | Discord channel the invite was sent to |
 | teamsize | integer | greater than `0` |
 | teamcount | integer | greater than `1` |
-| player | [PlayerProfile](#object-playerprofile) | from the initiating player |
+| player | [PlayerProfile](#object-playerprofile) | from the hosting player |
 
 **Returns (JSON):**
 
@@ -33,6 +33,24 @@ An ID of the created lobby, or null if one could not be made.
 | Key | Type |
 | :-- | :-- |
 | lobbyid | ?[Snowflake](#string-snowflake) |
+
+### `POST /lobby/start`
+Add a player to a waiting lobby.
+
+**Request Body Parameters (JSON):**
+| Key | Type | Detail |
+| :-- | :-- | :-- |
+| lobbyid | [Snowflake](#string-snowflake) |
+| hostid | [Snowflake](#string-snowflake) | Discord user ID of the player that created the lobby |
+
+> - If the records indicated by `hostid` and `lobbyid` do not match, this endpoint will return `403 Forbidden`. A side effect is that calling this endpoint on an invalid, already active, or closed lobby, will also return `403 Forbidden` 
+
+**Returns (JSON):**
+
+true if the lobby was started, and false otherwise.
+| Key | Type |
+| :-- | :-- |
+| success | boolean |
 
 ### `POST /lobby/add`
 Add a player to a waiting lobby.

@@ -254,11 +254,11 @@ export async function isLobbyFull (id) {
     }
 }
 
-export async function startLobby (id, turnOrder) {
+export async function startLobby (id, hostid, turnOrder) {
     const command = {
         TableName: process.env.AWS_DB,
         Key: { [PK]: id },
-        ConditionExpression: "attribute_exists(#pk) AND #state = :waitingState",
+        ConditionExpression: "attribute_exists(#pk) AND #state = :waitingState AND host_player = :hostId",
         UpdateExpression: `
             SET #state = :activeState,
                 player_order = :turnOrder
@@ -270,6 +270,7 @@ export async function startLobby (id, turnOrder) {
         ExpressionAttributeValues: {
             ":waitingState": STATUS.WAITING,
             ":activeState": STATUS.ACTIVE,
+            ":hostId": hostid,
             ":turnOrder": [...turnOrder]
         },
     };

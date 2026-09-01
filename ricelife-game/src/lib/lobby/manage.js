@@ -66,10 +66,10 @@ export async function lobbyIsWaiting (lobbyid) {
     return (await KV.get(lobbyid, "state"))?.state === STATUS.WAITING;
 }
 
-export async function startLobby (lobbyid) {
-    if (!lobbyid) return null;
+export async function startLobby (lobbyid, hostid) {
+    if (!lobbyid || !hostid) return null;
     const order = await generateTurnOrder(lobbyid);
-    const result = await KV.startLobby(lobbyid, order);
+    const result = await KV.startLobby(lobbyid, hostid, order);
     return Boolean(result);
 }
 
@@ -147,6 +147,7 @@ export async function createLobby (playerProfile, channelid, mapid, teamsize, te
         team_count: teamCount,
         channelid: channelid,
         // internal use
+        host_player: playerProfile.userid,
         team_inc: teamsMap,
         player_limit: teamSize * teamCount,
         update_token: "",
