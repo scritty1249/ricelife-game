@@ -74,13 +74,13 @@ export class Viewbox extends BoundingBox {
             if (isPortrait) {
                 if (this.#boundYAxis(size, min, maxSize)) {
                     size.x = size.y * aspectRatio;
-                    min.x = (this.planeSize.x - size.x) / 2;
+                    min.x = min.y * aspectRatio;
                 } else
                     this.#boundXAxis(size, min, maxSize);
             } else {
                 if (this.#boundXAxis(size, min, maxSize)) {
                     size.y = size.x / aspectRatio;
-                    min.y = (this.planeSize.y - size.y) / 2;
+                    min.y = min.x / aspectRatio;
                 } else
                     this.#boundYAxis(size, min, maxSize);
             }
