@@ -7,7 +7,6 @@ export class AppCanvas extends Hashable {
     #cursor;
     #window;
     #ratio = 1;
-    #Viewbox;
     #bbox = new BoundingBox();
     #rawSizeHash;
     #size = new Vector();
@@ -17,11 +16,18 @@ export class AppCanvas extends Hashable {
         super();
         this.canvas = canvas;
         this.#window = window;
-        this.window.addEventListener("resize", this.#onResize);
+        this.#attachResizeListener();
         this.#computeLayout();
         this.#cursor = new Canvas2DContextCursor(this.canvas);
     }
 
+    #attachResizeListener () {
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener("resize", this.#onResize);
+        } else {
+            window.addEventListener("resize", this.#onResize);
+        }
+    }
     #onResize = () => {
         this.#computeLayout();
         for (const callback of this.#resizeCallbacks)
