@@ -33,7 +33,12 @@ export class AppCanvas extends Hashable {
             callback?.(this);
     }
     #computeLayout () {
-        this.size.apply(this.window.innerWidth, this.window.innerHeight).floor(true);
+        let width = this.window.innerWidth, height = this.window.innerHeight;
+        if (this.window.visualViewport) {
+            width = this.window.visualViewport.width;
+            height = this.window.visualViewport.height;
+        }
+        this.size.apply(width, height).floor(true);
         ({x: this.canvas.width, y: this.canvas.height} = this.size);
         this.center.apply(this.size.div(2));
         this.#bbox.apply(undefined, this.size);
