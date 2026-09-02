@@ -9,7 +9,8 @@ import {
     LoadImage,
     EditableImage,
     Spritesheet,
-    typeString
+    typeString,
+    equals
 } from "../core/Core.js";
 
 
@@ -161,6 +162,8 @@ export class Main extends Loop {
         if (this.state === this.constructor.STATES.Ready) {
             const drawFrame = this.FrameInterval.ready;
             if (this.ActivePhase?.state === this.constructor.STATES.Ready) {
+                if (!equals(this.Display.aspectRatio, this.ActivePhase.Camera.Viewbox.aspectRatio))
+                    console.log("Viewbox aspect ratio mismatch", this.Display.aspectRatio, this.ActivePhase.Camera.Viewbox.aspectRatio);
                 if (this.TickInterval.ready)
                     await this.ActivePhase?.tick?.(this.TickInterval.lastDelta);
                 if (drawFrame)
