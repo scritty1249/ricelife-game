@@ -36,12 +36,12 @@ export class AppCanvas extends Hashable {
             width = this.window.visualViewport.width;
             height = this.window.visualViewport.height;
         }
-        this.size.apply(width, height).floor(true);
-        ({x: this.canvas.width, y: this.canvas.height} = this.size);
+        this.size.apply(width, height);
+        this.#ratio = this.size.quot();
+        ({x: this.canvas.width, y: this.canvas.height} = this.size.floor());
         this.center.apply(this.size.div(2));
         this.#bbox.apply(undefined, this.size);
         this.#rawSizeHash = this.#bbox.rawHash;
-        this.#ratio = this.size.quot();
     }
 
     getBoundingBox () {
