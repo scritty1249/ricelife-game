@@ -22,10 +22,8 @@ export class AppCanvas extends Hashable {
     }
 
     #attachResizeListener () {
-        if (window.visualViewport)
-            window.visualViewport.addEventListener("resize", this.#onResize);
-        else
-            window.addEventListener("resize", this.#onResize);
+        if (this.window.visualViewport) this.window.visualViewport.addEventListener("resize", this.#onResize);
+        else this.window.addEventListener("resize", this.#onResize);
     }
     #onResize = () => {
         this.#computeLayout();
