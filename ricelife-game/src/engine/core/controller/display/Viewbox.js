@@ -185,4 +185,6 @@ export class Viewbox extends BoundingBox {
     }
     // [!] mostly for debugging
     get isWarped () { return !equals(this.aspectRatio, this.#canvas.aspectRatio, Viewbox.ASPECT_RATIO_TOLERANCE) }
+    get isWidthOverflowing () { return this.planeSize.lengthSquared && this.width > this.planeSize.x }
+    get isHeightOverflowing () { return this.planeSize.lengthSquared && this.height > this.planeSize.y }
 }
