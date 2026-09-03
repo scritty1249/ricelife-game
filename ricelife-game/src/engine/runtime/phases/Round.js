@@ -97,7 +97,7 @@ export class Round extends Phase {
             edgeColor: new Color("#00e8f0"),
             fillColor: new Color("#0098eb")
         });
-        this.Plane.max.apply(this.Terrain.polygon.getBoundingBox().width, this.Terrain.polygon.getBoundingBox().height);
+        this.Plane.max.apply(this.Terrain.polygon.getBoundingBox().width, this.Terrain.polygon.getBoundingBox().height * 3);
 
         this.#load(playerID)
             .then(() => this.#init())
