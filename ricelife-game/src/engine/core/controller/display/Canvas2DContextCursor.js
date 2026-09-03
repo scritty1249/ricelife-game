@@ -21,12 +21,28 @@ class Canvas2DContextCursorProto {
     #ctx;
     #size = new Vector();
     #states = new Array();
+    #support = {
+        filter: false,
+        blur: false
+    };
     // when true, coordinates drawing will be interpreted relative to the canvas, instead of plane size
     // if plane size is not defined or set to (0, 0), fixed is always true.
     #isFixed = false;
     constructor(canvasContext, planeSize = undefined) {
         this.#ctx = canvasContext;
         if (planeSize) this.#size.apply(planeSize); // should only be positive values anyways
+        this.#testContextSupport();
+    }
+
+    #testContextSupport () {
+        this.#support.filter = "filter" in this.#ctx;
+        if (this.#support.filter) {
+            this.#ctx.save();
+            const testFilter = "blur(10px)";
+            this.#ctx.filter = testFilter;
+            this.#support = this.#ctx.filter === testFilter;
+            this.#ctx.restore();
+        }
     }
 
     normalizeY (y) {
@@ -166,16 +182,8 @@ class Canvas2DContextCursorProto {
             hash = (hash * 31 + val) | 0; // 32-bit range
         return hash >>> 0;
     }
-    get filterSupported () { return "filter" in this.#ctx }
-    get blurSupported () {
-        if (!this.filterSupported) return false;
-        this.#ctx.save();
-        const testFilter = "blur(10px)";
-        this.#ctx.filter = testFilter;
-        const supported = this.#ctx.filter === testFilter;
-        this.#ctx.restore();
-        return supported;
-    }
+    get filterSupported () { return this.#support.filter }
+    get blurSupported () { return this.#support.blur }
     get planeSize () { return this.#size }
     get fixed () { return this.#isFixed || !this.#hasPlaneSize }
     set fixed (bool) { return (this.#isFixed = bool) || !this.#hasPlaneSize }
