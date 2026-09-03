@@ -2,6 +2,7 @@ import { BoundingBox } from "../../geometry/BoundingBox.js";
 import { Vector } from "../../math/Vector.js";
 import { Canvas2DContextCursor } from "./Canvas2DContextCursor.js";
 import { Hashable } from "../../math/Hash.js";
+import { equals } from "../../math/utils.js";
 
 export class AppCanvas extends Hashable {
     #cursor;
@@ -26,17 +27,13 @@ export class AppCanvas extends Hashable {
         else this.window.addEventListener("resize", this.#onResize);
     }
     #onResize = () => {
+        if (equals(this.window.innerWidth, this.size.x) && equals(this.window.innerHeight, this.size.y)) return;
         this.#computeLayout();
         for (const callback of this.#resizeCallbacks)
             callback?.(this);
     }
     #computeLayout () {
-        let width = this.window.innerWidth, height = this.window.innerHeight;
-        if (this.window.visualViewport) {
-            width = this.window.visualViewport.width;
-            height = this.window.visualViewport.height;
-        }
-        this.size.apply(width, height);
+        this.size.apply(this.window.innerWidth, this.window.innerHeight);
         this.#ratio = this.size.quot();
         ({x: this.canvas.width, y: this.canvas.height} = this.size.floor());
         this.center.apply(this.size.div(2));
