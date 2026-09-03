@@ -57,9 +57,8 @@ export class Terrain extends Hashable {
         polygon.draw(cursor);
         cursor.clip();
         cursor.globalCompositeOperation = "source-atop";
-        cursor.filter = cursor.blurSupported
-            ? `blur(${resolution}px)`
-            : `opacity(0.5)`;
+        if (cursor.blurSupported) cursor.filter = `blur(${resolution}px)`;
+        else cursor.globalAlpha = 0.5;
         cursor.lineWidth = gradientWidth;
         cursor.strokeStyle = edgeColor.toRGBA();
         for (const edge of polygon.edges)

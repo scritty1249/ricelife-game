@@ -63,9 +63,8 @@ export class AmmoTypeButton extends ShapeButton {
         if (this.typeDetails.hasGlow) {
             cursor.save();
             const color = glowColor.clone();
-            cursor.filter = cursor.blurSupported
-                ? `blur(${glowResolution}px)`
-                : `opacity(0.5)`;
+            if (cursor.blurSupported) cursor.filter = `blur(${glowResolution}px)`;
+            else cursor.globalAlpha = 0.5;
             cursor.strokeStyle = color.toRGBA();
             cursor.lineWidth = glowRadius;
             cursor.stroke();
