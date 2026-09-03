@@ -38,9 +38,8 @@ class Canvas2DContextCursorProto {
         this.#support.filter = "filter" in this.#ctx;
         if (this.#support.filter) {
             this.#ctx.save();
-            const testFilter = "blur(10px)";
-            this.#ctx.filter = testFilter;
-            this.#support = this.#ctx.filter === testFilter;
+            this.#ctx.filter = "blur(2px)";
+            this.#support.blur = this.#ctx.filter.includes("blur");
             this.#ctx.restore();
         }
     }
