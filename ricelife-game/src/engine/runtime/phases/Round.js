@@ -740,7 +740,7 @@ export class Round extends Phase {
         const { cursor, size, aspectRatio } = this.Global.Display;
         const { Viewbox } = this.Camera;
         let { width, height } = Viewbox;
-        if (Viewbox.isWarped) {
+        if (true) {
             console.log(width, height);
             if (Viewbox.isWidthOverflowing) {
                 width = height * aspectRatio;
