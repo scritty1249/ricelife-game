@@ -2,7 +2,7 @@
 _*
 node_modules/
 dist/
-ricelife-game/client/
+ricelife-game/client/*
 !ricelife-game/client/assets/
 !ricelife-game/client/data/
 !ricelife-game/client/stylesheets/
