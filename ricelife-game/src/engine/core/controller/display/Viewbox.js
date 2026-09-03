@@ -26,34 +26,9 @@ export class Viewbox extends BoundingBox {
         if (size) this.applySize(size);
     }
 
-    #boundYAxis (size, min, maxSize) {
+    #boundPosition (size, min) {
         const { bounding, planeSize } = this;
-        let lock = false;
-        if (bounding.top && bounding.bottom) {
-            if (size.y > planeSize.y) {
-                size.y = maxSize.y;
-                lock = true;
-            }
-            if (min.y < 0) {
-                min.y = 0;
-            } else if (min.y + size.y > planeSize.y) {
-                min.y = planeSize.y - size.y;
-            }
-        } else if (bounding.top) {
-            min.y = Math.min(0, min.y);
-        } else if (bounding.bottom) {
-            min.y = Math.max(0, min.y);
-        }
-        return lock;
-    }
-    #boundXAxis (size, min, maxSize) {
-        const { bounding, planeSize } = this;
-        let lock = false;
         if (bounding.left && bounding.right) {
-            if (size.x > planeSize.x) {
-                size.x = maxSize.x;
-                lock = true;
-            }
             if (min.x < 0) {
                 min.x = 0;
             } else if (min.x + size.x > planeSize.x) {
@@ -64,26 +39,43 @@ export class Viewbox extends BoundingBox {
         } else if (bounding.left) {
             min.x = Math.max(0, min.x);
         }
-        return lock;
+        if (bounding.top && bounding.bottom) {
+            if (min.y < 0) {
+                min.y = 0;
+            } else if (min.y + size.y > planeSize.y) {
+                min.y = planeSize.y - size.y;
+            }
+        } else if (bounding.top) {
+            min.y = Math.min(0, min.y);
+        } else if (bounding.bottom) {
+            min.y = Math.max(0, min.y);
+        }
     }
     #setClampedSize (size, min) {
         if (this.planeSize.lengthSquared) {
             const maxSize = this.#applyAspectRatio(this.planeSize.clone()).floor(true);
             const { bounding, planeSize } = this;
             const { isPortrait, aspectRatio } = this.#canvas;
+            const clampWidth = bounding.left && bounding.right;
+            const clampHeight = bounding.top && bounding.bottom;
             if (isPortrait) {
-                if (this.#boundYAxis(size, min, maxSize)) {
+                if (clampHeight && size.y > planeSize.y) {
+                    size.y = maxSize.y;
                     size.x = size.y * aspectRatio;
-                    min.x = min.y * aspectRatio;
-                } else
-                    this.#boundXAxis(size, min, maxSize);
-            } else {
-                if (this.#boundXAxis(size, min, maxSize)) {
+                } else if (clampWidth && size.x > planeSize.x) {
+                    size.x = maxSize.x;
                     size.y = size.x / aspectRatio;
-                    min.y = min.x / aspectRatio;
-                } else
-                    this.#boundYAxis(size, min, maxSize);
+                }
+            } else {
+                if (clampWidth && size.x > planeSize.x) {
+                    size.x = maxSize.x;
+                    size.y = size.x / aspectRatio;
+                } else if (clampHeight && size.y > planeSize.y) {
+                    size.y = maxSize.y;
+                    size.x = size.y * aspectRatio;
+                }
             }
+            this.#boundPosition(size, min);
         }
         this.max.apply(this.min.apply(min)).add(size, true);
     }
@@ -183,4 +175,8 @@ export class Viewbox extends BoundingBox {
         this.applyScale(newSize.div(this.size));
         return ratio;
     }
+    // [!] mostly for debugging
+    get isWarped () { return !equals(this.aspectRatio, this.#canvas.aspectRatio, Viewbox.ASPECT_RATIO_TOLERANCE) }
+    get isWidthOverflowing () { return this.planeSize.lengthSquared && this.width > this.planeSize.x }
+    get isHeightOverflowing () { return this.planeSize.lengthSquared && this.height > this.planeSize.y }
 }

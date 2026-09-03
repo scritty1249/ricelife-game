@@ -40,7 +40,7 @@ export class Camera extends Identifiable {
     #onResize = (appCanvas) => {
         this.Viewbox.aspectRatio = appCanvas.aspectRatio;
     }
-    #computeBoundFn = (target) => {
+    #computeBoundFn (target) {
         if (!this.#getBounds(target)) return;
         if (this.#setBoundBox) {
             this.#boundBox.apply(this.#tempBox.min, this.#tempBox.max);
@@ -64,7 +64,7 @@ export class Camera extends Identifiable {
         } else if (target?.isBoundingBox && target.extentSquared) {
             this.#cacheBox(target.min.x, target.min.y, target.max.x, target.max.y);
         } else if (target?.isShape) {
-            this.#getBounds(target.getBoundingBox());
+            return this.#getBounds(target.getBoundingBox());
         } else {
             return false;
         }
@@ -73,8 +73,12 @@ export class Camera extends Identifiable {
     #computeBounds () {
         if (this.isTracking) {
             this.#setBoundBox = true;
-            this.#targets.forEach(this.#computeBoundFn);
-            this.#follows.forEach(this.#computeBoundFn);
+            for (const target of this.#targets) {
+                this.#computeBoundFn(target);
+            }
+            for (const follow of this.#follows) {
+                this.#computeBoundFn(follow);
+            }
         }
         if (this.isSizeSet) {
             const { Grow, Shrink, Always } = this.constructor.SCALING_BEHAVIOR;

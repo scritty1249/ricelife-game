@@ -132,6 +132,21 @@ class Canvas2DContextCursorProto {
             //this.#ctx.drawImage(image, sx, sy, sw, sh, dx, this.normalizeY(dy), dw, dh);
         }
     }
+    // adjust drawing position such that pixels outside of the source image's width and height are not included. (iOS bug)
+    drawImageSafe (image, sx, sy, sw, sh, dx, dy, dw, dh) {
+        const sourceX = Math.max(0, sx);
+        const sourceY = Math.max(0, sy);
+        const sourceWidth = Math.min(sw, image.width - sourceX);
+        const sourceHeight = Math.min(sh, image.height - sourceY);
+        // don't draw if out of source bounds
+        if (sourceWidth <= 0 || sourceHeight <= 0) return;
+        const destWidth = dw * (sourceWidth / sw);
+        const destHeight = dh * (sourceHeight / sh);
+        // move dest coords if the source coords were clipped
+        const destX = dx + (dw * ((sourceX - sx) / sw));
+        const destY = dy + (dh * ((sourceY - sy) / sh));
+        this.#ctx.drawImage(image, sourceX, sourceY, sourceWidth, sourceHeight, destX, destY, destWidth, destHeight);
+    }
     close () {
         this.#ctx.canvas.width = this.#ctx.canvas.height = 0;
         this.#ctx = null;

@@ -9,7 +9,8 @@ import {
     LoadImage,
     EditableImage,
     Spritesheet,
-    typeString
+    typeString,
+    equals
 } from "../core/Core.js";
 
 

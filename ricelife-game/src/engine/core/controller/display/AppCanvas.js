@@ -2,12 +2,12 @@ import { BoundingBox } from "../../geometry/BoundingBox.js";
 import { Vector } from "../../math/Vector.js";
 import { Canvas2DContextCursor } from "./Canvas2DContextCursor.js";
 import { Hashable } from "../../math/Hash.js";
+import { equals } from "../../math/utils.js";
 
 export class AppCanvas extends Hashable {
     #cursor;
     #window;
     #ratio = 1;
-    #Viewbox;
     #bbox = new BoundingBox();
     #rawSizeHash;
     #size = new Vector();
@@ -17,23 +17,28 @@ export class AppCanvas extends Hashable {
         super();
         this.canvas = canvas;
         this.#window = window;
-        this.window.addEventListener("resize", this.#onResize);
+        this.#attachResizeListener();
         this.#computeLayout();
         this.#cursor = new Canvas2DContextCursor(this.canvas);
     }
 
+    #attachResizeListener () {
+        if (this.window.visualViewport) this.window.visualViewport.addEventListener("resize", this.#onResize);
+        else this.window.addEventListener("resize", this.#onResize);
+    }
     #onResize = () => {
+        if (equals(this.window.innerWidth, this.size.x) && equals(this.window.innerHeight, this.size.y)) return;
         this.#computeLayout();
         for (const callback of this.#resizeCallbacks)
             callback?.(this);
     }
     #computeLayout () {
-        this.size.apply(this.window.innerWidth, this.window.innerHeight).floor(true);
-        ({x: this.canvas.width, y: this.canvas.height} = this.size);
+        this.size.apply(this.window.innerWidth, this.window.innerHeight);
+        this.#ratio = this.size.quot();
+        ({x: this.canvas.width, y: this.canvas.height} = this.size.floor());
         this.center.apply(this.size.div(2));
         this.#bbox.apply(undefined, this.size);
         this.#rawSizeHash = this.#bbox.rawHash;
-        this.#ratio = this.size.quot();
     }
 
     getBoundingBox () {
