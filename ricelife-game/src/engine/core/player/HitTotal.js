@@ -1,9 +1,10 @@
 import { HitPoints } from "./hitpoints/HitPoints.js";
 import { Vector } from "../math/Vector.js";
 import { typeString } from "../utils/logging.js";
+import { Hashable, FNV1a } from "../math/Hash.js";
 
 // assigned to each player
-export class HitTotal {
+export class HitTotal extends Hashable {
     #barOffset = new Vector();
     #layers = new Array();
     constructor (bottomLayer, ...layers) {
@@ -59,8 +60,17 @@ export class HitTotal {
             layer.decreaseMultiplier = decrease;
         }
     }
+    clone (deep = false) {
+        return new HitTotal(...this.#layers.map((layer) => layer.clone(deep)));
+    }
 
     get isHitTotal () { return true }
+    get rawHash () {
+        let hash = this.baseLayer.rawHash;
+        for (let i = 1; i < this.length; i++)
+            hash = FNV1a.Extend32Bit(hash, this.#layers[i].rawHash);
+        return hash;
+    }
     get bars () { return this.#layers.map(({bar}) => bar) } // convenience
     get barOffset () { return this.#barOffset }
     get isZero () { return this.baseLayer.isZero } // if base layer is zero, player is dead.

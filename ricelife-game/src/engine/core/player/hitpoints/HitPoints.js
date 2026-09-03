@@ -1,10 +1,11 @@
 import { HitBar } from "./HitBar.js";
 import { clamp, round } from "../../math/utils.js";
 import { typeString } from "../../utils/logging.js";
+import { Hashable, FNV1a } from "../../math/Hash.js";
 
 // parent class for health, shields, etc.
 // final stored value of anything should never be a decimal. Clamp or round instead of throwing error
-export class HitPoints {
+export class HitPoints extends Hashable {
     static TYPE = undefined;
     static TYPES = new Map();
     static ROUNDING_FN = Math.floor; // Can be reconfigured by children. (Math.floor | Math.ceil | Math.round | (value) => Integer )
@@ -107,6 +108,16 @@ export class HitPoints {
     get isZero () { return this.amount === 0 } // amount should be an Integer
     get limit () { return this.max - this.reserve }
     get bar () { return this.#bar }
+    get rawHash () {
+        let hash = FNV1a.Base32Bit(this.constructor.TYPE ?? -1);
+        hash = FNV1a.Extend32Bit(hash, this.amount);
+        hash = FNV1a.Extend32Bit(hash, this.max);
+        hash = FNV1a.Extend32Bit(hash, this.regeneration);
+        hash = FNV1a.Extend32Bit(hash, this.reserve);
+        hash = FNV1a.Extend32Bit(hash, this.increase);
+        hash = FNV1a.Extend32Bit(hash, this.decrease);
+        return hash;
+    }
     get baseRegeneration () { return this.#baseRegeneration }
     set baseRegeneration (value) {
         // value is not rounded or limited
