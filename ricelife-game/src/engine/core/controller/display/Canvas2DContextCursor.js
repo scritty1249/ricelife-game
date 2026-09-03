@@ -168,8 +168,8 @@ class Canvas2DContextCursorProto {
     }
     get filterSupported () { return "filter" in this.#ctx }
     get blurSupported () {
-        this.#ctx.save();
         if (!this.filterSupported) return false;
+        this.#ctx.save();
         const testFilter = "blur(10px)";
         this.#ctx.filter = testFilter;
         const supported = this.#ctx.filter === testFilter;
