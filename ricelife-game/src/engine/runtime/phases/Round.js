@@ -15,6 +15,8 @@ import {
     ToggleIconButton,
     Icon,
     Random,
+    Polygon,
+    Terrain,
 } from "../../core/Core.js"
 
 import { WorkerPool, PoolManager, TerrainCache, CanvasCache } from "../../workers/Core.js";
@@ -931,7 +933,7 @@ export class Round extends Phase {
     exportChanges () {
         if (!this.store.turn?.isRoundTurn) return {};
         const { turn } = this.store;
-        return turn.getChanges(this.Players.values());
+        return turn.getChanges(this.Players.values(), this.#ClientPlayerID);
     }
 
     get AmmoPool () { return this.#AmmoPool }
@@ -945,74 +947,278 @@ export class Round extends Phase {
     get Random () { return this.#Random }
 }
 
-class RoundTurn {
+class RoundState {
+    static unpack (buffer, byteOffset = 0) {
+        const metadataSizeOffset = 4; // 32-bit uint
+        const sizeOffset = byteOffset + metadataSizeOffset;
+        const view = new DataView(buffer);
+        const uint8View = new Uint8Array(buffer);
+
+        const stateByteSize = view.getUint32(0, true);
+        const stateByteOffset = sizeOffset + stateByteSize;
+
+        const stateBytes = uint8View.subarray(sizeOffset, stateByteOffset);
+        const stateText = new TextDecoder().decode(stateBytes);
+        const states = JSON.parse(stateText);
+        const terrainPolygon = Polygon.unpack(buffer, stateByteOffset);
+
+        return new RoundState(state.t, state.a, new Terrain(terrainPolygon));
+    }
+    #time;
+    #playerStates;
     #terrain;
-    #ammo;
-    #blastIntervals = new Array();
-    #playerStates = {};
-    #traceMap;
-    #startFrame;
-    #isClosed = false;
-    constructor (intervals, players, terrain, ammo, backgroundFrame, traceMap) {
+    constructor (time, players, terrain) {
+        this.#time = time;
+        this.#playerStates = players instanceof Map
+            ? Object.fromEntries(players.entries().map(([k, v]) => [k, v.getState()]))
+            : players;
         this.#terrain = terrain;
-        this.#ammo = ammo;
-        this.#traceMap = traceMap;
-        this.#startFrame = backgroundFrame;
-        this.#blastIntervals = [...intervals];
-        for (const player of players)
-            this.#playerStates[player.id] = player.getState();
     }
 
-    intervals (clone = true) {
-        return clone
-            ? this.#blastIntervals.map((interval) => interval.clone(true))
-            : this.#blastIntervals;
-    }
-    terrain (clone = true) {
-        return clone
-            ? this.#terrain.clone(true)
-            : this.#terrain;
-    }
-    ammo (clone = true) {
-        return clone
-            ? this.#ammo.clone(true)
-            : this.#ammo;
-    }
-    map () {
-        return this.#traceMap;
-    }
-    startFrame () {
-        return this.#startFrame;
-    }
-    applyPlayerState (player) {
-        if (!(player?.isActor && player.id in this.#playerStates)) return false;
-        player.setState(this.#playerStates[player.id]);
-        return true;
+    pack () {
+        const metadataSizeOffset = 4;  // 32-bit uint
+        const state = {
+            a: this.actors,
+            t: this.time
+        };
+        const stateBytes = new TextEncoder().encode(JSON.stringify(state));
+        const stateByteSize = stateBytes.length;
+        const stateByteOffset = metadataSizeOffset + stateByteSize;
+
+        const terrainPolygonBytes = this.terrain.polygon.pack();
+        const totalByteSize = stateByteOffset + terrainPolygonBytes.byteLength;
+
+        const buffer = new ArrayBuffer(totalByteSize);
+        const view = new DataView(buffer);
+        const uint8View = new Uint8Array(buffer);
+
+        view.setUint32(0, stateByteSize, true);
+        uint8View.set(stateBytes, metadataSizeOffset);
+
+        const pathByteView = new Uint8Array(terrainPolygonBytes, 0, terrainPolygonBytes.byteLength);
+        uint8View.set(pathByteView, stateByteOffset);
+
+        return buffer;
     }
 
-    // [!] TODO: figure out how to clone these, or verify GC can tidy up runaway/old offscreenCanvases
-    // close () {
-    //     if (this.isClosed) return;
-    //     this.#startFrame?.cursor?.close?.();
-    //     this.#blastIntervals.forEach(({frame}) => frame?.cursor?.close?.());
-    // }
-    
-    getChanges (players) {
-        const changes = {};
-        for (const player of players) {
-            if (!("players" in changes)) changes.players = {};
-            changes.players[player.id] = player.toJSON(...ALL_AMMO);
-        }
-        const lastTerrain = this.#blastIntervals.at(-1).terrain;
-        if (lastTerrain.hash !== this.#terrain.hash) {
-            changes.terrain = lastTerrain.clone(true);
-        }
-        return changes;
-    }
-
-    get isRoundTurn () { return true }
-    get isClosed () { return this.#isClosed }
+    get isRoundState () { return true }
+    get actors () { return this.#playerStates }
+    get time () { return this.#time }
+    get terrain () { return this.#terrain }
 }
+
+class RoundSnapshot {
+    #state;
+    #frame;
+    constructor (state, frame) {
+        this.#state = state;
+        this.#frame = frame;
+    }
+
+    get isRoundSnapshot () { return true }
+    get time () { return this.#state.time }
+    get terrain () { return this.#state.terrain }
+    get actors () { return this.#state.actors }
+    get frame () { return this.#frame }
+}
+
+class RoundTurnRecording {
+    #ammo;
+    #snapshots = new Array();
+    constructor (ammo, snapshots) {
+        this.#ammo = ammo.clone(true);
+        if (snapshots.length > 1)
+            for (const snap of snapshots)
+                this.#snapshots.push(snap);
+    }
+
+    pack () {
+        
+    }
+
+    get isRoundTurnRecording () { return true }
+    get ammo () { return this.#ammo }
+    get snapshots () { return this.#snapshots }
+}
+class RoundTurnRecorder {
+    static #applyBlastDamage (blast, players) {
+        for (const player of players.values()) {
+            if (!blast.damage || !player.Puppet.getHitbox().isIntersecting(blast.shape)) continue;
+            player.HitTotal.damage(blast.damage);
+        }
+    }
+    static #applyBlastInterval (terrain, interval, players) {
+        const { terrain: newTerrain, frame, blasts, boundingBoxes: bboxes } = interval;
+        const terrainChanged = RoundTurnRecorder.#updateTerrain(terrain, newTerrain, bboxes, players);
+        for (const blast of blasts)
+            RoundTurnRecorder.#applyBlastDamage(blast, players);
+        return terrainChanged;
+    }
+    static #updateTerrain (terrain, newTerrain, blastAreas, players) {
+        const terrainChanged = terrain.hash !== newTerrain.hash;
+        if (terrainChanged)
+            terrain.apply(newTerrain);
+        const affectedPlayers = blastAreas?.length
+            ? players.values().filter(({Puppet}) => {
+                const { position } = Puppet;
+                return blastAreas.some((bbox) => bbox.isIntersecting(position));
+            }) : players.values();
+        for (const { Puppet, Mover } of affectedPlayers) {
+            // update positioning - account for "falling"
+            Puppet.position.round(2);
+            Mover.apply(Mover.position.x, Mover.position.y);
+        }
+        return terrainChanged;
+    }
+    static #tickUpdateAmmo (ammo, players, terrain, intervals, delta) {
+        const snapshots = [];
+        const keepIntervals = [];
+        // record blast intervals
+        for (const interval of intervals) {
+            if (interval.delay <= ammo.time) {
+                RoundTurnRecorder.#applyBlastInterval(terrain, interval, players);
+                snapshots.push(RoundTurnRecorder.createSnapshot(players, interval));
+            } else keepIntervals.push(interval);
+        }
+        intervals.splice(0, intervals.length, ...keepIntervals);
+        // update projectile
+        ammo.update(tickspeed);
+        return snapshots;
+    }
+    static #isAmmoDone (ammo, traceLimit, wasFinished, maxDuration) {
+        const endEarly =
+            (ammo.time >= maxDuration) // time out shots even if a landing exists
+            || (!wasFinished && !ammo.isInsideDisplay); // time out early if theres no landing and it flew offscreen
+        const isFinished = wasFinished && (ammo.time >= maxDuration - Number.EPSILON);
+        return endEarly || isFinished;
+    }
+    static createSnapshot (players, interval) {
+        const state = new RoundState(interval.delay, players, interval.terrain);
+        return new RoundSnapshot(state, interval.frame);
+    }
+    #states = new Array();
+    #players;
+    #traceLimit;
+    #ammo;
+    #intervals;
+    #map;
+    #terrain;
+    // Map<Actor>, AmmoType, [...BlastInterval], Object(AmmoType Legend) Terrain, Number
+    constructor (players, ammo, intervals, map, terrain) {
+        this.#players = players;
+        this.#terrain = terrain;
+        this.#traceLimit = traceLimit;
+        this.#ammo = ammo.clone(true);
+        this.#map = map;
+        this.#intervals = [...intervals];
+    }
+
+    #exportRecording (snapshots, displayBoundingBox = undefined) {
+        const ammo = this.#ammo.clone(true);
+        if (displayBoundingBox?.isBoundingBox)
+            ammo.displayBoundingBox = displayBoundingBox.clone(true);
+        return {
+            ammo: ammo,
+            snapshots: snapshots.length > 1 ? snapshots : []
+        };
+    }
+
+    record (tickspeed, traceLimit, displayBoundingBox = undefined) {
+        const ammo = this.#ammo.clone(true);
+        const terrain = this.#terrain.clone(true);
+        const intervals = [...this.#intervals];
+        const players = this.#players;
+        const { finished, time } = this.#map;
+        const snapshots = [];
+        if (displayBoundingBox?.isBoundingBox) ammo.displayBoundingBox = displayBoundingBox.clone(true);
+        const startingState = RoundTurnRecorder.#recordState(players, terrain);
+        snapshots.push(startingState);
+        while (!RoundTurnRecorder.#isAmmoDone(ammo, traceLimit, finished, time)) {
+            const snaps = RoundTurnRecorder.#tickUpdateAmmo(ammo, players, terrain, intervals, tickspeed);
+            if (snaps.length)
+                for (const snapshot of snaps)
+                    snapshots.push(snapshot);
+        }
+        for (const player of players.values()) {
+            if (player.id in startingState.actors)
+                player.setState(startingState.actors[player.id]);
+        }
+        const recording = this.#exportRecording(snapshots, displayBoundingBox);
+        return recording;
+    }
+}
+
+// class RoundTurn {
+//     #terrain;
+//     #ammo;
+//     #blastIntervals = new Array();
+//     #playerStates = {};
+//     #traceMap;
+//     #startFrame;
+//     #isClosed = false;
+//     constructor (intervals, players, terrain, ammo, backgroundFrame, traceMap) {
+//         this.#terrain = terrain;
+//         this.#ammo = ammo;
+//         this.#traceMap = traceMap;
+//         this.#startFrame = backgroundFrame;
+//         this.#blastIntervals = [...intervals];
+//         for (const player of players)
+//             this.#playerStates[player.id] = player.getState();
+//     }
+
+//     intervals (clone = true) {
+//         return clone
+//             ? this.#blastIntervals.map((interval) => interval.clone(true))
+//             : this.#blastIntervals;
+//     }
+//     terrain (clone = true) {
+//         return clone
+//             ? this.#terrain.clone(true)
+//             : this.#terrain;
+//     }
+//     ammo (clone = true) {
+//         return clone
+//             ? this.#ammo.clone(true)
+//             : this.#ammo;
+//     }
+//     map () {
+//         return this.#traceMap;
+//     }
+//     startFrame () {
+//         return this.#startFrame;
+//     }
+//     applyPlayerState (player) {
+//         if (!(player?.isActor && player.id in this.#playerStates)) return false;
+//         player.setState(this.#playerStates[player.id]);
+//         return true;
+//     }
+
+//     // [!] TODO: figure out how to clone these, or verify GC can tidy up runaway/old offscreenCanvases
+//     // close () {
+//     //     if (this.isClosed) return;
+//     //     this.#startFrame?.cursor?.close?.();
+//     //     this.#blastIntervals.forEach(({frame}) => frame?.cursor?.close?.());
+//     // }
+    
+//     getChanges (players, activePlayerID) {
+//         const changes = {
+//             trace: this.#ammo.getLegend(true),
+//             activePlayer: activePlayerID
+//         };
+//         for (const player of players) {
+//             if (!("players" in changes)) changes.players = {};
+//             changes.players[player.id] = player.toJSON(...ALL_AMMO);
+//         }
+//         const lastTerrain = this.#blastIntervals.at(-1).terrain;
+//         if (lastTerrain.hash !== this.#terrain.hash) {
+//             changes.terrain = lastTerrain.clone(true);
+//         }
+//         return changes;
+//     }
+
+//     get isRoundTurn () { return true }
+//     get isClosed () { return this.#isClosed }
+// }
 
 function createMuzzleFlashAnimation (playerActor, spritesheet, width) {
     spritesheet.width = width;
