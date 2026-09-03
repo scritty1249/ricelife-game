@@ -231,7 +231,7 @@ export class WorkerPool extends Identifiable {
         return this.#cacheAt(cache)?.id;
     }
     createWorker () {
-        const entry = new PoolEntry(this.#src, {logLevel: this.LOG_LEVEL});
+        const entry = new PoolEntry(this.#src, {logLevel: this.LOG_LEVEL, blurSupported: window.__CANVAS_BLUR_SUPPORTED});
         if (Number.isFinite(window.navigator.hardwareConcurrency) && this.size + 1 > window.navigator.hardwareConcurrency)
             console.warn(`[${typeString(this)}]: Worker pool size exceeds supported hardware concurrency. Performance may be impacted`);
         return this.#initWorker(entry);

@@ -4,14 +4,32 @@ import { traceAmmo } from "../core/projectile/utils.js";
 import { Cache, TerrainCache } from "./pool/Cache.js";
 import { AmmoPool } from "../shared/AmmoPool.js";
 
-const _queryString = self.location.search;
-const _urlParams = new URLSearchParams(_queryString);
-const ID = _urlParams.get("id");
-const LOG_LEVEL = _urlParams.get("logLevel");
+{
+    const queryString = self.location.search;
+    const params = new URLSearchParams(queryString);
+    Object.defineProperty(self, "LOG_LEVEL", {
+        value: params.get("logLevel"),
+        writable: false,
+        configurable: false,
+        enumerable: true
+    });
+    Object.defineProperty(self, "ID", {
+        value: params.get("id"),
+        writable: false,
+        configurable: false,
+        enumerable: true
+    });
+    Object.defineProperty(self, "__CANVAS_BLUR_SUPPORTED", {
+        value: params.get("blurSupported"),
+        writable: false,
+        configurable: false,
+        enumerable: true
+    });
+}
 const CACHE = {};
 const CHANNELS = {};
 const TRANSACTIONS = {};
-const CONSOLE_PREFIX = `[WebWorker] (${ID})`;
+const CONSOLE_PREFIX = `[WebWorker] (${self.ID})`;
 const AMMO_TYPES = new AmmoPool();
 
 function postSuccess (id) { postResponse(id) }
@@ -42,7 +60,7 @@ function createCache (data) { // create new from encoded cache
     const { id, type } = data;
     if (Cache.TYPES.has(type)) {
         if (id in CACHE) {
-            if (LOG_LEVEL >= 3) console.debug(`${CONSOLE_PREFIX}: Overwriting ${CACHE[id]?.isFilled ? "" : "empty "}cache ${id} - CREATE`);
+            if (self.LOG_LEVEL >= 3) console.debug(`${CONSOLE_PREFIX}: Overwriting ${CACHE[id]?.isFilled ? "" : "empty "}cache ${id} - CREATE`);
         }
         CACHE[id] = data?.isCache ? data : Cache.decode(data);
         return true;
@@ -54,7 +72,7 @@ function fillCache (id, data) { // create from payload data
     if (id in CACHE) {
         const target = CACHE[id];
         if (target?.isFilled) {
-            if (LOG_LEVEL >= 3) console.debug(`${CONSOLE_PREFIX}: Overwriting cache ${id} - FILL`);
+            if (self.LOG_LEVEL >= 3) console.debug(`${CONSOLE_PREFIX}: Overwriting cache ${id} - FILL`);
         }
         target.fill(data);
         return true;
@@ -65,13 +83,13 @@ function fillCache (id, data) { // create from payload data
 const onworkermessage = (e) => {
     const { command, id, payload } = e.data;
     const port = e.target;
-    if (LOG_LEVEL >= 2) console.debug(`${CONSOLE_PREFIX}: Transaction ${id} receieved from peer\n\t${command}: `,  payload);
+    if (self.LOG_LEVEL >= 2) console.debug(`${CONSOLE_PREFIX}: Transaction ${id} receieved from peer\n\t${command}: `,  payload);
     if (command === "CACHE") {
         if (createCache(payload)) {
             port.postMessage({command: "ACK", id});
             postSuccess("CACHEUPDATE_" + id);
         } else {
-            const err = new Error(`[WebWorker]  (${ID}): Failed to create cache "${payload?.id}"`);
+            const err = new Error(`[WebWorker]  (${self.ID}): Failed to create cache "${payload?.id}"`);
             postFailure("", err);
             TRANSACTIONS[id]?.reject(err);
         }
@@ -90,7 +108,7 @@ self.onmessage = async (e) => {
         payload
     } = e.data;
     try {
-        if ((command !== "ADDWKR" && LOG_LEVEL >= 2) || (command === "ADDWKR" && LOG_LEVEL >= 4))
+        if ((command !== "ADDWKR" && self.LOG_LEVEL >= 2) || (command === "ADDWKR" && self.LOG_LEVEL >= 4))
             console.debug(`${CONSOLE_PREFIX}: Transaction ${id} receieved from parent\n\t${command ? command : type}: `,  payload);
         if (command) {
             processManagerCommand(command, id, payload);
@@ -205,7 +223,7 @@ async function processManagerCommand (command, id, payload) {
             */
             const { cache } = payload;
             if (createCache(cache)) postSuccess(id);
-            else postFailure(id, new Error(`[WebWorker]  (${ID}): Failed to initalize cache "${cache?.id}"`));
+            else postFailure(id, new Error(`[WebWorker]  (${self.ID}): Failed to initalize cache "${cache?.id}"`));
         } else if (command === "FILLCACHE") {
            /* Payload expected:
             * {
@@ -215,7 +233,7 @@ async function processManagerCommand (command, id, payload) {
             */
             const { target, data } = payload;
             if (fillCache(target, data)) postSuccess(id);
-            else postFailure(id, new Error(`[WebWorker]  (${ID}): Failed to fill cache "${target}"`));
+            else postFailure(id, new Error(`[WebWorker]  (${self.ID}): Failed to fill cache "${target}"`));
         } else if (command === "SENDCACHE") { // [!] Canvas caches are transfer-only.
            /* Payload expected:
             * {
@@ -235,7 +253,7 @@ async function processManagerCommand (command, id, payload) {
             if (manager) {
                 self.postMessage({id, payload: data}, data.buffers);
                 if (!clone) delete CACHE[source];
-            } else if (ID !== worker) {
+            } else if (self.ID !== worker) {
                 const tid = id + "_" + performance.now().toString();
                 TRANSACTIONS[tid] = Promise.withResolvers();
                 CHANNELS[worker].postMessage(
@@ -268,4 +286,4 @@ async function processManagerCommand (command, id, payload) {
 
 // signal READY to porent
 self.postMessage({type: "READY"});
-if (LOG_LEVEL >= 4) console.debug(`${CONSOLE_PREFIX}: Ready`);
+if (self.LOG_LEVEL >= 4) console.debug(`${CONSOLE_PREFIX}: Ready`);
