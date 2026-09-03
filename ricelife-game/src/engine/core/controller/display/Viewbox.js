@@ -183,4 +183,6 @@ export class Viewbox extends BoundingBox {
         this.applyScale(newSize.div(this.size));
         return ratio;
     }
+    // [!] mostly for debugging
+    get isWarped () { return !equals(this.aspectRatio, this.#canvas.aspectRatio, Viewbox.ASPECT_RATIO_TOLERANCE) }
 }

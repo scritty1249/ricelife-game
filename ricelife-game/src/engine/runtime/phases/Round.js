@@ -739,12 +739,17 @@ export class Round extends Phase {
         const img = this.Threaded.cache[this.store.cacheKey.background].canvas;
         const { cursor, size, pixelRatio } = this.Global.Display;
         const { Viewbox } = this.Camera;
-        const width = Viewbox.max.x - Viewbox.min.x;
-        const height = Viewbox.max.y - Viewbox.min.y;
+        if (Viewbox.isWarped)
+            console.log("DOM Profile:", JSON.stringify({
+                windowWidth: window.innerWidth,
+                viewportWidth: window.visualViewport?.width,
+                canvasElementWidth: this.Global.Display.canvas.clientWidth,
+                computedViewboxWidth: this.Camera.Viewbox.width
+            }));
         cursor.drawImage(
             img,
             Viewbox.min.x, cursor.normalizeY(Viewbox.max.y),
-            width, height,
+            Viewbox.width, Viewbox.height,
             0, 0,
             size.x, size.y,
         );
