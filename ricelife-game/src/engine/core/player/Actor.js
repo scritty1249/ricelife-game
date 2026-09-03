@@ -4,6 +4,8 @@ import { Properties, Affiliation } from "../projectile/collision/Properties.js";
 import { Loadable } from "../load/Loadable.js";
 import { Vector } from "../math/Vector.js";
 import { Ray } from "../math/Ray.js";
+import { Hashable, FNV1a } from "../math/Hash.js";
+import { HitTotal } from "./HitTotal.js";
 
 export class Actor extends Loadable {
     #Aimer;
@@ -129,17 +131,16 @@ export class Actor extends Loadable {
         yield Aimer.power;
     }
     getState () {
-        return {
-            hitpoints: this.HitTotal.toJSON(),
-            position: this.position.toJSON(),
-            rotation: this.rotation,
-            orientation: this.orientation,
-            power: this.Aimer.power
-        };
+        return new ActorState(
+            this.HitTotal,
+            this.position.clone(),
+            this.Aimer.power,
+            this.rotation,
+            this.orientation
+        );
     }
     setState (actorState) {
-        const { hitpoints, position: p, rotation, orientation, power } = actorState;
-        const position = Vector.fromObject(p);
+        const { hitpoints, position, rotation, orientation, power } = actorState;
         this.HitTotal.set(hitpoints);
         this.position.apply(position);
         this.rotation = rotation;
@@ -163,4 +164,53 @@ export class Actor extends Loadable {
     set rotation (radians) { return (this.Aimer.rotation = radians) }
     get orientation () { return this.Puppet.rotation.body }
     set orientation (radians) { return (this.Puppet.rotation.body = radians) }
+}
+
+class ActorState extends Hashable {
+    static fromObject (obj, hitpointMap) {
+        const { hitpoints: h, power, rotation, orientation, position: p } = obj;
+        const position = Vector.fromObject(p);
+        const hitpoints = HitTotal.fromObject(h, hitpointMap);
+        return new ActorState(hitpoints, position, power, rotation, orientation);
+    }
+    static #computeRawHash (hitpoints, position, power, rotation, orientation) {
+        let hash = Hashable.rawHash(hitpoints, position);
+        hash = FNV1a.Extend32Bit(hash, power);
+        hash = FNV1a.Extend32Bit(hash, rotation);
+        hash = FNV1a.Extend32Bit(hash, orientation);
+        return hash;
+    }
+    #position;
+    #rotation;
+    #orientation;
+    #power;
+    #hitpoints;
+    #rawHash;
+    // Object (JSON), Vector, Number, Number, Number
+    constructor (hitpoints, position, power, rotation, orientation) {
+        this.#rawHash = ActorState.#computeRawHash(hitpoints, position, power, rotation, orientation);
+        this.#hitpoints = hitpoints.toJSON();
+        this.#position = position;
+        this.#power = power;
+        this.#rotation = rotation;
+        this.#orientation = orientation;
+    }
+
+    toJSON () {
+        return {
+            hitpoints: this.hitpoints,
+            power: this.power,
+            rotation: this.rotation,
+            orientation: this.orientation,
+            position: this.position.toJSON()
+        };
+    }
+
+    get isActorState () { return true }
+    get position () { return this.#position }
+    get rotation () { return this.#rotation }
+    get orientation () { return this.#orientation }
+    get power () { return this.#power }
+    get hitpoints () { return this.#hitpoints }
+    get rawHash () { return this.#rawHash }
 }
