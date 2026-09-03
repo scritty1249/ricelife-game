@@ -739,20 +739,11 @@ export class Round extends Phase {
         const img = this.Threaded.cache[this.store.cacheKey.background].canvas;
         const { cursor, size, aspectRatio } = this.Global.Display;
         const { Viewbox } = this.Camera;
-        let { width, height } = Viewbox;
-        if (true) {
-            console.log(width, height);
-            if (Viewbox.isWidthOverflowing) {
-                width = height * aspectRatio;
-            } else {
-                height = width / aspectRatio;
-            }
-            console.log(width, height);
-        }
+        console.log(window.innerWidth, window.innerHeight, size.toString());
         cursor.drawImage(
             img,
             Viewbox.min.x, cursor.normalizeY(Viewbox.max.y),
-            width, height,
+            Viewbox.width, Viewbox.height,
             0, 0,
             size.x, size.y,
         );
