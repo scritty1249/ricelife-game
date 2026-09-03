@@ -1,5 +1,7 @@
-import { packPolygon } from "/scripts/api/pack.js";
-import { Terrain, Path, Polygon } from "/src/engine/core/Core.js";
+import { packPolygon } from "/src/client/scripts/api/pack.js";
+import { Terrain } from "/src/engine/core/geometry/Terrain.js";
+import { Polygon } from "/src/engine/core/geometry/Polygon.js";
+import { Path } from "/src/engine/core/math/Path.js";
 import { Canvas2DContextCursor } from "/src/engine/core/controller/display/Canvas2DContextCursor.js";
 
 export class RenderingCanvas {

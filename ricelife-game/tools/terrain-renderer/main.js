@@ -1,5 +1,6 @@
-import { unpackPolygon } from "/scripts/api/unpack.js";
-import { Terrain, Polygon } from "/src/engine/core/Core.js";
+import { unpackPolygon } from "/src/client/scripts/api/unpack.js";
+import { Terrain } from "/src/engine/core/geometry/Terrain.js";
+import { Polygon } from "/src/engine/core/geometry/Polygon.js";
 import { Canvas2DContextCursor } from "/src/engine/core/controller/display/Canvas2DContextCursor.js";
 
 const canvas = document.getElementById("render");
