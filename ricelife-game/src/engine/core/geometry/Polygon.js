@@ -18,15 +18,16 @@ export class Polygon extends Hashable { // points should be ordered clockwise (i
             }
         return polygon;
     }
-    static unpack (buffer) {
-        const view = new DataView(buffer);
-        const uint8View = new Uint8Array(buffer);
+    static unpack (buffer, byteOffset = 0) {
+        const view = new DataView(buffer, byteOffset);
+        const uint8View = new Uint8Array(buffer, byteOffset);
 
         const metadataSizeOffset = 4; // 32-bit uint
+        const sizeOffset = byteOffset + metadataSizeOffset;
         const metadataSize = view.getUint32(0, true);
-        const headerOffset = metadataSizeOffset + metadataSize; 
+        const headerOffset = sizeOffset + metadataSize; 
 
-        const metadataBytes = uint8View.subarray(metadataSizeOffset, headerOffset);
+        const metadataBytes = uint8View.subarray(sizeOffset, headerOffset);
         const metadataText = new TextDecoder().decode(metadataBytes);
         const metadata = JSON.parse(metadataText);
         const polygonObject = decodePolygon(metadata, view, headerOffset);
