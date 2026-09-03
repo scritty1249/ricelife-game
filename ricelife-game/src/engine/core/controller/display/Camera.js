@@ -268,6 +268,7 @@ export class Camera extends Identifiable {
             this.unfollowAll();
         if (this.isSizeSet && !this.isSizing && !this.#keepSize)
             this.clearTargetSize();
+        this.#Viewbox.protectWarpedRatio();
     }
     track (...targets) {
         for (let i = 0; i < targets.length; i++) {
