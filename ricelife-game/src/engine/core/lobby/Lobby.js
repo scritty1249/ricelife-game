@@ -171,9 +171,7 @@ export class Lobby {
                 id
             );
             const metadata = new Metadata(model, profile, player.data.team);
-            const hittotal = new HitTotal(...Array.from(player.hitpoints,
-                (hitpoints) => hitpointMap[String(hitpoints.type)].fromObject(hitpoints)
-            ));
+            const hittotal = HitTotal.fromObject(player.hitpoints, hitpointMap);
             const actor = new Actor(metadata, hittotal);
             actor.onload.then(() => {
                 actor.Mover.Terrain = terrain;

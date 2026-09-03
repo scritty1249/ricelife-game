@@ -5,6 +5,16 @@ import { Hashable, FNV1a } from "../math/Hash.js";
 
 // assigned to each player
 export class HitTotal extends Hashable {
+    static fromObject (obj, hitpointMap) {
+        try {
+            return new HitTotal(...Array.from(obj,
+                (hitpoints) => hitpointMap[String(hitpoints.type)].fromObject(hitpoints)
+            ));
+        } catch (err) {
+            console.error(`[${typeString(this)}]: Failed to parse HitTotal object. is HitpointMap populated?`);
+            throw err;
+        }
+    }
     #barOffset = new Vector();
     #layers = new Array();
     constructor (bottomLayer, ...layers) {
