@@ -86,6 +86,7 @@ export class Viewbox extends BoundingBox {
             }
         }
         this.max.apply(this.min.apply(min)).add(size, true);
+        this.#protectWarpedRatio();
     }
     #applyAspectRatio (size) {
         const { aspectRatio } = this.#canvas;
@@ -93,6 +94,21 @@ export class Viewbox extends BoundingBox {
             size.y = size.x / aspectRatio;
         }
         return size;
+    }
+    // [!] bandaid solution - KT
+    // If max size on any axis is reached, this function will change the other axis to match the canvas aspect ratio
+    #protectWarpedRatio () {
+        if (!(this.planeSize.lengthSquared && this.isWarped)) return;
+        const { x: maxWidth, y: maxHeight } = this.planeSize;
+        const { width, height } = this;
+        const { aspectRatio } = this.#canvas;
+        if (width <= maxWidth && height > maxHeight) {
+            this.height = width / aspectRatio;
+        } else if (height <= maxHeight && width > maxWidth) {
+            this.width = height * aspectRatio;
+        } else {
+            // dimensions are skewed, but neither exceeds plane size
+        }
     }
 
     save () { this.#states.push(this.getState()) }
