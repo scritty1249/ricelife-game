@@ -94,8 +94,12 @@ export class Actor extends Loadable {
             data: this.Metadata.toJSON(...ammo),
             hitpoints: this.HitTotal.toJSON(),
         };
-        if (this.ready)
+        if (this.ready) {
             payload.position = this.Puppet.position.toJSON();
+            payload.rotation = this.rotation;
+            payload.orientation = this.orientation;
+            payload.power = this.Aimer.power;
+        }
         return payload;
     }
     getCollider (isClient = false, isAlly = false) {
@@ -130,15 +134,17 @@ export class Actor extends Loadable {
             position: this.position.toJSON(),
             rotation: this.rotation,
             orientation: this.orientation,
+            power: this.Aimer.power
         };
     }
     setState (actorState) {
-        const { hitpoints, position: p, rotation, orientation } = actorState;
+        const { hitpoints, position: p, rotation, orientation, power } = actorState;
         const position = Vector.fromObject(p);
         this.HitTotal.set(hitpoints);
         this.position.apply(position);
         this.rotation = rotation;
         this.orientation = orientation;
+        this.Aimer.power = power;
     }
 
     get isActor () { return true }

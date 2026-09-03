@@ -185,7 +185,9 @@ export class Lobby {
                         && actor.Mover.apply(position)
                     )) console.warn(invalidMsg);
                 } else console.warn(invalidMsg);
-                actor.Aimer.update(actor.Puppet.position.add({x: 0, y: actor.Aimer.radius * 2})); // aim straight up and set power to 100%
+                if (player.orientation) actor.orientation = player.orientation;
+                actor.rotation = player.rotation ?? Math.PI;
+                actor.Aimer.power = player.power ?? 1;
             });
             actorMap.set(id, actor);
         }

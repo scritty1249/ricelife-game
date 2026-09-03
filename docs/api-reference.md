@@ -142,6 +142,9 @@ Commits a staged round update. Updated players corrospond to players that are al
 | Key | Type | Detail |
 | :-- | :-- | :-- |
 | ?position | [Vector](#array-vector) | player's current position |
+| ?rotation | number | player's aim angle |
+| ?orientation | number | player's body angle |
+| ?power | number | 0-1 (inclusive) player's launch power |
 | hitpoints | array of [HitAmount](#object-hitamount) | damage applied in descending order |
 | data | [PlayerData](#object-playerdata) ||
 
