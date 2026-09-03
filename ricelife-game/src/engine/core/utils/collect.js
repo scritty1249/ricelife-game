@@ -17,3 +17,14 @@ export function* zip (iterables) {
         }
     }
 }
+
+export function mergeFloat32Arrays (arrays) {
+    const length = arrays.reduce((acc, curr) => acc + curr.length, 0);
+    const result = new Float32Array(length);
+    let offset = 0;
+    for (const array of arrays) {
+        result.set(array, offset);
+        offset += array.length;
+    }
+    return result;
+}

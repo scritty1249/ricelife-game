@@ -4,6 +4,7 @@ import { Vector } from "../math/Vector.js";
 import { typeString } from "../utils/logging.js";
 import { Hashable, FNV1a } from "../math/Hash.js";
 import { generateUUID } from "../utils/tracking/UUID.js";
+import { mergeFloat32Arrays } from "../utils/collect.js";
 
 export class Polygon extends Hashable { // points should be ordered clockwise (in positioning)
     static fromObject (data, depth) {
@@ -16,6 +17,20 @@ export class Polygon extends Hashable { // points should be ordered clockwise (i
                 polygon.holes.push(poly);
             }
         return polygon;
+    }
+    static unpack (buffer) {
+        const view = new DataView(buffer);
+        const uint8View = new Uint8Array(buffer);
+
+        const metadataSizeOffset = 4; // 32-bit uint
+        const metadataSize = view.getUint32(0, true);
+        const headerOffset = metadataSizeOffset + metadataSize; 
+
+        const metadataBytes = uint8View.subarray(metadataSizeOffset, headerOffset);
+        const metadataText = new TextDecoder().decode(metadataBytes);
+        const metadata = JSON.parse(metadataText);
+        const polygonObject = decodePolygon(metadata, view, headerOffset);
+        return Polygon.fromObject(polygonObject);
     }
     #id = generateUUID();
     #path;
@@ -414,6 +429,29 @@ export class Polygon extends Hashable { // points should be ordered clockwise (i
         poly.userData = deep ? structuredClone(this.userData) : this.userData;
         return poly;
     }
+    // packs data into Blob
+    pack () {
+        const { metadata, path } = encodePolygon(this, 0);
+        const metadataSizeOffset = 4;
+
+        const metadataBytes = new TextEncoder().encode(JSON.stringify(metadata));
+        const metadataSize = metadataBytes.length;
+        
+        const headerOffset = metadataSizeOffset + metadataSize;
+        const totalBytes = headerOffset + path.byteLength;
+
+        const buffer = new ArrayBuffer(totalBytes);
+        const view = new DataView(buffer);
+        const uint8View = new Uint8Array(buffer);
+
+        view.setUint32(0, metadataSize, true);
+        uint8View.set(metadataBytes, metadataSizeOffset);
+        
+        const pathByteView = new Uint8Array(path.buffer, path.byteOffset, path.byteLength);
+        uint8View.set(pathByteView, headerOffset);
+
+        return buffer;
+    }
     eq (other) { return other?.isPolygon && other?.id === this?.id }
 
     get isPolygon () { return true }
@@ -446,4 +484,39 @@ export class Polygon extends Hashable { // points should be ordered clockwise (i
         return this.#edgeSegmentPoints;
     }
     get id () { return this.#id }
+}
+
+function encodePolygon (polygon, offset) {
+    const path = polygon.path.Float32();
+    const metadata = {
+        o: offset || 0,
+        p: path.byteLength,
+        h: []
+    }
+    let length = metadata.p;
+    const paths = [path];
+    for (const hole of polygon.holes) {
+        const o = metadata.o + length;
+        const { path: p, metadata: m } = encodePolygon(hole, o);
+        metadata.h.push(m);
+        paths.push(p);
+        length += m.p;
+    }
+    return {
+        metadata,
+        path: mergeFloat32Arrays(paths)
+    };
+}
+
+function decodePolygon (metadata, view, headerOffset) {
+    const bytes = Float32Array.BYTES_PER_ELEMENT; // 4 bytes
+    const elements = (metadata.p || 0) / bytes;
+    const path = new Float32Array(elements);
+    const byteStart = headerOffset + (metadata.o || 0);
+    for (let i = 0; i < elements; i++) {
+        path[i] = view.getFloat32(byteStart + (i * bytes), true);
+    }
+    const holes = (metadata.h || [])
+        .map((meta) => decodePolygon(meta, view, headerOffset));
+    return { path, holes };
 }
