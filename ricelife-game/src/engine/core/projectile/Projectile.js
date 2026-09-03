@@ -61,8 +61,8 @@ export class Projectile extends PhysicsObject {
         }
     }
     draw (cursor) {
-        this.drawTailGlow(cursor);
-        this.drawMainGlow(cursor);
+        this.drawTailGlow(cursor, cursor.blurSupported ? 1 : 0.4);
+        this.drawMainGlow(cursor, cursor.blurSupported ? 1 : 0.6);
         this.drawTail(cursor);
         this.drawShot(cursor);
     }
