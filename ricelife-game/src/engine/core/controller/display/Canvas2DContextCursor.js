@@ -36,12 +36,7 @@ class Canvas2DContextCursorProto {
 
     #testContextSupport () {
         this.#support.filter = "filter" in this.#ctx;
-        if (this.#support.filter) {
-            this.#ctx.save();
-            this.#ctx.filter = "blur(2px)";
-            this.#support.blur = this.#ctx.filter.includes("blur");
-            this.#ctx.restore();
-        }
+        this.#support.blur = (typeof window !== "undefined" ? window : self)?.__CANVAS_BLUR_SUPPORTED;
     }
 
     normalizeY (y) {
