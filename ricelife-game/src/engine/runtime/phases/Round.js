@@ -743,7 +743,7 @@ export class Round extends Phase {
         if (Viewbox.isWarped) {
             if (Viewbox.isWidthOverflowing) {
                 width = height * aspectRatio;
-            } else if (Viewbox.isHeightOverflowing) {
+            } else {
                 height = width / aspectRatio;
             }
         }
