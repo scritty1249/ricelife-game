@@ -960,7 +960,9 @@ class RoundState {
         const stateBytes = uint8View.subarray(sizeOffset, stateByteOffset);
         const stateText = new TextDecoder().decode(stateBytes);
         const states = JSON.parse(stateText);
-        const terrainPolygon = Polygon.unpack(buffer, stateByteOffset);
+        const terrainPolygon = stateByteOffset < buffer.byteLength
+            ? Polygon.unpack(buffer, stateByteOffset)
+            : new Polygon();
 
         return new RoundState(state.t, state.a, new Terrain(terrainPolygon));
     }
@@ -975,7 +977,7 @@ class RoundState {
         this.#terrain = terrain;
     }
 
-    pack () {
+    pack (includeTerrain = true) {
         const metadataSizeOffset = 4;  // 32-bit uint
         const state = {
             a: this.actors,
@@ -985,7 +987,9 @@ class RoundState {
         const stateByteSize = stateBytes.length;
         const stateByteOffset = metadataSizeOffset + stateByteSize;
 
-        const terrainPolygonBytes = this.terrain.polygon.pack();
+        const terrainPolygonBytes = includeTerrain
+            ? this.terrain.polygon.pack()
+            : new ArrayBuffer(0);
         const totalByteSize = stateByteOffset + terrainPolygonBytes.byteLength;
 
         const buffer = new ArrayBuffer(totalByteSize);
@@ -995,8 +999,8 @@ class RoundState {
         view.setUint32(0, stateByteSize, true);
         uint8View.set(stateBytes, metadataSizeOffset);
 
-        const pathByteView = new Uint8Array(terrainPolygonBytes, 0, terrainPolygonBytes.byteLength);
-        uint8View.set(pathByteView, stateByteOffset);
+        const polygonByteView = new Uint8Array(terrainPolygonBytes, 0, terrainPolygonBytes.byteLength);
+        uint8View.set(polygonByteView, stateByteOffset);
 
         return buffer;
     }
@@ -1033,7 +1037,26 @@ class RoundTurnRecording {
     }
 
     pack () {
-        
+        const metadataSizeOffset = 4;  // 32-bit uint
+        const header = {};
+        const headerBytes = new TextEncoder().encode(JSON.stringify(header));
+        const headerByteSize = headerBytes.length;
+        const headerByteOffset = metadataSizeOffset + headerByteSize;
+
+        // const terrainPolygonBytes = this.terrain.polygon.pack();
+        // const totalByteSize = stateByteOffset + terrainPolygonBytes.byteLength;
+
+        // const buffer = new ArrayBuffer(totalByteSize);
+        // const view = new DataView(buffer);
+        // const uint8View = new Uint8Array(buffer);
+
+        // view.setUint32(0, headerByteSize, true);
+        // uint8View.set(headerBytes, metadataSizeOffset);
+
+        // const polygonByteView = new Uint8Array(terrainPolygonBytes, 0, terrainPolygonBytes.byteLength);
+        // uint8View.set(polygonByteView, stateByteOffset);
+
+        // return buffer;
     }
 
     get isRoundTurnRecording () { return true }
