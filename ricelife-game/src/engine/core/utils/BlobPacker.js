@@ -3,7 +3,7 @@ export class BlobPacker {
     static *unpack (buffer, byteOffset = 0) {
         const { HEADER_SIZE_OFFSET } = BlobPacker;
         const size = buffer.byteLength;
-        const view = new DataView(buffer, byteOffset);
+        const view = new DataView(buffer, byteOffset || 0);
         let offset = 0;
         while (offset < size) {
             const length = view.getUint32(offset, true);
