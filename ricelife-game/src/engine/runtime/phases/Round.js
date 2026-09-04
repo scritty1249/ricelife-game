@@ -17,6 +17,7 @@ import {
     Random,
     Polygon,
     Terrain,
+    BlobPacker,
 } from "../../core/Core.js"
 
 import { WorkerPool, PoolManager, TerrainCache, CanvasCache } from "../../workers/Core.js";
@@ -948,22 +949,13 @@ export class Round extends Phase {
 }
 
 class RoundState {
-    static unpack (buffer, byteOffset = 0) {
-        const metadataSizeOffset = 4; // 32-bit uint
-        const sizeOffset = byteOffset + metadataSizeOffset;
-        const view = new DataView(buffer);
-        const uint8View = new Uint8Array(buffer);
-
-        const stateByteSize = view.getUint32(0, true);
-        const stateByteOffset = sizeOffset + stateByteSize;
-
-        const stateBytes = uint8View.subarray(sizeOffset, stateByteOffset);
-        const stateText = new TextDecoder().decode(stateBytes);
-        const states = JSON.parse(stateText);
-        const terrainPolygon = stateByteOffset < buffer.byteLength
+    static unpack (buffer) {
+        const viewIterator = BlobPacker.unpack(buffer, byteOffset);
+        const state = JSON.parse(new TextDecoder().decode(viewIterator.next().value));
+        const polygonView = viewIterator.next().value;
+        const terrainPolygon = polygonView.byteLength
             ? Polygon.unpack(buffer, stateByteOffset)
             : new Polygon();
-
         return new RoundState(state.t, state.a, new Terrain(terrainPolygon));
     }
     #time;
@@ -978,31 +970,16 @@ class RoundState {
     }
 
     pack (includeTerrain = true) {
-        const metadataSizeOffset = 4;  // 32-bit uint
-        const state = {
+        const packer = new BlobPacker();
+        packer.push({
             a: this.actors,
             t: this.time
-        };
-        const stateBytes = new TextEncoder().encode(JSON.stringify(state));
-        const stateByteSize = stateBytes.length;
-        const stateByteOffset = metadataSizeOffset + stateByteSize;
-
-        const terrainPolygonBytes = includeTerrain
+        });
+        packer.push(includeTerrain
             ? this.terrain.polygon.pack()
-            : new ArrayBuffer(0);
-        const totalByteSize = stateByteOffset + terrainPolygonBytes.byteLength;
-
-        const buffer = new ArrayBuffer(totalByteSize);
-        const view = new DataView(buffer);
-        const uint8View = new Uint8Array(buffer);
-
-        view.setUint32(0, stateByteSize, true);
-        uint8View.set(stateBytes, metadataSizeOffset);
-
-        const polygonByteView = new Uint8Array(terrainPolygonBytes, 0, terrainPolygonBytes.byteLength);
-        uint8View.set(polygonByteView, stateByteOffset);
-
-        return buffer;
+            : new ArrayBuffer(0)
+        );
+        return packer.pack();
     }
 
     get isRoundState () { return true }
@@ -1029,53 +1006,45 @@ class RoundSnapshot {
 }
 
 class RoundTurnRecording {
-    static unpack (buffer, byteOffset = 0) {
+    static unpack (buffer) {
+        const viewIterator = BlobPacker.unpack(buffer, byteOffset);
+        const metadata = JSON.parse(new TextDecoder().decode(viewIterator.next().value));
+        const states = [];
+        for (const view of viewIterator) {
+            states.push(RoundState.unpack(view));
+        }
+        return {
+            ammo: metadata.a,
+            activePlayerID: metadata.p,
+            states: states
+        };
     }
+    #activeplayer;
     #ammo;
     #snapshots = new Array();
-    constructor (ammo, snapshots) {
-        this.#ammo = ammo.clone(true);
-        if (snapshots.length > 1)
+    constructor (activePlayerID, ammo, snapshots = []) {
+        this.#activeplayer = activePlayerID;
+        this.#ammo = ammo;
+        if (snapshots?.length > 1)
             for (const snap of snapshots)
                 this.#snapshots.push(snap);
     }
 
     pack () {
-        const metadataSizeOffset = 4;  // 32-bit uint
-        const header = {};
-        const headerBytes = new TextEncoder().encode(JSON.stringify(header));
-        const headerByteSize = headerBytes.length;
-        const packedBytesArray = this.snapshots.map((snapshot) => snapshot.packState);
-        const packedBytesArraySize = packedBytesArray.reduce((acc, curr) => acc + curr.byteLength, 0);
-        const totalByteSize = metadataSizeOffset + headerByteSize
-            + (metadataSizeOffset * (packedBytesArray.length || 1)) + packedBytesArraySize;
-
-        const buffer = new ArrayBuffer(totalByteSize);
-        const view = new DataView(buffer);
-        const uint8View = new Uint8Array(buffer);
-        let byteOffset = 0;
-        view.setUint32(0, headerByteSize, true);
-        byteOffset += metadataSizeOffset;
-        uint8View.set(headerBytes, byteOffset);
-        byteOffset += headerByteSize;
-        if (packedBytesArray.length) {
-            for (const packedBytes of packedBytesArray) {
-                const packedBytesSize = packedBytes.byteLength;
-                view.setUint32(byteOffset, packedBytesSize, true);
-                byteOffset += metadataSizeOffset;
-                const packedBytesView = new Uint8Array(packedBytes, 0, packedBytesSize);
-                uint8View.set(packedBytesView, byteOffset);
-                byteOffset += packedBytesSize;
-            }
-        } else {
-            view.setUint32(byteOffset, 0, true);
-        }
-        return buffer;
+        const packer = new BlobPacker();
+        packer.push({
+            p: this.ActivePlayerID,
+            a: this.ammo.toJSON()
+        });
+        for (const snapshot of this.snapshots)
+            packer.push(snapshot.packState());
+        return packer.pack();
     }
 
     get isRoundTurnRecording () { return true }
     get ammo () { return this.#ammo }
     get snapshots () { return this.#snapshots }
+    get ActivePlayerID () { return this.#activeplayer }
 }
 class RoundTurnRecorder {
     static #applyBlastDamage (blast, players) {
