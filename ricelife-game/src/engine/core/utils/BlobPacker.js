@@ -1,11 +1,20 @@
 export class BlobPacker {
     static HEADER_SIZE_OFFSET = 4; // 32-bit uint
-    static *unpack (buffer, byteOffset = 0) {
+    static *unpack (data, byteOffset = 0, byteLength = undefined) {
         const { HEADER_SIZE_OFFSET } = BlobPacker;
-        const size = buffer.byteLength;
-        const view = new DataView(buffer, byteOffset || 0);
+        
+        const originalOffset = data.byteOffset || 0;
+        const originalLength = data.length || data.byteLength;
+        const buffer = ArrayBuffer.isView(data) ? data.buffer : data;
+
+        const localLength = Number.isInteger(byteLength) && byteLength >= 0
+            ? byteLength : originalLength;
+        const localOffset = Number.isInteger(byteOffset) && byteOffset >= 0
+            ? byteOffset : 0;
+
+        const view = new DataView(buffer, originalOffset + localOffset, Math.min(localLength, originalLength));
         let offset = 0;
-        while (offset < size) {
+        while (offset < view.byteLength) {
             const length = view.getUint32(offset, true);
             offset += HEADER_SIZE_OFFSET;
             const data = new DataView(buffer, offset + view.byteOffset, length);
