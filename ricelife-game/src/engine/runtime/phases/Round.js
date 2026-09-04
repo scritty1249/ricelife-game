@@ -1019,6 +1019,8 @@ class RoundSnapshot {
         this.#frame = frame;
     }
 
+    packState () { return this.#state.pack() }
+
     get isRoundSnapshot () { return true }
     get time () { return this.#state.time }
     get terrain () { return this.#state.terrain }
@@ -1027,6 +1029,8 @@ class RoundSnapshot {
 }
 
 class RoundTurnRecording {
+    static unpack (buffer, byteOffset = 0) {
+    }
     #ammo;
     #snapshots = new Array();
     constructor (ammo, snapshots) {
@@ -1041,22 +1045,32 @@ class RoundTurnRecording {
         const header = {};
         const headerBytes = new TextEncoder().encode(JSON.stringify(header));
         const headerByteSize = headerBytes.length;
-        const headerByteOffset = metadataSizeOffset + headerByteSize;
+        const packedBytesArray = this.snapshots.map((snapshot) => snapshot.packState);
+        const packedBytesArraySize = packedBytesArray.reduce((acc, curr) => acc + curr.byteLength, 0);
+        const totalByteSize = metadataSizeOffset + headerByteSize
+            + (metadataSizeOffset * (packedBytesArray.length || 1)) + packedBytesArraySize;
 
-        // const terrainPolygonBytes = this.terrain.polygon.pack();
-        // const totalByteSize = stateByteOffset + terrainPolygonBytes.byteLength;
-
-        // const buffer = new ArrayBuffer(totalByteSize);
-        // const view = new DataView(buffer);
-        // const uint8View = new Uint8Array(buffer);
-
-        // view.setUint32(0, headerByteSize, true);
-        // uint8View.set(headerBytes, metadataSizeOffset);
-
-        // const polygonByteView = new Uint8Array(terrainPolygonBytes, 0, terrainPolygonBytes.byteLength);
-        // uint8View.set(polygonByteView, stateByteOffset);
-
-        // return buffer;
+        const buffer = new ArrayBuffer(totalByteSize);
+        const view = new DataView(buffer);
+        const uint8View = new Uint8Array(buffer);
+        let byteOffset = 0;
+        view.setUint32(0, headerByteSize, true);
+        byteOffset += metadataSizeOffset;
+        uint8View.set(headerBytes, byteOffset);
+        byteOffset += headerByteSize;
+        if (packedBytesArray.length) {
+            for (const packedBytes of packedBytesArray) {
+                const packedBytesSize = packedBytes.byteLength;
+                view.setUint32(byteOffset, packedBytesSize, true);
+                byteOffset += metadataSizeOffset;
+                const packedBytesView = new Uint8Array(packedBytes, 0, packedBytesSize);
+                uint8View.set(packedBytesView, byteOffset);
+                byteOffset += packedBytesSize;
+            }
+        } else {
+            view.setUint32(byteOffset, 0, true);
+        }
+        return buffer;
     }
 
     get isRoundTurnRecording () { return true }
