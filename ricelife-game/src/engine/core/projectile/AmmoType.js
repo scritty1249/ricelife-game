@@ -59,5 +59,13 @@ export class AmmoType extends Ammo {
         return other;
     }
 
+    toJSON () {
+        return {
+            import: this.constructor.IMPORT || "undefined",
+            params: this.encode(),
+            transfer: this.encodeTransferData()
+        }
+    }
+
     get isAmmoType () { return true }
 }
