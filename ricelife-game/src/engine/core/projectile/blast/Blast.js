@@ -5,6 +5,11 @@ import { typeString } from "../../utils/logging.js";
 // [!] can be passed safely between web workers
 export class Blast { // only intended to record information, properties should be extracted before manipulating data
     static fromObject (payload) {
+        const shape = Shape.fromObject(payload.shape);
+        const blast = new Blast(shape, payload.delay, payload.damage);
+        return blast;
+    }
+    static decode (payload) {
         const shape = Shape.fromObject(payload.s);
         const blast = new Blast(shape, payload.t, payload.d);
         return blast;
