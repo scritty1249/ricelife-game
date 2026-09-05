@@ -4,6 +4,11 @@ import { typeString } from "../../utils/logging.js";
 
 // [!] can be passed safely between web workers
 export class Blast { // only intended to record information, properties should be extracted before manipulating data
+    static fromObject (payload) {
+        const shape = Shape.fromObject(payload.s);
+        const blast = new Blast(shape, payload.t, payload.d);
+        return blast;
+    }
     #shape;
     #damage;
     #delay; // MILLISECONDS
@@ -26,9 +31,9 @@ export class Blast { // only intended to record information, properties should b
     encode () {
         const decoded = this.shape.encode();
         return {
-            delay: this.delay,
-            shape: decoded,
-            damage: this.damage,
+            t: this.delay,
+            s: decoded,
+            d: this.damage,
             buffers: decoded.buffers || []
         }
     }
@@ -48,12 +53,6 @@ export class Blast { // only intended to record information, properties should b
         return (this.#delay = value);
     }
     get position () { return this.#shape.origin } // modifying this will not apply any transformations to the Shape
-
-    static fromObject (payload) {
-        const shape = Shape.fromObject(payload.shape);
-        const blast = new Blast(shape, payload.delay, payload.damage);
-        return blast;
-    }
 }
 
 export function drawBlastAnimation (cursor, shape, progress) {
