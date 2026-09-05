@@ -65,6 +65,7 @@ export class Multishot extends Identifiable {
         const stage = new Shot(projectile, delay, this.blasts, this.colliders, this.sfxCallback);
         stage.blastTimeOffset = this.blastTimeOffset;
         stage.launchCallback = this.launchCallback;
+        stage.collisionCallback = this.collisionCallback;
         stage.displayBoundingBox = this.displayBoundingBox;
         this.#shots.push(stage);
         return stage;
@@ -72,9 +73,18 @@ export class Multishot extends Identifiable {
     // creates a fresh instance with the same ShotStages, callbacks, and delay. References and blast time offset are not copied.
     clone (deep = false, blastsReference = [], collisionsReference = [], sfxCallbackReference = {}) {
         const multishot = new Multishot(this.delay, blastsReference, collisionsReference, sfxCallbackReference);
+        multishot.blastTimeOffset = this.blastTimeOffset;
+        multishot.launchCallback = this.launchCallback;
+        multishot.collisionCallback = this.collisionCallback;
+        if (this.displayBoundingBox?.isBoundingBox)
+            multishot.displayBoundingBox.apply(this.displayBoundingBox);
         for (const stage of this.shots) {
             const newStage = multishot.newStage(stage.shot.clone(deep), stage.delay);
+            newStage.blastTimeOffset = stage.blastTimeOffset;
+            newStage.launchCallback = stage.launchCallback;
             newStage.collisionCallback = stage.collisionCallback;
+            if (stage.displayBoundingBox?.isBoundingBox)
+                newStage.displayBoundingBox.apply(stage.displayBoundingBox);
         }
         return multishot;
     }
@@ -126,6 +136,12 @@ export class Multishot extends Identifiable {
         for (const stage of this.shots)
             stage.launchCallback = callbackFn;
         return (this.#launchCallback = callbackFn);
+    }
+    get collisionCallback () { return this.#collisionCallback }
+    set collisionCallback (callbackFn) {
+        for (const stage of this.shots)
+            stage.collisionCallback = callbackFn;
+        return (this.#collisionCallback = callbackFn);
     }
     get displayBoundingBox () { return this.#displayBoundingBox }
     set displayBoundingBox (bbox) {
