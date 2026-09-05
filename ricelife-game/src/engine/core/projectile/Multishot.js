@@ -76,15 +76,13 @@ export class Multishot extends Identifiable {
         multishot.blastTimeOffset = this.blastTimeOffset;
         multishot.launchCallback = this.launchCallback;
         multishot.collisionCallback = this.collisionCallback;
-        if (this.displayBoundingBox?.isBoundingBox)
-            multishot.displayBoundingBox.apply(this.displayBoundingBox);
+        multishot.displayBoundingBox = this.displayBoundingBox;
         for (const stage of this.shots) {
             const newStage = multishot.newStage(stage.shot.clone(deep), stage.delay);
             newStage.blastTimeOffset = stage.blastTimeOffset;
             newStage.launchCallback = stage.launchCallback;
             newStage.collisionCallback = stage.collisionCallback;
-            if (stage.displayBoundingBox?.isBoundingBox)
-                newStage.displayBoundingBox.apply(stage.displayBoundingBox);
+            newStage.displayBoundingBox = stage.displayBoundingBox;
         }
         return multishot;
     }
