@@ -28,6 +28,9 @@ export class BlobPacker {
         if (buffer instanceof ArrayBuffer && typeof buffer?.transfer === "function")
             try { buffer.transfer(0) } catch {}
     }
+    static consumeAsObject (viewIterator) {
+        return JSON.parse(new TextDecoder().decode(viewIterator.next().value))
+    }
     static #parseItem (item, textEncoder) {
         if (item instanceof ArrayBuffer) {
             return new Uint8Array(item);
