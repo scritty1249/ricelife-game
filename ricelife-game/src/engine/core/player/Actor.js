@@ -5,7 +5,6 @@ import { Loadable } from "../load/Loadable.js";
 import { Vector } from "../math/Vector.js";
 import { Ray } from "../math/Ray.js";
 import { Hashable, FNV1a } from "../math/Hash.js";
-import { HitTotal } from "./HitTotal.js";
 
 export class Actor extends Loadable {
     #Aimer;
@@ -132,11 +131,11 @@ export class Actor extends Loadable {
     }
     getState () {
         return new ActorState(
-            this.HitTotal,
             this.position.clone(),
             this.Aimer.power,
             this.rotation,
-            this.orientation
+            this.orientation,
+            this.HitTotal.toJSON()
         );
     }
     setState (actorState) {
@@ -166,15 +165,15 @@ export class Actor extends Loadable {
     set orientation (radians) { return (this.Puppet.rotation.body = radians) }
 }
 
-class ActorState extends Hashable {
-    static fromObject (obj, hitpointMap) {
-        const { hitpoints: h, power, rotation, orientation, position: p } = obj;
+export class ActorState extends Hashable {
+    static fromObject (obj) {
+        const { hitpoints, power, rotation, orientation, position: p } = obj;
         const position = Vector.fromObject(p);
-        const hitpoints = HitTotal.fromObject(h, hitpointMap);
-        return new ActorState(hitpoints, position, power, rotation, orientation);
+        return new ActorState(position, power, rotation, orientation, hitpoints);
     }
-    static #computeRawHash (hitpoints, position, power, rotation, orientation) {
-        let hash = Hashable.rawHash(hitpoints, position);
+    static #computeRawHash (hitpointRawHash, position, power, rotation, orientation) {
+        let hash = hitpointRawHash;
+        hash = FNV1a.Extend32Bit(hash, position);
         hash = FNV1a.Extend32Bit(hash, power);
         hash = FNV1a.Extend32Bit(hash, rotation);
         hash = FNV1a.Extend32Bit(hash, orientation);
@@ -186,10 +185,10 @@ class ActorState extends Hashable {
     #power;
     #hitpoints;
     #rawHash;
-    // Object (JSON), Vector, Number, Number, Number
-    constructor (hitpoints, position, power, rotation, orientation) {
-        this.#rawHash = ActorState.#computeRawHash(hitpoints, position, power, rotation, orientation);
-        this.#hitpoints = hitpoints.toJSON();
+    // Vector, Number, Number, Number, Object (JSON), 32-bit Hash
+    constructor (position, power, rotation, orientation, hitpointJson) {
+        this.#rawHash = ActorState.#computeRawHash(hitpointJson.hash, position, power, rotation, orientation);
+        this.#hitpoints = hitpointJson;
         this.#position = position;
         this.#power = power;
         this.#rotation = rotation;
@@ -202,7 +201,7 @@ class ActorState extends Hashable {
             power: this.power,
             rotation: this.rotation,
             orientation: this.orientation,
-            position: this.position.toJSON()
+            position: this.position.toJSON(),
         };
     }
 
