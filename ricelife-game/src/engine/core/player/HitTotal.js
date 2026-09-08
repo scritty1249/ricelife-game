@@ -55,7 +55,10 @@ export class HitTotal extends Hashable {
             bars[i].draw(cursor, pos, false);
     }
     toJSON () {
-        return this.#layers.map((layer) => layer.toJSON());
+        return {
+            layers: this.#layers.map((layer) => layer.toJSON()),
+            hash: this.hash
+        };
     }
     set (layers) {
         if (layers?.length !== this.#layers.length) throw new Error(`[${typeString(this)}]: Mismatched HitPoint layers`);

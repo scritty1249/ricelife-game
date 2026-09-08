@@ -197,7 +197,7 @@ export class ActorState extends Hashable {
 
     toJSON () {
         return {
-            hitpoints: this.hitpoints,
+            hitpoints: this.#hitpoints,
             power: this.power,
             rotation: this.rotation,
             orientation: this.orientation,
@@ -210,6 +210,6 @@ export class ActorState extends Hashable {
     get rotation () { return this.#rotation }
     get orientation () { return this.#orientation }
     get power () { return this.#power }
-    get hitpoints () { return this.#hitpoints }
+    get hitpoints () { return this.#hitpoints.layers }
     get rawHash () { return this.#rawHash }
 }
