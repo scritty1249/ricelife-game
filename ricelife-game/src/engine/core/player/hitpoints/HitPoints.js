@@ -99,8 +99,7 @@ export class HitPoints extends Hashable {
             amount: this.amount,
             regen: round(this.regeneration, 3),
             max: this.max,
-            reserve: round(this.reserve, 3),
-            hash: this.hash
+            reserve: round(this.reserve, 3)
         }
     }
 
