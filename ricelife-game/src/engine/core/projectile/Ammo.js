@@ -3,6 +3,7 @@ import { BoundingBox } from "../geometry/BoundingBox.js";
 import { typeString } from "../utils/logging.js";
 import { Identifiable } from "../utils/tracking/Identifiable.js";
 import { AmmoTracer } from "./AmmoTracer.js";
+import { AmmoLegend } from "./AmmoLegend.js";
 
 // a sequence of multishot "stages"
 export class Ammo extends Identifiable {
@@ -95,21 +96,15 @@ export class Ammo extends Identifiable {
         const ammo = new Ammo(this.colliders, stages);
         return ammo;
     }
-    getLegend (encode = true) {
-        return {
-            stages: this.stages.map((stage) => stage.getLegend(encode)),
-            transfer: this.encodeTransferData()
-        };
-    }
-    setLegend (legend) { // expects an encoded legend 
+    traceLegend (legend) {
         try {
             const stages = this.stages;
             for (let i = 0; i < stages.length; i++)
-                stages[i].setLegend(legend.stages[i]);
+                stages[i].traceLegend(legend.stages[i]);
             this.decodeTransferData(legend.transfer);
             this.#isTracing = false;
         } catch (error) {
-            console.error(`[${this.constructor.name}]: Error parsing legend arrays`);
+            console.error(`[${typeString(this)}]: Error parsing legend`);
             throw error;
         }
     }
@@ -127,6 +122,7 @@ export class Ammo extends Identifiable {
     get blasts () { return this.#blasts }
     get stages () { return this.#stages }
     get currentStage () { return this.#currentStage }
+    get legend () { return AmmoLegend.capture(this) }
     get hasNextStage () { return this.#stageIdx + 1 < this.#stages.length }
     get isStarted () { return this.#isStarted }
     get isFinished () { return this.isStarted && this.#currentStage === undefined }

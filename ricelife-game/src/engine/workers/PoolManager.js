@@ -1,9 +1,9 @@
 import {
     Terrain,
-    Blast,
     generateUUID,
     sortBlastGroups,
     BlastInterval,
+    AmmoMap
 } from "../core/Core.js";
 import { CanvasCache } from "./pool/Core.js";
 export class PoolManager {
@@ -12,7 +12,7 @@ export class PoolManager {
         this.#pool = workerPool;
     }
 
-    async drawTerrain(canvasID, terrainID) {
+    async #drawTerrain (canvasID, terrainID) {
         await this.#pool.post(
             "DRAWTERRAIN",
             {
@@ -24,8 +24,27 @@ export class PoolManager {
         );
         return;
     }
+
+    async drawTerrain (terrain, canvasWidth, canvasHeight) {
+        const uuid = generateUUID();
+        const canvasID = `${uuid}_c`;
+        const canvasJob = this.#pool.createCache(new CanvasCache(canvasWidth, canvasHeight, canvasID));
+        const terrainPayload = terrain.Float32();
+        await canvasJob;
+        await this.#pool.post(
+            "DRAWTERRAIN",
+            {
+                canvas: canvasID,
+                terrain: terrainPayload,
+            },
+            terrainPayload.buffers,
+            [canvasID],
+        );
+        await this.#pool.pullCache(canvasID, false);
+        return this.#pool.cache[canvasID];
+    }
     // colliders are expected to all be Polygons or Cache IDs
-    async traceAmmo(ammo, increment, limit, terrain, colliders) {
+    async traceAmmo (ammo, increment, limit, terrain, colliders) {
         const { origin, velocity, acceleration, angle, resolution, power } =
             ammo;
         const encodedTerrain = terrain?.isTerrain ? terrain.Float32() : terrain;
@@ -54,17 +73,10 @@ export class PoolManager {
             buffers,
             caches,
         );
-        // encode data
-        if (landing) {
-            if (landing.blasts?.length)
-                landing.blasts = landing.blasts.map(blast =>
-                    Blast.fromObject(blast),
-                );
-        }
-        return landing;
+        return AmmoMap.decode(landing);
     }
     // cuts are expected to all be Polygons or Cache IDs
-    async cutTerrain(
+    async cutTerrain (
         terrainID,
         cuts = [],
         pullCache = true,
@@ -96,13 +108,13 @@ export class PoolManager {
         );
         return !pullCache || Terrain.fromObject(data.terrain);
     }
-    async renderBlastIntervals(terrainID, planeSize, ...blasts) {
+    async renderBlastIntervals (terrainID, planeSize, ...blasts) {
         // cuts blasts, and returns a Promise<Array> of image data, for each state of the terrain after the blasts (in order)
         // blast structure: { shape: Polygon, delay: Number (milliseconds), damage: Number }
         const jobID = generateUUID();
         if (blasts.length === 0) {
             const terrain = this.#pool
-                .pullCache(terrainID, false, false)
+                .pullCache(terrainID, false)
                 .then(() => this.#pool.cache[terrainID].terrain);
             return [new BlastInterval(0, await terrain)];
         } else if (blasts.length === 1) {
@@ -115,8 +127,8 @@ export class PoolManager {
             );
             const frame = terrain
                 .then(() => canvasJob)
-                .then(() => this.drawTerrain(canvasID, terrainID))
-                .then(() => this.#pool.pullCache(canvasID, true, false))
+                .then(() => this.#drawTerrain(canvasID, terrainID))
+                .then(() => this.#pool.pullCache(canvasID, true))
                 .then(() => this.#pool.cache[canvasID]);
             const delay = blasts[0].delay || 0;
             return [new BlastInterval(
@@ -160,7 +172,7 @@ export class PoolManager {
                 );
                 const dj = cj
                     // pool should assign the worker we want
-                    .then(() => this.drawTerrain(currCanvasID, currTerrainID));
+                    .then(() => this.#drawTerrain(currCanvasID, currTerrainID));
                 drawJobs.push(
                     dj
                         .then(() => this.#pool.pullCache(currCanvasID, false))

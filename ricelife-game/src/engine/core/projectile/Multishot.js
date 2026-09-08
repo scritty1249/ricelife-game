@@ -2,6 +2,7 @@ import { Shot } from "./Shot.js";
 import { typeString } from "../utils/logging.js";
 import { Identifiable } from "../utils/tracking/Identifiable.js";
 import { BoundingBox } from "../geometry/BoundingBox.js";
+import { AmmoLegend } from "./AmmoLegend.js";
 
 // Multiple shots at once
 export class Multishot extends Identifiable {
@@ -86,23 +87,6 @@ export class Multishot extends Identifiable {
         }
         return multishot;
     }
-    getLegend (encode = true) {
-        return this.shots
-            .map((stage) => stage.getLegend(encode))
-            .map(encode
-                ? ({duration, origin, collisions}) => [duration, origin, collisions]
-                : (legend) => legend);
-    }
-    setLegend (legend) {
-        try {
-            const shots = this.shots;
-            for (let i = 0; i < this.size; i++)
-                shots[i].setLegend(legend[i]);
-        } catch (error) {
-            console.error(`[${typeString(this)}]: Error parsing legend array`);
-            throw error;
-        }
-    }
     getBoundingBox (merge = true, includeFinished = true, includeFx = false) {
         const bboxes = (includeFinished ? this.shots : this.shots.filter(({isFinished}) => !isFinished))
             .map(({projectile}) => projectile.getBoundingBox(includeFx));
@@ -112,6 +96,16 @@ export class Multishot extends Identifiable {
         for (const bb of bboxes)
             bbox.add(bb, true);
         return bbox;
+    }
+    traceLegend (legend) {
+        try {
+            const shots = this.shots;
+            for (let i = 0; i < this.size; i++)
+                shots[i].traceLegend(legend.shots[i]);
+        } catch (error) {
+            console.error(`[${typeString(this)}]: Error parsing legend`);
+            throw error;
+        }
     }
 
     get isMultishot () { return true }
@@ -123,6 +117,7 @@ export class Multishot extends Identifiable {
     get isInsideDisplay () { return this.shots.some(({isInsideDisplay}) => isInsideDisplay) } // [!] will return shot as in-bounds if a display bbox is not set
     get delay () { return this.#delayTime }
     get shots () { return this.#shots }
+    get legend () { return new (AmmoLegend.Multishot)(this.shots.map(({legend}) => legend)) }
     get onend () { return this.#finishedPromise.promise }
     get time () { return this.#time }
     set time (value) { return (this.#time = value) }

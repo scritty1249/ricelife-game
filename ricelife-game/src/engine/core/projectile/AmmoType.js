@@ -47,6 +47,7 @@ export class AmmoType extends Ammo {
 
     clone (deep = false) {
         const other = this.constructor.decode(...this.encode());
+        other.decodeTransferData(this.encodeTransferData());
         for (const poly of this.colliders)
             other.colliders.push(poly.clone(deep));
         if (this.launchCallback)
@@ -54,7 +55,7 @@ export class AmmoType extends Ammo {
         if (this.displayBoundingBox)
             other.displayBoundingBox = deep ? this.displayBoundingBox.clone(true) : this.displayBoundingBox;
         if (!this.isTracing)
-            other.setLegend(this.getLegend());
+            other.traceLegend(this.legend);
         other.applyDestruction = this.applyDestruction;
         return other;
     }

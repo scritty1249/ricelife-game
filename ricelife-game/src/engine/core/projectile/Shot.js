@@ -1,12 +1,11 @@
 import { Vector } from "../math/Vector.js";
 import { Path } from "../math/Path.js";
-import { Ray } from "../math/Ray.js";
-import { BoundingBox } from "../geometry/BoundingBox.js";
 import { equals } from "../math/utils.js";
 import { Identifiable } from "../utils/tracking/Identifiable.js";
 import { typeString } from "../utils/logging.js";
 import { Properties } from "./collision/Properties.js";
 import { getSegmentCollision } from "./collision/utils.js";
+import { AmmoLegend } from "./AmmoLegend.js";
 
 // A stage of a projectile's lifetime
 export class Shot extends Identifiable {
@@ -78,15 +77,8 @@ export class Shot extends Identifiable {
     #applyDestruction = false; // push new blasts to collider polygon holes
     #blastTimeOffset = 0; // offset time when creating new Blasts
     #finishedPromise = Promise.withResolvers();
-    #legend; // when set, Shot will skip all collision checks and follow based on this
-    #record = { // records data to be exported
-        origin: {
-            position: undefined,
-            velocity: undefined
-        },
-        collisions: [],
-        duration: 0
-    };
+    #traceLegend; // when set, Shot will skip all collision checks and follow based on this
+    #legend = new (AmmoLegend.Shot)(); // records data to be exported
     #sfxCallback;
     #tracer = new Path();
     #hasLaunched = false;
@@ -131,7 +123,7 @@ export class Shot extends Identifiable {
         this.#finishedPromise.resolve();
     }
     #trackUpdate () { // [!] poorly named. Tracks data during update() calls
-        this.#record.duration = this.time;
+        this.legend.duration = this.time;
         this.tracer.push(this.projectile.position.clone());
     }
     #onLaunch () {
@@ -140,34 +132,22 @@ export class Shot extends Identifiable {
             this.launchCallback?.();
         const { projectile } = this;
         if (!this.isTracing) {
-            const { origin } = this.#legend;
+            const { origin } = this.#traceLegend;
             projectile.applyOrigin(origin.position, origin.velocity);
             if (origin.position?.isVector)
                 projectile.applyPosition(origin.position);
             if (origin.velocity?.isVector)
                 projectile.current.velocity.apply(origin.velocity);
         }
-        this.#record.origin.position = projectile.origin.position.clone();
-        this.#record.origin.velocity = projectile.origin.velocity.clone();
+        this.legend.setOrigin(projectile.origin.position, projectile.origin.velocity);
     }
 
     // point is collision/contact point
-    applyCollision (point, normal, collisionFlags) {
+    applyCollision (point, normal, flags) {
         const { time, projectile } = this;
-        const position = projectile.position.clone();
-        const velocity = projectile.current.velocity.clone();
-        const collision = {
-            time,
-            collisionFlags,
-            position,
-            point,
-            velocity,
-            normal,
-            resultVelocity: undefined // velocity after collision. Mainly for debugging
-        }
-        this.#record.collisions.push(collision);
+        this.legend.addCollision(time, flags, projectile.position, point, normal, projectile.velocity);
         this.collisionCallback?.(point, normal, collisionFlags);
-        collision.resultVelocity = projectile.current.velocity.clone();
+        this.legend.collisions.at(-1).rebound.apply(projectile.velocity);
     }
     update (seconds) {
         try {
@@ -198,7 +178,7 @@ export class Shot extends Identifiable {
                         this.#trackUpdate();
                     }
                 } else {
-                    const legend = this.#legend;
+                    const legend = this.#traceLegend;
                     this.preUpdateCallback?.(seconds);
                     if (legend.collisions.length > 0
                         && this.time >= legend.collisions[0].time
@@ -266,55 +246,8 @@ export class Shot extends Identifiable {
         if (sfxName in this.sfxCallback) this.sfxCallback[sfxName]?.();
         else console.warn(`[${typeString(this)}]: Unable to play SFX "${sfxName}" -  callback does not exist`);
     }
-    getLegend (encode = true) {
-        // clones and returns everything in record. The resulting object should be safely passable between worker threads
-        const record = this.#legend || this.#record;
-        const legend = {
-            duration: record.duration,
-            origin: encode
-                ? [
-                    record.origin.position?.toJSON?.(),
-                    record.origin.velocity?.toJSON?.()
-                ] : record.origin,
-            collisions: Array.from(record.collisions,
-                encode
-                    ? ({time, collisionFlags, position, point, velocity, normal, resultVelocity}) => [
-                        time,
-                        collisionFlags,
-                        position.toJSON(),
-                        point.toJSON(),
-                        velocity.toJSON(),
-                        normal.toJSON(),
-                        resultVelocity.toJSON()
-                    ]
-                    : (collision) => collision
-            )
-        };
-        return legend;
-    }
-    setLegend (legend) {
-        try {
-            this.#legend = {
-                duration: legend[0],
-                origin: {
-                    position: legend[1][0] ? Vector.fromObject(legend[1][0]) : undefined,
-                    velocity: legend[1][1] ? Vector.fromObject(legend[1][1]) : undefined
-                },
-                collisions: Array.from(legend[2],
-                    ([time, collisionFlags, position, point, velocity, normal, resultVelocity]) => ({
-                        time: time,
-                        collisionFlags: collisionFlags,
-                        position: Vector.fromObject(position),
-                        point: Vector.fromObject(point),
-                        velocity: Vector.fromObject(velocity),
-                        normal: Vector.fromObject(normal),
-                        resultVelocity: Vector.fromObject(resultVelocity)
-                    }))
-            };
-        } catch (error) {
-            console.error(`[${typeString(this)}]: Error parsing legend object`);
-            throw error;
-        }
+    traceLegend (legend) {
+        this.#traceLegend = legend;
     }
     // creates a fresh instance with the same Projectile, delay and collision callback
     // References, userData, update callback, launch callback, and blast time offset are not copied.
@@ -329,16 +262,17 @@ export class Shot extends Identifiable {
     get isShot () { return true }
     get isFinished () { return this.#isFinished }
     get isStarted () { return this.#isStarted } // [!] stage tracking- may be redundant
-    get isTracing () { return this.#legend === undefined }
+    get isTracing () { return this.#traceLegend?.isShotLegend }
     get isInsideDisplay () { // [!] will return projectile as in-bounds if a display bbox is not set
         const { displayBoundingBox, projectile } = this;
         if (!displayBoundingBox?.isBoundingBox || !(displayBoundingBox.extentSquared > 0)) return true;
         return projectile.getBoundingBox(true).isIntersecting(displayBoundingBox);
     }
-    get isStopped () { return this.isTracing ? this.projectile.isStopped : this.time >= this.#legend?.duration }
+    get isStopped () { return this.isTracing ? this.projectile.isStopped : this.time >= this.#traceLegend?.duration }
     get isFading () { return this.isStopped && !this.#isFinished && this.#totalFadeTime > 0 }
     get hasFadeTime () { return this.#totalFadeTime > 0 }
     get doDraw () { return this.isStarted && (!this.isFinished || this.drawAfter) && this.time > this.delay }
+    get legend () { return this.#legend }
     get delay () { return this.#delayTime }
     get projectile () { return this.#projectile }
     get blasts () { return this.#blasts }
