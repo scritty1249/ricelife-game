@@ -14,7 +14,7 @@ export function generateTerrainPath (lobbyid) {
 }
 
 function generateStagedTerrainPath (lobbyid, token) {
-    return `terrain/staged/${lobbyid}/terrain-${token}.bin`;
+    return `terrain/staging/${lobbyid}/terrain-${token}.bin`;
 }
 
 function generateMapPath (mapid) {
@@ -105,6 +105,7 @@ export async function exportLobby (lobbyid, hostid = undefined) {
         lobby: {
             players: lobby.players,
             state: lobby.state,
+            turns: lobby.turn_count,
             teams: teams,
             teamsize: lobby.team_size,
             channelid: lobby.channelid,

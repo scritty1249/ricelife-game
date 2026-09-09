@@ -112,16 +112,14 @@ Stages a round update, and generates an presigned link to upload the lobby's ter
 | :-- | :-- | :-- |
 | lobbyid | [Snowflake](#string-snowflake) ||
 | userid | [Snowflake](#string-snowflake) ||
-| ?keep | boolean | specifies if client has terrain data to upload |
 
 **Returns (JSON):**
 | Key | Type | Detail |
 | :-- | :-- | :-- |
 | token | [Token](#string-token) | a token to use with [`POST /lobby/round/update`](#post-lobbyroundupdate) |
 | ttl | number | remaining seconds to commit the update |
-| ?url | [URL](#string-url) | a link to upload a lobby's terrian [Polygon](#binary-stream-polygon) |
+| url | [URL](#string-url) | a link to upload a lobby's terrian [Polygon](#binary-stream-polygon) |
 
-> - If `keep` was set to true, the response will not include a `url` field
 > - If `userid` does not corrospond to a play in the lobby, this endpoint will return `403 Forbidden`
 > - If a call to [`POST /lobby/round/update`](#post-lobbyroundupdate) is not made within `ttl`, any terrain data uploaded to `url` will be discarded
 > - If an update is made for a lobby that is still in the `Waiting` state, this endpoint will return `403 Forbidden`
@@ -162,6 +160,7 @@ Commits a staged round update. Updated players corrospond to players that are al
 | teamsize | number ||
 | teams | array of [Snowflake](#string-snowflake) | List of team ids |
 | activeplayer | [Snowflake](#string-snowflake) | Current turn holder |
+| turns | integer | Number of turns played in the lobby |
 | channelid | [Snowflake](#string-snowflake) | Discord channel the invite was created in |
 
 ### *object* `PlayerData`
@@ -213,13 +212,6 @@ Should be sent as a blob of `application/octet-stream` type.
 | o | uint32 | *index*. Starting byte offset of pathlength |
 | p | number | *pathlength*. Byte length `Y` of [Path](#array-path) for corrosponding [Polygon](#object-polygon) |
 | h | array of [PolygonMetadata](#object-polygonmetadata) | *holes*. For sanity, backend will impose a recursion depth limit of 3 |
-
-### *object* `PlayerProfile`
-| Key | Type | Detail |
-| :-- | :-- | :-- |
-| id | [Snowflake](#string-snowflake) ||
-| avatar | [URL](#URL) ||
-| nick | string | display name |
 
 ### *array* `Vector`
 | Index | Type | Detail |

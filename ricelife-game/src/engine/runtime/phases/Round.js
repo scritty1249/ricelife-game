@@ -24,7 +24,7 @@ import { WorkerPool, PoolManager, TerrainCache, CanvasCache } from "../../worker
 import { AmmoSelect } from "../menus/AmmoSelect.js";
 import { AmmoTypeDetails } from "../selections/AmmoTypeDetails.js";
 import { HitpointMap } from "../../hitpoints/Core.js";
-import { initTerrain, initLobby, WEB_WORKER_PATH } from "../utils.js";
+import { initLobby, WEB_WORKER_PATH } from "../utils.js";
 import { AmmoPool } from "../../shared/AmmoPool.js";
 
 import { drawCircle, drawLine, drawMarker, drawText, generateBitmapDownloadURL } from "../debug/draw.js"; // [!] all for debug overlay
@@ -90,12 +90,18 @@ export class Round extends Phase {
     #Animations = {
         Main: new AnimationList()
     };
-    constructor (mainController, playerID, lobbyData, terrainData, lobbyid, previousTurnRecording = undefined) {
+    constructor (mainController, playerID, lobbyData, turnData, lobbyid, firstTurn = false) {
         super(mainController);
         this.#LobbyID = lobbyid;
         this.#Random = new Random(Random.seedString(lobbyid));
         this.#Lobby = initLobby(lobbyData);
-        this.#Terrain = initTerrain(terrainData);
+        let recording;
+        if (firstTurn) {
+            this.#Terrain = new Terrain(Polygon.unpack(turnData));
+        } else {
+            recording = RoundTurnRecording.unpack(turnData);
+            this.#Terrain = recording.start.terrain.clone(true);
+        }
         // [!] testing
         this.Terrain.apply(undefined, {
             edgeColor: new Color("#00e8f0"),
@@ -106,9 +112,11 @@ export class Round extends Phase {
         this.#load(playerID)
             .then(() => this.#init())
             .then(async () => {
-                // play last turn animation
-                if (previousTurnRecording) {
-                    const recording = RoundTurnRecording.unpack(previousTurnRecording);
+                if (recording) {
+                    // setup first turn of the lobby
+                    distributePlayers(this.Plane, Array.from(this.Players.values()), this.Random, 100);
+                } else {
+                    // play previous turn animation
                     await this.renderRecording(recording);
                     const { player, ammo } = await this.loadRecording(recording);
                     this.playRecording(recording, ammo, player);
@@ -149,9 +157,6 @@ export class Round extends Phase {
             else
                 this.store.overlayItems.launchButton.userData.lastHideState = false;
         })
-
-        if (!this.Lobby.allPlayersSpawned)
-            distributePlayers(this.Plane, Array.from(this.Players.values()), this.Random, 100);
         this.#Recorder = new RoundTurnRecorder(this.Players, this.Terrain);
     }
     async #load (playerID) {
@@ -393,6 +398,14 @@ export class Round extends Phase {
             self.Audio.Player.add(self.AssetPool.get("fire").Instance().play(), true);
         }
     }
+    #onPlayerDeath (player) {
+        const deathExplosion = createPlayerDeathAnimation(
+            player,
+            this.AssetPool.get("explosion").clone()
+        );
+        this.Animations.Main.push(deathExplosion);
+        deathExplosion.play();
+    }
     #createBlastImpact (roundState) {
         const { AssetPool, Threaded } = this;
         const { Context, Layer } = this.Audio;
@@ -413,20 +426,9 @@ export class Round extends Phase {
             animations.play();
             if (roundState.terrain?.isTerrain)
                 this.updateTerrain(roundState.terrain, false);
-            for (const [id, state] of Object.entries(roundState.actors))
-                if (this.Players.has(id)) {
-                    const player = this.Players.get(id);
-                    const { isDead: wasDead } = player;
-                    player.setState(state);
-                    if (player.isDead && !wasDead) {
-                        const deathExplosion = createPlayerDeathAnimation(
-                            player,
-                            this.AssetPool.get("explosion").clone()
-                        );
-                        this.Animations.Main.push(deathExplosion);
-                        deathExplosion.play();
-                    }
-                }
+            for (const deadPlayerID of roundState.applyActors(this.Players)) {
+                this.#onPlayerDeath(this.Players.get(deadPlayerID));
+            }
             if (this.Camera.targets)
                 this.Camera.track(combinedbbox);
         });
@@ -939,13 +941,21 @@ export class Round extends Phase {
         this.animate(true); // draw one last frame so the game doesn't look like it just froze
         this.Global.Events.raiseEvent("LOADING", {hide: false, message: "loading turn"});
         const recording = await this.createTurnRecording(this.#ClientPlayerID, this.store.ammo.selected);
-        this.Events.raiseEvent("RECORDED", recording.pack());
+        this.Events.raiseEvent("TURNENDED", this.export());
         const { player, ammo } = await this.loadRecording(recording);
         console.info(`[${typeString(this)}]: Turn recording loaded`);
         this.Global.Events.raiseEvent("LOADING", {hide: true});
         if (hideButton.active) replayButton.hide = true;
         else replayButton.userData.lastHideState = true;
         this.playRecording(recording, ammo, player);
+    }
+    export () {
+        const { recording } = this.store.recording;
+        const changes = recording.end.difference(recording.start);
+        return {
+            recording: recording.pack(),
+            players: changes.captureAffectedActors(this.Players)
+        };
     }
 
     get AmmoPool () { return this.#AmmoPool }
@@ -966,9 +976,6 @@ class RoundState {
         const actors = RoundState.getActorStates(players);
         return new RoundState(actors, interval);
     }
-    static getActorStates (players) {
-        return Object.fromEntries(players.values().map((actor) => [actor.id, actor.getState()]));
-    }
     static unpack (data) {
         const viewIterator = BlobPacker.unpack(data);
         const players = BlobPacker.consumeAsObject(viewIterator);
@@ -977,6 +984,22 @@ class RoundState {
         ));
         const interval = BlastInterval.unpack(viewIterator.next().value);
         return new RoundState(states, interval);
+    }
+    // returns a list of player IDs for those that died as a result of applying this State
+    static applyActors (players, actorStates) {
+        const died = [];
+        for (const [id, state] of Object.entries(actorStates)) {
+            if (players.has(id)) {
+                const player = players.get(id);
+                const {isDead: wasDead} = player;
+                player.setState(state);
+                if (player.isDead && !wasDead) died.push(id);
+            }
+        }
+        return died;
+    }
+    static getActorStates (players) {
+        return Object.fromEntries(players.values().map((actor) => [actor.id, actor.getState()]));
     }
     #playerStates;
     #blastInterval;
@@ -1009,6 +1032,48 @@ class RoundState {
             this.interval.blasts
         );
         return new RoundState(states, interval);
+    }
+    // returns combination of this and other
+    // values in other take precendence over ones in this
+    union (other) {
+        const states = {
+            ...this.actors,
+            ...other.actors
+        };
+        const hasTerrain = other.terrain?.isTerrain;
+        const interval = new BlastInterval(
+            other.interval.time,
+            hasTerrain
+                ? other.terrain
+                : this.terrain,
+            hasTerrain
+                ? other.interval.frame
+                : this.interval.frame,
+            this.interval.blasts.concat(other.interval.blasts)
+        );
+        return new RoundState(states, interval);
+    }
+    // returns a list of player IDs for those that died as a result of applying this State
+    applyActors (players) {
+        return RoundState.applyActors(players, this.actors);
+    }
+    getAffectedActors (players) {
+        return new Map(players.entries()
+            .filter(([id, actor]) =>
+                id in this.actors
+                && this.actors[id].hash !== actor.getState().hash
+            ));
+    }
+    // returns JSON of affected player actors
+    // restores actor states after capturing
+    captureAffectedActors (players) {
+        const actors = this.getAffectedActors(players);
+        const og = RoundState.getActorStates(actors);
+        this.applyActors(actors);
+        const instances = Object.fromEntries(actors.entries()
+            .map(([id, actor]) => [id, actor.toJSON()]));
+        RoundState.applyActors(actors, og);
+        return instances;
     }
 
     get isRoundState () { return true }
@@ -1060,8 +1125,10 @@ class RoundTurnRecording {
     get ammoMap () { return this.#ammoMap }
     get start () { return this.states.at(0) }
     get end () { return this.states.at(-1) }
+    get final () { return this.states.reduce((acc, curr) => acc.union(curr), this.start) } // [!] horrible wasteful
     get duration () { return this.ammoMap.time }
     get intervals () { return this.states.map(({interval}) => interval) }
+    get changes () { return this.length ? this.end.difference(this.start) : undefined }
     get length () { return this.states.length }
 }
 

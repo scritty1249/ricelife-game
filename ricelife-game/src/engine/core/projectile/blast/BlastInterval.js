@@ -12,7 +12,7 @@ export class BlastInterval {
         const blasts = b.map((blast) => Blast.decode(blast));
         const polygonView = viewIterator.next().value;
         const terrain = polygonView.byteLength
-            ? new Terrain(Polygon.unpack(buffer, stateByteOffset))
+            ? new Terrain(Polygon.unpack(polygonView))
             : undefined;
         return new BlastInterval(d, terrain, undefined, blasts);
     }

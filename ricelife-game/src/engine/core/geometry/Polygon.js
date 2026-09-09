@@ -19,8 +19,8 @@ export class Polygon extends Hashable { // points should be ordered clockwise (i
             }
         return polygon;
     }
-    static unpack (buffer, byteOffset = 0) {
-        const viewIterator = BlobPacker.unpack(buffer, byteOffset);
+    static unpack (data) {
+        const viewIterator = BlobPacker.unpack(data);
         const metadata = JSON.parse(new TextDecoder().decode(viewIterator.next().value));
         const polygonView = viewIterator.next().value;
         const polygonObject = decodePolygon(metadata, polygonView);
