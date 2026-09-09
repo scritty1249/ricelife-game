@@ -1,5 +1,4 @@
-import { ENDPOINT, TERRAIN_BUCKET_ROUTING_PREFIX, getTerrainUrl } from "../api/api.js";
-import { stream } from "../api/unpack.js";
+import { ENDPOINT, TERRAIN_BUCKET_ROUTING_PREFIX, getTerrainUrl, stream } from "../api/api.js";
 
 export default async function init (mainController, Discord, lobby, lobbyid) {
     mainController.Events.raiseEvent("LOADING", {hide: false, message: `Fetching data`});
