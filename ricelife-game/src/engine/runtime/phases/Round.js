@@ -893,7 +893,7 @@ export class Round extends Phase {
         const { width, height } = this.Plane;
         for (const interval of recording.intervals) {
             if (interval.terrain?.isTerrain && !interval.frame) {
-                renderJobs.push(this.Threaded.drawTerrain(interval.terrain, width, height)
+                renderJobs.push(this.Threaded.drawNewTerrain(interval.terrain, width, height)
                     .then((frame) => interval.frame = frame));
             }
         }

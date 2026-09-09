@@ -12,7 +12,7 @@ export class PoolManager {
         this.#pool = workerPool;
     }
 
-    async #drawTerrain (canvasID, terrainID) {
+    async drawTerrain (canvasID, terrainID) {
         await this.#pool.post(
             "DRAWTERRAIN",
             {
@@ -24,8 +24,7 @@ export class PoolManager {
         );
         return;
     }
-
-    async drawTerrain (terrain, canvasWidth, canvasHeight) {
+    async drawNewTerrain (terrain, canvasWidth, canvasHeight) {
         const uuid = generateUUID();
         const canvasID = `${uuid}_c`;
         const canvasJob = this.#pool.createCache(new CanvasCache(canvasWidth, canvasHeight, canvasID));
@@ -127,7 +126,7 @@ export class PoolManager {
             );
             const frame = terrain
                 .then(() => canvasJob)
-                .then(() => this.#drawTerrain(canvasID, terrainID))
+                .then(() => this.drawTerrain(canvasID, terrainID))
                 .then(() => this.#pool.pullCache(canvasID, true))
                 .then(() => this.#pool.cache[canvasID]);
             const delay = blasts[0].delay || 0;
@@ -172,7 +171,7 @@ export class PoolManager {
                 );
                 const dj = cj
                     // pool should assign the worker we want
-                    .then(() => this.#drawTerrain(currCanvasID, currTerrainID));
+                    .then(() => this.drawTerrain(currCanvasID, currTerrainID));
                 drawJobs.push(
                     dj
                         .then(() => this.#pool.pullCache(currCanvasID, false))
