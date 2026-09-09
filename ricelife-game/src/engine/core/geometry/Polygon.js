@@ -492,6 +492,7 @@ function decodePolygon (metadata, view) {
     const elements = (metadata.p || 0) / bytes;
     const path = new Float32Array(elements);
     const byteStart = metadata.o || 0;
+    console.log(byteStart);
     for (let i = 0; i < elements; i++) {
         console.log(byteStart + (i * bytes));
         path[i] = view.getFloat32(byteStart + (i * bytes), true);
