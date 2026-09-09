@@ -38,7 +38,7 @@ export class BlastInterval {
         const packer = new BlobPacker();
         packer.push({
             d: this.delay,
-            b: blasts.map((blast) => {
+            b: this.blasts.map((blast) => {
                 const payload = blast.encode();
                 delete payload.buffers;
                 return payload;
