@@ -855,14 +855,14 @@ export class Round extends Phase {
     // expects recording to already be rendered
     async loadRecording (recording) {
         this.setTurn(false);
-        const { start } = recording;
-        if (this.Terrain.hash !== start.terrain.hash)
-            this.updateTerrain(start.terrain, false);
-        for (const player of this.Players.values())
-            if (player.id in start.actors)
-                player.setState(start.actors[player.id]);
-        this.Threaded.cache[this.store.cacheKey.background] = start.frame;
         if (recording.length) {
+            const { start } = recording;
+            if (this.Terrain.hash !== start.terrain.hash)
+                this.updateTerrain(start.terrain, false);
+            for (const player of this.Players.values())
+                if (player.id in start.actors)
+                    player.setState(start.actors[player.id]);
+            this.Threaded.cache[this.store.cacheKey.background] = start.frame;
             this.Animations.blasts = new AnimationList();
             this.store.ammo.impacts = [];
             for (const state of recording.states) {
