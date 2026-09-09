@@ -951,7 +951,7 @@ export class Round extends Phase {
         this.playRecording(recording, ammo, player);
     }
     export () {
-        const { recording } = this.store.recording;
+        const { recording } = this.store;
         const changes = recording.end.difference(recording.start);
         return {
             recording: recording.pack(),
