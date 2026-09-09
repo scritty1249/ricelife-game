@@ -18,6 +18,7 @@ export class HitTotal extends Hashable {
     #barOffset = new Vector();
     #layers = new Array();
     constructor (bottomLayer, ...layers) {
+        super();
         this.push(bottomLayer, ...layers);
     }
 

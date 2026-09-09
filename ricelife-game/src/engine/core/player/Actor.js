@@ -187,6 +187,7 @@ export class ActorState extends Hashable {
     #rawHash;
     // Vector, Number, Number, Number, Object (JSON), 32-bit Hash
     constructor (position, power, rotation, orientation, hitpointJson) {
+        super();
         this.#rawHash = ActorState.#computeRawHash(hitpointJson.hash, position, power, rotation, orientation);
         this.#hitpoints = hitpointJson;
         this.#position = position;

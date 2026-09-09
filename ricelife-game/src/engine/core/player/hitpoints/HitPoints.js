@@ -38,6 +38,7 @@ export class HitPoints extends Hashable {
     #amount;
     #bar;
     constructor (max) {
+        super();
         // [!] idiot proofing
         // throw error here instead of rounding silently. Max should be exact on init
         if (!Number.isFinite(max) || !Number.isInteger(max) || !max) throw new Error(`[${this.constructor.name}]: Hit maximum must be a positive, finite integer`);
