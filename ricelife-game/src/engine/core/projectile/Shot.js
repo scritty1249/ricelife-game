@@ -262,7 +262,7 @@ export class Shot extends Identifiable {
     get isShot () { return true }
     get isFinished () { return this.#isFinished }
     get isStarted () { return this.#isStarted } // [!] stage tracking- may be redundant
-    get isTracing () { return this.#traceLegend?.isShotLegend }
+    get isTracing () { return !this.#traceLegend?.isShotLegend }
     get isInsideDisplay () { // [!] will return projectile as in-bounds if a display bbox is not set
         const { displayBoundingBox, projectile } = this;
         if (!displayBoundingBox?.isBoundingBox || !(displayBoundingBox.extentSquared > 0)) return true;
