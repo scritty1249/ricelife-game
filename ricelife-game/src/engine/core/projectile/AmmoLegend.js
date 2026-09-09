@@ -130,7 +130,7 @@ export class AmmoLegend {
     #transferData;
     constructor (stages, transferData) {
         this.#stages = Array.isArray(stages) ? stages : [];
-        this.#transferData = Object.isObject(transferData) ? transferData : {};
+        this.#transferData = transferData === Object(transferData) ? transferData : {};
     }
 
     set (ammo) {
