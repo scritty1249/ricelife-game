@@ -941,7 +941,7 @@ export class Round extends Phase {
         this.setTurn(false);
         this.animate(true); // draw one last frame so the game doesn't look like it just froze
         this.Global.Events.raiseEvent("LOADING", {hide: false, message: "loading turn"});
-        const recording = await this.createTurnRecording(this.#ClientPlayerID, this.store.ammo.selected);
+        this.store.recording = await this.createTurnRecording(this.#ClientPlayerID, this.store.ammo.selected);
         this.Events.raiseEvent("TURNENDED", this.export());
         const { player, ammo } = await this.loadRecording(recording);
         console.info(`[${typeString(this)}]: Turn recording loaded`);
