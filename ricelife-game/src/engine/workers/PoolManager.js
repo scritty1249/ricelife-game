@@ -44,8 +44,6 @@ export class PoolManager {
     }
     // colliders are expected to all be Polygons or Cache IDs
     async traceAmmo (ammo, increment, limit, terrain, colliders) {
-        const { origin, velocity, acceleration, angle, resolution, power } =
-            ammo;
         const encodedTerrain = terrain?.isTerrain ? terrain.Float32() : terrain;
         const encodedColliders = colliders.map(collider =>
             collider?.isPolygon ? collider.Float32(collider.depth) : collider,
@@ -72,6 +70,7 @@ export class PoolManager {
             buffers,
             caches,
         );
+        console.log(landing);
         return AmmoMap.decode(landing);
     }
     // cuts are expected to all be Polygons or Cache IDs
