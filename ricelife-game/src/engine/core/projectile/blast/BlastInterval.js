@@ -60,6 +60,11 @@ export class BlastInterval {
     get blasts () { return this.#blasts }
     get delay () { return this.#delay }
     get frame () { return this.#frame }
+    set frame (frame) {
+        if (this.#frame)
+            throw new Error(`[${typeString(this)}]: Cannot set frame, property already set`);
+        return (this.#frame = frame);
+    }
     get terrain () { return this.#terrain }
     set terrain (terrain) {
         if (this.#terrain?.isTerrain)

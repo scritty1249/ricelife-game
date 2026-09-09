@@ -869,7 +869,7 @@ export class Round extends Phase {
                 this.Animations.blasts.push(...impact.Animations);
                 this.store.ammo.impacts.push(impact);
             }
-            Animations.Main.push(...Animations.blasts);
+            this.Animations.Main.push(...this.Animations.blasts);
         }
         const type = await this.loadAmmoType(recording.ammoJson.import);
         const ammo = type.decode(...recording.ammoJson.params);
