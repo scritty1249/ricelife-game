@@ -149,10 +149,7 @@ export class AmmoLegend {
         };
     }
     clone () {
-        const params = this.isAmmoSet
-            ? [Array.from(this.#stages), structuredClone(this.#transferData)]
-            : [];
-        const other = new AmmoLegend(...params);
+        const other = new AmmoLegend(Array.from(this.#stages), structuredClone(this.#transferData));
         if (this.isAmmoSet) other.set(this.#ammo);
         return other;
     }
