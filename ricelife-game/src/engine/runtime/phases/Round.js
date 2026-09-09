@@ -951,12 +951,11 @@ export class Round extends Phase {
         this.playRecording(this.store.recording, ammo, player);
     }
     export () {
-        const players = [];
+        let players = {};
         const { recording } = this.store;
         if (recording.length) {
             const changes = recording.end.difference(recording.start);
-            for (const player of changes.captureAffectedActors(this.Players))
-                players.push(player);
+            players = changes.captureAffectedActors(this.Players)
         }
         return {
             recording: recording.pack(),
