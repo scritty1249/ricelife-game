@@ -146,7 +146,7 @@ export class Shot extends Identifiable {
     applyCollision (point, normal, flags) {
         const { time, projectile } = this;
         this.legend.addCollision(time, flags, projectile.position, point, normal, projectile.velocity);
-        this.collisionCallback?.(point, normal, collisionFlags);
+        this.collisionCallback?.(point, normal, flags);
         this.legend.collisions.at(-1).rebound.apply(projectile.velocity);
     }
     update (seconds) {
