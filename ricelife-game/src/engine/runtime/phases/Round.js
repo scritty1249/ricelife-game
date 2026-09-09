@@ -114,13 +114,13 @@ export class Round extends Phase {
             .then(() => this.#init())
             .then(async () => {
                 if (recording) {
-                    // setup first turn of the lobby
-                    distributePlayers(this.Plane, Array.from(this.Players.values()), this.Random, 100);
-                } else {
                     // play previous turn animation
                     await this.renderRecording(recording);
                     const { player, ammo } = await this.loadRecording(recording);
                     this.playRecording(recording, ammo, player);
+                } else {
+                    // setup first turn of the lobby
+                    distributePlayers(this.Plane, Array.from(this.Players.values()), this.Random, 100);
                 }
             })
             .then(() => this.resolveLoad())
