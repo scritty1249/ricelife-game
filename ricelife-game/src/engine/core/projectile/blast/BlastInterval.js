@@ -28,7 +28,7 @@ export class BlastInterval {
         this.#terrain = terrain;
         this.#blasts.push(...blasts);
         this.#bboxes = blasts.map(({shape}) => shape.getBoundingBox());
-        this.#bbox = BoundingBox.merge(this.boundingBoxes);
+        this.#bbox = this.boundingBoxes?.length ? BoundingBox.merge(this.boundingBoxes) : new BoundingBox();
         Object.freeze(this.#blasts);
         Object.freeze(this.#bboxes);
     }

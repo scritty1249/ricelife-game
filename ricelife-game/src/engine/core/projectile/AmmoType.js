@@ -52,7 +52,7 @@ export class AmmoType extends Ammo {
             other.colliders.push(poly.clone(deep));
         if (this.launchCallback)
             other.launchCallback = this.launchCallback;
-        if (this.displayBoundingBox)
+        if (this.displayBoundingBox?.isBoundingBox)
             other.displayBoundingBox = deep ? this.displayBoundingBox.clone(true) : this.displayBoundingBox;
         if (!this.isTracing)
             other.traceLegend(this.legend);
