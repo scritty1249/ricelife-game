@@ -900,7 +900,7 @@ export class Round extends Phase {
         await Promise.all(renderJobs);
     }
     async createAmmo (playerActor, ammoType) {
-        const type = await loadAmmoType(ammoType);
+        const type = await this.loadAmmoType(ammoType);
         const ammo = new type(...playerActor.getLaunchParameters(this.Terrain));
         ammo.colliders.push(this.Terrain.polygon);
         ammo.launchCallback = this.#createLaunchCallback();
