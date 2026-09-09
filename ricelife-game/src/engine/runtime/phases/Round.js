@@ -930,7 +930,7 @@ export class Round extends Phase {
         waitStart = performance.now();
         console.info(`[${typeString(this)}]: Rendering shot collisions`);
         this.Global.Events.raiseEvent("LOADING", {hide: false, message: "loading turn (rendering)"});
-        const intervals = await Threaded.renderBlastIntervals(this.store.cacheKey.terrain, this.Plane.size, ...map.blasts);
+        const intervals = await this.Threaded.renderBlastIntervals(this.store.cacheKey.terrain, this.Plane.size, ...map.blasts);
         const recording = this.Recorder.record(activePlayerID, ammo.clone(true), map, intervals, TICKSPEED);
         if (DEBUG)
             console.info(`[${typeString(this)}]: Collision map computed in ${(performance.now() - waitStart) / 1000}s`);
