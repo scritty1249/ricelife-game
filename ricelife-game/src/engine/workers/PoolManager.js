@@ -70,7 +70,6 @@ export class PoolManager {
             buffers,
             caches,
         );
-        console.log(landing);
         return AmmoMap.decode(landing);
     }
     // cuts are expected to all be Polygons or Cache IDs
