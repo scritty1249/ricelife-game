@@ -908,7 +908,7 @@ export class Round extends Phase {
     }
     async loadAmmoType (ammoType) {
         if (!this.AmmoPool.has(ammoType))
-            this.AmmoPool.get(ammoType);
+            this.AmmoPool.add(ammoType);
         return await this.AmmoPool.onready(ammoType);
     }
     async createTurnRecording (activePlayerID, ammoType) {
