@@ -1,4 +1,3 @@
-import { packPolygon } from "/src/client/scripts/api/pack.js";
 import { Terrain } from "/src/engine/core/geometry/Terrain.js";
 import { Polygon } from "/src/engine/core/geometry/Polygon.js";
 import { Path } from "/src/engine/core/math/Path.js";
@@ -15,7 +14,7 @@ export class RenderingCanvas {
         this.terrain.apply(new Polygon(Path.fromArray(points)).subsection(0.5));
     }
     pack () {
-        return packPolygon(this.terrain.polygon);
+        return this.terrain.polygon.pack();
     }
     render () {
         const { cursor, canvas } = this;
