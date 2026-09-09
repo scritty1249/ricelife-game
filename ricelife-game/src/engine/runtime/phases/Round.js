@@ -18,7 +18,8 @@ import {
     ActorState,
     BlobPacker,
     BlastInterval,
-    Polygon
+    Polygon,
+    AmmoMap
 } from "../../core/Core.js"
 
 import { WorkerPool, PoolManager, TerrainCache, CanvasCache } from "../../workers/Core.js";
@@ -874,7 +875,7 @@ export class Round extends Phase {
         const type = await this.loadAmmoType(recording.ammoJson.import);
         const ammo = type.decode(...recording.ammoJson.params);
         ammo.decodeTransferData(recording.ammoJson.transfer);
-        ammo.traceLegend(map.legend);
+        ammo.traceLegend(recording.ammoMap.legend);
         const activePlayer = this.Players.get(recording.ActivePlayerID);
         return {
             player: activePlayer,
@@ -1092,7 +1093,8 @@ class RoundTurnRecording {
     static unpack (data) {
         const viewIterator = BlobPacker.unpack(data);
         const metadata = BlobPacker.consumeAsObject(viewIterator);
-        const other = new RoundTurnRecording(metadata.p, metadata.a, metadata.m);
+        const map = AmmoMap.fromObject(metadata.m);
+        const other = new RoundTurnRecording(metadata.p, metadata.a, map);
         for (const view of viewIterator) {
             other.states.push(RoundState.unpack(view));
         }
