@@ -22,6 +22,8 @@ export class Polygon extends Hashable { // points should be ordered clockwise (i
     static unpack (data) {
         const viewIterator = BlobPacker.unpack(data);
         const metadata = BlobPacker.consumeAsObject(viewIterator);
+        console.log(metadata);
+        console.log(JSON.stringify(metadata));
         const paths = viewIterator.next().value;
         const polygonObject = decodePolygon(metadata, paths);
         return Polygon.fromObject(polygonObject);
@@ -488,14 +490,13 @@ function encodePolygon (polygon, offset) {
 }
 
 function decodePolygon (metadata, view) {
-    console.log(view.buffer,
-        view.byteOffset, metadata.o,
-        metadata.p, Float32Array.BYTES_PER_ELEMENT)
-    const path = new Float32Array(
-        view.buffer,
-        view.byteOffset + metadata.o,
-        metadata.p / Float32Array.BYTES_PER_ELEMENT
-    );
+    const bytes = Float32Array.BYTES_PER_ELEMENT; // 4 bytes
+    const elements = (metadata.p || 0) / bytes;
+    const path = new Float32Array(elements);
+    const byteStart = metadata.o || 0;
+    for (let i = 0; i < elements; i++) {
+        path[i] = view.getFloat32(byteStart + (i * bytes), true);
+    }
     const holes = (metadata.h || [])
         .map((meta) => decodePolygon(meta, view));
     return { path, holes };
