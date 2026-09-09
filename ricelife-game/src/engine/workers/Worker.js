@@ -136,6 +136,7 @@ self.onmessage = async (e) => {
             const result = AmmoMap.trace((await AMMO_TYPES.onready(ammoImport)), params, increment, limit, terrainCollider, colliders);
             if (!result.finished) console.debug(`${CONSOLE_PREFIX}: Trace operation timed out in Transaction ${id}`);
             const map = result.encode();
+            console.log(result, map);
             postResponse(id, map, map.buffers);
         } else if (type === "CUTTERRAIN") {
             /* Payload expected:
