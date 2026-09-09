@@ -943,12 +943,12 @@ export class Round extends Phase {
         this.Global.Events.raiseEvent("LOADING", {hide: false, message: "loading turn"});
         this.store.recording = await this.createTurnRecording(this.#ClientPlayerID, this.store.ammo.selected);
         this.Events.raiseEvent("TURNENDED", this.export());
-        const { player, ammo } = await this.loadRecording(recording);
+        const { player, ammo } = await this.loadRecording(this.store.recording);
         console.info(`[${typeString(this)}]: Turn recording loaded`);
         this.Global.Events.raiseEvent("LOADING", {hide: true});
         if (hideButton.active) replayButton.hide = true;
         else replayButton.userData.lastHideState = true;
-        this.playRecording(recording, ammo, player);
+        this.playRecording(this.store.recording, ammo, player);
     }
     export () {
         const players = [];
