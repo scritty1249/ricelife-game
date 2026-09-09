@@ -488,6 +488,9 @@ function encodePolygon (polygon, offset) {
 }
 
 function decodePolygon (metadata, view) {
+    console.log(view.buffer,
+        view.byteOffset, metadata.o,
+        metadata.p, Float32Array.BYTES_PER_ELEMENT)
     const path = new Float32Array(
         view.buffer,
         view.byteOffset + metadata.o,
