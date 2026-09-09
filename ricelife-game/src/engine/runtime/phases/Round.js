@@ -4,7 +4,7 @@ import {
     ShapeAnimation,
     Color,
     equals,
-    Camera,
+    Terrain,
     drawBlastAnimation,
     IconButton,
     Phase,
@@ -17,7 +17,8 @@ import {
     Random,
     ActorState,
     BlobPacker,
-    BlastInterval
+    BlastInterval,
+    Polygon
 } from "../../core/Core.js"
 
 import { WorkerPool, PoolManager, TerrainCache, CanvasCache } from "../../workers/Core.js";
