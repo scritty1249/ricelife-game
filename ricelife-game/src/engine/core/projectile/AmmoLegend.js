@@ -114,11 +114,11 @@ export class AmmoLegend {
     static get Shot () { return ShotLegend };
     static decode (obj) {
         const [ stages, transfer ] = obj;
-        return new AmmoLegend(stages, transfer);
+        return new AmmoLegend(stages.map((stage) => MultishotLegend.decode(stage)), transfer);
     }
     static fromObject (obj) {
         const { stages, transfer } = obj;
-        return new AmmoLegend(stages, transfer);
+        return new AmmoLegend(stages.map((stage) => MultishotLegend.fromObject(stage)), transfer);
     }
     static capture (ammo) {
         const stages = ammo.stages.map((stage) => stage.legend);
