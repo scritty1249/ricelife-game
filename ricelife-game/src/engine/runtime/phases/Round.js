@@ -1161,11 +1161,9 @@ class RoundTurnRecorder {
         for (const blast of blasts)
             RoundTurnRecorder.#applyBlastDamage(blast, players);
     }
-    static #isAmmoDone (ammo, traceLimit, wasFinished, travelDuration) {
-        const endEarly =
-            (ammo.time >= traceLimit) // time out shots even if a landing exists
-            || (!wasFinished && !ammo.isInsideDisplay); // time out early if theres no landing and it flew offscreen
-        const isFinished = wasFinished && (ammo.time >= travelDuration - Number.EPSILON);
+    static #isAmmoDone (ammo, duration, wasFinished) {
+        const endEarly = !wasFinished && !ammo.isInsideDisplay; // time out early if theres no landing and it flew offscreen
+        const isFinished = wasFinished && (ammo.time >= duration - Number.EPSILON);
         return endEarly || isFinished;
     }
     static #tickUpdateAmmo (ammo, players, terrain, intervals, delta) {
@@ -1195,7 +1193,7 @@ class RoundTurnRecorder {
         const intervals = Array.from(blastIntervals);
         recording.states.push(RoundState.fromRound(this.#playerActors, this.#terrain.clone(true), 0));
         const { finished, time } = ammoMap;
-        while (!RoundTurnRecorder.#isAmmoDone(ammo, traceLimit, finished, time)) {
+        while (!RoundTurnRecorder.#isAmmoDone(ammo, time, finished)) {
             const states = RoundTurnRecorder.#tickUpdateAmmo(ammo, this.#playerActors, terrain, intervals, tickspeed);
             if (states.length)
                 for (const state of states)
