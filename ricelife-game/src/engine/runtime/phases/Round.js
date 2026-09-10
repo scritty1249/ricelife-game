@@ -409,9 +409,8 @@ export class Round extends Phase {
         deathExplosion.play();
     }
     #createBlastImpact (roundState) {
-        const { AssetPool, Threaded } = this;
+        const { AssetPool } = this;
         const { Context, Layer } = this.Audio;
-        const { background } = this.store.cacheKey;
         // bundle callbacks with data to call later
         const impact = new BlastImpact(
             Context,
@@ -424,7 +423,7 @@ export class Round extends Phase {
             animations, combinedbbox
         }) => {
             if (roundState.frame)
-                Threaded.cache[background] = roundState.frame;
+                this.Threaded.cache[this.store.cacheKey.background] = roundState.frame;
             animations.play();
             if (roundState.terrain?.isTerrain)
                 this.updateTerrain(roundState.terrain, false);
