@@ -1191,7 +1191,7 @@ class RoundTurnRecorder {
         }
         intervals.splice(0, intervals.length, ...keepIntervals);
         // update projectile
-        ammo.update(delta);
+        ammo.update(delta / 1000);
         return states;
     }
     #playerActors;
