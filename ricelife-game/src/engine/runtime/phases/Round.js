@@ -950,7 +950,7 @@ export class Round extends Phase {
         this.animate(true); // draw one last frame so the game doesn't look like it just froze
         this.Global.Events.raiseEvent("LOADING", {hide: false, message: "loading turn"});
         const recording = await this.createTurnRecording(this.#ClientPlayerID, this.store.ammo.selected);
-        this.Events.raiseEvent("TURNENDED", this.export());
+        this.Events.raiseEvent("TURNENDED", this.export(recording));
         const { player, ammo } = await this.loadRecording(recording);
         console.info(`[${typeString(this)}]: Turn recording loaded`);
         this.Global.Events.raiseEvent("LOADING", {hide: true});
@@ -958,9 +958,8 @@ export class Round extends Phase {
         else replayButton.userData.lastHideState = true;
         this.playRecording(recording, ammo, player);
     }
-    export () {
+    export (recording) {
         let players = {};
-        const { recording } = this.store;
         if (recording.length) {
             const changes = recording.end.difference(recording.start);
             players = changes.captureAffectedActors(this.Players)
