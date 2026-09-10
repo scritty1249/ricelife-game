@@ -1,6 +1,6 @@
 import { Menu, Vector, zip, clamp } from "../../core/Core.js";
 import { AmmoTypeButton } from "../selections/AmmoTypeButton.js";
-import { AmmoTypeDetails } from "../selections/AmmoTypeDetails.js";
+import { AmmoTypeDetails } from "../utils/AmmoTypeDetails.js";
 
 export class AmmoSelect extends Menu {
     static MIN_BUTTON_SIZE = 75;
