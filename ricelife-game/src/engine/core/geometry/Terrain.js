@@ -89,7 +89,7 @@ export class Terrain extends Hashable {
         }
         if (this.polygon?.isPolygon)
             this.polygon.userData.collision = Properties.DESTRUCTION | Properties.ENTER | Properties.TERRAIN;
-        this.#applyOptions(options);
+        this.applyOptions(options);
         return this;
     }
     clone (deep = false) {
