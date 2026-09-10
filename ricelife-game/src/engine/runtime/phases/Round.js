@@ -21,7 +21,8 @@ import {
 
 import { WorkerPool, PoolManager, TerrainCache, CanvasCache } from "../../workers/Core.js";
 import { AmmoSelect } from "../menus/AmmoSelect.js";
-import { AmmoTypeDetails, TurnRecorder } from "../utils/AmmoTypeDetails.js";
+import { AmmoTypeDetails } from "../utils/AmmoTypeDetails.js";
+import { TurnRecorder } from "../utils/TurnRecorder.js";
 import { HitpointMap } from "../../hitpoints/Core.js";
 import { initLobby, WEB_WORKER_PATH } from "../utils.js";
 import { AmmoPool } from "../../shared/AmmoPool.js";
