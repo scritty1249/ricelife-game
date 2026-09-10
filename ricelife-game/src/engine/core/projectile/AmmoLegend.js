@@ -104,6 +104,9 @@ class MultishotLegend {
     clone () {
         return new MultishotLegend(this.shots);
     }
+    *[Symbol.iterator]() {
+        yield *this.#shots;
+    }
 
     get isMultishotLegend () { return true }
     get shots () { return this.#shots }
@@ -152,6 +155,9 @@ export class AmmoLegend {
         const other = new AmmoLegend(Array.from(this.#stages), structuredClone(this.#transferData));
         if (this.isAmmoSet) other.set(this.#ammo);
         return other;
+    }
+    *[Symbol.iterator]() {
+        yield *this.stages;
     }
 
     get isAmmoLegend () { return true }
