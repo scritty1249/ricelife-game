@@ -141,6 +141,13 @@ export class Triangle extends Shape {
         this.#lastBboxHash = hash;
         return bbox;
     }
+    blobJSON() {
+        return {
+            origin: this.blob.origin.toJSON(),
+            left: this.blob.left.toJSON(),
+            right: this.blob.right.toJSON()
+        };
+    }
 
     get isTriangle () { return true }
     // get / set leg lengths

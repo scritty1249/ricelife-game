@@ -13,8 +13,8 @@ export class Circle extends Shape {
         const { blob, globalTransform } = payload;
         const { origin, radii } = blob;
         const circle = new Circle();
-        circle.blob.radii.apply(radii.x, radii.y);
-        circle.blob.origin.apply(origin.x, origin.y);
+        circle.blob.radii.apply(Vector.fromObject(radii));
+        circle.blob.origin.apply(Vector.fromObject(origin));
         circle.globalTransform.apply(Transform.fromObject(globalTransform));
         return circle;
     }
@@ -87,7 +87,7 @@ export class Circle extends Shape {
             || value.isIntersecting(origin1)) return true;
         return false;
     }
-        isTriangleIntersecting (value) {
+    isTriangleIntersecting (value) {
         const { radii, origin } = this.blob;
         // transform triangle to match scaling on Circle radii- then treat Cricle as uniform radius for rest of calculations
         const o = this.#localizePoint(value.blob.origin);
@@ -171,6 +171,12 @@ export class Circle extends Shape {
         circle.blob.radii.apply(this.blob.radii);
         circle.blob.origin.apply(this.blob.origin);
         return circle;
+    }
+    blobJSON () {
+        return {
+            origin: this.origin.toJSON(),
+            radii: this.radii.toJSON()
+        };
     }
     getBoundingBox () {
         const bbox = super.getBoundingBox();

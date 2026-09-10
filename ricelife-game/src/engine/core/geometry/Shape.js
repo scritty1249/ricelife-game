@@ -16,7 +16,7 @@ export class Shape extends Hashable {
     #transform = new Transform();
     #globalTransform = new Transform(); // all transforms applied, compounded
     #bbox = new BoundingBox();
-    toJSON () { return {blob: this.blob, origin: this.origin.toJSON(), globalTransform: this.globalTransform.toJSON(), type: this.constructor.TYPE} }
+    toJSON () { return {blob: this.blobJSON(), origin: this.origin.toJSON(), globalTransform: this.globalTransform.toJSON(), type: this.constructor.TYPE} }
     encode () { return {...this.toJSON(), buffers: []} }
     applyTransform () { // children can manipulate blob data before super calling this methood
         if (!this.transform.scale.isFinite
@@ -90,6 +90,7 @@ export class Shape extends Hashable {
     Polygon (resolution = 1) { return new Polygon() }
     draw (cursor, close = true) {}
     clone () {}
+    blobJSON () { return this.blob }
     // type checks are omitted on the following methods for performance, should be done and routed through isIntersecting or isInside
     isVectorIntersecting (value) { throw new Error() }
     isPathIntersecting (value) { return value.points.some((point) => this.isVectorIntersecting(point)) }
