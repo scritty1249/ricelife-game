@@ -364,7 +364,7 @@ export class Round extends Phase {
         ammo.current = ammoType;
         ammo.map = map;
         ammo.tracer = ammoType.getTracer();
-        ammo.debug.legend = ammoType.getLegend(false);
+        ammo.debug.legend = map.legend; // [!] redundant
         ammo.debug.blasts = Array.from(map.blasts);
         ammo.debug.collisions = [];
         for (const multishotLegend of ammo.debug.legend.stages)
@@ -862,7 +862,8 @@ export class Round extends Phase {
             for (const player of this.Players.values())
                 if (player.id in start.actors)
                     player.setState(start.actors[player.id]);
-            this.Threaded.cache[this.store.cacheKey.background] = start.frame;
+            if (start.frame)
+                this.Threaded.cache[this.store.cacheKey.background] = start.frame;
             this.Animations.blasts = new AnimationList();
             this.store.ammo.impacts = [];
             for (const state of recording.states) {
@@ -932,7 +933,14 @@ export class Round extends Phase {
         console.info(`[${typeString(this)}]: Rendering shot collisions`);
         this.Global.Events.raiseEvent("LOADING", {hide: false, message: "loading turn (rendering)"});
         const intervals = await this.Threaded.renderBlastIntervals(this.store.cacheKey.terrain, this.Plane.size, ...map.blasts);
-        const recording = this.Recorder.record(activePlayerID, ammo.clone(true), map, intervals, TICKSPEED);
+        const recording = this.Recorder.record(
+            activePlayerID,
+            ammo.clone(true),
+            map,
+            intervals,
+            this.#Threaded.cache[this.store.cacheKey.background],
+            TICKSPEED
+        );
         if (DEBUG)
             console.info(`[${typeString(this)}]: Collision map computed in ${(performance.now() - waitStart) / 1000}s`);
         return recording;
@@ -977,8 +985,8 @@ export class Round extends Phase {
 }
 
 class RoundState {
-    static fromRound (players, terrain, time = 0) {
-        const interval = new BlastInterval(time, terrain, undefined, []);
+    static fromRound (players, terrain, frame = undefined, time = 0) {
+        const interval = new BlastInterval(time, terrain, frame, []);
         const actors = RoundState.getActorStates(players);
         return new RoundState(actors, interval);
     }
@@ -1188,16 +1196,17 @@ class RoundTurnRecorder {
     }
     #playerActors;
     #terrain;
+    #background;
     constructor (players, terrain) {
         this.#playerActors = players;
         this.#terrain = terrain;
     }
 
-    record (activePlayerID, ammo, ammoMap, blastIntervals, tickspeed) {
+    record (activePlayerID, ammo, ammoMap, blastIntervals, startFrame, tickspeed) {
         const terrain = this.#terrain.clone(true);
         const recording = new RoundTurnRecording(activePlayerID, ammo.toJSON(), ammoMap);
         const intervals = Array.from(blastIntervals);
-        recording.states.push(RoundState.fromRound(this.#playerActors, this.#terrain.clone(true), 0));
+        recording.states.push(RoundState.fromRound(this.#playerActors, this.#terrain.clone(true), startFrame, 0));
         const { finished, time } = ammoMap;
         while (!RoundTurnRecorder.#isAmmoDone(ammo, time, finished)) {
             const states = RoundTurnRecorder.#tickUpdateAmmo(ammo, this.#playerActors, terrain, intervals, tickspeed);
