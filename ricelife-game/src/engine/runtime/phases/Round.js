@@ -98,7 +98,7 @@ export class Round extends Phase {
         if (firstTurn) {
             this.#Terrain = new Terrain(Polygon.unpack(turnData));
         } else {
-            recording = TurnRecorder.process(turnData);
+            recording = TurnRecorder.process(turnData).recording;
             this.#Terrain = recording.start.terrain.clone(true);
         }
         // [!] testing
