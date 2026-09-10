@@ -422,8 +422,10 @@ export class Round extends Phase {
         impact.ontrigger.then(({
             animations, combinedbbox
         }) => {
-            if (roundState.frame)
+            if (roundState.frame) {
+                console.log("Set new frame at", roundState.time);
                 this.Threaded.cache[this.store.cacheKey.background] = roundState.frame;
+            }
             animations.play();
             if (roundState.terrain?.isTerrain)
                 this.updateTerrain(roundState.terrain, false);
