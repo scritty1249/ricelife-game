@@ -25,14 +25,13 @@ export class Terrain extends Hashable {
         this.apply(data, options)
     }
 
-    #applyOptions (options) {
+    applyOptions (options) {
         if (!options) return;
         if ("fillColor" in options) this.fillColor.apply(options.fillColor);
         if ("edgeColor" in options) this.edgeColor.apply(options.edgeColor);
         if ("gradientWidth" in options) this.gradientWidth = options.gradientWidth;
         if ("resolution" in options) this.resolution = options.resolution;
     }
-
     draw (cursor) {
         const { fillColor, edgeColor, gradientWidth, resolution, polygon } = this;
         cursor.save();
@@ -82,7 +81,7 @@ export class Terrain extends Hashable {
     apply (data, options = undefined, clone = false) {
         if (data?.isTerrain) {
             this.#polygon = clone ? data.polygon.clone(true) : data.polygon;
-            this.#applyOptions(data);
+            this.applyOptions(data);
         } else if (data?.isPolygon) {
             this.#polygon = clone ? data.clone(true) : data;
         } else if (data) {

@@ -426,7 +426,7 @@ export class Round extends Phase {
                 this.Threaded.cache[this.store.cacheKey.background] = frame;
             animations.play();
             if (roundState.terrain?.isTerrain)
-                this.updateTerrain(roundState.terrain, false);
+                this.updateTerrain(roundState.terrain);
             for (const deadPlayerID of roundState.applyActors(this.Players)) {
                 this.#onPlayerDeath(this.Players.get(deadPlayerID));
             }
@@ -799,23 +799,9 @@ export class Round extends Phase {
             }
         }
     }
-    updateTerrain (terrain, updatePlayers = true, changedBBoxes = []) {
+    updateTerrain (terrain) {
         if (this.Terrain.hash !== terrain.hash)
-            this.Terrain.apply(terrain);
-        if (updatePlayers) {
-            // if bboxes of changed areas are provided, only update player positions that lie within them.
-            //  otherwise, update all player positions
-            const players = changedBBoxes?.length
-                ? this.Players.values().filter(({Puppet}) => {
-                    const { position } = Puppet;
-                    return changedBBoxes.some((bbox) => bbox.isIntersecting(position));
-                }) : this.Players.values();
-            for (const { Puppet, Mover } of players) {
-                // update positioning - account for "falling"
-                Puppet.position.round(2);
-                Mover.apply(Mover.position.x, Mover.position.y);
-            }
-        }
+            this.Terrain.apply(terrain.polygon);
     }
     createPlayerColliders () {
         const colliders = [];
@@ -894,6 +880,7 @@ export class Round extends Phase {
         const { width, height } = this.Plane;
         for (const interval of recording.intervals) {
             if (interval.terrain?.isTerrain && !interval.frame) {
+                interval.terrain.applyOptions(this.Terrain);
                 renderJobs.push(this.Threaded.drawNewTerrain(interval.terrain, width, height)
                     .then((frame) => interval.frame = frame));
             }
