@@ -114,6 +114,7 @@ export class Round extends Phase {
                     // play previous turn animation
                     await this.renderRecording(recording);
                     const { player, ammo } = await this.loadRecording(recording);
+                    this.flags.replaying = true;
                     this.playRecording(recording, ammo, player);
                 } else {
                     // setup first turn of the lobby
@@ -139,8 +140,13 @@ export class Round extends Phase {
                 collisions: [],
             }            
         };
-        this.store.recording = {}; // save to be replayed or exported
+        // save to be replayed or exported
+        this.store.recording = {
+            current: undefined,
+            previous: undefined
+        };
         this.flags.turnEnded = false;
+        this.flags.replaying = false;
 
         this.Camera.Viewbox.bounding.top = false;
         this.#setupSFX();
@@ -286,12 +292,13 @@ export class Round extends Phase {
                 this.Menus.get("Ammo").open();
         };
         replayButton.onclick = () => {
-            const { recording } = store;
-            if (flags.isTurn && recording?.isRoundTurnRecording) {
+            const { previous: recording } = store.recording;
+            if (flags.isTurn && recording?.isTurnRecording) {
                 if (hideButton.active)
                     replayButton.hide = true;
                 else
                     replayButton.userData.lastHideState = true;
+                flags.replaying = true;
                 this.loadRecording(recording)
                     .then(({player, ammo}) => this.playRecording(recording, ammo, player));
             }
@@ -434,17 +441,9 @@ export class Round extends Phase {
     async ontick (delta) {
         if (this.store.ammo.current) {
             if (this.updateAmmoTick(delta)) {
-                this.#unsetAmmo();
                 console.info(`[${typeString(this)}]: Shot playback finished`);
-                // unlock player
-                if (this.store.overlayItems.hideButton.active)
-                    this.store.overlayItems.replayButton.hide = false;
-                else
-                    this.store.overlayItems.replayButton.userData.lastHideState = false;
-                if (this.store.recording?.isRoundTurnRecording && !this.flags.turnEnded) {
-                    this.endTurn();
-                }
-                setTimeout(() => this.setTurn(true), 1000);
+                if (!this.flags.replaying) this.endTurn();
+                this.endRecording();
             }
         }
         if (this.flags.isTurn && !this.flags.turnEnded) {
@@ -832,6 +831,20 @@ export class Round extends Phase {
             = overlayItems.selectButton.hide
             = true;
     }
+    endRecording () {
+        const { recording } = this.store;
+        if (recording.current?.isTurnRecording) {
+            recording.previous = recording.current;
+            recording.current = undefined;
+        }
+        this.#unsetAmmo();
+        if (this.store.overlayItems.hideButton.active)
+            this.store.overlayItems.replayButton.hide = false;
+        else
+            this.store.overlayItems.replayButton.userData.lastHideState = false;
+        this.flags.replaying = false;
+        setTimeout(() => this.setTurn(true), 1000);
+    }
     // expects recording to already be rendered
     async loadRecording (recording) {
         this.setTurn(false);
@@ -866,6 +879,7 @@ export class Round extends Phase {
     playRecording (recording, ammo, activePlayer) {
         ammo.displayBoundingBox = this.Camera.Viewbox;
         this.#setAmmo(ammo, recording.ammoMap);
+        this.store.recording.current = recording;
         this.Camera.track(ammo.getBoundingBox(true, false, true))
         if (activePlayer?.isActor) this.Camera.track(activePlayer.Puppet.getBoundingBox());
         console.info(`[${typeString(this)}]: Playing turn recording`);
@@ -935,14 +949,14 @@ export class Round extends Phase {
         this.setTurn(false);
         this.animate(true); // draw one last frame so the game doesn't look like it just froze
         this.Global.Events.raiseEvent("LOADING", {hide: false, message: "loading turn"});
-        this.store.recording = await this.createTurnRecording(this.#ClientPlayerID, this.store.ammo.selected);
+        const recording = await this.createTurnRecording(this.#ClientPlayerID, this.store.ammo.selected);
         this.Events.raiseEvent("TURNENDED", this.export());
-        const { player, ammo } = await this.loadRecording(this.store.recording);
+        const { player, ammo } = await this.loadRecording(recording);
         console.info(`[${typeString(this)}]: Turn recording loaded`);
         this.Global.Events.raiseEvent("LOADING", {hide: true});
         if (hideButton.active) replayButton.hide = true;
         else replayButton.userData.lastHideState = true;
-        this.playRecording(this.store.recording, ammo, player);
+        this.playRecording(recording, ammo, player);
     }
     export () {
         let players = {};
