@@ -616,11 +616,11 @@ export class Round extends Phase {
                     .toString();
                 const blue = new Color(0, 0, 255, .5)
                     .toString();
-                store.ammo.debug.collisions.forEach(({position, point, resultVelocity, velocity, normal}) => {
+                store.ammo.debug.collisions.forEach(({position, point, rebound, velocity, normal}) => {
                     drawCircle(cursor, position, 3, blue); // shot position during collision
                     drawLine(cursor, point, point.add(normal.normalize().mul(_lineLength)), 2, green); // normal
                     drawLine(cursor, point, point.add(velocity.normalize().mul(_lineLength)), 2, blue); // direction (incoming)
-                    if (resultVelocity.length) drawLine(cursor, position, position.add(resultVelocity.normalize().mul(_lineLength)), 2, red); // reflection
+                    if (rebound.length) drawLine(cursor, position, position.add(rebound.normalize().mul(_lineLength)), 2, red); // reflection
                 });
             }
             // draw blasts
