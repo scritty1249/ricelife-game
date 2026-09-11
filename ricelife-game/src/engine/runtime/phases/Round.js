@@ -858,6 +858,8 @@ export class Round extends Phase {
                     player.setState(start.actors[player.id]);
             if (start.frame)
                 this.Threaded.cache[this.store.cacheKey.background] = start.frame;
+            if (start.terrain?.isTerrain)
+                this.Threaded.setCache(new TerrainCache(start.terrain, this.store.cacheKey.terrain));
             this.Animations.blasts = new AnimationList();
             this.store.ammo.impacts = [];
             for (const state of recording.states) {
