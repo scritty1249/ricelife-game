@@ -187,9 +187,9 @@ export class TurnRecorder {
     }
     static #applyBlastInterval (terrain, interval, players) {
         const { terrain: newTerrain, blasts, boundingBoxes: bboxes } = interval;
-        RoundTurnRecorder.#updateTerrain(players, terrain, newTerrain, bboxes);
+        TurnRecorder.#updateTerrain(players, terrain, newTerrain, bboxes);
         for (const blast of blasts)
-            RoundTurnRecorder.#applyBlastDamage(blast, players);
+            TurnRecorder.#applyBlastDamage(blast, players);
     }
     static #isAmmoDone (ammo, duration, wasFinished) {
         const endEarly = !wasFinished && !ammo.isInsideDisplay; // time out early if theres no landing and it flew offscreen
@@ -201,7 +201,7 @@ export class TurnRecorder {
         const keepIntervals = [];
         for (const interval of intervals) {
             if (interval.delay <= ammo.time) {
-                RoundTurnRecorder.#applyBlastInterval(terrain, interval, players);
+                TurnRecorder.#applyBlastInterval(terrain, interval, players);
                 states.push(new RoundState(RoundState.getActorStates(players), interval));
             } else keepIntervals.push(interval);
         }
@@ -247,13 +247,13 @@ export class TurnRecorder {
     record (activePlayerID, ammo, ammoMap, blastIntervals, tickspeed) {
         if (this.complete) return undefined;
         try {
-            const terrain = startTerrain.clone(true);
+            const terrain = this.#startState.terrain.clone(true);
             const recording = new TurnRecording(activePlayerID, ammo.toJSON(), ammoMap);
             const intervals = Array.from(blastIntervals);
             recording.states.push(this.#startState);
             const { finished, time } = ammoMap;
-            while (!RoundTurnRecorder.#isAmmoDone(ammo, time, finished)) {
-                const states = RoundTurnRecorder.#tickUpdateAmmo(ammo, this.#actors, terrain, intervals, tickspeed);
+            while (!TurnRecorder.#isAmmoDone(ammo, time, finished)) {
+                const states = TurnRecorder.#tickUpdateAmmo(ammo, this.#actors, terrain, intervals, tickspeed);
                 if (states.length)
                     for (const state of states)
                         recording.states.push(state);
