@@ -21,8 +21,8 @@ export class Menu extends Loop {
     #resizeHash; // hash of screen bbox when onResize() was last called
     constructor (phase) {
         super(phase.Global.Audio.Context);
-        this.#Display = new MirrorCanvas(this.Parent.Global.Display);
         this.#Parent = phase;
+        this.#Display = new MirrorCanvas(this.Parent.Global.Display);
         this.Interface.Viewbox = this.Parent.Camera.Viewbox;
         this.#init();
     }
