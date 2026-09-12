@@ -183,10 +183,10 @@ export class Shot extends Identifiable {
                     if (legend.collisions.length > 0
                         && this.time >= legend.collisions[0].time
                     ) {
-                        const { time, collisionFlags, position, point, velocity, normal } = legend.collisions.shift();
+                        const { flags, position, point, velocity, normal } = legend.collisions.shift();
                         projectile.applyPosition(position, true);
                         projectile.current.velocity.apply(velocity);
-                        this.applyCollision(point, normal, collisionFlags);
+                        this.applyCollision(point, normal, flags);
                     } else {
                         projectile.update(seconds, true);
                     }
@@ -247,7 +247,7 @@ export class Shot extends Identifiable {
         else console.warn(`[${typeString(this)}]: Unable to play SFX "${sfxName}" -  callback does not exist`);
     }
     traceLegend (legend) {
-        this.#traceLegend = legend;
+        this.#traceLegend = legend.clone();
     }
     // creates a fresh instance with the same Projectile, delay and collision callback
     // References, userData, update callback, launch callback, and blast time offset are not copied.
