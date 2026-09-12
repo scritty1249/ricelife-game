@@ -443,7 +443,6 @@ export class Round extends Phase {
         if (this.store.ammo.current) {
             if (this.updateAmmoTick(delta)) {
                 console.info(`[${typeString(this)}]: Turn playback finished`);
-                await this.Threaded.setCache(new TerrainCache(this.state.recording.current.end.terrain, this.store.cacheKey.terrain));
                 if (!this.flags.replaying) this.endTurn();
                 this.endRecording();
             }
@@ -859,6 +858,8 @@ export class Round extends Phase {
                     player.setState(start.actors[player.id]);
             if (start.frame)
                 this.Threaded.cache[this.store.cacheKey.background] = start.frame;
+            if (recording.end.terrain)
+                await this.Threaded.setCache(new TerrainCache(recording.end.terrain, this.store.cacheKey.terrain));
             this.Animations.blasts = new AnimationList();
             this.store.ammo.impacts = [];
             for (const state of recording.states) {
