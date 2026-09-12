@@ -744,9 +744,6 @@ export class Round extends Phase {
                 this.Camera.offsetPosition(-PAN_SENSITIVITY);
             }
         }
-        if (INPUT_MAP.isActive(keyboard, "debug+")) {
-            this.Menus.get("Ammo").open();
-        }
         if (flags.isTurn && !flags.turnEnded) {
             // [!] most pointer logic handled by callbacks
 
