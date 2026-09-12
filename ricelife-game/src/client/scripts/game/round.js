@@ -5,13 +5,14 @@ export default async function init (mainController, Discord, lobby, lobbyid) {
     const turnDataBuffer = await getTurnData(lobbyid, Discord);
     if (!turnDataBuffer) return;
     mainController.Events.raiseEvent("LOADING", {hide: false, message: `Loading`});
+    const isAlone = Object.keys(lobby.players).length === 1;
     const phase = await mainController.loadRoundPhase(lobby, turnDataBuffer, lobbyid, !lobby.turns);
     phase.Events.addEventListener("TURNENDED", async (changes) => {
         mainController.Events.raiseEvent("NOTIFY", {severity: 0, message: "Saving turn..."});
         const success = await updateLobby(changes, lobbyid, Discord.user.id);
         if (success) mainController.Events.raiseEvent("NOTIFY", {severity: 1, message: "Turn saved.", timeout: 2000});
         else mainController.Events.raiseEvent("NOTIFY", {severity: -2, message: "Failed to save turn!"});
-    }, { once: true });
+    }, { once: !isAlone });
     mainController.Events.raiseEvent("LOADING", {hide: true});
     return phase;
 }

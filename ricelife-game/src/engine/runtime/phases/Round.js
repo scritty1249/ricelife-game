@@ -443,7 +443,7 @@ export class Round extends Phase {
         if (this.store.ammo.current) {
             if (this.updateAmmoTick(delta)) {
                 console.info(`[${typeString(this)}]: Turn playback finished`);
-                if (!this.flags.replaying) this.endTurn();
+                if (!this.flags.replaying && this.Lobby.Players.size > 1) this.endTurn();
                 this.endRecording();
             }
         }
