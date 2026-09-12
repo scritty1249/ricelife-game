@@ -116,7 +116,7 @@ export class Round extends Phase {
                     await this.renderRecording(recording);
                     const { player, ammo } = await this.loadRecording(recording);
                     this.flags.replaying = true;
-                    this.playRecording(recording, ammo, player);
+                    setTimeout(() => this.playRecording(recording, ammo, player), 1500);
                 } else {
                     // setup first turn of the lobby
                     distributePlayers(this.Plane, Array.from(this.Players.values()), this.Random, 100);
