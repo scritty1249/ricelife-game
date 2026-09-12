@@ -18,7 +18,7 @@ export class AppCanvas extends Hashable {
         this.canvas = canvas;
         this.#window = window;
         this.#attachResizeListener();
-        this.onResize(false);
+        if (new.target === AppCanvas) this.onResize(false);
         this.#cursor = new Canvas2DContextCursor(this.canvas);
     }
 
