@@ -18,14 +18,13 @@ export async function load () {
         await Discord.onload;
         userid = Discord.user.id;
     } else {
-        console.warn("!!! Discord embedded environment not found. Application may fail unexpectedly");
+        console.warn("!!! Discord embedded environment not found");
+        notify("Unable to hook Discord environment. Application may fail unexpectedly.", -1, 7000);
         userid = "";
     }
     const main = new Main(userid, loading, notify);
     await main.onload;
     window._MAIN = main; // [!] for debug
-    if (!Discord?.isDiscordApp)
-        main.Events.raiseEvent("NOTIFY", {severity: -1, message: "Unable to hook Discord environment. Application may fail unexpectedly.", timeout: 7000});
 
     const URL_PARAMS = new URLSearchParams(window.location.search);
     const customID = URL_PARAMS.get("custom_id") || "";
