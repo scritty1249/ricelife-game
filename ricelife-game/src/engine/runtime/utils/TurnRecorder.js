@@ -191,10 +191,8 @@ export class TurnRecorder {
         for (const blast of blasts)
             TurnRecorder.#applyBlastDamage(blast, players);
     }
-    static #isAmmoDone (ammo, duration, wasFinished) {
-        const endEarly = !wasFinished && !ammo.isInsideDisplay; // time out early if theres no landing and it flew offscreen
-        const isFinished = wasFinished && (ammo.time >= duration - Number.EPSILON);
-        return endEarly || isFinished;
+    static #isAmmoDone (ammo, duration) {
+        return ammo.time >= duration - Number.EPSILON;
     }
     static #tickUpdateAmmo (ammo, players, terrain, intervals, delta) {
         const states = [];
@@ -251,8 +249,8 @@ export class TurnRecorder {
             const recording = new TurnRecording(activePlayerID, ammo.toJSON(), ammoMap);
             const intervals = Array.from(blastIntervals);
             recording.states.push(this.#startState);
-            const { finished, time } = ammoMap;
-            while (!TurnRecorder.#isAmmoDone(ammo, time, finished)) {
+            const { time } = ammoMap;
+            while (!TurnRecorder.#isAmmoDone(ammo, time)) {
                 const states = TurnRecorder.#tickUpdateAmmo(ammo, this.#actors, terrain, intervals, tickspeed);
                 if (states.length)
                     for (const state of states)

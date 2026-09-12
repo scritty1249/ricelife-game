@@ -134,7 +134,7 @@ self.onmessage = async (e) => {
                     : Polygon.fromObject(target, target.depth)
             );
             const result = AmmoMap.trace((await AMMO_TYPES.onready(ammoImport)), params, increment, limit, terrainCollider, colliders);
-            if (!result.finished) console.debug(`${CONSOLE_PREFIX}: Trace operation timed out in Transaction ${id}`);
+            if (!result.finished) console.debug(`${CONSOLE_PREFIX}: Trace operation timed out (${limit}s) in Transaction ${id}`);
             const map = result.encode();
             postResponse(id, map, map.buffers);
         } else if (type === "CUTTERRAIN") {
