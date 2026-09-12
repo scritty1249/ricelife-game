@@ -3,7 +3,7 @@ import { typeString } from "../utils/logging.js";
 import { PointerInterface } from "../input/interface/PointerInterface.js";
 import { ScreenButton } from "./item/ScreenButton.js";
 import { BoundingBox } from "../geometry/BoundingBox.js";
-import { AppCanvas } from "../controller/display/AppCanvas.js";
+import { MirrorCanvas } from "../controller/display/MirrorCanvas.js";
 
 export class Menu extends Loop {
     static STATES = {
@@ -21,7 +21,7 @@ export class Menu extends Loop {
     #resizeHash; // hash of screen bbox when onResize() was last called
     constructor (phase) {
         super(phase.Global.Audio.Context);
-        this.#Display = new AppCanvas(new OffscreenCanvas(1, 1), window);
+        this.#Display = new MirrorCanvas(this.Parent.Global.Display);
         this.#Parent = phase;
         this.Interface.Viewbox = this.Parent.Camera.Viewbox;
         this.#init();

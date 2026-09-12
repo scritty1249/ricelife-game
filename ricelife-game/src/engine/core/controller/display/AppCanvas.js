@@ -40,8 +40,8 @@ export class AppCanvas extends Hashable {
 
     onResize (doCallbacks) {
         const { pixelRatio } = this;
-        const width = this.canvas.clientWidth * pixelRatio;
-        const height = this.canvas.clientHeight * pixelRatio;
+        const width = this.domWidth * pixelRatio;
+        const height = this.domHeight * pixelRatio;
         if (equals(width, this.size.x) && equals(height, this.size.y)) return;
         this.#computeLayout(width, height);
         if (doCallbacks)
@@ -69,4 +69,6 @@ export class AppCanvas extends Hashable {
     get rawHash () { return this.#rawSizeHash }
     get pixelRatio () { return this.window.devicePixelRatio || 1 }
     get bufferLength () { return this.size.prod() } // total real pixel count
+    get domWidth () { return this.canvas.clientWidth || 1 }
+    get domHeight () { return this.canvas.clientHeight || 1 }
 }
