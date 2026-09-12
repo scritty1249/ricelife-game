@@ -265,36 +265,31 @@ export class Round extends Phase {
         const hideButton = new ToggleIconButton(new Icon(hideActiveImg.clone(false)), new Icon(hideInactiveImg.clone(false)));
         hideButton.userData.isHideButton = true;
 
-        const { Mover, Aimer, Puppet } = this.ClientPlayer;
-        const { Camera, store, flags } = this;
-        const { keyboard } = this.Global.Input;
+        const { Mover } = this.ClientPlayer;
+        const { store, flags } = this;
         moveLeftBtn.onclick = moveLeftBtn.onhold = () => {
-            if (flags.isTurn) {
+            if (this.isClientActionAllowed) {
                 Mover.move(-MOVE_SPEED);
                 this.trackClientPlayer();
             }
         };
         moveRightBtn.onclick = moveRightBtn.onhold = () => {
-            if (flags.isTurn) {
+            if (this.isClientActionAllowed) {
                 Mover.move(MOVE_SPEED);
                 this.trackClientPlayer();
             }
         };
         launchButton.onclick = () => {
-            if (flags.isTurn && store.ammo.current === undefined && store.ammo.selected)
-                this.launchAmmo()
-                    .catch((error) => {
-                        console.error(`[${typeString(this)}]: Projectile trace error`);
-                        throw error;
-                    });
+            if (this.isClientActionAllowed && this.isAmmoSelected)
+                this.launchAmmo();
         };
         selectButton.onclick = () => {
-            if (flags.isTurn)
+            if (this.isClientActionAllowed)
                 this.Menus.get("Ammo").open();
         };
         replayButton.onclick = () => {
             const { previous: recording } = store.recording;
-            if (flags.isTurn && recording?.isTurnRecording) {
+            if (!this.isPlaybackRunning && recording?.isTurnRecording) {
                 if (hideButton.active)
                     replayButton.hide = true;
                 else
@@ -445,6 +440,7 @@ export class Round extends Phase {
                 console.info(`[${typeString(this)}]: Turn playback finished`);
                 if (!this.flags.replaying && this.Lobby.Players.size > 1) this.endTurn();
                 this.endRecording();
+                setTimeout(() => this.setTurn(this.isClientTurn), 1000);
             }
         }
         if (this.flags.isTurn && !this.flags.turnEnded) {
@@ -471,7 +467,7 @@ export class Round extends Phase {
         }).finally(() => super.start());        
     }
     onanimate () {
-        const { ClientPlayer, Camera, Animations, Interface, Threaded, Players, flags, store } = this;
+        const { Camera, Animations, Interface, Players, flags, store } = this;
         const { cursor } = this.Global.Display;
         Camera.update();
         if (Camera.Viewbox.size.lengthSquared < store.MIN_SIZE.lengthSquared) {
@@ -738,7 +734,7 @@ export class Round extends Phase {
         );
     }
     handleInput () {
-        const { ClientPlayer, Global, flags, store } = this;
+        const { ClientPlayer, Global } = this;
         const { keyboard, pointer } = Global.Input;
         if (INPUT_MAP.isActive(keyboard, "esc")) {
             // pause menu logic
@@ -754,18 +750,14 @@ export class Round extends Phase {
                 this.Camera.offsetPosition(-PAN_SENSITIVITY);
             }
         }
-        if (flags.isTurn && !flags.turnEnded) {
+        if (this.isClientActionAllowed) {
             // [!] most pointer logic handled by callbacks
 
             // keyboard
             if (!INPUT_MAP.isActive(keyboard, "debug+")) {
-                if (store.ammo.current === undefined && store.ammo.selected) {
+                if (this.isAmmoSelected) {
                     if (INPUT_MAP.isActive(keyboard, "shootActive"))
-                        this.launchAmmo()
-                            .catch((error) => {
-                                console.error(`[${typeString(this)}]: Projectile trace error`);
-                                throw error;
-                            });
+                        this.launchAmmo();
                 }
                 ClientPlayer.Puppet.position.round(1/Global.constructor.SETTINGS.RESOLUTION);
                 if (INPUT_MAP.isActive(keyboard, "mv+")) {
@@ -851,7 +843,6 @@ export class Round extends Phase {
         else
             this.store.overlayItems.replayButton.userData.lastHideState = false;
         this.flags.replaying = false;
-        setTimeout(() => this.setTurn(true), 1000);
     }
     // expects recording to already be rendered
     async loadRecording (recording) {
@@ -955,18 +946,24 @@ export class Round extends Phase {
         return recording;
     }
     async launchAmmo () {
-        const { hideButton, replayButton } = this.store.overlayItems;
-        this.setTurn(false);
-        this.animate(true); // draw one last frame so the game doesn't look like it just froze
-        this.Global.Events.raiseEvent("LOADING", {hide: false, message: "loading turn"});
-        const recording = await this.createTurnRecording(this.#ClientPlayerID, this.store.ammo.selected);
-        this.Events.raiseEvent("TURNENDED", this.export(recording));
-        const { player, ammo } = await this.loadRecording(recording);
-        console.info(`[${typeString(this)}]: Turn recording loaded`);
-        this.Global.Events.raiseEvent("LOADING", {hide: true});
-        if (hideButton.active) replayButton.hide = true;
-        else replayButton.userData.lastHideState = true;
-        this.playRecording(recording, ammo, player);
+        try {
+            const { hideButton, replayButton } = this.store.overlayItems;
+            this.setTurn(false);
+            this.animate(true); // draw one last frame so the game doesn't look like it just froze
+            this.Global.Events.raiseEvent("LOADING", {hide: false, message: "loading turn"});
+            const recording = await this.createTurnRecording(this.#ClientPlayerID, this.store.ammo.selected);
+            this.Events.raiseEvent("TURNENDED", this.export(recording));
+            const { player, ammo } = await this.loadRecording(recording);
+            console.info(`[${typeString(this)}]: Turn recording loaded`);
+            this.Global.Events.raiseEvent("LOADING", {hide: true});
+            if (hideButton.active) replayButton.hide = true;
+            else replayButton.userData.lastHideState = true;
+            this.playRecording(recording, ammo, player);
+        } catch (err) {
+            console.error(`[${typeString(this)}]: Projectile trace error`);
+            this.Global.Events.raiseEvent("NOTIFY", {severity: -1, message: "An error occured while playing your turn. Relaunch the activity and try again.", timeout: -1});
+            throw err;
+        }
     }
     export (recording) {
         let players = {};
@@ -989,6 +986,10 @@ export class Round extends Phase {
     get Terrain () { return this.#Terrain }
     get Animations () { return this.#Animations }
     get Random () { return this.#Random }
+    get isPlaybackRunning () { return !!this.store.recording.current }
+    get isAmmoSelected () { return !this.store.ammo.current && !!this.store.ammo.selected }
+    get isClientTurn () { return this.Lobby.Players.size === 1 || (this.Lobby.ActivePlayerID === this.#ClientPlayerID && !this.flags.turnEnded) }
+    get isClientActionAllowed () { return !this.isPlaybackRunning && this.isClientTurn }
 }
 
 function createMuzzleFlashAnimation (playerActor, spritesheet, width) {
