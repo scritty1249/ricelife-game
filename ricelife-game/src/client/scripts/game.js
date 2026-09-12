@@ -86,5 +86,6 @@ async function loadLobby (lobbyid, mainController, Discord) {
         }
     } catch (err) {
         console.error(err);
+        mainController.Events.raiseEvent("NOTIFY", {severity: -2, message: `Failed to load lobby. ID: ${lobbyid}`, timeout: 5000});
     }
 }
