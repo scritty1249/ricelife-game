@@ -51,13 +51,13 @@ export class Poly extends Shape {
         polygon.subsection(resolution);
         return polygon;
     }
-    decode () {
-        const decoded = super.decode();
+    encode () {
+        const encoded = super.encode();
         const data = this.polygon.Float32(this.polygon.depth);
-        for (const buffer of data.buffers) decoded.buffers.push(buffer);
+        for (const buffer of data.buffers) encoded.buffers.push(buffer);
         delete data.buffers;
-        decoded.data.blob = data;
-        return decoded;
+        encoded.data.blob = data;
+        return encoded;
     }
     draw (cursor) {
         this.polygon.draw(cursor);

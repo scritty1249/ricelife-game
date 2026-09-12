@@ -2,6 +2,7 @@ import { Shot } from "./Shot.js";
 import { typeString } from "../utils/logging.js";
 import { Identifiable } from "../utils/tracking/Identifiable.js";
 import { BoundingBox } from "../geometry/BoundingBox.js";
+import { AmmoLegend } from "./AmmoLegend.js";
 
 // Multiple shots at once
 export class Multishot extends Identifiable {
@@ -65,6 +66,7 @@ export class Multishot extends Identifiable {
         const stage = new Shot(projectile, delay, this.blasts, this.colliders, this.sfxCallback);
         stage.blastTimeOffset = this.blastTimeOffset;
         stage.launchCallback = this.launchCallback;
+        stage.collisionCallback = this.collisionCallback;
         stage.displayBoundingBox = this.displayBoundingBox;
         this.#shots.push(stage);
         return stage;
@@ -72,28 +74,18 @@ export class Multishot extends Identifiable {
     // creates a fresh instance with the same ShotStages, callbacks, and delay. References and blast time offset are not copied.
     clone (deep = false, blastsReference = [], collisionsReference = [], sfxCallbackReference = {}) {
         const multishot = new Multishot(this.delay, blastsReference, collisionsReference, sfxCallbackReference);
+        multishot.blastTimeOffset = this.blastTimeOffset;
+        multishot.launchCallback = this.launchCallback;
+        multishot.collisionCallback = this.collisionCallback;
+        multishot.displayBoundingBox = this.displayBoundingBox;
         for (const stage of this.shots) {
             const newStage = multishot.newStage(stage.shot.clone(deep), stage.delay);
+            newStage.blastTimeOffset = stage.blastTimeOffset;
+            newStage.launchCallback = stage.launchCallback;
             newStage.collisionCallback = stage.collisionCallback;
+            newStage.displayBoundingBox = stage.displayBoundingBox;
         }
         return multishot;
-    }
-    getLegend (encode = true) {
-        return this.shots
-            .map((stage) => stage.getLegend(encode))
-            .map(encode
-                ? ({duration, origin, collisions}) => [duration, origin, collisions]
-                : (legend) => legend);
-    }
-    setLegend (legend) {
-        try {
-            const shots = this.shots;
-            for (let i = 0; i < this.size; i++)
-                shots[i].setLegend(legend[i]);
-        } catch (error) {
-            console.error(`[${typeString(this)}]: Error parsing legend array`);
-            throw error;
-        }
     }
     getBoundingBox (merge = true, includeFinished = true, includeFx = false) {
         const bboxes = (includeFinished ? this.shots : this.shots.filter(({isFinished}) => !isFinished))
@@ -105,6 +97,16 @@ export class Multishot extends Identifiable {
             bbox.add(bb, true);
         return bbox;
     }
+    traceLegend (legend) {
+        try {
+            const shots = this.shots;
+            for (let i = 0; i < this.size; i++)
+                shots[i].traceLegend(legend.shots[i]);
+        } catch (error) {
+            console.error(`[${typeString(this)}]: Error parsing legend`);
+            throw error;
+        }
+    }
 
     get isMultishot () { return true }
     get size () { return this.#shots.length }
@@ -115,6 +117,7 @@ export class Multishot extends Identifiable {
     get isInsideDisplay () { return this.shots.some(({isInsideDisplay}) => isInsideDisplay) } // [!] will return shot as in-bounds if a display bbox is not set
     get delay () { return this.#delayTime }
     get shots () { return this.#shots }
+    get legend () { return new (AmmoLegend.Multishot)(this.shots.map(({legend}) => legend)) }
     get onend () { return this.#finishedPromise.promise }
     get time () { return this.#time }
     set time (value) { return (this.#time = value) }
@@ -126,6 +129,12 @@ export class Multishot extends Identifiable {
         for (const stage of this.shots)
             stage.launchCallback = callbackFn;
         return (this.#launchCallback = callbackFn);
+    }
+    get collisionCallback () { return this.#collisionCallback }
+    set collisionCallback (callbackFn) {
+        for (const stage of this.shots)
+            stage.collisionCallback = callbackFn;
+        return (this.#collisionCallback = callbackFn);
     }
     get displayBoundingBox () { return this.#displayBoundingBox }
     set displayBoundingBox (bbox) {

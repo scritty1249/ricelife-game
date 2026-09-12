@@ -35,3 +35,28 @@ export async function joinLobby (lobbyid, teamid, profile) {
     }
     return false;
 }
+
+export async function stream (url) {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error();
+    const reader = response.body.getReader();
+    const chunks = [];
+    let length = 0;
+
+    while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value); // Uint8Array view
+        length += value.length;
+    }
+
+    const buffer = new ArrayBuffer(length);
+    const view = new Uint8Array(buffer);
+
+    let offset = 0;
+    for (const chunk of chunks) {
+        view.set(chunk, offset);
+        offset += chunk.length;
+    }
+    return buffer;
+}

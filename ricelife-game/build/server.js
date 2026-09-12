@@ -2,10 +2,7 @@ import { build } from "esbuild";
 import { readdir, writeFile } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
-import { resolveAbsolutePathsPluginFactory } from "./utils.js";
-
-const isDev = process.argv.includes("--dev");
-const GIT_COMMIT_SHA = process.env.VERCEL_GIT_COMMIT_SHA || "?".repeat(40);
+import { DEV_FLAG, resolveAbsolutePathsPluginFactory } from "./utils.js";
 
 const libPath = path.normalize("./src/lib");
 const outDir = path.normalize("./dist/lib");
@@ -38,7 +35,7 @@ if (existsSync(libPath)) {
             await build({
                 entryPoints: [filePath],
                 bundle: true,
-                minify: !isDev, // shake off unused bits of imported game engine
+                minify: !DEV_FLAG, // shake off unused bits of imported game engine
                 format: "esm",
                 platform: "node", // target env
                 packages: "external", // don't bundle in node/npm stuff

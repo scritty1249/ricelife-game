@@ -1,4 +1,3 @@
-import { unpackPolygon } from "/src/client/scripts/api/unpack.js";
 import { Terrain } from "/src/engine/core/geometry/Terrain.js";
 import { Polygon } from "/src/engine/core/geometry/Polygon.js";
 import { Canvas2DContextCursor } from "/src/engine/core/controller/display/Canvas2DContextCursor.js";
@@ -12,8 +11,7 @@ document.getElementById("upload").addEventListener("change", async function (eve
     if (!file) return;
     const filename = file.name.substring(0, file.name.lastIndexOf("."));
     const buffer = await file.arrayBuffer();
-    const decoded = unpackPolygon(buffer);
-    const terrain = new Terrain(Polygon.fromObject(decoded));
+    const terrain = new Terrain(Polygon.unpack(buffer));
     const plane = terrain.polygon.getBoundingBox();
     cursor.planeSize.x = canvas.width = plane.size.x;
     cursor.planeSize.y = canvas.height = plane.size.y;

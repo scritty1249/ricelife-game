@@ -47,16 +47,25 @@ export class AmmoType extends Ammo {
 
     clone (deep = false) {
         const other = this.constructor.decode(...this.encode());
+        other.decodeTransferData(this.encodeTransferData());
         for (const poly of this.colliders)
             other.colliders.push(poly.clone(deep));
         if (this.launchCallback)
             other.launchCallback = this.launchCallback;
-        if (this.displayBoundingBox)
+        if (this.displayBoundingBox?.isBoundingBox)
             other.displayBoundingBox = deep ? this.displayBoundingBox.clone(true) : this.displayBoundingBox;
         if (!this.isTracing)
-            other.setLegend(this.getLegend());
+            other.traceLegend(this.legend);
         other.applyDestruction = this.applyDestruction;
         return other;
+    }
+
+    toJSON () {
+        return {
+            import: this.constructor.IMPORT || "undefined",
+            params: this.encode(),
+            transfer: this.encodeTransferData()
+        }
     }
 
     get isAmmoType () { return true }

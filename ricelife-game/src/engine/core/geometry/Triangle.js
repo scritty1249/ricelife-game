@@ -16,9 +16,9 @@ export class Triangle extends Shape {
         const { blob, globalTransform } = payload;
         const { origin, right, left } = blob;
         const triangle = new Triangle();
-        triangle.blob.origin.apply(origin.x, origin.y);
-        triangle.blob.right.apply(right.x, right.y);
-        triangle.blob.left.apply(left.x, left.y);
+        triangle.blob.origin.apply(Vector.fromObject(origin));
+        triangle.blob.right.apply(Vector.fromObject(right));
+        triangle.blob.left.apply(Vector.fromObject(left));
         triangle.globalTransform.apply(Transform.fromObject(globalTransform));
         return triangle;
     }
@@ -41,7 +41,7 @@ export class Triangle extends Shape {
             .add(push, true);
     }
     #getBottomCenterXY () { // more efficient - avoid allocation new Vector instances for every time we need these in-between calculations
-        const { origin, right, left } = this.blob;
+        const { right, left } = this.blob;
         return [
             (left.x + right.x) / 2,
             (left.y + right.y) / 2
@@ -140,6 +140,13 @@ export class Triangle extends Shape {
         }
         this.#lastBboxHash = hash;
         return bbox;
+    }
+    blobJSON() {
+        return {
+            origin: this.blob.origin.toJSON(),
+            left: this.blob.left.toJSON(),
+            right: this.blob.right.toJSON()
+        };
     }
 
     get isTriangle () { return true }

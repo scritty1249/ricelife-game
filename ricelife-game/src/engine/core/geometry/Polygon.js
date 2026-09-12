@@ -4,6 +4,8 @@ import { Vector } from "../math/Vector.js";
 import { typeString } from "../utils/logging.js";
 import { Hashable, FNV1a } from "../math/Hash.js";
 import { generateUUID } from "../utils/tracking/UUID.js";
+import { mergeFloat32Arrays } from "../utils/collect.js";
+import { BlobPacker } from "../utils/BlobPacker.js";
 
 export class Polygon extends Hashable { // points should be ordered clockwise (in positioning)
     static fromObject (data, depth) {
@@ -16,6 +18,13 @@ export class Polygon extends Hashable { // points should be ordered clockwise (i
                 polygon.holes.push(poly);
             }
         return polygon;
+    }
+    static unpack (data) {
+        const viewIterator = BlobPacker.unpack(data);
+        const metadata = BlobPacker.consumeAsObject(viewIterator);
+        const paths = viewIterator.next().value;
+        const polygonObject = decodePolygon(metadata, paths);
+        return Polygon.fromObject(polygonObject);
     }
     #id = generateUUID();
     #path;
@@ -414,6 +423,14 @@ export class Polygon extends Hashable { // points should be ordered clockwise (i
         poly.userData = deep ? structuredClone(this.userData) : this.userData;
         return poly;
     }
+    // packs data into Blob
+    pack () {
+        const packer = new BlobPacker();
+        const { metadata, path } = encodePolygon(this, 0);
+        packer.push(metadata);
+        packer.push(path);
+        return packer.pack();
+    }
     eq (other) { return other?.isPolygon && other?.id === this?.id }
 
     get isPolygon () { return true }
@@ -446,4 +463,39 @@ export class Polygon extends Hashable { // points should be ordered clockwise (i
         return this.#edgeSegmentPoints;
     }
     get id () { return this.#id }
+}
+
+function encodePolygon (polygon, offset) {
+    const path = polygon.path.Float32();
+    const metadata = {
+        o: offset || 0,
+        p: path.byteLength,
+        h: []
+    }
+    let length = metadata.p;
+    const paths = [path];
+    for (const hole of polygon.holes) {
+        const o = metadata.o + length;
+        const { path: p, metadata: m } = encodePolygon(hole, o);
+        metadata.h.push(m);
+        paths.push(p);
+        length += m.p;
+    }
+    return {
+        metadata,
+        path: mergeFloat32Arrays(paths)
+    };
+}
+
+function decodePolygon (metadata, view) {
+    const bytes = Float32Array.BYTES_PER_ELEMENT; // 4 bytes
+    const elements = (metadata.p || 0) / bytes;
+    const path = new Float32Array(elements);
+    const byteStart = metadata.o || 0;
+    for (let i = 0; i < elements; i++) {
+        path[i] = view.getFloat32(byteStart + (i * bytes), true);
+    }
+    const holes = (metadata.h || [])
+        .map((meta) => decodePolygon(meta, view));
+    return { path, holes };
 }

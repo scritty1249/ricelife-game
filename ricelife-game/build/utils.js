@@ -1,5 +1,9 @@
 import path from "path";
 
+export const DEV_FLAG = process.argv.includes("--dev") || process.env.VERCEL_GIT_COMMIT_REF !== "main";
+
+export const GIT_COMMIT_SHA = process.env.VERCEL_GIT_COMMIT_SHA || "?".repeat(40);
+
 export function resolveAbsolutePathsPluginFactory (...externalPrefixes) {
     const root = path.resolve(process.cwd(), "./src/");
     return {

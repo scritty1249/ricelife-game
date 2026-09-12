@@ -24,6 +24,7 @@ export async function load () {
     const main = new Main(userid, loading);
     await main.onload;
     window._MAIN = main; // [!] for debug
+    main.flags.DEBUG = true;
 
     const URL_PARAMS = new URLSearchParams(window.location.search);
     const customID = URL_PARAMS.get("custom_id") || "";

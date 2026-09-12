@@ -1,10 +1,7 @@
 import { build } from "esbuild";
 import { existsSync, writeFileSync, readFileSync } from "fs";
 import path from "path";
-import { resolveAbsolutePathsPluginFactory, resolveSourcePathsPluginFactory } from "./utils.js";
-
-const isDev = process.argv.includes("--dev");
-const GIT_COMMIT_SHA = process.env.VERCEL_GIT_COMMIT_SHA || "?".repeat(40);
+import { GIT_COMMIT_SHA, DEV_FLAG, resolveAbsolutePathsPluginFactory, resolveSourcePathsPluginFactory } from "./utils.js";
 
 const outputPath = path.normalize("./client");
 const webWorkerSource = path.normalize("./src/engine/workers/Worker.js");
@@ -36,7 +33,7 @@ const result = await build({
     entryPoints,
     bundle: true,
     write: true,
-    minify: !isDev,
+    minify: !DEV_FLAG,
     format: "esm",
     splitting: true,
     outdir: outputPath,

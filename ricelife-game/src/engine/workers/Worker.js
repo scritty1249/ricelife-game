@@ -1,6 +1,6 @@
 import { Polygon } from "../core/geometry/Polygon.js";
 import { Terrain } from "../core/geometry/Terrain.js";
-import { traceAmmo } from "../core/projectile/utils.js";
+import { AmmoMap } from "../core/projectile/AmmoMap.js";
 import { Cache, TerrainCache } from "./pool/Cache.js";
 import { AmmoPool } from "../shared/AmmoPool.js";
 
@@ -133,9 +133,10 @@ self.onmessage = async (e) => {
                     ? getCache(target).polygon
                     : Polygon.fromObject(target, target.depth)
             );
-            const result = traceAmmo((await AMMO_TYPES.onready(ammoImport)), params, increment, limit, terrainCollider, colliders);
+            const result = AmmoMap.trace((await AMMO_TYPES.onready(ammoImport)), params, increment, limit, terrainCollider, colliders);
             if (!result.finished) console.debug(`${CONSOLE_PREFIX}: Trace operation timed out in Transaction ${id}`);
-            postResponse(id, result);
+            const map = result.encode();
+            postResponse(id, map, map.buffers);
         } else if (type === "CUTTERRAIN") {
             /* Payload expected:
              * {

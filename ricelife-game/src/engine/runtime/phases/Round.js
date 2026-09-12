@@ -4,7 +4,7 @@ import {
     ShapeAnimation,
     Color,
     equals,
-    Camera,
+    Terrain,
     drawBlastAnimation,
     IconButton,
     Phase,
@@ -15,13 +15,16 @@ import {
     ToggleIconButton,
     Icon,
     Random,
+    Polygon,
+    AmmoMap
 } from "../../core/Core.js"
 
 import { WorkerPool, PoolManager, TerrainCache, CanvasCache } from "../../workers/Core.js";
 import { AmmoSelect } from "../menus/AmmoSelect.js";
-import { AmmoTypeDetails } from "../selections/AmmoTypeDetails.js";
+import { AmmoTypeDetails } from "../utils/AmmoTypeDetails.js";
+import { TurnRecorder } from "../utils/TurnRecorder.js";
 import { HitpointMap } from "../../hitpoints/Core.js";
-import { initTerrain, initLobby, WEB_WORKER_PATH } from "../utils.js";
+import { initLobby, WEB_WORKER_PATH } from "../utils.js";
 import { AmmoPool } from "../../shared/AmmoPool.js";
 
 import { drawCircle, drawLine, drawMarker, drawText, generateBitmapDownloadURL } from "../debug/draw.js"; // [!] all for debug overlay
@@ -86,12 +89,18 @@ export class Round extends Phase {
     #Animations = {
         Main: new AnimationList()
     };
-    constructor (mainController, playerID, lobbyData, terrainData, lobbyid) {
+    constructor (mainController, playerID, lobbyData, turnData, lobbyid, firstTurn = false) {
         super(mainController);
         this.#LobbyID = lobbyid;
         this.#Random = new Random(Random.seedString(lobbyid));
         this.#Lobby = initLobby(lobbyData);
-        this.#Terrain = initTerrain(terrainData);
+        let recording;
+        if (firstTurn) {
+            this.#Terrain = new Terrain(Polygon.unpack(turnData));
+        } else {
+            recording = TurnRecorder.process(turnData).recording;
+            this.#Terrain = recording.start.terrain.clone(true);
+        }
         // [!] testing
         this.Terrain.apply(undefined, {
             edgeColor: new Color("#00e8f0"),
@@ -101,13 +110,24 @@ export class Round extends Phase {
 
         this.#load(playerID)
             .then(() => this.#init())
+            .then(async () => {
+                if (recording) {
+                    // play previous turn animation
+                    await this.renderRecording(recording);
+                    const { player, ammo } = await this.loadRecording(recording);
+                    this.flags.replaying = true;
+                    this.playRecording(recording, ammo, player);
+                } else {
+                    // setup first turn of the lobby
+                    distributePlayers(this.Plane, Array.from(this.Players.values()), this.Random, 100);
+                }
+            })
             .then(() => this.resolveLoad())
             .catch((error) => this.rejectLoad(error));
     }
 
     #init () {
         this.store.MIN_SIZE = this.Global.Display.size.div(5);
-        this.store.prerender = Promise.resolve();
         this.store.ammo = {
             tracer: undefined,
             current: undefined,
@@ -121,8 +141,13 @@ export class Round extends Phase {
                 collisions: [],
             }            
         };
-        this.store.turn = {}; // save turn info to be replayed or exported
+        // save to be replayed or exported
+        this.store.recording = {
+            current: undefined,
+            previous: undefined
+        };
         this.flags.turnEnded = false;
+        this.flags.replaying = false;
 
         this.Camera.Viewbox.bounding.top = false;
         this.#setupSFX();
@@ -137,9 +162,6 @@ export class Round extends Phase {
             else
                 this.store.overlayItems.launchButton.userData.lastHideState = false;
         })
-
-        if (!this.Lobby.allPlayersSpawned)
-            distributePlayers(this.Plane, Array.from(this.Players.values()), this.Random, 100);
     }
     async #load (playerID) {
         const waitPromises = [
@@ -271,12 +293,15 @@ export class Round extends Phase {
                 this.Menus.get("Ammo").open();
         };
         replayButton.onclick = () => {
-            if (flags.isTurn && store.turn?.isRoundTurn) {
+            const { previous: recording } = store.recording;
+            if (flags.isTurn && recording?.isTurnRecording) {
                 if (hideButton.active)
                     replayButton.hide = true;
                 else
                     replayButton.userData.lastHideState = true;
-                this.animateTurn(store.turn);
+                flags.replaying = true;
+                this.loadRecording(recording)
+                    .then(({player, ammo}) => this.playRecording(recording, ammo, player));
             }
         };
         hideButton.onclick = () => {
@@ -339,11 +364,10 @@ export class Round extends Phase {
     }
     #setAmmo (ammoType, map) {
         const { ammo } = this.store;
-        ammoType.setLegend(map.legend);
         ammo.current = ammoType;
         ammo.map = map;
         ammo.tracer = ammoType.getTracer();
-        ammo.debug.legend = ammoType.getLegend(false);
+        ammo.debug.legend = map.legend; // [!] redundant
         ammo.debug.blasts = Array.from(map.blasts);
         ammo.debug.collisions = [];
         for (const multishotLegend of ammo.debug.legend.stages)
@@ -379,91 +403,48 @@ export class Round extends Phase {
             self.Audio.Player.add(self.AssetPool.get("fire").Instance().play(), true);
         }
     }
-    #preloadImpact (blastInterval) {
-        const { AssetPool, Threaded } = this;
+    #onPlayerDeath (player) {
+        const deathExplosion = createPlayerDeathAnimation(
+            player,
+            this.AssetPool.get("explosion").clone()
+        );
+        this.Animations.Main.push(deathExplosion);
+        deathExplosion.play();
+    }
+    #createBlastImpact (roundState) {
+        const { AssetPool } = this;
         const { Context, Layer } = this.Audio;
-        const { background } = this.store.cacheKey;
         // bundle callbacks with data to call later
         const impact = new BlastImpact(
             Context,
             Layer.blast,
             AssetPool.get("blast"),
-            blastInterval,
+            roundState.interval,
             createBlastAnimation
         );
         impact.ontrigger.then(({
-            frame, terrain, bboxes, blasts, animations, combinedbbox
+            animations, frame, combinedbbox
         }) => {
-            Threaded.cache[background] = frame;
+            if (frame)
+                this.Threaded.cache[this.store.cacheKey.background] = frame;
             animations.play();
-            this.updateTerrain(terrain, true, bboxes);
-            for (const blast of blasts)
-                this.#applyBlastDamage(blast, this.ClientPlayer);
+            if (roundState.terrain?.isTerrain)
+                this.updateTerrain(roundState.terrain);
+            for (const deadPlayerID of roundState.applyActors(this.Players)) {
+                this.#onPlayerDeath(this.Players.get(deadPlayerID));
+            }
             if (this.Camera.targets)
                 this.Camera.track(combinedbbox);
         });
         return impact;
     }
-    async #preloadTurn (ammo, map) {
-        const { Threaded, Plane, store } = this;
-        const { blasts } = map; // should be sorted
-        store.prerender = blasts?.length
-            ? Threaded.renderBlastIntervals(this.store.cacheKey.terrain, Plane.size, ...blasts)
-            : Promise.resolve([]);
-        // save turn info
-        // if (store.turn?.isRoundTurn) store.turn.close(); // [!] TODO: GC these
-        store.turn = new RoundTurn(await store.prerender, this.Players.values(), this.Terrain.clone(true), ammo, Threaded.cache[store.cacheKey.background], map);
-    }
-    #loadBlastIntervals (intervals) {
-        const { Animations, store } = this;
-        Animations.blasts = new AnimationList();
-        store.ammo.impacts = [];
-        for (const interval of intervals) {
-            const impact = this.#preloadImpact(interval)
-            Animations.blasts.push(...impact.Animations);
-            store.ammo.impacts.push(impact);
-        }
-        Animations.Main.push(...Animations.blasts);
-    }
-    #applyBlastDamage (blast, sourcePlayer) {
-        for (const player of this.Players.values()) {
-            if (!blast.damage || !player.Puppet.getHitbox().isIntersecting(blast.shape)) continue;
-            player.HitTotal.damage(blast.damage);
-            const targetName = player.Metadata.Profile.name;
-            const sourceName = sourcePlayer?.Metadata?.Profile?.name || "unknown";
-            console.info(`[${typeString(this)}]: Registered ${blast.damage} damage on ${targetName} from ${sourceName}`);
-            if (player.isDead) {
-                const deathExplosion = createPlayerDeathAnimation(
-                    player,
-                    this.AssetPool.get("explosion").clone()
-                );
-                this.Animations.Main.push(deathExplosion);
-                deathExplosion.play();
-            }
-        }
-    }
 
     async ontick (delta) {
-        const { Animations, Global, store } = this;
-        if (store.ammo.map?.intersect && (store.prerender?.isWorkerJob && !store.prerender.fulfilled)) {
-            // wait for loading to finish before updating
-        } else {
-            // game update
-            if (store.ammo.current) {
-                if (this.updateAmmoTick(delta)) {
-                    this.#unsetAmmo();
-                    console.info(`[${typeString(this)}]: Shot playback finished`);
-                    store.prerender = Promise.resolve([]);
-                    // unlock player
-                    if (this.store.overlayItems.hideButton.active)
-                        this.store.overlayItems.replayButton.hide = false;
-                    else
-                        this.store.overlayItems.replayButton.userData.lastHideState = false;
-                    if (!this.flags.turnEnded) {
-                        this.endTurn();
-                    }
-                    setTimeout(() => this.setTurn(true), 1000);
-                }
+        if (this.store.ammo.current) {
+            if (this.updateAmmoTick(delta)) {
+                console.info(`[${typeString(this)}]: Turn playback finished`);
+                if (!this.flags.replaying) this.endTurn();
+                this.endRecording();
             }
         }
         if (this.flags.isTurn && !this.flags.turnEnded) {
@@ -629,11 +610,11 @@ export class Round extends Phase {
                     .toString();
                 const blue = new Color(0, 0, 255, .5)
                     .toString();
-                store.ammo.debug.collisions.forEach(({position, point, resultVelocity, velocity, normal}) => {
+                store.ammo.debug.collisions.forEach(({position, point, rebound, velocity, normal}) => {
                     drawCircle(cursor, position, 3, blue); // shot position during collision
                     drawLine(cursor, point, point.add(normal.normalize().mul(_lineLength)), 2, green); // normal
                     drawLine(cursor, point, point.add(velocity.normalize().mul(_lineLength)), 2, blue); // direction (incoming)
-                    if (resultVelocity.length) drawLine(cursor, position, position.add(resultVelocity.normalize().mul(_lineLength)), 2, red); // reflection
+                    if (rebound.length) drawLine(cursor, position, position.add(rebound.normalize().mul(_lineLength)), 2, red); // reflection
                 });
             }
             // draw blasts
@@ -684,7 +665,6 @@ export class Round extends Phase {
             if (impact.triggered) continue;
             if (impact.time <= ammo.current.time) impact.play();
         }
-        const prevBbox = ammo.current.getBoundingBox().clone();
         // update projectile
         ammo.current.update(delta / 1000);
         // are we done with projectile?
@@ -748,7 +728,7 @@ export class Round extends Phase {
         );
     }
     handleInput () {
-        const { ClientPlayer, Interface, Global, flags, store } = this;
+        const { ClientPlayer, Global, flags, store } = this;
         const { keyboard, pointer } = Global.Input;
         if (INPUT_MAP.isActive(keyboard, "esc")) {
             // pause menu logic
@@ -763,9 +743,6 @@ export class Round extends Phase {
                 this.Camera.untrackAll();
                 this.Camera.offsetPosition(-PAN_SENSITIVITY);
             }
-        }
-        if (INPUT_MAP.isActive(keyboard, "debug+")) {
-            this.Menus.get("Ammo").open();
         }
         if (flags.isTurn && !flags.turnEnded) {
             // [!] most pointer logic handled by callbacks
@@ -814,31 +791,9 @@ export class Round extends Phase {
             }
         }
     }
-    updateTerrain (terrain, updatePlayers = true, changedBBoxes = []) {
+    updateTerrain (terrain) {
         if (this.Terrain.hash !== terrain.hash)
-            this.Terrain.apply(terrain);
-        if (updatePlayers) {
-            // if bboxes of changed areas are provided, only update player positions that lie within them.
-            //  otherwise, update all player positions
-            const players = changedBBoxes?.length
-                ? this.Players.values().filter(({Puppet}) => {
-                    const { position } = Puppet;
-                    return changedBBoxes.some((bbox) => bbox.isIntersecting(position));
-                }) : this.Players.values();
-            for (const { Puppet, Mover } of players) {
-                // update positioning - account for "falling"
-                Puppet.position.round(2);
-                Mover.apply(Mover.position.x, Mover.position.y);
-            }
-        }
-    }
-    createAmmo (playerActor, typeKey) {
-        const { AmmoPool, Terrain } = this;
-        const type = AmmoPool.get(typeKey);
-        const ammo = new type(...playerActor.getLaunchParameters(Terrain));
-        ammo.colliders.push(Terrain.polygon);
-        ammo.launchCallback = this.#createLaunchCallback();
-        return ammo;
+            this.Terrain.apply(terrain.polygon);
     }
     createPlayerColliders () {
         const colliders = [];
@@ -848,24 +803,6 @@ export class Round extends Phase {
             colliders.push(player.getCollider(player.id === this.#ClientPlayerID, player.Metadata.team === selfTeam));
         }
         return colliders;
-    }
-    animateTurn (turn) {
-        this.setTurn(false);
-        if (this.Terrain.hash !== turn.terrain(false).hash)
-            this.updateTerrain(turn.terrain(true), false);
-        for (const player of this.Players.values())
-            turn.applyPlayerState(player);
-        this.Threaded.cache[this.store.cacheKey.background] = turn.startFrame();
-        this.loadTurn(turn.ammo(true), turn.intervals(true), turn.map());
-    }
-    loadTurn (ammo, intervals, map) {
-        this.setTurn(false);
-        if (intervals.length)
-            this.#loadBlastIntervals(intervals);
-        console.info(`[${typeString(this)}]: Playing shot animation`);
-        this.#setAmmo(ammo, map);
-        ammo.displayBoundingBox = Camera.Viewbox;
-        this.Camera.track(ammo.getBoundingBox(true, false, true), this.ClientPlayer.Puppet.getBoundingBox());
     }
     setTurn (bool) {
         this.Camera.unlock();
@@ -891,47 +828,146 @@ export class Round extends Phase {
             = overlayItems.launchButton.hide
             = overlayItems.selectButton.hide
             = true;
-
-        const changes = this.exportChanges();
-        this.Events.raiseEvent("TURNENDED", changes);
     }
-    async launchAmmo () {
-        const { ClientPlayer, AmmoPool, Global, store, flags } = this;
+    endRecording () {
+        const { recording } = this.store;
+        if (recording.current?.isTurnRecording) {
+            recording.previous = recording.current;
+            recording.current = undefined;
+        }
+        this.#unsetAmmo();
+        if (this.store.overlayItems.hideButton.active)
+            this.store.overlayItems.replayButton.hide = false;
+        else
+            this.store.overlayItems.replayButton.userData.lastHideState = false;
+        this.flags.replaying = false;
+        setTimeout(() => this.setTurn(true), 1000);
+    }
+    // expects recording to already be rendered
+    async loadRecording (recording) {
         this.setTurn(false);
-        this.animate(true); // draw one last frame so the game doesn't look like it just froze
-        Global.Events.raiseEvent("LOADING", {hide: false, message: "loading turn"});
-        const ammo = this.createAmmo(ClientPlayer, store.ammo.selected);
-        const totalStart = performance.now();
+        if (recording.length) {
+            const { start } = recording;
+            if (this.Terrain.hash !== start.terrain.hash)
+                this.updateTerrain(start.terrain, false);
+            for (const player of this.Players.values())
+                if (player.id in start.actors)
+                    player.setState(start.actors[player.id]);
+            if (start.frame)
+                this.Threaded.cache[this.store.cacheKey.background] = start.frame;
+            if (recording.end.terrain)
+                await this.Threaded.setCache(new TerrainCache(recording.end.terrain, this.store.cacheKey.terrain));
+            this.Animations.blasts = new AnimationList();
+            this.store.ammo.impacts = [];
+            for (const state of recording.states) {
+                const impact = this.#createBlastImpact(state);
+                this.Animations.blasts.push(...impact.Animations);
+                this.store.ammo.impacts.push(impact);
+            }
+            this.Animations.Main.push(...this.Animations.blasts);
+        }
+        const type = await this.loadAmmoType(recording.ammoJson.import);
+        const ammo = type.decode(...recording.ammoJson.params);
+        ammo.decodeTransferData(recording.ammoJson.transfer);
+        ammo.traceLegend(recording.ammoMap.legend);
+        const activePlayer = this.Players.get(recording.ActivePlayerID);
+        return {
+            player: activePlayer,
+            ammo: ammo
+        };
+    }
+    playRecording (recording, ammo, activePlayer) {
+        ammo.displayBoundingBox = this.Camera.Viewbox;
+        this.#setAmmo(ammo, recording.ammoMap);
+        this.store.recording.current = recording;
+        this.Camera.track(ammo.getBoundingBox(true, false, true))
+        if (activePlayer?.isActor) this.Camera.track(activePlayer.Puppet.getBoundingBox());
+        console.info(`[${typeString(this)}]: Playing turn recording`);
+    }
+    async renderRecording (recording) {
+        const renderJobs = [];
+        const { width, height } = this.Plane;
+        for (const interval of recording.intervals) {
+            if (interval.terrain?.isTerrain && !interval.frame) {
+                interval.terrain.applyOptions(this.Terrain);
+                renderJobs.push(this.Threaded.drawNewTerrain(interval.terrain, width, height)
+                    .then((frame) => interval.frame = frame));
+            }
+        }
+        await Promise.all(renderJobs);
+    }
+    async createAmmo (playerActor, ammoType) {
+        const type = await this.loadAmmoType(ammoType);
+        const ammo = new type(...playerActor.getLaunchParameters(this.Terrain));
+        ammo.colliders.push(this.Terrain.polygon);
+        ammo.launchCallback = this.#createLaunchCallback();
+        return ammo;
+    }
+    async loadAmmoType (ammoType) {
+        if (!this.AmmoPool.has(ammoType))
+            this.AmmoPool.add(ammoType);
+        return await this.AmmoPool.onready(ammoType);
+    }
+    async createTurnRecording (activePlayerID, ammoType) {
+        const { DEBUG } = this.Global.flags;
+        const TICKSPEED = this.Global.TickInterval.interval;
+        const ammo = await this.createAmmo(this.Players.get(activePlayerID), ammoType);
         let waitStart = performance.now();
-        console.info(`[${typeString(this)}]: Tracing shot (${store.ammo.selected})`);
-        Global.Events.raiseEvent("LOADING", {hide: false, message: "loading turn (tracing)"});
+        console.info(`[${typeString(this)}]: Tracing shot (${ammoType})`);
+        this.Global.Events.raiseEvent("LOADING", {hide: false, message: "loading turn (tracing)"});
         const map = await this.Threaded.traceAmmo(
             ammo,
-            Global.TickInterval.interval / 1000,
+            TICKSPEED / 1000,
             SHOT_TRACE_LIMIT,
             this.store.cacheKey.terrain,
             this.createPlayerColliders()
         );
-        if (Global.flags.DEBUG)
-            console.info(`[${typeString(this)}]: Shot trace finished in ${(performance.now() - waitStart) / 1000} seconds`);
+        if (DEBUG)
+            console.info(`[${typeString(this)}]: Shot trace finished in ${(performance.now() - waitStart) / 1000}s`);
         waitStart = performance.now();
         console.info(`[${typeString(this)}]: Rendering shot collisions`);
-        Global.Events.raiseEvent("LOADING", {hide: false, message: "loading turn (rendering)"});
-        await this.#preloadTurn(ammo, map);
-        if (Global.flags.DEBUG)
-            console.info(`[${typeString(this)}]: Collision map computed in ${(performance.now() - waitStart) / 1000} seconds`);
-        console.info(`[${typeString(this)}]: Shot playback ready`);
-        Global.Events.raiseEvent("LOADING", {hide: true});
-        if (store.overlayItems.hideButton.active)
-            store.overlayItems.replayButton.hide = true;
-        else
-            store.overlayItems.replayButton.userData.lastHideState = true;
-        this.loadTurn(store.turn.ammo(true), store.turn.intervals(true), store.turn.map());
+        this.Global.Events.raiseEvent("LOADING", {hide: false, message: "loading turn (rendering)"});
+        const intervals = await this.Threaded.renderBlastIntervals(this.store.cacheKey.terrain, this.Plane.size, ...map.blasts);
+        const Recorder = TurnRecorder.create(
+            this.#Threaded.cache[this.store.cacheKey.background],
+            this.Players,
+            this.Terrain
+        );
+        const recording = Recorder.record(
+            activePlayerID,
+            ammo.clone(true),
+            map,
+            intervals,
+            TICKSPEED
+        );
+        if (DEBUG)
+            console.info(`[${typeString(this)}]: Collision map computed in ${(performance.now() - waitStart) / 1000}s`);
+        return recording;
     }
-    exportChanges () {
-        if (!this.store.turn?.isRoundTurn) return {};
-        const { turn } = this.store;
-        return turn.getChanges(this.Players.values());
+    async launchAmmo () {
+        const { hideButton, replayButton } = this.store.overlayItems;
+        this.setTurn(false);
+        this.animate(true); // draw one last frame so the game doesn't look like it just froze
+        this.Global.Events.raiseEvent("LOADING", {hide: false, message: "loading turn"});
+        const recording = await this.createTurnRecording(this.#ClientPlayerID, this.store.ammo.selected);
+        this.Events.raiseEvent("TURNENDED", this.export(recording));
+        const { player, ammo } = await this.loadRecording(recording);
+        console.info(`[${typeString(this)}]: Turn recording loaded`);
+        this.Global.Events.raiseEvent("LOADING", {hide: true});
+        if (hideButton.active) replayButton.hide = true;
+        else replayButton.userData.lastHideState = true;
+        this.playRecording(recording, ammo, player);
+    }
+    export (recording) {
+        let players = {};
+        if (recording.length) {
+            const changes = recording.end.difference(recording.start);
+            players = changes.captureAffectedActors(this.Players)
+        }
+        return {
+            recording: recording.pack(),
+            players: players
+        };
     }
 
     get AmmoPool () { return this.#AmmoPool }
@@ -943,75 +979,6 @@ export class Round extends Phase {
     get Terrain () { return this.#Terrain }
     get Animations () { return this.#Animations }
     get Random () { return this.#Random }
-}
-
-class RoundTurn {
-    #terrain;
-    #ammo;
-    #blastIntervals = new Array();
-    #playerStates = {};
-    #traceMap;
-    #startFrame;
-    #isClosed = false;
-    constructor (intervals, players, terrain, ammo, backgroundFrame, traceMap) {
-        this.#terrain = terrain;
-        this.#ammo = ammo;
-        this.#traceMap = traceMap;
-        this.#startFrame = backgroundFrame;
-        this.#blastIntervals = [...intervals];
-        for (const player of players)
-            this.#playerStates[player.id] = player.getState();
-    }
-
-    intervals (clone = true) {
-        return clone
-            ? this.#blastIntervals.map((interval) => interval.clone(true))
-            : this.#blastIntervals;
-    }
-    terrain (clone = true) {
-        return clone
-            ? this.#terrain.clone(true)
-            : this.#terrain;
-    }
-    ammo (clone = true) {
-        return clone
-            ? this.#ammo.clone(true)
-            : this.#ammo;
-    }
-    map () {
-        return this.#traceMap;
-    }
-    startFrame () {
-        return this.#startFrame;
-    }
-    applyPlayerState (player) {
-        if (!(player?.isActor && player.id in this.#playerStates)) return false;
-        player.setState(this.#playerStates[player.id]);
-        return true;
-    }
-
-    // [!] TODO: figure out how to clone these, or verify GC can tidy up runaway/old offscreenCanvases
-    // close () {
-    //     if (this.isClosed) return;
-    //     this.#startFrame?.cursor?.close?.();
-    //     this.#blastIntervals.forEach(({frame}) => frame?.cursor?.close?.());
-    // }
-    
-    getChanges (players) {
-        const changes = {};
-        for (const player of players) {
-            if (!("players" in changes)) changes.players = {};
-            changes.players[player.id] = player.toJSON(...ALL_AMMO);
-        }
-        const lastTerrain = this.#blastIntervals.at(-1).terrain;
-        if (lastTerrain.hash !== this.#terrain.hash) {
-            changes.terrain = lastTerrain.clone(true);
-        }
-        return changes;
-    }
-
-    get isRoundTurn () { return true }
-    get isClosed () { return this.#isClosed }
 }
 
 function createMuzzleFlashAnimation (playerActor, spritesheet, width) {
