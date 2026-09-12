@@ -114,9 +114,7 @@ export class Round extends Phase {
                 if (recording) {
                     // play previous turn animation
                     await this.renderRecording(recording);
-                    const { player, ammo } = await this.loadRecording(recording);
-                    this.flags.replaying = true;
-                    setTimeout(() => this.playRecording(recording, ammo, player), 1500);
+                    this.store.recording.before = recording;
                 } else {
                     // setup first turn of the lobby
                     distributePlayers(this.Plane, Array.from(this.Players.values()), this.Random, 100);
@@ -144,8 +142,10 @@ export class Round extends Phase {
         // save to be replayed or exported
         this.store.recording = {
             current: undefined,
-            previous: undefined
+            previous: undefined,
+            before: undefined
         };
+        this.store.turnBefore = undefined;
         this.flags.turnEnded = false;
         this.flags.replaying = false;
 
@@ -457,8 +457,16 @@ export class Round extends Phase {
         this.handleInput();
     }
     start () {
-        this.setTurn(this.Lobby.ActivePlayerID === this.#ClientPlayerID);
-        super.start();
+        new Promise(async (resolve, reject) => {
+            const { before: recording } = this.store.recording;
+            if (recording?.isTurnRecording) {
+                const { player, ammo } = await this.loadRecording(recording);
+                setTimeout(() => this.playRecording(recording, ammo, player), 1500);
+            } else {
+                this.setTurn(this.Lobby.ActivePlayerID === this.#ClientPlayerID);
+            }
+            resolve();
+        }).finally(() => super.start());        
     }
     onanimate () {
         const { ClientPlayer, Camera, Animations, Interface, Threaded, Players, flags, store } = this;
