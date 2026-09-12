@@ -115,7 +115,17 @@ export class Main extends Loop {
     }
     #setupEvents () {
         this.Events.addEventListener("LOADING", (data) => this.#loadingCallback?.(data));
-        this.Events.addEventListener("NOTIFY", ({message = "", severity = 0, timeout = Main.SETTINGS.NOTIF_DURATION_MS}) => this.#notifyCallback?.(message, severity, timeout));
+        this.Events.addEventListener("NOTIFY", ({message = "", severity = 0, timeout = Main.SETTINGS.NOTIF_DURATION_MS}) => {
+            let log = console.info;
+            if (severity === -2)
+                log = console.error;
+            else if (severity === -1)
+                log = console.warn;
+            else if (severity === 1)
+                log = console.log;
+            log(`NOTIFY: ${message}`);
+            this.#notifyCallback?.(message, severity, timeout);
+        });
     }
     #drawFramerate () {
         const { cursor, size } = this.Display;

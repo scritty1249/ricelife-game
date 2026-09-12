@@ -98,3 +98,13 @@
         color: #bd2121;
     }
 }
+
+.icon-notif.success {
+    --color: #a7f3d0;
+    &::before {
+        content: "\2714";
+    }
+    > .notif-content {
+        color: #065f46;
+    }
+}

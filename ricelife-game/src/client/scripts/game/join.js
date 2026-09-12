@@ -1,5 +1,7 @@
 import { ENDPOINT } from "../api/api.js";
 
+const RETRY_MIN_TIMEOUT_MS = 2000;
+
 export default async function init (mainController, Discord, lobby, lobbyid, isHost) {
     mainController.Events.raiseEvent("LOADING", {hide: false, message: `Loading participants`});
     const phase = await mainController.loadJoinPhase(lobby, isHost);
@@ -15,9 +17,10 @@ export default async function init (mainController, Discord, lobby, lobbyid, isH
             mainController.Events.raiseEvent("LOADING", {hide: true});
             if (success) {
                 console.info(`Lobby ${lobbyid} joined`);
+                mainController.Events.raiseEvent("NOTIFY", {severity: 1, message: "Joined lobby."});
             } else {
-                console.error("Failed to join lobby - API error");
-                setTimeout(() => phase.setJoinButtonVisibility(true), 1500);
+                mainController.Events.raiseEvent("NOTIFY", {severity: -2, message: `Something went wrong while joining the lobby. Close the game and try again in ${(RETRY_MIN_TIMEOUT_MS / 1000).toFixed(1)}s.`, timeout: RETRY_MIN_TIMEOUT_MS + 500});
+                setTimeout(() => phase.setJoinButtonVisibility(true), RETRY_MIN_TIMEOUT_MS);
             }
         } catch (err) {
             console.error(err);
@@ -36,7 +39,7 @@ export default async function init (mainController, Discord, lobby, lobbyid, isH
                 console.info(`Lobby ${lobbyid} started`);
                 Discord.closeApp("Lobby started");
             } else {
-                console.error("Failed to start lobby");
+                mainController.Events.raiseEvent("NOTIFY", {severity: -1, message: "Failed to start lobby.", timeout: 1500});
                 setTimeout(() => phase.setStartButtonVisibility(phase.isClientHost), 1500);
             }
         } catch (err) {

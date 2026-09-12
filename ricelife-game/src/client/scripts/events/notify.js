@@ -2,10 +2,12 @@ let messageStream;
 
 export function notify (message, severity, timeout) {
     const element = createMessageElement(message);
-    if (severity === 2)
+    if (severity === -2)
         element.classList.add("error");
-    else if (severity === 1)
+    else if (severity === -1)
         element.classList.add("warn");
+    else if (severity === 1)
+        element.classList.add("success");
     if (Number.isFinite(timeout) && timeout > 0) {
         setTimeout(() => {
             removeMessage(element);

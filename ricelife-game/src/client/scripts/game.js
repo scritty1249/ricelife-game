@@ -24,6 +24,8 @@ export async function load () {
     const main = new Main(userid, loading, notify);
     await main.onload;
     window._MAIN = main; // [!] for debug
+    if (!Discord?.isDiscordApp)
+        main.Events.raiseEvent("NOTIFY", {severity: -1, message: "Unable to hook Discord environment. Application may fail unexpectedly.", timeout: 7000});
 
     const URL_PARAMS = new URLSearchParams(window.location.search);
     const customID = URL_PARAMS.get("custom_id") || "";
@@ -32,12 +34,13 @@ export async function load () {
         const lobbyid = customID.slice(LOBBY_ID_PREFIX.length);
         console.info(`Opening invite for lobby ${lobbyid}`);
         phase = await loadLobby(lobbyid, main, Discord);
-    } else {
+    }
+    if (!phase?.isPhase) {
         const { default: init } = await import("./game/create.js");
         phase = await init(main, Discord);
     }
     main.Events.raiseEvent("LOADING", {hide: true});
-    if (phase) main.ActivePhase = phase;
+    if (phase?.isPhase) main.ActivePhase = phase;
     main.Display.canvas.focus();
     main.loop();
 }
@@ -55,7 +58,12 @@ async function loadLobby (lobbyid, mainController, Discord) {
     try {
         if (lobbyid) {
             mainController.Events.raiseEvent("LOADING", {hide: false, message: `Fetching lobby`});
-            const { lobby, host } = await getLobby(lobbyid, Discord.user.id);
+            const response = await getLobby(lobbyid, Discord.user.id);
+            if (!response) {
+                mainController.Events.raiseEvent("NOTIFY", {severity: -1, message: `The requested lobby does not exist. ID: ${lobbyid}`});
+                return;
+            }
+            const { lobby, host } = response;
             mainController.Events.raiseEvent("LOADING", {hide: false, message: `Loading lobby menu`});
             if (lobby && "state" in lobby) {
                 if (lobby.state === 1) {
@@ -67,15 +75,14 @@ async function loadLobby (lobbyid, mainController, Discord) {
                     const { default: init } = await import("./game/join.js");
                     return await init(mainController, Discord, lobby, lobbyid, host);
                 } else if (lobby.state === -1) {
-                    console.log(`Lobby ${lobbyid} is already closed`);
-                    mainController.Events.raiseEvent("LOADING", {hide: false, message: `Lobby is closed`, error: true});
+                    mainController.Events.raiseEvent("NOTIFY", {severity: -1, message: `The requested lobby is has been closed. ID: ${lobbyid}`, timeout: -1});
                 }
             } else {
                 console.error("Server returned malformed lobby payload");
                 mainController.Events.raiseEvent("LOADING", {hide: false, message: `Corrupted lobby data`, error: true});
             }
         } else {
-            mainController.Events.raiseEvent("LOADING", {hide: false, message: `Invalid game invite`, error: true});
+            mainController.Events.raiseEvent("NOTIFY", {severity: -2, message: `Game invite is invalid!`, timeout: -1});
             console.error("Invalid lobby ID");
         }
     } catch (err) {
