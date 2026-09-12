@@ -1,5 +1,6 @@
 import { Main } from "$engine/runtime/Core.js";
 import { loading } from "./events/loading.js";
+import { notify } from "./events/notify.js";
 import { DiscordApp } from "./discord.js";
 import { ENDPOINT, getLobby } from "./api/api.js";
 
@@ -20,8 +21,7 @@ export async function load () {
         console.warn("!!! Discord embedded environment not found. Application may fail unexpectedly");
         userid = "";
     }
-    
-    const main = new Main(userid, loading);
+    const main = new Main(userid, loading, notify);
     await main.onload;
     window._MAIN = main; // [!] for debug
     main.flags.DEBUG = true;

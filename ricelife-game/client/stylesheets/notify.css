@@ -1,0 +1,100 @@
+#notif-stream {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    margin: 0 auto;
+    display: flex;
+    gap: 4px;
+    flex-direction: column;
+    align-items: center;
+    pointer-events: auto;
+    max-height: 100vh;
+    overflow-y: scroll;
+    box-sizing: border-box;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+    &::-webkit-scrollbar {
+        display: none;
+    }
+    padding-top: 6px;
+    &:empty {
+        padding-top: 0 !important;
+    }
+    width: 35%;
+    @media (orientation: portrait) {
+        width: 60%;
+    }
+}
+
+.icon-notif {
+    --color: #6b7280;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    width: 100%;
+    user-select: none;
+    -webkit-user-select: none;
+    border: 2px solid var(--color);
+    border-radius: 2px;
+    padding: 6px 8px;
+    box-sizing: border-box;
+    /* for animation */
+    max-height: 200px;
+    visibility: visible;
+    transition: 
+        max-height 0.35s cubic-bezier(0.25, 1, 0.5, 1),
+        padding 0.35s cubic-bezier(0.25, 1, 0.5, 1),
+        border-width 0.35s cubic-bezier(0.25, 1, 0.5, 1);
+
+    &::before {
+        font-size: clamp(20px, 1.8vw + 0.5rem, 26px);
+        content: "";
+        display: inline-block;
+        line-height: 1;
+        flex-shrink: 0;
+        color: var(--color);
+        width: 1em;
+    }
+    > .notif-content {
+        flex: 1;
+        white-space: normal;
+        word-break: break-word;
+        font-size: clamp(14px, 1.2vw + 0.5rem, 18px);
+        line-height: 1.4;
+        color: #555a64;
+    }
+    &.closing {
+        visibility: hidden !important;
+        border-color: transparent !important;
+        background-color: transparent !important;
+        pointer-events: none;
+        max-height: 0 !important;
+        min-height: 0 !important;
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+        border-top-width: 0 !important;
+        border-bottom-width: 0 !important;
+        overflow: hidden;
+    }
+}
+
+.icon-notif.warn {
+    --color: #ffcc00;
+    &::before {
+        content: "\26A0";
+    }
+    > .notif-content {
+        color: #8a6d00;
+    }
+}
+
+.icon-notif.error {
+    --color: #f14c4c;
+    &::before {
+        content: "\2715";
+    }
+    > .notif-content {
+        color: #bd2121;
+    }
+}

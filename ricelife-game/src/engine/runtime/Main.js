@@ -18,7 +18,8 @@ export class Main extends Loop {
     static SETTINGS = {
         CLICK_DURATION_MS: 90,
         TICKSPEED: 10, // milliseconds, must be lower than framerate
-        FPS: 60
+        FPS: 60,
+        NOTIF_DURATION_MS: 3000
     };
     static #AudioCtx;
     static #AssetType = {
@@ -45,14 +46,15 @@ export class Main extends Loop {
     #FrameInterval;
     #TickInterval;
     #loadingCallback;
+    #notifyCallback;
     #ActivePhase;
     #clientUserID;
-    constructor (clientUserID, loadingCallbackFn) {
+    constructor (clientUserID, loadingCallbackFn, notifyCallbackFn) {
         // load a context if one doesn't exist already
         if (!Main.#AudioCtx) Main.#loadAudioContext();
         super(Main.#AudioCtx);
         this.#clientUserID = clientUserID;
-        this.#init(loadingCallbackFn);
+        this.#init(loadingCallbackFn, notifyCallbackFn);
         this.#initAssetTable();
         this.#load()
             .then(() => this.#setupEvents())
@@ -60,8 +62,9 @@ export class Main extends Loop {
             .catch((error) => this.rejectLoad(error));
     }
 
-    #init (loadingCallback) {
+    #init (loadingCallback, notifyCallbackFn) {
         this.#loadingCallback = loadingCallback;
+        this.#notifyCallback = notifyCallbackFn;
         this.#Display = new AppCanvas(window.appCanvas, window, Main.COORDINATE_PLANE_SIZE);
         this.#FrameCounter = new FrameCounter(30);
         this.#FrameInterval = new Interval(1000 / this.constructor.SETTINGS.FPS);
@@ -112,6 +115,7 @@ export class Main extends Loop {
     }
     #setupEvents () {
         this.Events.addEventListener("LOADING", (data) => this.#loadingCallback?.(data));
+        this.Events.addEventListener("NOTIFY", ({message = "", severity = 0, timeout = Main.SETTINGS.NOTIF_DURATION_MS}) => this.#notifyCallback?.(message, severity, timeout));
     }
     #drawFramerate () {
         const { cursor, size } = this.Display;

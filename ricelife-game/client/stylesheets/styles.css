@@ -9,6 +9,10 @@
     --sah: calc(100dvh - var(--saip-vertical));
 }
 
+* {
+    font-family: Arial, Helvetica, sans-serif;
+}
+
 canvas {
     position: absolute;
     top: 0;

@@ -1,5 +1,6 @@
 import { load } from "./game.js";
-import { init, loading } from "./events/loading.js";
+import * as loading from "./events/loading.js";
+import * as notify from "./events/notify.js";
 
 if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", initSequence);
@@ -11,10 +12,11 @@ function hookAppCanvas () { window.appCanvas = document.getElementById("app") }
 
 function initSequence () {
     hookAppCanvas();
-    init();
+    loading.init();
+    notify.init();
     load().catch((error) => {
         console.error(error);
-        loading({hide: false, message: "crashed on startup", error: true});
+        loading.loading({hide: false, message: "crashed on startup", error: true});
         throw error;
     });
 }
