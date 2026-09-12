@@ -58,7 +58,7 @@ async function loadLobby (lobbyid, mainController, Discord) {
         if (lobbyid) {
             mainController.Events.raiseEvent("LOADING", {hide: false, message: `Fetching lobby`});
             const response = await getLobby(lobbyid, Discord.user.id);
-            if (!response) {
+            if (!response || !response.lobby) {
                 mainController.Events.raiseEvent("NOTIFY", {severity: -1, message: `The requested lobby does not exist. ID: ${lobbyid}`});
                 return;
             }
