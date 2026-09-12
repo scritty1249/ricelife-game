@@ -1,14 +1,25 @@
+:root {
+    --sait: var(--discord-safe-area-inset-top, env(safe-area-inset-top, 0));
+    --saib: var(--discord-safe-area-inset-bottom, env(safe-area-inset-bottom, 0));
+    --sail: var(--discord-safe-area-inset-left, env(safe-area-inset-left, 0));
+    --sair: var(--discord-safe-area-inset-right, env(safe-area-inset-right, 0));
+    --saip-horizontal: calc(var(--sair) + var(--sail));
+    --saip-vertical: calc(var(--sait) + var(--saib));
+    --saw: calc(100dvw - var(--saip-horizontal));
+    --sah: calc(100dvh - var(--saip-vertical));
+}
+
 canvas {
     position: absolute;
     top: 0;
     left: 0;
-    width: 100dvw !important;
-    height: 100dvh !important;
+    width: var(--saw) !important;
+    height: var(--sah) !important;
     box-sizing: border-box !important; 
 }
 body, html {
-    width: 100dvw;
-    height: 100dvh;
+    width: var(--saw);
+    height: var(--sah);
     position: fixed;
     top: 0;
     left: 0;
@@ -22,4 +33,8 @@ body, html, canvas {
     -webkit-touch-callout: none;
     -webkit-user-select: none;
     user-select: none;
+}
+body {
+    /* top | right | bottom | left */
+    padding: var(--sait) var(--sair) var(--saib) var(--sail);
 }

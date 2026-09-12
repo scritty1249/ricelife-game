@@ -18,22 +18,19 @@ export class AppCanvas extends Hashable {
         this.canvas = canvas;
         this.#window = window;
         this.#attachResizeListener();
-        this.#computeLayout();
+        this.onResize(false);
         this.#cursor = new Canvas2DContextCursor(this.canvas);
     }
 
     #attachResizeListener () {
-        if (this.window.visualViewport) this.window.visualViewport.addEventListener("resize", this.#onResize);
-        else this.window.addEventListener("resize", this.#onResize);
+        if (this.window.visualViewport) this.window.visualViewport.addEventListener("resize", this.#resizeHandler);
+        else this.window.addEventListener("resize", this.#resizeHandler);
     }
-    #onResize = () => {
-        if (equals(this.window.innerWidth, this.size.x) && equals(this.window.innerHeight, this.size.y)) return;
-        this.#computeLayout();
-        for (const callback of this.#resizeCallbacks)
-            callback?.(this);
+    #resizeHandler = () => {
+        this.onResize(true);
     }
-    #computeLayout () {
-        this.size.apply(this.window.innerWidth, this.window.innerHeight);
+    #computeLayout (width, height) {
+        this.size.apply(width, height);
         this.#ratio = this.size.quot();
         ({x: this.canvas.width, y: this.canvas.height} = this.size.floor());
         this.center.apply(this.size.div(2));
@@ -41,6 +38,16 @@ export class AppCanvas extends Hashable {
         this.#rawSizeHash = this.#bbox.rawHash;
     }
 
+    onResize (doCallbacks) {
+        const { pixelRatio } = this;
+        const width = this.canvas.clientWidth * pixelRatio;
+        const height = this.canvas.clientHeight * pixelRatio;
+        if (equals(width, this.size.x) && equals(height, this.size.y)) return;
+        this.#computeLayout(width, height);
+        if (doCallbacks)
+            for (const callback of this.#resizeCallbacks)
+                callback?.(this);
+    }
     getBoundingBox () {
         return this.#bbox;
     }
@@ -61,4 +68,5 @@ export class AppCanvas extends Hashable {
     get isLandscape () { return this.#size.y < this.#size.x }
     get rawHash () { return this.#rawSizeHash }
     get pixelRatio () { return this.window.devicePixelRatio || 1 }
+    get bufferLength () { return this.size.prod() } // total real pixel count
 }
