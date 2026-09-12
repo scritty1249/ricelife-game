@@ -817,7 +817,6 @@ export class Round extends Phase {
         this.ClientPlayer.Aimer.hide = !bool && !this.flags.turnEnded;
         this.flags.isTurn = bool;
     }
-    // [!] irreversible
     endTurn () {
         if (this.flags.turnEnded) return;
         this.flags.turnEnded = true;
@@ -830,6 +829,20 @@ export class Round extends Phase {
             = overlayItems.launchButton.hide
             = overlayItems.selectButton.hide
             = true;
+    }
+    // call when saving turn fails
+    unendTurn () {
+        if (!this.flags.turnEnded) return;
+        this.flags.turnEnded = false;
+        
+        const { overlayItems } = this.store;
+        this.ClientPlayer.Aimer.hide
+            = overlayItems.hideButton.hide
+            = overlayItems.moveLeftBtn.hide
+            = overlayItems.moveRightBtn.hide
+            = overlayItems.launchButton.hide
+            = overlayItems.selectButton.hide
+            = false;
     }
     endRecording () {
         const { recording } = this.store;

@@ -11,7 +11,13 @@ export default async function init (mainController, Discord, lobby, lobbyid) {
         mainController.Events.raiseEvent("NOTIFY", {severity: 0, message: "Saving turn..."});
         const success = await updateLobby(changes, lobbyid, Discord.user.id);
         if (success) mainController.Events.raiseEvent("NOTIFY", {severity: 1, message: "Turn saved.", timeout: 2000});
-        else mainController.Events.raiseEvent("NOTIFY", {severity: -2, message: "Failed to save turn!"});
+        else {
+            mainController.Events.raiseEvent("NOTIFY", {severity: -2, message: "Failed to save turn!"});
+            setTimeout(() => {
+                phase.unendTurn();
+                phase.setTurn(true);
+            }, 1500);
+        }
     }, { once: !isAlone });
     mainController.Events.raiseEvent("LOADING", {hide: true});
     return phase;
