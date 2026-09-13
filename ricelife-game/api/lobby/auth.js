@@ -1,4 +1,5 @@
 import { lobbyHasPlayer, lobbyIsWaiting, getTerrainUrl, stageUpdate } from "@server/lib/lobby/manage.js";
+import { CONNECTION_URL, CONNECTION_KEY, generateChannelID } from "@server/lib/supabase/client.js";
 import * as Responses from "@server/lib/responses.js";
 
 const DEV_PROD = process.env.NODE_ENV === "development";
@@ -11,9 +12,17 @@ export async function GET (request) {
         const isParticipant = await lobbyHasPlayer(lobbyid, playerid);
         if (isParticipant) {
             const { url, ttl } = await getTerrainUrl(lobbyid);
-            return Response.json({ url, ttl });
+            const realtimeID = generateChannelID(lobbyid);
+            return Response.json({
+                terrain: { url, ttl },
+                websocket: {
+                    url: CONNECTION_URL,
+                    key: CONNECTION_KEY,
+                    id: realtimeID
+                }
+            });
         } else {
-            return new Response("Players must be in lobby to get terrain data", {status: 403});
+            return new Response("Players must be in lobby.", {status: 403});
         }
     } catch (error) {
         return Responses.error(error);

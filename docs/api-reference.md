@@ -84,8 +84,7 @@ The specified lobby's data, or null it does not exist.
 | lobby | ?[Lobby](#object-lobby) ||
 | ishost | boolean | true if provided `userid` parameter matches id of lobby host. false otherwise |
 
-### `GET /lobby/terrain/auth`
-Retrieve an presigned link to download the lobby's terrain data.
+### `GET /lobby/auth`
 
 **Request Query Parameters**
 - `lobbyid` is the [Snowflake](#string-snowflake) ID of a waiting or active lobby
@@ -100,11 +99,10 @@ The signed endpoint to download the lobby's terrain data.
 
 | Key | Type | Detail |
 | :-- | :-- | :-- |
-| url | [URL](#string-url) | a link to download a lobby's terrian [Polygon](#binary-stream-polygon) |
-| ttl | number | seconds before the download link expires |
-> - The blob downloaded from `url` will be a [Polygon](#binary-stream-polygon)
+| terrain | [AuthorizedTerrainPayload](#object-authorizedterrainpayload) ||
+| websocket | [AuthorizedWebsocketPayload](#object-authorizedwebsocketpayload) ||
 
-### `POST /lobby/terrain/auth`
+### `POST /lobby/auth`
 Stages a round update, and generates an presigned link to upload the lobby's terrain data. 
 
 **Request Body Parameters (JSON):**
@@ -196,6 +194,22 @@ Commits a staged round update. Updated players corrospond to players that are al
 | reserve | number | `amount` cannot exceed this |
 | increase | number | factor all increases to `amount` are applied by |
 | decrease | number | factor all decreases to `amount` are applied by |
+
+### *object* `AuthorizedTerrainPayload`
+A presigned link to download a lobby's terrain data.
+| Key | Type | Detail |
+| :-- | :-- | :-- |
+| url | [URL](#string-url) | a signed link to download a lobby's terrian [Polygon](#binary-stream-polygon) |
+| ttl | number | seconds before the download link expires |
+> - The blob downloaded from `url` will be a [Polygon](#binary-stream-polygon)
+
+### *object* `AuthorizedWebsocketPayload`
+Parameters to construct a Supabase client for Realtime (websocket) connection for a specific lobby.
+| Key | Type | Detail |
+| :-- | :-- | :-- |
+| url | [URL](#string-url) ||
+| key | string ||
+| id | string | The channel id of the websocket for the associated lobby. |
 
 ### *binary stream* `Polygon`
 Should be sent as a blob of `application/octet-stream` type.
