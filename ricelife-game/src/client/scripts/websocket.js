@@ -64,16 +64,16 @@ export class LobbyEventListener {
         this.channel.on("presence", { event: "join" }, ({newPresences}) => {
             for (const userid of Object.keys(newPresences)) {
                 this.#peers.add(userid);
-                if (userid in this.#presenceState)
-                    this.#presenceState[userid].online = true;
+                if (this.#presenceState.has(userid))
+                    this.#presenceState.get(userid).online = true;
             }
             this.#onStateChange();
         });
         this.channel.on("presence", { event: "leave" }, ({leftPresences}) => {
             for (const userid of Object.keys(leftPresences)) {
                 this.#peers.delete(userid);
-                if (userid in this.#presenceState)
-                    this.#presenceState[userid].online = false;
+                if (this.#presenceState.has(userid))
+                    this.#presenceState.get(userid).online = false;
             }
             this.#onStateChange();
         });
@@ -85,9 +85,11 @@ export class LobbyEventListener {
                 (payload) => this.#callbackHandler(event, payload));
     }
     #callbackHandler (event, payload) {
-        if (event in this.#callbacks)
+        if (event in this.#callbacks) {
+            const p = payload || {};
             for (const callback of this.#callbacks[event].keys())
-                callback?.(payload?.data || {});
+                callback?.(p);
+        }
     }
     #updateCurrentState () {
         if (!this.#channel) return;
@@ -122,9 +124,7 @@ export class LobbyEventListener {
         this.channel.send({
             type: "broadcast",
             event,
-            payload: {
-                data: payload || {}
-            }
+            payload: payload || {}
         });
     }
     attach (event, callbackFn) {
