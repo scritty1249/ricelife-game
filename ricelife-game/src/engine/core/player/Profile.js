@@ -59,7 +59,7 @@ export class Profile extends Loadable {
             cursor.beginPath();
             cursor.arc(origin, radius, 0, Math.PI * 2, false);
             cursor.closePath();
-            cursor.lineWidth = Math.max(Math.floor(radius / 10), 1);
+            cursor.lineWidth = Math.max(Math.floor(radius / 10), 4);
             cursor.strokeStyle = this.activeBorderColor.toString();
             cursor.stroke();
         }
