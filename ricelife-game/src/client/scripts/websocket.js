@@ -20,9 +20,8 @@ export class LobbyEventListener {
             }
         },
         realtime: {
-            getWebSocketTransport: (src) => {
-                const { WEBSOCKET_ROUTING_PREFIX, WEBSOCKET_DUMMY_ENDPOINT, LOCAL_ENDPOINT } = LobbyEventListener;
-                const { hostname } = WEBSOCKET_DUMMY_ENDPOINT;
+            transport: (src) => {
+                const { WEBSOCKET_ROUTING_PREFIX, LOCAL_ENDPOINT } = LobbyEventListener;
                 const url = new URL(src);
                 url.protocol = LOCAL_ENDPOINT.protocol === "https:" ? "wss:" : "ws:";
                 url.host = LOCAL_ENDPOINT.host;
