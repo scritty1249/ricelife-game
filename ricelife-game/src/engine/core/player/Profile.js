@@ -55,15 +55,17 @@ export class Profile extends Loadable {
         cursor.arc(origin, radius, 0, Math.PI * 2, false);
         cursor.clip();
         this.avatar.draw(cursor, offset.x, offset.y);
+        cursor.restore();
         if (active) {
+            cursor.save();
             cursor.beginPath();
             cursor.arc(origin, radius, 0, Math.PI * 2, false);
             cursor.closePath();
             cursor.lineWidth = Math.max(Math.floor(radius / 10), 4);
             cursor.strokeStyle = this.activeBorderColor.toString();
             cursor.stroke();
+            cursor.restore();
         }
-        cursor.restore();
     }
     toJSON () {
         return {
