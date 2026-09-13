@@ -36,6 +36,7 @@ export default async function init (mainController, Discord, lobby, lobbyid) {
             if (Number.isInteger(payload?.turns))
                 phase.Events.raiseEvent("TURNUPDATE", { turns: payload.turns });
         });
+        ws.connect();
     }
     mainController.Events.raiseEvent("LOADING", {hide: true});
     return phase;

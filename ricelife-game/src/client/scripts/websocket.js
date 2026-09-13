@@ -95,14 +95,14 @@ export class LobbyEventListener {
             if (status === "SUBSCRIBED") {
                 this.#connected = true;
                 console.info("Supabase websocket connected");
-                this.presence({online: true});
+                this.syncState({online: true});
             } else
                 console.warn("Supabase websocket failed to connect");
         });
     }
     disconnect () {
         if (this.isConnected) {
-            this.presence({online: false});
+            this.syncState({online: false});
         }
         if (this.#client && this.#channel) {
             this.#client.removeChannel(this.#channel);
@@ -111,8 +111,11 @@ export class LobbyEventListener {
         }
     }
     syncState (payload) {
-        if (this.isConnected)
-            this.channel.track(payload || {});
+        if (this.isConnected) {
+            const p = payload || {};
+            this.channel.track(p);
+            console.debug(`Synced state to websocket: `, p);
+        }
     }
 
     get isConnected () { return this.#connected }
