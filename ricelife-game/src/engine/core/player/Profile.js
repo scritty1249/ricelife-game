@@ -13,6 +13,7 @@ export class Profile extends Loadable {
     #fontColor = new Color();
     #avatarOffset = new Vector();
     #nameOffset = new Vector();
+    #activeBorderColor = new Color(59, 165, 93, 1);
     #userid; // Snowflake ID from discord. these are strings
     // String, LoadImage, String
     constructor (name, avatar, userid) {
@@ -29,9 +30,9 @@ export class Profile extends Loadable {
         cursor.restore();
         return width;
     }
-    draw (cursor, position) {
+    draw (cursor, position, active = false) {
         this.drawName(cursor, position);
-        this.drawAvatar(cursor, position);
+        this.drawAvatar(cursor, position, active);
     }
     drawName (cursor, position) {
         cursor.save();
@@ -42,7 +43,7 @@ export class Profile extends Loadable {
         cursor.fillText(this.name, position.add(this.nameOffset));
         cursor.restore();
     }
-    drawAvatar (cursor, position) {
+    drawAvatar (cursor, position, active = false) {
         const { width, height } = this.avatar;
         const radius = width / 2;
         const offset = position.add(this.avatarOffset);
@@ -55,6 +56,16 @@ export class Profile extends Loadable {
         cursor.clip();
         this.avatar.draw(cursor, offset.x, offset.y);
         cursor.restore();
+        if (active) {
+            cursor.save();
+            cursor.beginPath();
+            cursor.arc(origin, radius, 0, Math.PI * 2, false);
+            cursor.closePath();
+            cursor.lineWidth = Math.max(Math.floor(radius / 10), 2);
+            cursor.strokeStyle = this.activeBorderColor.toString();
+            cursor.stroke();
+            cursor.restore();
+        }
     }
     toJSON () {
         return {
@@ -78,6 +89,7 @@ export class Profile extends Loadable {
     set fontSize (pixels) { return (this.#fontSize = pixels) }
     get fontFamily () { return this.#fontFamily }
     set fontFamily (font) { return (this.#fontFamily = font) }
+    get activeBorderColor () { return this.#activeBorderColor }
     get font () { return `${this.fontSize}px ${this.fontFamily}` }
     get userid () { return this.#userid } // string - snowflake ID from discord
 }

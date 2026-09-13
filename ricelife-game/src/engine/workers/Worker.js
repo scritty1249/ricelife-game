@@ -268,17 +268,19 @@ async function processManagerCommand (command, id, payload) {
                 if (createCache(data) && !clone)
                     delete CACHE[source];
             }   
-            if (!manager) postSuccess(id);
+            postSuccess(id);
         } else if (command === "DROPCACHE") {
            /* Payload expected:
             * {
             *    target: UUID,
             * }
             */
-           const { target } = payload;
-           const cache = getCache(target);
-           delete CACHE[target];
-           postSuccess(id);
+            const { target } = payload;
+            try {
+                const cache = getCache(target);
+            } catch {}
+            delete CACHE[target];
+            postSuccess(id);
         }
     } catch (e) {
         postFailure(id, e)

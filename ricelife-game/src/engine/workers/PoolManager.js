@@ -40,7 +40,9 @@ export class PoolManager {
             [canvasID],
         );
         await this.#pool.pullCache(canvasID, false);
-        return this.#pool.cache[canvasID];
+        const cache = this.#pool.cache[canvasID];
+        delete this.#pool.cache[canvasID];
+        return cache;
     }
     // colliders are expected to all be Polygons or Cache IDs
     async traceAmmo (ammo, increment, limit, terrain, colliders) {
@@ -128,12 +130,15 @@ export class PoolManager {
                 .then(() => this.#pool.pullCache(canvasID, true))
                 .then(() => this.#pool.cache[canvasID]);
             const delay = blasts[0].delay || 0;
-            return [new BlastInterval(
+            const intervals =  [new BlastInterval(
                 delay,
                 await terrain,
                 await frame,
                 blasts
             )];
+            // cleanup
+            this.destroyCache(canvasID);
+            return intervals;
         } else {
             // group blasts that occur at the same time, draw these onto the same canvas
             const blastGroups = sortBlastGroups(blasts);
@@ -155,7 +160,6 @@ export class PoolManager {
                 return this.#pool.createCache(cache).then(() => canvasID);
             });
             // setup promise chains
-            let drawJob = Promise.resolve();
             let cutJob = Promise.resolve();
             // load balanced cut operations
             for (let i = 0; i < blastGroups.length; i++) {
@@ -181,11 +185,8 @@ export class PoolManager {
                         .then(() => this.#pool.cache[currTerrainID].terrain),
                 );
                 cutJob = dj;
-                drawJob = dj;
-                if (i - 1 > 0)
-                    cutJobs
-                        .at(-1)
-                        .then(() => this.destroyCache(terrainIDs[i - 1]));
+                if (prevTerrainID !== terrainID)
+                    cj.then(() => this.destroyCache(prevTerrainID));
             }
             // wait for all jobs to finish
             const frames = await Promise.all(drawJobs);
@@ -196,13 +197,17 @@ export class PoolManager {
                 terrainID,
                 false,
             );
+            await this.updateCache(terrainID, true);
             // package object into easier to parse structure
-            return Array.from(blastGroups, (group, i) => new BlastInterval(
+            const intervals = Array.from(blastGroups, (group, i) => new BlastInterval(
                 group[0].delay,
                 terrains[i],
                 frames[i],
                 group
             ));
+            // cleanup
+            Promise.all(canvasIDs).then((ids) => Promise.all(ids.map((id) => this.destroyCache(id))));
+            return intervals;
         }
     }
     async setCache(cache) {
@@ -215,6 +220,7 @@ export class PoolManager {
         await this.#pool.pullCache(id, clone);
     }
     async destroyCache(id) {
+        delete this.#pool.cache[id];
         return await this.#pool.dropCache(id);
     }
     async hashCache(id) {

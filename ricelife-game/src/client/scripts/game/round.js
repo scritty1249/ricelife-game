@@ -1,31 +1,68 @@
-import { ENDPOINT, TERRAIN_BUCKET_ROUTING_PREFIX, getTerrainUrl, stream } from "../api/api.js";
+import { ENDPOINT, TERRAIN_BUCKET_ROUTING_PREFIX, getSignedLobbyData, stream } from "../api/api.js";
+import { LobbyEventListener } from "../websocket.js";
 
 export default async function init (mainController, Discord, lobby, lobbyid) {
     mainController.Events.raiseEvent("LOADING", {hide: false, message: `Fetching data`});
-    const turnDataBuffer = await getTurnData(lobbyid, Discord);
+
+    const lobbyData = await loadLobby(lobbyid, Discord.user.id);
+    if (!lobbyData) return;
+    const isAlone = Object.keys(lobby.players).length === 1;
+    const turnDataBuffer = await getTurnData(lobbyData.terrain.url);
     if (!turnDataBuffer) return;
     mainController.Events.raiseEvent("LOADING", {hide: false, message: `Loading`});
-    const isAlone = Object.keys(lobby.players).length === 1;
     const phase = await mainController.loadRoundPhase(lobby, turnDataBuffer, lobbyid, !lobby.turns);
+    let ws;
+    if (!isAlone) {
+        const { websocket } = lobbyData;
+        ws = new LobbyEventListener(websocket.key, websocket.id, Discord.user.id);
+    }
+    let saveTurnLock = false;
     phase.Events.addEventListener("TURNENDED", async (changes) => {
+        if (saveTurnLock) return;
+        saveTurnLock = true;
         mainController.Events.raiseEvent("NOTIFY", {severity: 0, message: "Saving turn..."});
+        const { turns } = phase.Lobby;
         const success = await updateLobby(changes, lobbyid, Discord.user.id);
-        if (success) mainController.Events.raiseEvent("NOTIFY", {severity: 1, message: "Turn saved.", timeout: 2000});
-        else {
-            mainController.Events.raiseEvent("NOTIFY", {severity: -2, message: "Failed to save turn!"});
-            setTimeout(() => {
-                phase.unendTurn();
-                phase.setTurn(true);
-            }, 1500);
+        if (success) {
+            if (ws) ws.send("TURNENDED", { turns: turns + 1 });
+            mainController.Events.raiseEvent("NOTIFY", {severity: 1, message: "Turn saved.", timeout: 2000});
+        } else {
+            mainController.Events.raiseEvent("NOTIFY", {severity: -2, message: "Failed to save turn! Relaunch activity and try again.", timeout: 5500});
         }
+        saveTurnLock = false;
     }, { once: !isAlone });
+    if (ws) {
+        ws.attach("TURNENDED", async (payload) => {
+            console.debug("Recieved turn update from peer: ", payload?.turns);
+            if (Number.isInteger(payload?.turns) && payload.turns > phase.Lobby.turns) {
+                const ld = await loadLobby(lobbyid, Discord.user.id);
+                if (!ld) return;
+                const buffer = await getTurnData(ld.terrain.url);
+                await phase.updateTurn(payload.turns, buffer);
+            }
+        });
+        ws.addStateChangeListener(() => {
+            console.debug("Lobby state changed");
+            setPlayerOnlineStatus(ws.peers, phase.Players.values());
+        });
+        ws.connect();
+        setPlayerOnlineStatus(ws.peers, phase.Players.values());
+    }
     mainController.Events.raiseEvent("LOADING", {hide: true});
     return phase;
 }
 
-async function getTurnData (lobbyid, Discord) {
-    const src = await getTerrainUrl(lobbyid, Discord.user.id);
-    if (!src) return;
+function setPlayerOnlineStatus (peers, players) {
+    for (const player of players) {
+        player.activeState = peers.has(player.id);
+    }
+}
+
+async function loadLobby (lobbyid, userid) {
+    return await getSignedLobbyData(lobbyid, userid);
+}
+
+async function getTurnData (src) {
     try {
         const url = new URL(src);
         const buffer = await stream(TERRAIN_BUCKET_ROUTING_PREFIX + url.pathname + url.search);
@@ -36,7 +73,7 @@ async function getTurnData (lobbyid, Discord) {
 }
 
 async function updateLobby (changes, lobbyid, userid) {
-    const staging = await fetch(ENDPOINT + "/lobby/terrain/auth", {
+    const staging = await fetch(ENDPOINT + "/lobby/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

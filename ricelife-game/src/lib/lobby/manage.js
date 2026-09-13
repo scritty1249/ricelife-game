@@ -106,7 +106,7 @@ export async function exportLobby (lobbyid, hostid = undefined) {
             teams: teams,
             teamsize: lobby.team_size,
             channelid: lobby.channelid,
-            turnorder: lobby.player_order
+            turnorder: lobby.player_order || []
         }
     }
 }

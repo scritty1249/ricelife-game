@@ -111,13 +111,16 @@ export class Round extends Phase {
         this.#load(playerID)
             .then(() => this.#init())
             .then(async () => {
+                const { replayButton } = this.store.overlayItems;
                 if (recording) {
                     // play previous turn animation
                     await this.renderRecording(recording);
                     this.store.recording.before = recording;
+                    replayButton.hide = false;
                 } else {
                     // setup first turn of the lobby
                     distributePlayers(this.Plane, Array.from(this.Players.values()), this.Random, 100);
+                    replayButton.hide = true;
                 }
             })
             .then(() => this.resolveLoad())
@@ -316,7 +319,6 @@ export class Round extends Phase {
         }
 
         launchButton.hide = true;
-        replayButton.hide = true;
         this.store.overlayItems = {
             moveLeftBtn,
             moveRightBtn,
@@ -458,6 +460,7 @@ export class Round extends Phase {
         await this.renderRecording(this.store.recording.before);
         this.Lobby.turns = turnCount;
         this.unendTurn();
+        this.Global.Events.raiseEvent("LOADING", {hide: true});
         this.start();
     }
     start () {
@@ -983,6 +986,7 @@ export class Round extends Phase {
         } catch (err) {
             console.error(`[${typeString(this)}]: Projectile trace error`);
             this.Global.Events.raiseEvent("NOTIFY", {severity: -1, message: "An error occured while playing your turn. Relaunch the activity and try again.", timeout: -1});
+            this.Global.Events.raiseEvent("LOADING", {hide: true});
             throw err;
         }
     }

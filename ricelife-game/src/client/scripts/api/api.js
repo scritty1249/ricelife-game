@@ -11,12 +11,12 @@ export async function getLobby (lobbyid, userid) {
     }
 }
 
-export async function getTerrainUrl (lobbyid, userid) {
+export async function getSignedLobbyData (lobbyid, userid) {
     if (!lobbyid || !userid) return;
-    const response = await fetch(ENDPOINT + `/lobby/terrain/auth?lobbyid=${lobbyid}&userid=${userid}`);
+    const response = await fetch(ENDPOINT + `/lobby/auth?lobbyid=${lobbyid}&userid=${userid}`);
     if (response.ok) {
-        const { url = undefined } = await response.json();
-        return url;
+        const payload = await response.json();
+        return payload || undefined;
     }
 }
 
