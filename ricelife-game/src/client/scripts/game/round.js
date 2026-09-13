@@ -14,7 +14,7 @@ export default async function init (mainController, Discord, lobby, lobbyid) {
     let ws;
     if (!isAlone) {
         const { websocket } = lobbyData;
-        ws = new LobbyEventListener(websocket.url, websocket.key, websocket.id);
+        ws = new LobbyEventListener(websocket.key, websocket.id, Discord.user.id);
     }
     phase.Events.addEventListener("TURNENDED", async (changes) => {
         mainController.Events.raiseEvent("NOTIFY", {severity: 0, message: "Saving turn..."});
