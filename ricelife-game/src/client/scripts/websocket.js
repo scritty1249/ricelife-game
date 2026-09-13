@@ -11,18 +11,20 @@ export class LobbyEventListener {
     static #CLIENT_OPTIONS = {
         auth: { persistSession: false },
         global: {
-            // Intercept HTTP API calls (Auth, REST, Storage)
             fetch: (src, options) => {
                 const { WEBSOCKET_ROUTING_PREFIX, WEBSOCKET_DUMMY_ENDPOINT } = LobbyEventListener;
                 const { hostname } = WEBSOCKET_DUMMY_ENDPOINT;
-                const relativeUrl = src.replace(`https://${hostname}`, WEBSOCKET_ROUTING_PREFIX);
+                const relativeUrl = String(src).replace(`https://${hostname}`, WEBSOCKET_ROUTING_PREFIX);
                 return fetch(relativeUrl, options);
             }
         },
         realtime: {
-            endpoint: `${window.location.origin}${LobbyEventListener.WEBSOCKET_ROUTING_PREFIX}/realtime/v1`,
-            getWebSocketTransport: (url) => {
-                // skips parsing
+            getWebSocketTransport: (src) => {
+                const { WEBSOCKET_ROUTING_PREFIX, WEBSOCKET_DUMMY_ENDPOINT } = LobbyEventListener;
+                const { hostname } = WEBSOCKET_DUMMY_ENDPOINT;
+                const url = String(src)
+                    .replace(`wss://${hostname}`, WEBSOCKET_ROUTING_PREFIX)
+                    .replace(`https://${hostname}`, WEBSOCKET_ROUTING_PREFIX); 
                 return new WebSocket(url);
             }
         }
@@ -30,6 +32,7 @@ export class LobbyEventListener {
     #callbacks = {};
     #connected = false;
     #presenceState = new Map();
+    #peers = new Set();
     #client;
     #channel;
     constructor (key, id, userid) {
@@ -40,11 +43,22 @@ export class LobbyEventListener {
                 presence: userid || ""
             }
         });
-        this.attach("sync", () => this.#updateCurrentState());
+        this.#attachPresenceListeners();
     }
 
     #init (key) {
         this.#client = createClient(LobbyEventListener.WEBSOCKET_DUMMY_ENDPOINT.toString(), key, LobbyEventListener.#CLIENT_OPTIONS);
+    }
+    #attachPresenceListeners () {
+        this.attach("sync", () => this.#updateCurrentState());
+        this.attach("join", ({newPresences}) => {
+            for (const userid of Object.keys(newPresences))
+                this.#peers.add(userid);
+        });
+        this.attach("leave", ({leftPresences}) => {
+            for (const userid of Object.keys(leftPresences))
+                this.#peers.delete(userid);
+        });
     }
     #registerEventType (event) {
         this.#callbacks[event] = new Map();
@@ -67,6 +81,11 @@ export class LobbyEventListener {
                 Object.assign(this.#presenceState.get(userid), recent);
             else
                 this.#presenceState.set(userid, recent);
+        }
+        this.#peers.clear();
+        for (const [userid, { online = false }] of Object.entries(this.#presenceState)) {
+            if (online) this.#peers.add(userid);
+            else this.#peers.delete(userid);
         }
     }
 
@@ -119,4 +138,5 @@ export class LobbyEventListener {
     get client () { return this.#client }
     get channel () { return this.#channel }
     get lobbyState () { return this.#presenceState }
+    get peers () { return this.#peers }
 }
