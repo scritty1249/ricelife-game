@@ -275,10 +275,12 @@ async function processManagerCommand (command, id, payload) {
             *    target: UUID,
             * }
             */
-           const { target } = payload;
-           const cache = getCache(target);
-           delete CACHE[target];
-           postSuccess(id);
+            const { target } = payload;
+            try {
+                const cache = getCache(target);
+            } catch {}
+            delete CACHE[target];
+            postSuccess(id);
         }
     } catch (e) {
         postFailure(id, e)
