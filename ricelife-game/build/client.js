@@ -10,6 +10,11 @@ const clientScriptOutput = "scripts/main";
 const runtimeCoreSource = path.normalize("./src/engine/runtime/Core.js");
 const runtimeCoreOutput = "scripts/engine/Core";
 const clientScriptSource = path.normalize("./src/client/scripts/main.js");
+const stylesheetSource = path.normalize("./src/client/stylesheets/styles.css");
+
+const HTML_REPLACE_TAGS = {
+    GIT_COMMIT_SHA: GIT_COMMIT_SHA
+};
 
 const entryPoints = {
     [runtimeCoreOutput]: runtimeCoreSource,
@@ -28,8 +33,9 @@ for (const [ dest, src ] of Object.entries(entryPoints)) {
     }
 }
 
+// JS
 console.log(`Clustering ${Object.values(entryPoints).length} sources:\n`);
-const result = await build({
+const scriptResult = await build({
     entryPoints,
     bundle: true,
     write: true,
@@ -46,25 +52,39 @@ const result = await build({
     ],
     external: externalPrefixes,
 });
-console.log(`\nSuccessfully build to: ${outputPath}`);
-
-const outputFiles = Object.keys(result.metafile.outputs);
+console.log(`\nSuccessfully built to: ${outputPath}`);
+const outputFiles = Object.keys(scriptResult.metafile.outputs);
 const mainBundleName = outputFiles.find(file => file.endsWith(".js") && file.startsWith(`client/${clientScriptOutput}-`));
 const webWorkerName = outputFiles.find(file => file.endsWith(".js") && file.startsWith(`client/${webWorkerOutput}-`));
 if (!mainBundleName) throw new Error("Could not find generated entry point bundle file.");
 if (!webWorkerName) throw new Error("Could not find generated web worker file.");
 const bundleUrl = "/" + path.relative(outputPath, mainBundleName).replace(/\\/g, "/");
-const workerUrl = "/" + path.relative(outputPath, webWorkerName).replace(/\\/g, "/");
+HTML_REPLACE_TAGS.GENERATED_WORKER_URL = "/" + path.relative(outputPath, webWorkerName).replace(/\\/g, "/");
+HTML_REPLACE_TAGS.SCRIPT_BUNDLE_TAG = `<script type="module" src="${bundleUrl}" defer></script>`;
+
+// CSS
+console.log(`Bundling stylesheet:\n${stylesheetSource}`);
+const styleResult = await build({
+    entryPoints: [stylesheetSource], 
+    bundle: true,
+    minify: !DEV_FLAG,
+    outdir: outputPath,
+    entryNames: "stylesheets/[dir]/[name]-[hash]",
+    metafile: true
+});
+console.log(`\nSuccessfully bundled to: ${outputPath}`);
+const outputStylesheet = Object.keys(styleResult.metafile.outputs)[0];
+const stylesheetUrl = "/" + path.relative(outputPath, outputStylesheet).replace(/\\/g, "/");
+HTML_REPLACE_TAGS.STYLE_BUNDLE_TAG = `<link rel="stylesheet" href="${stylesheetUrl}"/>`;
+
+// HTML
 const indexFileSource = path.normalize("./src/client/index.html");
 const indexFileOutput = path.normalize("./client/index.html");
 console.log(`Copying index file from ${indexFileSource}`);
-const bundleScriptTag = `<script type="module" src="${bundleUrl}" defer></script>`;
 let htmlContent = readFileSync(indexFileSource, "utf8");
-htmlContent = htmlContent
-    .replace("<!-- SCRIPT_BUNDLE_TAG -->", bundleScriptTag)
-    .replace("<!-- GIT_COMMIT_SHA -->", GIT_COMMIT_SHA)
-    .replace("<!-- GENERATED_WORKER_URL -->", workerUrl);
+for (const [ find, replace ] of Object.entries(HTML_REPLACE_TAGS)) {
+    htmlContent = htmlContent.replace(`<!-- ${find} -->`, replace);
+}
 writeFileSync(indexFileOutput, htmlContent, "utf8");
-
 console.log(`Successfully wrote index file to ${indexFileOutput}`);
 process.exit(0);
