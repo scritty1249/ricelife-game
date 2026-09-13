@@ -143,6 +143,7 @@ export class LobbyEventListener {
                 this.#connected = true;
                 console.info("Supabase websocket connected");
                 this.syncState({online: true});
+                this.#updateCurrentState();
             } else
                 console.warn("Supabase websocket failed to connect");
         });

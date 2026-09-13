@@ -19,6 +19,7 @@ export class Actor extends Loadable {
         lastX: undefined,
         flipBody: false
     }
+    activeState = false; // draws the avatar with border when set
     constructor (metadata, hittotal) {
         super();
         this.#Metadata = metadata;
@@ -72,7 +73,7 @@ export class Actor extends Loadable {
             Metadata.Profile.fontColor.apply(100, 100, 100); // [!] inefficient
         }
         if (!isClient) {
-            Metadata.Profile.draw(cursor, Puppet.relativePosition);
+            Metadata.Profile.draw(cursor, Puppet.relativePosition, this.activeState);
         }
         HitTotal.draw(cursor, Puppet.relativePosition);
         cursor.restore();

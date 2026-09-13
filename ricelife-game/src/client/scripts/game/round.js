@@ -41,10 +41,22 @@ export default async function init (mainController, Discord, lobby, lobbyid) {
                 await phase.updateTurn(payload.turns, buffer);
             }
         });
+        ws.addStateChangeListener(() => {
+            setPlayerOnlineStatus(ws.lobbyState, phase.Players.values());
+        });
         ws.connect();
+        setPlayerOnlineStatus(ws.lobbyState, phase.Players.values());
     }
     mainController.Events.raiseEvent("LOADING", {hide: true});
     return phase;
+}
+
+function setPlayerOnlineStatus (lobbyState, players) {
+    for (const player of players) {
+        if (lobbyState.has(player.id)) {
+            player.activeState = !!lobbyState.get(player.id)?.online;
+        }
+    }
 }
 
 async function loadLobby (lobbyid, userid) {
