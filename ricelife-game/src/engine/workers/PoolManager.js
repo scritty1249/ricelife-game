@@ -197,6 +197,7 @@ export class PoolManager {
                 terrainID,
                 false,
             );
+            await this.updateCache(terrainID, true);
             // package object into easier to parse structure
             const intervals = Array.from(blastGroups, (group, i) => new BlastInterval(
                 group[0].delay,
