@@ -1,7 +1,19 @@
 import { createClient } from "@supabase/supabase-js";
 
+const WEBSOCKET_ROUTING_PREFIX = "/websocket";
+class DiscordWebocketProxy extends WebSocket {
+    static ROUTING_PREFIX = WEBSOCKET_ROUTING_PREFIX;
+    constructor(src) {
+        const url = new URL(src);
+        url.host = window.location.host;
+        url.protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+        url.pathname = `${DiscordWebocketProxy.ROUTING_PREFIX}${url.pathname}`;
+        super(url.toString());
+    }
+}
+
 export class LobbyEventListener {
-    static WEBSOCKET_ROUTING_PREFIX = "/websocket";
+    static WEBSOCKET_ROUTING_PREFIX = WEBSOCKET_ROUTING_PREFIX;
     static WEBSOCKET_DUMMY_ENDPOINT = new URL("https://discord-proxy");
     static LOCAL_ENDPOINT = new URL(window.location.origin);
     static #CHANNEL_CONFIG = {
@@ -15,19 +27,12 @@ export class LobbyEventListener {
             fetch: (src, options) => {
                 const { WEBSOCKET_ROUTING_PREFIX, WEBSOCKET_DUMMY_ENDPOINT } = LobbyEventListener;
                 const { hostname } = WEBSOCKET_DUMMY_ENDPOINT;
-                const url = String(src).replace(`https://${hostname}`, WEBSOCKET_ROUTING_PREFIX);
+                const url = String(src?.url || src).replace(`https://${hostname}`, WEBSOCKET_ROUTING_PREFIX);
                 return fetch(url, options);
             }
         },
         realtime: {
-            transport: (src) => {
-                const { WEBSOCKET_ROUTING_PREFIX, LOCAL_ENDPOINT } = LobbyEventListener;
-                const url = new URL(src);
-                url.protocol = LOCAL_ENDPOINT.protocol === "https:" ? "wss:" : "ws:";
-                url.host = LOCAL_ENDPOINT.host;
-                url.pathname = `${WEBSOCKET_ROUTING_PREFIX}${url.pathname}`; 
-                return new WebSocket(url.toString());
-            }
+            transport: DiscordWebocketProxy
         }
     };
     #callbacks = {};
