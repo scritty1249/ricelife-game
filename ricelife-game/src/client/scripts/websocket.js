@@ -36,6 +36,7 @@ export class LobbyEventListener {
         }
     };
     #callbacks = {};
+    #stateChangeCallbacks = new Map();
     #connected = false;
     #presenceState = new Map();
     #peers = new Set();
@@ -56,14 +57,25 @@ export class LobbyEventListener {
         this.#client = createClient(LobbyEventListener.WEBSOCKET_DUMMY_ENDPOINT.toString(), key, LobbyEventListener.#CLIENT_OPTIONS);
     }
     #attachPresenceListeners () {
-        this.channel.on("presence", { event: "sync" }, () => this.#updateCurrentState());
+        this.channel.on("presence", { event: "sync" }, () => {
+            this.#updateCurrentState()
+            this.#onStateChange();
+        });
         this.channel.on("presence", { event: "join" }, ({newPresences}) => {
-            for (const userid of Object.keys(newPresences))
+            for (const userid of Object.keys(newPresences)) {
                 this.#peers.add(userid);
+                if (userid in this.#presenceState)
+                    this.#presenceState[userid].online = true;
+            }
+            this.#onStateChange();
         });
         this.channel.on("presence", { event: "leave" }, ({leftPresences}) => {
-            for (const userid of Object.keys(leftPresences))
+            for (const userid of Object.keys(leftPresences)) {
                 this.#peers.delete(userid);
+                if (userid in this.#presenceState)
+                    this.#presenceState[userid].online = false;
+            }
+            this.#onStateChange();
         });
     }
     #registerEventType (event) {
@@ -95,7 +107,17 @@ export class LobbyEventListener {
             else this.#peers.delete(userid);
         }
     }
+    #onStateChange () {
+        for (const callback of this.#stateChangeCallbacks.keys())
+            callback?.();
+    }
 
+    addStateChangeListener (callbackFn) {
+        this.#stateChangeCallbacks.set(callbackFn, null);
+    }
+    removeStateChangeListener (callbackFn) {
+        this.#stateChangeCallbacks.delete(callbackFn);
+    }
     send (event, payload) {
         this.channel.send({
             event,
