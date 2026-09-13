@@ -9,6 +9,8 @@
 
 ## Discord Embedded App Activity
 
+## Supabase Realtime
+
 # Setup
 ## AWS
 ### IAM Role
@@ -21,7 +23,12 @@
 ### Build Scripts
 
 ## Discord
-### Application Commands API 
+### Application Commands API
+
+## Supabase
+### Disabling unused access points to project database
+
+### Realtime
 
 # Deployment
 ## AWS
@@ -31,6 +38,8 @@
 ## Vercel
 
 ## Discord
+
+## Supabase
 
 # Phase Execution Flow
 ## Creating a lobby
