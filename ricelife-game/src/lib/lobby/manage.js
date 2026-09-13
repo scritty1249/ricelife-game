@@ -96,9 +96,6 @@ export async function exportLobby (lobbyid, hostid = undefined) {
     if (!lobbyid) return null;
     const lobby = await KV.get(lobbyid);
     if (!lobby) return null;
-    const activePlayer = lobby.state === STATUS.ACTIVE
-        ? lobby.player_order[lobby.turn_count % (lobby.player_order.length || 1)]
-        : Object.keys(lobby.players).sort()[0];
     const teams = Array.from(Object.keys(lobby.team_inc));
     return {
         ishost: hostid && hostid === lobby.host_player,
@@ -109,7 +106,7 @@ export async function exportLobby (lobbyid, hostid = undefined) {
             teams: teams,
             teamsize: lobby.team_size,
             channelid: lobby.channelid,
-            activeplayer: activePlayer
+            turnorder: lobby.player_order
         }
     }
 }

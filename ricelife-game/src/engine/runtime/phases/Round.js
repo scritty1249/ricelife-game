@@ -452,10 +452,18 @@ export class Round extends Phase {
         }
         this.handleInput();
     }
+    async updateTurn (turnCount, turnData) {
+        this.Global.Events.raiseEvent("LOADING", {hide: false});
+        this.store.recording.before = TurnRecorder.process(turnData).recording;
+        await this.renderRecording(this.store.recording.before);
+        this.Lobby.turns = turnCount;
+        this.unendTurn();
+        this.start();
+    }
     start () {
         new Promise(async (resolve, reject) => {
             const { before: recording } = this.store.recording;
-            this.setTurn(this.Lobby.ActivePlayerID === this.#ClientPlayerID);
+            this.setTurn(this.isClientTurn);
             if (recording?.isTurnRecording) {
                 const { player, ammo } = await this.loadRecording(recording);
                 setTimeout(() => {
@@ -464,7 +472,7 @@ export class Round extends Phase {
                 }, 1500);
             }
             resolve();
-        }).finally(() => super.start());        
+        }).finally(() => super.start());
     }
     onanimate () {
         const { Camera, Animations, Interface, Players, flags, store } = this;

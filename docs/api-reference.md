@@ -159,7 +159,7 @@ Commits a staged round update. Updated players corrospond to players that are al
 | state | integer ||
 | teamsize | number ||
 | teams | array of [Snowflake](#string-snowflake) | List of team ids |
-| activeplayer | [Snowflake](#string-snowflake) | Current turn holder |
+| turnorder | array of [Snowflake](#string-snowflake) | Ordered list of player ids, dictating play order |
 | turns | integer | Number of turns played in the lobby |
 | channelid | [Snowflake](#string-snowflake) | Discord channel the invite was created in |
 

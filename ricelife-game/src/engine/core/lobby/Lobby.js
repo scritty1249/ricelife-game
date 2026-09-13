@@ -32,8 +32,9 @@ export class Lobby {
     #NameRegistry = {}; // immutable
     #ModelTypes = new Set(); // immutable
     #AmmoTypes = new Set(); // mutable
-    #ActivePlayerID; // current turn holder
+    #order = new Array(); // immutable
     #teamsize = 1;
+    turns = 0;
     constructor (lobbyJson) {
         this.#init(lobbyJson);
         this.#lock();
@@ -60,8 +61,13 @@ export class Lobby {
     #init (lobbyJson) {
         this.#populateTeams(lobbyJson.teams);
         this.#populatePlayers(Object.values(lobbyJson.players));
-        this.#ActivePlayerID = lobbyJson.activeplayer;
+        this.#populateTurnOrder(lobbyJson.turnorder);
+        this.turns = lobbyJson.turns;
         this.#teamsize = lobbyJson.teamsize;
+    }
+    #populateTurnOrder (order) {
+        for (const id of order)
+            this.#order.push(id);
     }
     #populateTeams (teams) {
         try {
@@ -96,6 +102,7 @@ export class Lobby {
         Object.freeze(this.#Players);
         Object.freeze(this.#NameRegistry);
         Object.freeze(this.#ModelTypes);
+        Object.freeze(this.#order);
     }
 
     async loadAssets (clientUserID, assetPool, ammoPool, assetTypes) {
@@ -198,9 +205,10 @@ export class Lobby {
     get Avatars () { return this.#Avatars }
     get ModelTypes () { return this.#ModelTypes }
     get NameRegistry () { return this.#NameRegistry }
-    get ActivePlayerID () { return this.#ActivePlayerID }
+    get ActivePlayerID () { return this.turnorder[this.turns % this.turnorder.length] }
     get allPlayersSpawned () { return this.Players.values().every((player) => player && "position" in player) }
-    get teamsize () { return this.#teamsize } 
+    get teamsize () { return this.#teamsize }
+    get turnorder () { return this.#order }
 }
 
 function tryStringify (obj) {
