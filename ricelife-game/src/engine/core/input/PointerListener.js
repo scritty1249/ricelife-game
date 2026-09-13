@@ -224,8 +224,8 @@ export class PointerListener  {
             if (down.stamp !== undefined)
                 this.#denormalizePoint(down.position);
         }
-        const { left, top, width, height, bottom } = this.#listeningTo.getBoundingClientRect();
-        this.#elementSize.apply(width, bottom); // for y coordinate normalization
+        const { left, top, width, height } = this.#listeningTo.getBoundingClientRect();
+        this.#elementSize.apply(width, height); // for y coordinate normalization
         this.#offset.apply(left, top);
         this.#scale.apply(this.#listeningTo.width / width, this.#listeningTo.height / height);
         // make position data relative to new position
