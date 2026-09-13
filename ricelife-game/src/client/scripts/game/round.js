@@ -33,7 +33,7 @@ export default async function init (mainController, Discord, lobby, lobbyid) {
     }, { once: !isAlone });
     if (ws) {
         ws.attach("TURNENDED", async (payload) => {
-            console.debug("Recieved turn update from peer: ", JSON.stringify(payload));
+            console.debug("Recieved turn update from peer: ", payload?.turns);
             if (Number.isInteger(payload?.turns) && payload.turns > phase.Lobby.turns) {
                 const ld = await loadLobby(lobbyid, Discord.user.id);
                 if (!ld) return;

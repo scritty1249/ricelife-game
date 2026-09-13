@@ -82,7 +82,7 @@ export class LobbyEventListener {
         this.#callbacks[event] = new Map();
         this.channel
             .on("broadcast", { event },
-                (payload) => this.#callbackHandler(event, payload));
+                (broadcast) => this.#callbackHandler(event, broadcast?.payload));
     }
     #callbackHandler (event, payload) {
         if (event in this.#callbacks) {
