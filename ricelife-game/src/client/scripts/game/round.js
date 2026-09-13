@@ -53,6 +53,7 @@ export default async function init (mainController, Discord, lobby, lobbyid) {
 
 function setPlayerOnlineStatus (lobbyState, players) {
     for (const player of players) {
+        player.activeState = false;
         if (lobbyState.has(player.id)) {
             player.activeState = !!lobbyState.get(player.id)?.online;
         }
