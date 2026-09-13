@@ -30,9 +30,9 @@ export class Profile extends Loadable {
         cursor.restore();
         return width;
     }
-    draw (cursor, position) {
+    draw (cursor, position, active = false) {
         this.drawName(cursor, position);
-        this.drawAvatar(cursor, position);
+        this.drawAvatar(cursor, position, active);
     }
     drawName (cursor, position) {
         cursor.save();
@@ -61,7 +61,7 @@ export class Profile extends Loadable {
             cursor.beginPath();
             cursor.arc(origin, radius, 0, Math.PI * 2, false);
             cursor.closePath();
-            cursor.lineWidth = width;
+            cursor.lineWidth = Math.max(Math.floor(radius / 10), 2);
             cursor.strokeStyle = this.activeBorderColor.toString();
             cursor.stroke();
             cursor.restore();

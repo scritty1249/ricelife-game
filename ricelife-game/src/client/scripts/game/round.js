@@ -42,21 +42,18 @@ export default async function init (mainController, Discord, lobby, lobbyid) {
             }
         });
         ws.addStateChangeListener(() => {
-            setPlayerOnlineStatus(ws.lobbyState, phase.Players.values());
+            setPlayerOnlineStatus(ws.peers, phase.Players.values());
         });
         ws.connect();
-        setPlayerOnlineStatus(ws.lobbyState, phase.Players.values());
+        setPlayerOnlineStatus(ws.peers, phase.Players.values());
     }
     mainController.Events.raiseEvent("LOADING", {hide: true});
     return phase;
 }
 
-function setPlayerOnlineStatus (lobbyState, players) {
+function setPlayerOnlineStatus (peers, players) {
     for (const player of players) {
-        player.activeState = false;
-        if (lobbyState.has(player.id)) {
-            player.activeState = !!lobbyState.get(player.id)?.online;
-        }
+        player.activeState = peers.has(player.id);
     }
 }
 
