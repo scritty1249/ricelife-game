@@ -16,7 +16,10 @@ export default async function init (mainController, Discord, lobby, lobbyid) {
         const { websocket } = lobbyData;
         ws = new LobbyEventListener(websocket.key, websocket.id, Discord.user.id);
     }
+    let saveTurnLock = false;
     phase.Events.addEventListener("TURNENDED", async (changes) => {
+        if (saveTurnLock) return;
+        saveTurnLock = true;
         mainController.Events.raiseEvent("NOTIFY", {severity: 0, message: "Saving turn..."});
         const { turns } = phase.Lobby;
         const success = await updateLobby(changes, lobbyid, Discord.user.id);
@@ -24,12 +27,9 @@ export default async function init (mainController, Discord, lobby, lobbyid) {
             if (ws) ws.send("TURNENDED", { turns });
             mainController.Events.raiseEvent("NOTIFY", {severity: 1, message: "Turn saved.", timeout: 2000});
         } else {
-            mainController.Events.raiseEvent("NOTIFY", {severity: -2, message: "Failed to save turn!"});
-            setTimeout(() => {
-                phase.unendTurn();
-                phase.setTurn(true);
-            }, 1500);
+            mainController.Events.raiseEvent("NOTIFY", {severity: -2, message: "Failed to save turn! Relaunch activity and try again.", timeout: 5500});
         }
+        saveTurnLock = false;
     }, { once: !isAlone });
     if (ws) {
         ws.attach("TURNENDED", async (payload) => {
