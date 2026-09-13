@@ -986,6 +986,7 @@ export class Round extends Phase {
         } catch (err) {
             console.error(`[${typeString(this)}]: Projectile trace error`);
             this.Global.Events.raiseEvent("NOTIFY", {severity: -1, message: "An error occured while playing your turn. Relaunch the activity and try again.", timeout: -1});
+            this.Global.Events.raiseEvent("LOADING", {hide: true});
             throw err;
         }
     }
