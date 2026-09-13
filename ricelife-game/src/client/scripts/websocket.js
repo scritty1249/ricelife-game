@@ -20,14 +20,7 @@ export class LobbyEventListener {
             }
         },
         realtime: {
-            getWebSocketTransport: (src) => {
-                const { WEBSOCKET_ROUTING_PREFIX, WEBSOCKET_DUMMY_ENDPOINT } = LobbyEventListener;
-                const { hostname } = WEBSOCKET_DUMMY_ENDPOINT;
-                const url = src
-                    .replace(`wss://${hostname}`, WEBSOCKET_ROUTING_PREFIX)
-                    .replace(`https://${hostname}`, WEBSOCKET_ROUTING_PREFIX); 
-                return new WebSocket(url);
-            }
+            endpoint: `${window.location.origin}${LobbyEventListener.WEBSOCKET_ROUTING_PREFIX}/realtime/v1`,
         }
     };
     #callbacks = {};
