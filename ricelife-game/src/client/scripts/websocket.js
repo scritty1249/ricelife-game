@@ -87,7 +87,7 @@ export class LobbyEventListener {
     #callbackHandler (event, payload) {
         if (event in this.#callbacks)
             for (const callback of this.#callbacks[event].keys())
-                callback?.(payload);
+                callback?.(payload?.data || {});
     }
     #updateCurrentState () {
         if (!this.#channel) return;
@@ -120,9 +120,11 @@ export class LobbyEventListener {
     }
     send (event, payload) {
         this.channel.send({
-            event,
             type: "broadcast",
-            payload: payload || {}
+            event,
+            payload: {
+                data: payload || {}
+            }
         });
     }
     attach (event, callbackFn) {
