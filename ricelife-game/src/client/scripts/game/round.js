@@ -32,9 +32,13 @@ export default async function init (mainController, Discord, lobby, lobbyid) {
         }
     }, { once: !isAlone });
     if (ws) {
-        ws.attach("TURNENDED", (payload) => {
-            if (Number.isInteger(payload?.turns))
-                phase.Events.raiseEvent("TURNUPDATE", { turns: payload.turns });
+        ws.attach("TURNENDED", async (payload) => {
+            if (Number.isInteger(payload?.turns) && payload.turns > phase.Lobby.turns) {
+                const ld = await loadLobby(lobbyid, Discord.user.id);
+                if (!ld) return;
+                const buffer = await getTurnData(ld.terrain.url);
+                await phase.updateTurn(payload.turns, buffer);
+            }
         });
         ws.connect();
     }
