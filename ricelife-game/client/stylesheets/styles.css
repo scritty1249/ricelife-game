@@ -14,12 +14,12 @@
 }
 
 canvas {
-    position: absolute;
-    top: 0;
-    left: 0;
+    position: fixed;
+    top: var(--sait) !important;
+    left: var(--sail) !important;
     width: var(--saw) !important;
     height: var(--sah) !important;
-    box-sizing: border-box !important; 
+    box-sizing: border-box !important;
 }
 body, html {
     width: var(--saw);

@@ -6,34 +6,31 @@
     --fg-color: #fff;
     --bg-color: #00ccff;
     --thickness: calc(0.05 * var(--spinner-size));
-    --offset: calc(-50dvw + var(--spinner-size)) calc(50dvh - var(--spinner-size));
     width: var(--spinner-size);
     height: var(--spinner-size);
+    inset: auto;
+    position: fixed;
+    left: calc(var(--sail) + (var(--spinner-size) / 2));
+    bottom: calc(var(--saib) + (var(--spinner-size) / 2));
     border-radius: 50%;
     display: inline-block;
-    margin: auto;
-    inset: 0;
-    translate: var(--offset);
+    margin: 0;
     border-top: var(--thickness) solid var(--fg-color);
     border-right: var(--thickness) solid transparent;
     box-sizing: border-box;
     animation: rotation 1s linear infinite;
-    position: absolute;
     pointer-events: none;
     overflow: visible;
 }
 .spinner::after {
     content: '';  
     box-sizing: border-box;
-    position: absolute;
-    left: 0;
-    top: 0;
+    position: fixed;
+    inset: auto;
     width: var(--spinner-size);
     height: var(--spinner-size);
-    margin: auto;
-    inset: 0;
+    margin: 0;
     border-radius: 50%;
-    translate: var(--offset), 0;
     border-left: var(--thickness) solid var(--bg-color);
     border-bottom: var(--thickness) solid transparent;
     animation: rotation 0.5s linear infinite reverse;
@@ -49,8 +46,8 @@
     text-align: left center;
     inset: 0;
     position: absolute;
-    left: calc(var(--spinner-size) * 2);
-    bottom: calc(var(--spinner-size) / 2);
+    left: calc((var(--spinner-size) * 2) + var(--sail));
+    bottom: calc((var(--spinner-size) / 2) + var(--saib));
     pointer-events: none;
     -webkit-user-select: none;
     -ms-user-select: none;
@@ -60,8 +57,10 @@
 }
 .loader {
     --blur: 0px;
-    width: 100dvw;
-    height: 100dvh;
+    top: var(--sait) !important;
+    left: var(--sail) !important;
+    width: var(--saw) !important;
+    height: var(--sah) !important;
     position: fixed;
     pointer-events: none;
     backdrop-filter: blur(var(--blur));

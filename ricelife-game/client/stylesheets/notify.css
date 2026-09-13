@@ -1,15 +1,15 @@
 #notif-stream {
     position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
+    top: var(--sait) !important;
+    left: var(--sail) !important;
+    right: var(--sair) !important;
     margin: 0 auto;
     display: flex;
     gap: 4px;
     flex-direction: column-reverse;
     align-items: center;
     pointer-events: auto;
-    max-height: 100vh;
+    max-height: var(--sah) !important;
     overflow-y: scroll;
     box-sizing: border-box;
     -ms-overflow-style: none;
