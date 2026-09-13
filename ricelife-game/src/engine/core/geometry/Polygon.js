@@ -247,14 +247,14 @@ export class Polygon extends Hashable { // points should be ordered clockwise (i
                 currNode = currNode.next;
             }
             if (newPts.length > 2)
-                polyPieces.push(new Polygon(...newPts));
+                polyPieces.push(new Polygon(newPts));
         }
         if (polyPieces.length > 1) {
             const hole = poly.clone();
             if (newPolygon.path.isClockwise) hole.path.points.reverse();
             newPolygon.holes.push(hole);
         } else if (polyPieces.length !== 0)
-            newPolygon.path.apply(...polyPieces[0].path.points);
+            newPolygon.path.set(polyPieces[0].path);
         return newPolygon.reduceHoles();
     }
     draw (cursor, close = true) { // only draw the path

@@ -340,6 +340,11 @@ export class Path extends Hashable { // points should be ordered clockwise (in p
         this.#points.splice(0, this.#points.length);
         this.#points.push(...(values.length == 1 && values[0]?.isPath ? values[0] : values));
     }
+    set (path) {
+        this.#points.splice(0, this.#points.length);
+        for (const pt of path)
+            this.#points.push(pt);
+    }
     map (...args) {
         return this.#points.map(...args);
     }

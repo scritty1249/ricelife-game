@@ -145,7 +145,7 @@ export class PoolManager {
             blastGroups.forEach((_, i) =>
                 terrainIDs.push(`${terrainID}_p${i}_${jobID}`),
             );
-            const canvasIDs = await Promise.all(Array.from(blastGroups, (_, i) => {
+            const canvasIDs = Array.from(blastGroups, (_, i) => {
                 const canvasID = `${terrainID}_c${i}_${jobID}`;
                 const cache = new CanvasCache(
                     planeSize.x,
@@ -153,7 +153,7 @@ export class PoolManager {
                     canvasID,
                 );
                 return this.#pool.createCache(cache).then(() => canvasID);
-            }));
+            });
             // setup promise chains
             let cutJob = Promise.resolve();
             // load balanced cut operations
@@ -162,7 +162,7 @@ export class PoolManager {
                 const cuts = interval.map(({ shape }) => shape.Polygon(1));
                 const prevTerrainID = terrainIDs[i];
                 const currTerrainID = terrainIDs[i + 1];
-                const currCanvasID = canvasIDs[i];
+                const currCanvasID = await canvasIDs[i];
                 const cj = cutJob.then(() =>
                     this.cutTerrain(prevTerrainID, cuts, false, currTerrainID),
                 );
@@ -180,7 +180,6 @@ export class PoolManager {
                         .then(() => this.#pool.cache[currTerrainID].terrain),
                 );
                 cutJob = dj;
-                drawJob = dj;
                 if (i - 1 > 0)
                     cutJobs
                         .at(-1)
