@@ -21,6 +21,10 @@ export class LobbyEventListener {
         },
         realtime: {
             endpoint: `${window.location.origin}${LobbyEventListener.WEBSOCKET_ROUTING_PREFIX}/realtime/v1`,
+            getWebSocketTransport: (url) => {
+                // skips parsing
+                return new WebSocket(url);
+            }
         }
     };
     #callbacks = {};
@@ -57,7 +61,7 @@ export class LobbyEventListener {
         if (!this.#channel) return;
         const state = this.#channel.presenceState();
         for (const userid of Object.keys(state)) {
-            const sessions = state[userId];
+            const sessions = state[userid];
             const recent = sessions[sessions.length - 1]; 
             if (this.#presenceState.has(userid))
                 Object.assign(this.#presenceState.get(userid), recent);
