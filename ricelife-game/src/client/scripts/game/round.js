@@ -24,7 +24,7 @@ export default async function init (mainController, Discord, lobby, lobbyid) {
         const { turns } = phase.Lobby;
         const success = await updateLobby(changes, lobbyid, Discord.user.id);
         if (success) {
-            if (ws) ws.send("TURNENDED", { turns });
+            if (ws) ws.send("TURNENDED", { turns: turns + 1 });
             mainController.Events.raiseEvent("NOTIFY", {severity: 1, message: "Turn saved.", timeout: 2000});
         } else {
             mainController.Events.raiseEvent("NOTIFY", {severity: -2, message: "Failed to save turn! Relaunch activity and try again.", timeout: 5500});
