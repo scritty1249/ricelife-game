@@ -224,8 +224,8 @@ export class PointerListener  {
             if (down.stamp !== undefined)
                 this.#denormalizePoint(down.position);
         }
-        const { left, top, width, height } = this.#listeningTo.getBoundingClientRect();
-        this.#elementSize.apply(width, height); // for y coordinate normalization
+        const { left, top, width, height, bottom } = this.#listeningTo.getBoundingClientRect();
+        this.#elementSize.apply(width, bottom); // for y coordinate normalization
         this.#offset.apply(left, top);
         this.#scale.apply(this.#listeningTo.width / width, this.#listeningTo.height / height);
         // make position data relative to new position
@@ -238,15 +238,15 @@ export class PointerListener  {
             this.#normalizePoint(down.position);
     }
     #normalizePoint (point) { // this is a mutating operation!
-        point.y = this.#elementSize.y - point.y;
         point.sub(this.#offset, true);
+        point.y = this.#elementSize.y - point.y;
         point.mul(this.#scale, true);
         return point; // for chaining
     }
     #denormalizePoint (point) {
         point.div(this.#scale, true);
-        point.add(this.#offset, true);
         point.y += this.#elementSize.y;
+        point.add(this.#offset, true);
         return point; // for chaining
     }
     // return a promise that runs on next event
