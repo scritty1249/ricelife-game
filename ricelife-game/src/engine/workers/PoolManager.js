@@ -185,9 +185,8 @@ export class PoolManager {
                         .then(() => this.#pool.cache[currTerrainID].terrain),
                 );
                 cutJob = dj;
-                if (i > 1)
-                    cutJobs.at(-1)
-                        .then(() => this.destroyCache(prevTerrainID));
+                if (prevTerrainID !== terrainID)
+                    cj.then(() => this.destroyCache(prevTerrainID));
             }
             // wait for all jobs to finish
             const frames = await Promise.all(drawJobs);

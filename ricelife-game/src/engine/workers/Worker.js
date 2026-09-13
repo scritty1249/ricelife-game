@@ -268,7 +268,7 @@ async function processManagerCommand (command, id, payload) {
                 if (createCache(data) && !clone)
                     delete CACHE[source];
             }   
-            if (!manager) postSuccess(id);
+            postSuccess(id);
         } else if (command === "DROPCACHE") {
            /* Payload expected:
             * {
