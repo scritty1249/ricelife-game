@@ -42,6 +42,7 @@ export default async function init (mainController, Discord, lobby, lobbyid) {
             }
         });
         ws.addStateChangeListener(() => {
+            console.debug("Lobby state changed");
             setPlayerOnlineStatus(ws.peers, phase.Players.values());
         });
         ws.connect();
