@@ -6,14 +6,13 @@ export class LobbyEventListener {
             ack: false,
             self: false
     }};
-    static #attachListener (event, channel, callbackFn) {
-        
-    }
+    static WEBSOCKET_ROUTING_PREFIX = "/websocket";
     #callbacks = {};
     #client;
     #channel;
-    constructor (url, key, id) {
-        this.#client = createClient(url, key);
+    constructor (src, key, id) {
+        const url = new URL(src);
+        this.#client = createClient(LobbyEventListener.WEBSOCKET_ROUTING_PREFIX + url.pathname + url.search, key);
         this.#channel = this.client.channel(id, {
             config: LobbyEventListener.#CHANNEL_CONFIG
         });        
