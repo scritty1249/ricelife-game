@@ -185,7 +185,7 @@ export class PoolManager {
                         .then(() => this.#pool.cache[currTerrainID].terrain),
                 );
                 cutJob = dj;
-                if (prevTerrainID !== terrainID)
+                if (i > 1)
                     cutJobs.at(-1)
                         .then(() => this.destroyCache(prevTerrainID));
             }
