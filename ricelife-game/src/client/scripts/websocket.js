@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 export class LobbyEventListener {
     static WEBSOCKET_ROUTING_PREFIX = "/websocket";
     static WEBSOCKET_DUMMY_ENDPOINT = new URL("https://discord-proxy");
+    static LOCAL_ENDPOINT = new URL(window.location.origin);
     static #CHANNEL_CONFIG = {
         broadcast: {
             ack: false,
@@ -14,18 +15,19 @@ export class LobbyEventListener {
             fetch: (src, options) => {
                 const { WEBSOCKET_ROUTING_PREFIX, WEBSOCKET_DUMMY_ENDPOINT } = LobbyEventListener;
                 const { hostname } = WEBSOCKET_DUMMY_ENDPOINT;
-                const relativeUrl = String(src).replace(`https://${hostname}`, WEBSOCKET_ROUTING_PREFIX);
-                return fetch(relativeUrl, options);
+                const url = String(src).replace(`https://${hostname}`, WEBSOCKET_ROUTING_PREFIX);
+                return fetch(url, options);
             }
         },
         realtime: {
             getWebSocketTransport: (src) => {
-                const { WEBSOCKET_ROUTING_PREFIX, WEBSOCKET_DUMMY_ENDPOINT } = LobbyEventListener;
+                const { WEBSOCKET_ROUTING_PREFIX, WEBSOCKET_DUMMY_ENDPOINT, LOCAL_ENDPOINT } = LobbyEventListener;
                 const { hostname } = WEBSOCKET_DUMMY_ENDPOINT;
-                const url = String(src)
-                    .replace(`wss://${hostname}`, WEBSOCKET_ROUTING_PREFIX)
-                    .replace(`https://${hostname}`, WEBSOCKET_ROUTING_PREFIX); 
-                return new WebSocket(url);
+                const url = new URL(src);
+                url.protocol = LOCAL_ENDPOINT.protocol === "https:" ? "wss:" : "ws:";
+                url.host = LOCAL_ENDPOINT.host;
+                url.pathname = `${WEBSOCKET_ROUTING_PREFIX}${url.pathname}`; 
+                return new WebSocket(url.toString());
             }
         }
     };
@@ -40,7 +42,7 @@ export class LobbyEventListener {
         this.#channel = this.client.channel(id, {
             config: {
                 ...LobbyEventListener.#CHANNEL_CONFIG,
-                presence: userid || ""
+                presence: { key: userid || "" }
             }
         });
         this.#attachPresenceListeners();
@@ -50,12 +52,12 @@ export class LobbyEventListener {
         this.#client = createClient(LobbyEventListener.WEBSOCKET_DUMMY_ENDPOINT.toString(), key, LobbyEventListener.#CLIENT_OPTIONS);
     }
     #attachPresenceListeners () {
-        this.attach("sync", () => this.#updateCurrentState());
-        this.attach("join", ({newPresences}) => {
+        this.channel.on("presence", { event: "sync" }, () => this.#updateCurrentState());
+        this.channel.on("presence", { event: "join" }, ({newPresences}) => {
             for (const userid of Object.keys(newPresences))
                 this.#peers.add(userid);
         });
-        this.attach("leave", ({leftPresences}) => {
+        this.channel.on("presence", { event: "leave" }, ({leftPresences}) => {
             for (const userid of Object.keys(leftPresences))
                 this.#peers.delete(userid);
         });
@@ -76,6 +78,7 @@ export class LobbyEventListener {
         const state = this.#channel.presenceState();
         for (const userid of Object.keys(state)) {
             const sessions = state[userid];
+            if (!sessions?.length) continue;
             const recent = sessions[sessions.length - 1]; 
             if (this.#presenceState.has(userid))
                 Object.assign(this.#presenceState.get(userid), recent);
@@ -83,7 +86,7 @@ export class LobbyEventListener {
                 this.#presenceState.set(userid, recent);
         }
         this.#peers.clear();
-        for (const [userid, { online = false }] of Object.entries(this.#presenceState)) {
+        for (const [userid, { online = false }] of this.#presenceState.entries()) {
             if (online) this.#peers.add(userid);
             else this.#peers.delete(userid);
         }
