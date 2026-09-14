@@ -469,12 +469,12 @@ export class Round extends Phase {
             this.setTurn(this.isClientTurn);
             if (recording?.isTurnRecording) {
                 const { player, ammo, impacts } = await this.loadRecording(recording);
-                setTimeout(() => {
+                setTimeout(async () => {
                     this.flags.replaying = true;
-                    this.playRecording(recording, ammo, player, impacts);
+                    await this.playRecording(recording, ammo, player, impacts);
+                    resolve();
                 }, 1500);
             }
-            resolve();
         }).finally(() => super.start());
     }
     onanimate () {
