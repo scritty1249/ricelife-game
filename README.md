@@ -1,8 +1,9 @@
-# ricelife-game
+# STARLIFE: BLAST
+*formerly ricelife-game*\
 An asynchronous turn-based PvP game running as a Discord Embedded App Activity.
 
 ## Project Description (Goal)
-ricelife-game (name pending review) is a turn based game that can be played in Discord by sending messages when each player ends their turn. Each player drives, aims, and fires at one another from various vehicles using an arsenal of different ammunition types. A round ends when one team is completely eliminated, where all players are able to pick from a random set of modifiers to take into the next round- these can change how their vehicles, ammunition, and environment operate. Round limit pending review.
+STARLIFE: BLAST is a turn based game that can be played in Discord by sending messages when each player ends their turn. Each player drives, aims, and fires at one another from various vehicles using an arsenal of different ammunition types. A round ends when one team is completely eliminated, where all players are able to pick from a random set of modifiers to take into the next round- these can change how their vehicles, ammunition, and environment operate. Round limit pending review.
 
 After enough development, automated Discord-based responses (emotes, memes, messages) to round actions and game outcomes may be implemented.
 

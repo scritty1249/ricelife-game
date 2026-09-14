@@ -2,9 +2,9 @@
 _*
 node_modules/
 dist/
-ricelife-game/client/*
-!ricelife-game/client/assets/
-!ricelife-game/client/data/
+app/client/*
+!app/client/assets/
+!app/client/data/
 !.github
 !.gitignore
 !.vercelignore
