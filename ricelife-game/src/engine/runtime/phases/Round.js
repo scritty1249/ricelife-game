@@ -469,9 +469,11 @@ export class Round extends Phase {
             this.setTurn(this.isClientTurn);
             if (recording?.isTurnRecording) {
                 const { player, ammo, impacts } = await this.loadRecording(recording);
+                if (recording.length)
+                    this.displayState(recording.start);
                 setTimeout(async () => {
                     this.flags.replaying = true;
-                    await this.playRecording(recording, ammo, player, impacts);
+                    await this.playRecording(recording, ammo, player, impacts, false);
                     resolve();
                 }, 1500);
             }
@@ -884,17 +886,24 @@ export class Round extends Phase {
             impacts: impacts
         };
     }
-    async playRecording (recording, ammo, activePlayer, blastImpacts) {
+    // modifies visually
+    // mutates player actors
+    displayState (state) {
+        // [!] doesn't update cache
+        for (const player of this.Players.values())
+            if (player.id in state.actors)
+                player.setState(state.actors[player.id]);
+        if (state.frame)
+            this.Threaded.cache[this.store.cacheKey.background] = state.frame;
+    }
+    async playRecording (recording, ammo, activePlayer, blastImpacts, setup = true) {
         this.Global.Events.raiseEvent("LOADING", {hide: false});
         if (recording.length) {
             const { start, end } = recording;
             if (this.Terrain.hash !== start.terrain.hash)
                 this.updateTerrain(start.terrain, false);
-            for (const player of this.Players.values())
-                if (player.id in start.actors)
-                    player.setState(start.actors[player.id]);
-            if (start.frame)
-                this.Threaded.cache[this.store.cacheKey.background] = start.frame;
+            if (setup)
+                this.displayState(start);
             if (end.terrain)
                 await this.Threaded.setCache(new TerrainCache(end.terrain, this.store.cacheKey.terrain));
         }
@@ -987,7 +996,7 @@ export class Round extends Phase {
             this.Global.Events.raiseEvent("LOADING", {hide: true});
             if (hideButton.active) replayButton.hide = true;
             else replayButton.userData.lastHideState = true;
-            await this.playRecording(recording, ammo, player, impacts);
+            await this.playRecording(recording, ammo, player, impacts, false);
         } catch (err) {
             console.error(`[${typeString(this)}]: Projectile trace error`);
             this.Global.Events.raiseEvent("NOTIFY", {severity: -1, message: "An error occured while playing your turn. Relaunch the activity and try again.", timeout: -1});
