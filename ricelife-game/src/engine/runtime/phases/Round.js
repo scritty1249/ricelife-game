@@ -299,7 +299,7 @@ export class Round extends Phase {
                     replayButton.userData.lastHideState = true;
                 flags.replaying = true;
                 this.loadRecording(recording)
-                    .then(({player, ammo}) => this.playRecording(recording, ammo, player));
+                    .then(({player, ammo, impacts}) => this.playRecording(recording, ammo, player, impacts));
             }
         };
         hideButton.onclick = () => {
@@ -468,10 +468,10 @@ export class Round extends Phase {
             const { before: recording } = this.store.recording;
             this.setTurn(this.isClientTurn);
             if (recording?.isTurnRecording) {
-                const { player, ammo } = await this.loadRecording(recording);
+                const { player, ammo, impacts } = await this.loadRecording(recording);
                 setTimeout(() => {
                     this.flags.replaying = true;
-                    this.playRecording(recording, ammo, player);
+                    this.playRecording(recording, ammo, player, impacts);
                 }, 1500);
             }
             resolve();
@@ -871,8 +871,23 @@ export class Round extends Phase {
     // expects recording to already be rendered
     async loadRecording (recording) {
         this.setTurn(false);
+        const impacts = recording.states.map((state) => this.#createBlastImpact(state));
+        const type = await this.loadAmmoType(recording.ammoJson.import);
+        const ammo = type.decode(...recording.ammoJson.params);
+        ammo.decodeTransferData(recording.ammoJson.transfer);
+        ammo.traceLegend(recording.ammoMap.legend);
+        const activePlayer = this.Players.get(recording.ActivePlayerID);
+        console.info(`[${typeString(this)}]: Turn recording loaded`);
+        return {
+            player: activePlayer,
+            ammo: ammo,
+            impacts: impacts
+        };
+    }
+    async playRecording (recording, ammo, activePlayer, blastImpacts) {
+        this.Global.Events.raiseEvent("LOADING", {hide: false});
         if (recording.length) {
-            const { start } = recording;
+            const { start, end } = recording;
             if (this.Terrain.hash !== start.terrain.hash)
                 this.updateTerrain(start.terrain, false);
             for (const player of this.Players.values())
@@ -880,32 +895,21 @@ export class Round extends Phase {
                     player.setState(start.actors[player.id]);
             if (start.frame)
                 this.Threaded.cache[this.store.cacheKey.background] = start.frame;
-            if (recording.end.terrain)
-                await this.Threaded.setCache(new TerrainCache(recording.end.terrain, this.store.cacheKey.terrain));
-            this.Animations.blasts = new AnimationList();
-            this.store.ammo.impacts = [];
-            for (const state of recording.states) {
-                const impact = this.#createBlastImpact(state);
-                this.Animations.blasts.push(...impact.Animations);
-                this.store.ammo.impacts.push(impact);
-            }
-            this.Animations.Main.push(...this.Animations.blasts);
+            if (end.terrain)
+                await this.Threaded.setCache(new TerrainCache(end.terrain, this.store.cacheKey.terrain));
         }
-        const type = await this.loadAmmoType(recording.ammoJson.import);
-        const ammo = type.decode(...recording.ammoJson.params);
-        ammo.decodeTransferData(recording.ammoJson.transfer);
-        ammo.traceLegend(recording.ammoMap.legend);
-        const activePlayer = this.Players.get(recording.ActivePlayerID);
-        return {
-            player: activePlayer,
-            ammo: ammo
-        };
-    }
-    playRecording (recording, ammo, activePlayer) {
+        this.Animations.blasts = new AnimationList();
+        this.store.ammo.impacts = [];
+        for (const impact of blastImpacts) {
+            this.Animations.blasts.push(...impact.Animations);
+            this.store.ammo.impacts.push(impact);
+        }
+        this.Animations.Main.push(...this.Animations.blasts);
         ammo.displayBoundingBox = this.Camera.Viewbox;
+        this.Global.Events.raiseEvent("LOADING", {hide: true});
         this.#setAmmo(ammo, recording.ammoMap);
         this.store.recording.current = recording;
-        this.Camera.track(ammo.getBoundingBox(true, false, true))
+        this.Camera.track(ammo.getBoundingBox(true, false, true));
         if (activePlayer?.isActor) this.Camera.track(activePlayer.Puppet.getBoundingBox());
         console.info(`[${typeString(this)}]: Playing turn recording`);
     }
@@ -958,6 +962,7 @@ export class Round extends Phase {
             this.Players,
             this.Terrain
         );
+        this.Global.Events.raiseEvent("LOADING", {hide: false, message: "loading turn (recording)"});
         const recording = Recorder.record(
             activePlayerID,
             ammo.clone(true),
@@ -967,6 +972,7 @@ export class Round extends Phase {
         );
         if (DEBUG)
             console.info(`[${typeString(this)}]: Collision map computed in ${(performance.now() - waitStart) / 1000}s`);
+        this.Global.Events.raiseEvent("LOADING", {hide: true});
         return recording;
     }
     async launchAmmo () {
@@ -977,12 +983,11 @@ export class Round extends Phase {
             this.Global.Events.raiseEvent("LOADING", {hide: false, message: "loading turn"});
             const recording = await this.createTurnRecording(this.#ClientPlayerID, this.store.ammo.selected);
             this.Events.raiseEvent("TURNENDED", this.export(recording));
-            const { player, ammo } = await this.loadRecording(recording);
-            console.info(`[${typeString(this)}]: Turn recording loaded`);
+            const { player, ammo, impacts } = await this.loadRecording(recording);
             this.Global.Events.raiseEvent("LOADING", {hide: true});
             if (hideButton.active) replayButton.hide = true;
             else replayButton.userData.lastHideState = true;
-            this.playRecording(recording, ammo, player);
+            await this.playRecording(recording, ammo, player, impacts);
         } catch (err) {
             console.error(`[${typeString(this)}]: Projectile trace error`);
             this.Global.Events.raiseEvent("NOTIFY", {severity: -1, message: "An error occured while playing your turn. Relaunch the activity and try again.", timeout: -1});
