@@ -44,8 +44,8 @@
     --color: #fff;
     align-content: last baseline;
     text-align: left center;
-    inset: 0;
-    position: absolute;
+    inset: auto;
+    position: fixed;
     left: calc((var(--spinner-size) * 2) + var(--sail));
     bottom: calc((var(--spinner-size) / 2) + var(--saib));
     pointer-events: none;
@@ -54,6 +54,7 @@
     user-select: none;
     color: var(--color);
     font-size: var(--spinner-size);
+    line-height: var(--spinner-size);
 }
 .loader {
     --blur: 0px;
